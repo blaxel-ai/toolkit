@@ -11,7 +11,11 @@ func (r *Operations) ApiKeyLogin(workspace string) {
 	fmt.Println("Enter your API key :")
 	var apiKey string
 	for {
-		fmt.Scanln(&apiKey)
+		_, err := fmt.Scanln(&apiKey)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 
 		if apiKey != "" {
 			break

@@ -68,7 +68,11 @@ func (r *Operations) LoginCmd() *cobra.Command {
 			for {
 				// Read a single byte without blocking
 				var b [3]byte
-				os.Stdin.Read(b[:])
+				_, err := os.Stdin.Read(b[:])
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				}
 
 				if b[0] == 3 { // Ctrl+C
 					resetRawMode()
@@ -104,11 +108,19 @@ func (r *Operations) LoginCmd() *cobra.Command {
 func setRawMode() {
 	cmd := exec.Command("stty", "cbreak", "-echo")
 	cmd.Stdin = os.Stdin
-	cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
 
 func resetRawMode() {
 	cmd := exec.Command("stty", "-raw", "echo")
 	cmd.Stdin = os.Stdin
-	cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

@@ -20,7 +20,9 @@ func (c *Client) Run(
 	reqEditors ...RequestEditorFn,
 ) (*http.Response, error) {
 	var bodyReader io.Reader
-	bodyReader = bytes.NewReader([]byte(body))
+	if body != "" {
+		bodyReader = bytes.NewReader([]byte(body))
+	}
 
 	req, err := NewRunRequest(c.RunServer, method, path, headers, workspaceName, environment, modelName, bodyReader)
 	if err != nil {
@@ -47,6 +49,9 @@ func NewRunRequest(
 	var err error
 
 	runURL, err := url.Parse(RunServer)
+	if err != nil {
+		return nil, err
+	}
 	if path != "" {
 		path = workspaceName + "/models/" + modelName + "/" + path
 	} else {

@@ -71,7 +71,11 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Path to YAML file to apply")
-	cmd.MarkFlagRequired("file")
+	err := cmd.MarkFlagRequired("file")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	return cmd
 }
