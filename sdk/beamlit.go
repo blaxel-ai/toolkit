@@ -676,6 +676,9 @@ type ModelProvider struct {
 	// CreatedBy The user or service account who created the resource
 	CreatedBy *string `json:"created_by,omitempty"`
 
+	// DisplayName Model provider display name
+	DisplayName *string `json:"display_name,omitempty"`
+
 	// Labels Labels
 	Labels *Labels `json:"labels,omitempty"`
 
@@ -1212,8 +1215,11 @@ type UpdateWorkspaceUserRoleJSONBody struct {
 	Role string `json:"role"`
 }
 
-// PutAgentJSONRequestBody defines body for PutAgent for application/json ContentType.
-type PutAgentJSONRequestBody = Agent
+// CreateAgentJSONRequestBody defines body for CreateAgent for application/json ContentType.
+type CreateAgentJSONRequestBody = Agent
+
+// UpdateAgentJSONRequestBody defines body for UpdateAgent for application/json ContentType.
+type UpdateAgentJSONRequestBody = Agent
 
 // PutAgentDeploymentJSONRequestBody defines body for PutAgentDeployment for application/json ContentType.
 type PutAgentDeploymentJSONRequestBody = AgentDeployment
@@ -1221,17 +1227,26 @@ type PutAgentDeploymentJSONRequestBody = AgentDeployment
 // PutAgentDeploymentHistoryJSONRequestBody defines body for PutAgentDeploymentHistory for application/json ContentType.
 type PutAgentDeploymentHistoryJSONRequestBody = AgentDeploymentHistory
 
-// PutEnvironmentJSONRequestBody defines body for PutEnvironment for application/json ContentType.
-type PutEnvironmentJSONRequestBody = Environment
+// CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
+type CreateEnvironmentJSONRequestBody = Environment
 
-// PutFunctionJSONRequestBody defines body for PutFunction for application/json ContentType.
-type PutFunctionJSONRequestBody = Function
+// UpdateEnvironmentJSONRequestBody defines body for UpdateEnvironment for application/json ContentType.
+type UpdateEnvironmentJSONRequestBody = Environment
+
+// CreateFunctionJSONRequestBody defines body for CreateFunction for application/json ContentType.
+type CreateFunctionJSONRequestBody = Function
+
+// UpdateFunctionJSONRequestBody defines body for UpdateFunction for application/json ContentType.
+type UpdateFunctionJSONRequestBody = Function
 
 // PutFunctionDeploymentJSONRequestBody defines body for PutFunctionDeployment for application/json ContentType.
 type PutFunctionDeploymentJSONRequestBody = FunctionDeployment
 
-// PutModelProviderJSONRequestBody defines body for PutModelProvider for application/json ContentType.
-type PutModelProviderJSONRequestBody = ModelProvider
+// CreateModelProviderJSONRequestBody defines body for CreateModelProvider for application/json ContentType.
+type CreateModelProviderJSONRequestBody = ModelProvider
+
+// UpdateModelProviderJSONRequestBody defines body for UpdateModelProvider for application/json ContentType.
+type UpdateModelProviderJSONRequestBody = ModelProvider
 
 // CreateModelJSONRequestBody defines body for CreateModel for application/json ContentType.
 type CreateModelJSONRequestBody = ModelWithDeployments
@@ -1242,8 +1257,11 @@ type UpdateModelJSONRequestBody = ModelWithDeployments
 // PutModelDeploymentJSONRequestBody defines body for PutModelDeployment for application/json ContentType.
 type PutModelDeploymentJSONRequestBody = ModelDeployment
 
-// PutPolicyJSONRequestBody defines body for PutPolicy for application/json ContentType.
-type PutPolicyJSONRequestBody = Policy
+// CreatePolicyJSONRequestBody defines body for CreatePolicy for application/json ContentType.
+type CreatePolicyJSONRequestBody = Policy
+
+// UpdatePolicyJSONRequestBody defines body for UpdatePolicy for application/json ContentType.
+type UpdatePolicyJSONRequestBody = Policy
 
 // CreateWorkspaceServiceAccountJSONRequestBody defines body for CreateWorkspaceServiceAccount for application/json ContentType.
 type CreateWorkspaceServiceAccountJSONRequestBody CreateWorkspaceServiceAccountJSONBody
@@ -1357,16 +1375,21 @@ type ClientInterface interface {
 	// ListAgents request
 	ListAgents(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateAgentWithBody request with any body
+	CreateAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAgent(ctx context.Context, body CreateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteAgent request
 	DeleteAgent(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAgent request
 	GetAgent(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutAgentWithBody request with any body
-	PutAgentWithBody(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateAgentWithBody request with any body
+	UpdateAgentWithBody(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutAgent(ctx context.Context, agentName string, body PutAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateAgent(ctx context.Context, agentName string, body UpdateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAgentDeployments request
 	ListAgentDeployments(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1423,16 +1446,21 @@ type ClientInterface interface {
 	// ListEnvironments request
 	ListEnvironments(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateEnvironmentWithBody request with any body
+	CreateEnvironmentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateEnvironment(ctx context.Context, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteEnvironment request
 	DeleteEnvironment(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEnvironment request
 	GetEnvironment(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutEnvironmentWithBody request with any body
-	PutEnvironmentWithBody(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateEnvironmentWithBody request with any body
+	UpdateEnvironmentWithBody(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutEnvironment(ctx context.Context, environmentName string, body PutEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateEnvironment(ctx context.Context, environmentName string, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetEnvironmentMetrics request
 	GetEnvironmentMetrics(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1440,16 +1468,21 @@ type ClientInterface interface {
 	// ListFunctions request
 	ListFunctions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateFunctionWithBody request with any body
+	CreateFunctionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateFunction(ctx context.Context, body CreateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteFunction request
 	DeleteFunction(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetFunction request
 	GetFunction(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutFunctionWithBody request with any body
-	PutFunctionWithBody(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateFunctionWithBody request with any body
+	UpdateFunctionWithBody(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutFunction(ctx context.Context, functionName string, body PutFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateFunction(ctx context.Context, functionName string, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListFunctionDeployments request
 	ListFunctionDeployments(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1486,16 +1519,21 @@ type ClientInterface interface {
 	// ListModelProviders request
 	ListModelProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateModelProviderWithBody request with any body
+	CreateModelProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateModelProvider(ctx context.Context, body CreateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteModelProvider request
 	DeleteModelProvider(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetModelProvider request
 	GetModelProvider(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutModelProviderWithBody request with any body
-	PutModelProviderWithBody(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateModelProviderWithBody request with any body
+	UpdateModelProviderWithBody(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutModelProvider(ctx context.Context, modelProviderName string, body PutModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateModelProvider(ctx context.Context, modelProviderName string, body UpdateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListModels request
 	ListModels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1545,16 +1583,21 @@ type ClientInterface interface {
 	// ListPolicies request
 	ListPolicies(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreatePolicyWithBody request with any body
+	CreatePolicyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreatePolicy(ctx context.Context, body CreatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeletePolicy request
 	DeletePolicy(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPolicy request
 	GetPolicy(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutPolicyWithBody request with any body
-	PutPolicyWithBody(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdatePolicyWithBody request with any body
+	UpdatePolicyWithBody(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutPolicy(ctx context.Context, policyName string, body PutPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdatePolicy(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAllPendingInvitations request
 	ListAllPendingInvitations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1649,14 +1692,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListAgents
 	reg.CliCommand(ctx, "ListAgents", c.ListAgents)
 
+	// Register CLI commands for CreateAgent
+	reg.CliCommand(ctx, "CreateAgent", c.CreateAgent)
+
 	// Register CLI commands for DeleteAgent
 	reg.CliCommand(ctx, "DeleteAgent", c.DeleteAgent)
 
 	// Register CLI commands for GetAgent
 	reg.CliCommand(ctx, "GetAgent", c.GetAgent)
 
-	// Register CLI commands for PutAgent
-	reg.CliCommand(ctx, "PutAgent", c.PutAgent)
+	// Register CLI commands for UpdateAgent
+	reg.CliCommand(ctx, "UpdateAgent", c.UpdateAgent)
 
 	// Register CLI commands for ListAgentDeployments
 	reg.CliCommand(ctx, "ListAgentDeployments", c.ListAgentDeployments)
@@ -1709,14 +1755,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListEnvironments
 	reg.CliCommand(ctx, "ListEnvironments", c.ListEnvironments)
 
+	// Register CLI commands for CreateEnvironment
+	reg.CliCommand(ctx, "CreateEnvironment", c.CreateEnvironment)
+
 	// Register CLI commands for DeleteEnvironment
 	reg.CliCommand(ctx, "DeleteEnvironment", c.DeleteEnvironment)
 
 	// Register CLI commands for GetEnvironment
 	reg.CliCommand(ctx, "GetEnvironment", c.GetEnvironment)
 
-	// Register CLI commands for PutEnvironment
-	reg.CliCommand(ctx, "PutEnvironment", c.PutEnvironment)
+	// Register CLI commands for UpdateEnvironment
+	reg.CliCommand(ctx, "UpdateEnvironment", c.UpdateEnvironment)
 
 	// Register CLI commands for GetEnvironmentMetrics
 	reg.CliCommand(ctx, "GetEnvironmentMetrics", c.GetEnvironmentMetrics)
@@ -1724,14 +1773,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListFunctions
 	reg.CliCommand(ctx, "ListFunctions", c.ListFunctions)
 
+	// Register CLI commands for CreateFunction
+	reg.CliCommand(ctx, "CreateFunction", c.CreateFunction)
+
 	// Register CLI commands for DeleteFunction
 	reg.CliCommand(ctx, "DeleteFunction", c.DeleteFunction)
 
 	// Register CLI commands for GetFunction
 	reg.CliCommand(ctx, "GetFunction", c.GetFunction)
 
-	// Register CLI commands for PutFunction
-	reg.CliCommand(ctx, "PutFunction", c.PutFunction)
+	// Register CLI commands for UpdateFunction
+	reg.CliCommand(ctx, "UpdateFunction", c.UpdateFunction)
 
 	// Register CLI commands for ListFunctionDeployments
 	reg.CliCommand(ctx, "ListFunctionDeployments", c.ListFunctionDeployments)
@@ -1766,14 +1818,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListModelProviders
 	reg.CliCommand(ctx, "ListModelProviders", c.ListModelProviders)
 
+	// Register CLI commands for CreateModelProvider
+	reg.CliCommand(ctx, "CreateModelProvider", c.CreateModelProvider)
+
 	// Register CLI commands for DeleteModelProvider
 	reg.CliCommand(ctx, "DeleteModelProvider", c.DeleteModelProvider)
 
 	// Register CLI commands for GetModelProvider
 	reg.CliCommand(ctx, "GetModelProvider", c.GetModelProvider)
 
-	// Register CLI commands for PutModelProvider
-	reg.CliCommand(ctx, "PutModelProvider", c.PutModelProvider)
+	// Register CLI commands for UpdateModelProvider
+	reg.CliCommand(ctx, "UpdateModelProvider", c.UpdateModelProvider)
 
 	// Register CLI commands for ListModels
 	reg.CliCommand(ctx, "ListModels", c.ListModels)
@@ -1817,14 +1872,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListPolicies
 	reg.CliCommand(ctx, "ListPolicies", c.ListPolicies)
 
+	// Register CLI commands for CreatePolicy
+	reg.CliCommand(ctx, "CreatePolicy", c.CreatePolicy)
+
 	// Register CLI commands for DeletePolicy
 	reg.CliCommand(ctx, "DeletePolicy", c.DeletePolicy)
 
 	// Register CLI commands for GetPolicy
 	reg.CliCommand(ctx, "GetPolicy", c.GetPolicy)
 
-	// Register CLI commands for PutPolicy
-	reg.CliCommand(ctx, "PutPolicy", c.PutPolicy)
+	// Register CLI commands for UpdatePolicy
+	reg.CliCommand(ctx, "UpdatePolicy", c.UpdatePolicy)
 
 	// Register CLI commands for ListAllPendingInvitations
 	reg.CliCommand(ctx, "ListAllPendingInvitations", c.ListAllPendingInvitations)
@@ -1912,6 +1970,30 @@ func (c *Client) ListAgents(ctx context.Context, reqEditors ...RequestEditorFn) 
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAgentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateAgent(ctx context.Context, body CreateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAgentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteAgent(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteAgentRequest(c.Server, agentName)
 	if err != nil {
@@ -1936,8 +2018,8 @@ func (c *Client) GetAgent(ctx context.Context, agentName string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutAgentWithBody(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutAgentRequestWithBody(c.Server, agentName, contentType, body)
+func (c *Client) UpdateAgentWithBody(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAgentRequestWithBody(c.Server, agentName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1948,8 +2030,8 @@ func (c *Client) PutAgentWithBody(ctx context.Context, agentName string, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutAgent(ctx context.Context, agentName string, body PutAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutAgentRequest(c.Server, agentName, body)
+func (c *Client) UpdateAgent(ctx context.Context, agentName string, body UpdateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateAgentRequest(c.Server, agentName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2188,6 +2270,30 @@ func (c *Client) ListEnvironments(ctx context.Context, reqEditors ...RequestEdit
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateEnvironmentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateEnvironment(ctx context.Context, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateEnvironmentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteEnvironment(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteEnvironmentRequest(c.Server, environmentName)
 	if err != nil {
@@ -2212,8 +2318,8 @@ func (c *Client) GetEnvironment(ctx context.Context, environmentName string, req
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutEnvironmentWithBody(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutEnvironmentRequestWithBody(c.Server, environmentName, contentType, body)
+func (c *Client) UpdateEnvironmentWithBody(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequestWithBody(c.Server, environmentName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2224,8 +2330,8 @@ func (c *Client) PutEnvironmentWithBody(ctx context.Context, environmentName str
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutEnvironment(ctx context.Context, environmentName string, body PutEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutEnvironmentRequest(c.Server, environmentName, body)
+func (c *Client) UpdateEnvironment(ctx context.Context, environmentName string, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateEnvironmentRequest(c.Server, environmentName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2260,6 +2366,30 @@ func (c *Client) ListFunctions(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateFunctionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFunctionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateFunction(ctx context.Context, body CreateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateFunctionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteFunction(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteFunctionRequest(c.Server, functionName)
 	if err != nil {
@@ -2284,8 +2414,8 @@ func (c *Client) GetFunction(ctx context.Context, functionName string, reqEditor
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutFunctionWithBody(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutFunctionRequestWithBody(c.Server, functionName, contentType, body)
+func (c *Client) UpdateFunctionWithBody(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFunctionRequestWithBody(c.Server, functionName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2296,8 +2426,8 @@ func (c *Client) PutFunctionWithBody(ctx context.Context, functionName string, c
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutFunction(ctx context.Context, functionName string, body PutFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutFunctionRequest(c.Server, functionName, body)
+func (c *Client) UpdateFunction(ctx context.Context, functionName string, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFunctionRequest(c.Server, functionName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2452,6 +2582,30 @@ func (c *Client) ListModelProviders(ctx context.Context, reqEditors ...RequestEd
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateModelProviderWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModelProviderRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateModelProvider(ctx context.Context, body CreateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModelProviderRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteModelProvider(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteModelProviderRequest(c.Server, modelProviderName)
 	if err != nil {
@@ -2476,8 +2630,8 @@ func (c *Client) GetModelProvider(ctx context.Context, modelProviderName string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutModelProviderWithBody(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutModelProviderRequestWithBody(c.Server, modelProviderName, contentType, body)
+func (c *Client) UpdateModelProviderWithBody(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModelProviderRequestWithBody(c.Server, modelProviderName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2488,8 +2642,8 @@ func (c *Client) PutModelProviderWithBody(ctx context.Context, modelProviderName
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutModelProvider(ctx context.Context, modelProviderName string, body PutModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutModelProviderRequest(c.Server, modelProviderName, body)
+func (c *Client) UpdateModelProvider(ctx context.Context, modelProviderName string, body UpdateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModelProviderRequest(c.Server, modelProviderName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2704,6 +2858,30 @@ func (c *Client) ListPolicies(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreatePolicyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePolicyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreatePolicy(ctx context.Context, body CreatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePolicyRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeletePolicy(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeletePolicyRequest(c.Server, policyName)
 	if err != nil {
@@ -2728,8 +2906,8 @@ func (c *Client) GetPolicy(ctx context.Context, policyName string, reqEditors ..
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutPolicyWithBody(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutPolicyRequestWithBody(c.Server, policyName, contentType, body)
+func (c *Client) UpdatePolicyWithBody(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePolicyRequestWithBody(c.Server, policyName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2740,8 +2918,8 @@ func (c *Client) PutPolicyWithBody(ctx context.Context, policyName string, conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutPolicy(ctx context.Context, policyName string, body PutPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutPolicyRequest(c.Server, policyName, body)
+func (c *Client) UpdatePolicy(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePolicyRequest(c.Server, policyName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3151,6 +3329,46 @@ func NewListAgentsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateAgentRequest calls the generic CreateAgent builder with application/json body
+func NewCreateAgentRequest(server string, body CreateAgentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAgentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateAgentRequestWithBody generates requests for CreateAgent with any type of body
+func NewCreateAgentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteAgentRequest generates requests for DeleteAgent
 func NewDeleteAgentRequest(server string, agentName string) (*http.Request, error) {
 	var err error
@@ -3219,19 +3437,19 @@ func NewGetAgentRequest(server string, agentName string) (*http.Request, error) 
 	return req, nil
 }
 
-// NewPutAgentRequest calls the generic PutAgent builder with application/json body
-func NewPutAgentRequest(server string, agentName string, body PutAgentJSONRequestBody) (*http.Request, error) {
+// NewUpdateAgentRequest calls the generic UpdateAgent builder with application/json body
+func NewUpdateAgentRequest(server string, agentName string, body UpdateAgentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutAgentRequestWithBody(server, agentName, "application/json", bodyReader)
+	return NewUpdateAgentRequestWithBody(server, agentName, "application/json", bodyReader)
 }
 
-// NewPutAgentRequestWithBody generates requests for PutAgent with any type of body
-func NewPutAgentRequestWithBody(server string, agentName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateAgentRequestWithBody generates requests for UpdateAgent with any type of body
+func NewUpdateAgentRequestWithBody(server string, agentName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3954,6 +4172,46 @@ func NewListEnvironmentsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateEnvironmentRequest calls the generic CreateEnvironment builder with application/json body
+func NewCreateEnvironmentRequest(server string, body CreateEnvironmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateEnvironmentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateEnvironmentRequestWithBody generates requests for CreateEnvironment with any type of body
+func NewCreateEnvironmentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteEnvironmentRequest generates requests for DeleteEnvironment
 func NewDeleteEnvironmentRequest(server string, environmentName string) (*http.Request, error) {
 	var err error
@@ -4022,19 +4280,19 @@ func NewGetEnvironmentRequest(server string, environmentName string) (*http.Requ
 	return req, nil
 }
 
-// NewPutEnvironmentRequest calls the generic PutEnvironment builder with application/json body
-func NewPutEnvironmentRequest(server string, environmentName string, body PutEnvironmentJSONRequestBody) (*http.Request, error) {
+// NewUpdateEnvironmentRequest calls the generic UpdateEnvironment builder with application/json body
+func NewUpdateEnvironmentRequest(server string, environmentName string, body UpdateEnvironmentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutEnvironmentRequestWithBody(server, environmentName, "application/json", bodyReader)
+	return NewUpdateEnvironmentRequestWithBody(server, environmentName, "application/json", bodyReader)
 }
 
-// NewPutEnvironmentRequestWithBody generates requests for PutEnvironment with any type of body
-func NewPutEnvironmentRequestWithBody(server string, environmentName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateEnvironmentRequestWithBody generates requests for UpdateEnvironment with any type of body
+func NewUpdateEnvironmentRequestWithBody(server string, environmentName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4130,6 +4388,46 @@ func NewListFunctionsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateFunctionRequest calls the generic CreateFunction builder with application/json body
+func NewCreateFunctionRequest(server string, body CreateFunctionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateFunctionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateFunctionRequestWithBody generates requests for CreateFunction with any type of body
+func NewCreateFunctionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/functions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteFunctionRequest generates requests for DeleteFunction
 func NewDeleteFunctionRequest(server string, functionName string) (*http.Request, error) {
 	var err error
@@ -4198,19 +4496,19 @@ func NewGetFunctionRequest(server string, functionName string) (*http.Request, e
 	return req, nil
 }
 
-// NewPutFunctionRequest calls the generic PutFunction builder with application/json body
-func NewPutFunctionRequest(server string, functionName string, body PutFunctionJSONRequestBody) (*http.Request, error) {
+// NewUpdateFunctionRequest calls the generic UpdateFunction builder with application/json body
+func NewUpdateFunctionRequest(server string, functionName string, body UpdateFunctionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutFunctionRequestWithBody(server, functionName, "application/json", bodyReader)
+	return NewUpdateFunctionRequestWithBody(server, functionName, "application/json", bodyReader)
 }
 
-// NewPutFunctionRequestWithBody generates requests for PutFunction with any type of body
-func NewPutFunctionRequestWithBody(server string, functionName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateFunctionRequestWithBody generates requests for UpdateFunction with any type of body
+func NewUpdateFunctionRequestWithBody(server string, functionName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4646,6 +4944,46 @@ func NewListModelProvidersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateModelProviderRequest calls the generic CreateModelProvider builder with application/json body
+func NewCreateModelProviderRequest(server string, body CreateModelProviderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateModelProviderRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateModelProviderRequestWithBody generates requests for CreateModelProvider with any type of body
+func NewCreateModelProviderRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/model_providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteModelProviderRequest generates requests for DeleteModelProvider
 func NewDeleteModelProviderRequest(server string, modelProviderName string) (*http.Request, error) {
 	var err error
@@ -4714,19 +5052,19 @@ func NewGetModelProviderRequest(server string, modelProviderName string) (*http.
 	return req, nil
 }
 
-// NewPutModelProviderRequest calls the generic PutModelProvider builder with application/json body
-func NewPutModelProviderRequest(server string, modelProviderName string, body PutModelProviderJSONRequestBody) (*http.Request, error) {
+// NewUpdateModelProviderRequest calls the generic UpdateModelProvider builder with application/json body
+func NewUpdateModelProviderRequest(server string, modelProviderName string, body UpdateModelProviderJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutModelProviderRequestWithBody(server, modelProviderName, "application/json", bodyReader)
+	return NewUpdateModelProviderRequestWithBody(server, modelProviderName, "application/json", bodyReader)
 }
 
-// NewPutModelProviderRequestWithBody generates requests for PutModelProvider with any type of body
-func NewPutModelProviderRequestWithBody(server string, modelProviderName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateModelProviderRequestWithBody generates requests for UpdateModelProvider with any type of body
+func NewUpdateModelProviderRequestWithBody(server string, modelProviderName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5290,6 +5628,46 @@ func NewListPoliciesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreatePolicyRequest calls the generic CreatePolicy builder with application/json body
+func NewCreatePolicyRequest(server string, body CreatePolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePolicyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreatePolicyRequestWithBody generates requests for CreatePolicy with any type of body
+func NewCreatePolicyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/policies")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeletePolicyRequest generates requests for DeletePolicy
 func NewDeletePolicyRequest(server string, policyName string) (*http.Request, error) {
 	var err error
@@ -5358,19 +5736,19 @@ func NewGetPolicyRequest(server string, policyName string) (*http.Request, error
 	return req, nil
 }
 
-// NewPutPolicyRequest calls the generic PutPolicy builder with application/json body
-func NewPutPolicyRequest(server string, policyName string, body PutPolicyJSONRequestBody) (*http.Request, error) {
+// NewUpdatePolicyRequest calls the generic UpdatePolicy builder with application/json body
+func NewUpdatePolicyRequest(server string, policyName string, body UpdatePolicyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutPolicyRequestWithBody(server, policyName, "application/json", bodyReader)
+	return NewUpdatePolicyRequestWithBody(server, policyName, "application/json", bodyReader)
 }
 
-// NewPutPolicyRequestWithBody generates requests for PutPolicy with any type of body
-func NewPutPolicyRequestWithBody(server string, policyName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdatePolicyRequestWithBody generates requests for UpdatePolicy with any type of body
+func NewUpdatePolicyRequestWithBody(server string, policyName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -6302,16 +6680,21 @@ type ClientWithResponsesInterface interface {
 	// ListAgentsWithResponse request
 	ListAgentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAgentsResponse, error)
 
+	// CreateAgentWithBodyWithResponse request with any body
+	CreateAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAgentResponse, error)
+
+	CreateAgentWithResponse(ctx context.Context, body CreateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAgentResponse, error)
+
 	// DeleteAgentWithResponse request
 	DeleteAgentWithResponse(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*DeleteAgentResponse, error)
 
 	// GetAgentWithResponse request
 	GetAgentWithResponse(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*GetAgentResponse, error)
 
-	// PutAgentWithBodyWithResponse request with any body
-	PutAgentWithBodyWithResponse(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAgentResponse, error)
+	// UpdateAgentWithBodyWithResponse request with any body
+	UpdateAgentWithBodyWithResponse(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAgentResponse, error)
 
-	PutAgentWithResponse(ctx context.Context, agentName string, body PutAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAgentResponse, error)
+	UpdateAgentWithResponse(ctx context.Context, agentName string, body UpdateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAgentResponse, error)
 
 	// ListAgentDeploymentsWithResponse request
 	ListAgentDeploymentsWithResponse(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*ListAgentDeploymentsResponse, error)
@@ -6368,16 +6751,21 @@ type ClientWithResponsesInterface interface {
 	// ListEnvironmentsWithResponse request
 	ListEnvironmentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListEnvironmentsResponse, error)
 
+	// CreateEnvironmentWithBodyWithResponse request with any body
+	CreateEnvironmentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error)
+
+	CreateEnvironmentWithResponse(ctx context.Context, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error)
+
 	// DeleteEnvironmentWithResponse request
 	DeleteEnvironmentWithResponse(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*DeleteEnvironmentResponse, error)
 
 	// GetEnvironmentWithResponse request
 	GetEnvironmentWithResponse(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*GetEnvironmentResponse, error)
 
-	// PutEnvironmentWithBodyWithResponse request with any body
-	PutEnvironmentWithBodyWithResponse(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutEnvironmentResponse, error)
+	// UpdateEnvironmentWithBodyWithResponse request with any body
+	UpdateEnvironmentWithBodyWithResponse(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error)
 
-	PutEnvironmentWithResponse(ctx context.Context, environmentName string, body PutEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*PutEnvironmentResponse, error)
+	UpdateEnvironmentWithResponse(ctx context.Context, environmentName string, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error)
 
 	// GetEnvironmentMetricsWithResponse request
 	GetEnvironmentMetricsWithResponse(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*GetEnvironmentMetricsResponse, error)
@@ -6385,16 +6773,21 @@ type ClientWithResponsesInterface interface {
 	// ListFunctionsWithResponse request
 	ListFunctionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFunctionsResponse, error)
 
+	// CreateFunctionWithBodyWithResponse request with any body
+	CreateFunctionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFunctionResponse, error)
+
+	CreateFunctionWithResponse(ctx context.Context, body CreateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFunctionResponse, error)
+
 	// DeleteFunctionWithResponse request
 	DeleteFunctionWithResponse(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*DeleteFunctionResponse, error)
 
 	// GetFunctionWithResponse request
 	GetFunctionWithResponse(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*GetFunctionResponse, error)
 
-	// PutFunctionWithBodyWithResponse request with any body
-	PutFunctionWithBodyWithResponse(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFunctionResponse, error)
+	// UpdateFunctionWithBodyWithResponse request with any body
+	UpdateFunctionWithBodyWithResponse(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFunctionResponse, error)
 
-	PutFunctionWithResponse(ctx context.Context, functionName string, body PutFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFunctionResponse, error)
+	UpdateFunctionWithResponse(ctx context.Context, functionName string, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionResponse, error)
 
 	// ListFunctionDeploymentsWithResponse request
 	ListFunctionDeploymentsWithResponse(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*ListFunctionDeploymentsResponse, error)
@@ -6431,16 +6824,21 @@ type ClientWithResponsesInterface interface {
 	// ListModelProvidersWithResponse request
 	ListModelProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListModelProvidersResponse, error)
 
+	// CreateModelProviderWithBodyWithResponse request with any body
+	CreateModelProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelProviderResponse, error)
+
+	CreateModelProviderWithResponse(ctx context.Context, body CreateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelProviderResponse, error)
+
 	// DeleteModelProviderWithResponse request
 	DeleteModelProviderWithResponse(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*DeleteModelProviderResponse, error)
 
 	// GetModelProviderWithResponse request
 	GetModelProviderWithResponse(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*GetModelProviderResponse, error)
 
-	// PutModelProviderWithBodyWithResponse request with any body
-	PutModelProviderWithBodyWithResponse(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutModelProviderResponse, error)
+	// UpdateModelProviderWithBodyWithResponse request with any body
+	UpdateModelProviderWithBodyWithResponse(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModelProviderResponse, error)
 
-	PutModelProviderWithResponse(ctx context.Context, modelProviderName string, body PutModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PutModelProviderResponse, error)
+	UpdateModelProviderWithResponse(ctx context.Context, modelProviderName string, body UpdateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModelProviderResponse, error)
 
 	// ListModelsWithResponse request
 	ListModelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
@@ -6490,16 +6888,21 @@ type ClientWithResponsesInterface interface {
 	// ListPoliciesWithResponse request
 	ListPoliciesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPoliciesResponse, error)
 
+	// CreatePolicyWithBodyWithResponse request with any body
+	CreatePolicyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePolicyResponse, error)
+
+	CreatePolicyWithResponse(ctx context.Context, body CreatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePolicyResponse, error)
+
 	// DeletePolicyWithResponse request
 	DeletePolicyWithResponse(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*DeletePolicyResponse, error)
 
 	// GetPolicyWithResponse request
 	GetPolicyWithResponse(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*GetPolicyResponse, error)
 
-	// PutPolicyWithBodyWithResponse request with any body
-	PutPolicyWithBodyWithResponse(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPolicyResponse, error)
+	// UpdatePolicyWithBodyWithResponse request with any body
+	UpdatePolicyWithBodyWithResponse(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error)
 
-	PutPolicyWithResponse(ctx context.Context, policyName string, body PutPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPolicyResponse, error)
+	UpdatePolicyWithResponse(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error)
 
 	// ListAllPendingInvitationsWithResponse request
 	ListAllPendingInvitationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllPendingInvitationsResponse, error)
@@ -6610,6 +7013,28 @@ func (r ListAgentsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateAgentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Agent
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAgentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAgentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6654,14 +7079,14 @@ func (r GetAgentResponse) StatusCode() int {
 	return 0
 }
 
-type PutAgentResponse struct {
+type UpdateAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Agent
 }
 
 // Status returns HTTPResponse.Status
-func (r PutAgentResponse) Status() string {
+func (r UpdateAgentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6669,7 +7094,7 @@ func (r PutAgentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutAgentResponse) StatusCode() int {
+func (r UpdateAgentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7050,6 +7475,28 @@ func (r ListEnvironmentsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateEnvironmentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Environment
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateEnvironmentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateEnvironmentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteEnvironmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7094,14 +7541,14 @@ func (r GetEnvironmentResponse) StatusCode() int {
 	return 0
 }
 
-type PutEnvironmentResponse struct {
+type UpdateEnvironmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Environment
 }
 
 // Status returns HTTPResponse.Status
-func (r PutEnvironmentResponse) Status() string {
+func (r UpdateEnvironmentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7109,7 +7556,7 @@ func (r PutEnvironmentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutEnvironmentResponse) StatusCode() int {
+func (r UpdateEnvironmentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7160,6 +7607,28 @@ func (r ListFunctionsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateFunctionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Function
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateFunctionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateFunctionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7204,14 +7673,14 @@ func (r GetFunctionResponse) StatusCode() int {
 	return 0
 }
 
-type PutFunctionResponse struct {
+type UpdateFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Function
 }
 
 // Status returns HTTPResponse.Status
-func (r PutFunctionResponse) Status() string {
+func (r UpdateFunctionResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7219,7 +7688,7 @@ func (r PutFunctionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutFunctionResponse) StatusCode() int {
+func (r UpdateFunctionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7468,6 +7937,28 @@ func (r ListModelProvidersResponse) StatusCode() int {
 	return 0
 }
 
+type CreateModelProviderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelProvider
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateModelProviderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateModelProviderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteModelProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7512,14 +8003,14 @@ func (r GetModelProviderResponse) StatusCode() int {
 	return 0
 }
 
-type PutModelProviderResponse struct {
+type UpdateModelProviderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ModelProvider
 }
 
 // Status returns HTTPResponse.Status
-func (r PutModelProviderResponse) Status() string {
+func (r UpdateModelProviderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7527,7 +8018,7 @@ func (r PutModelProviderResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutModelProviderResponse) StatusCode() int {
+func (r UpdateModelProviderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7842,6 +8333,28 @@ func (r ListPoliciesResponse) StatusCode() int {
 	return 0
 }
 
+type CreatePolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Policy
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeletePolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7886,14 +8399,14 @@ func (r GetPolicyResponse) StatusCode() int {
 	return 0
 }
 
-type PutPolicyResponse struct {
+type UpdatePolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Policy
 }
 
 // Status returns HTTPResponse.Status
-func (r PutPolicyResponse) Status() string {
+func (r UpdatePolicyResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -7901,7 +8414,7 @@ func (r PutPolicyResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutPolicyResponse) StatusCode() int {
+func (r UpdatePolicyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8506,6 +9019,23 @@ func (c *ClientWithResponses) ListAgentsWithResponse(ctx context.Context, reqEdi
 	return ParseListAgentsResponse(rsp)
 }
 
+// CreateAgentWithBodyWithResponse request with arbitrary body returning *CreateAgentResponse
+func (c *ClientWithResponses) CreateAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAgentResponse, error) {
+	rsp, err := c.CreateAgentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAgentResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAgentWithResponse(ctx context.Context, body CreateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAgentResponse, error) {
+	rsp, err := c.CreateAgent(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAgentResponse(rsp)
+}
+
 // DeleteAgentWithResponse request returning *DeleteAgentResponse
 func (c *ClientWithResponses) DeleteAgentWithResponse(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*DeleteAgentResponse, error) {
 	rsp, err := c.DeleteAgent(ctx, agentName, reqEditors...)
@@ -8524,21 +9054,21 @@ func (c *ClientWithResponses) GetAgentWithResponse(ctx context.Context, agentNam
 	return ParseGetAgentResponse(rsp)
 }
 
-// PutAgentWithBodyWithResponse request with arbitrary body returning *PutAgentResponse
-func (c *ClientWithResponses) PutAgentWithBodyWithResponse(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAgentResponse, error) {
-	rsp, err := c.PutAgentWithBody(ctx, agentName, contentType, body, reqEditors...)
+// UpdateAgentWithBodyWithResponse request with arbitrary body returning *UpdateAgentResponse
+func (c *ClientWithResponses) UpdateAgentWithBodyWithResponse(ctx context.Context, agentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateAgentResponse, error) {
+	rsp, err := c.UpdateAgentWithBody(ctx, agentName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutAgentResponse(rsp)
+	return ParseUpdateAgentResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutAgentWithResponse(ctx context.Context, agentName string, body PutAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAgentResponse, error) {
-	rsp, err := c.PutAgent(ctx, agentName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateAgentWithResponse(ctx context.Context, agentName string, body UpdateAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateAgentResponse, error) {
+	rsp, err := c.UpdateAgent(ctx, agentName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutAgentResponse(rsp)
+	return ParseUpdateAgentResponse(rsp)
 }
 
 // ListAgentDeploymentsWithResponse request returning *ListAgentDeploymentsResponse
@@ -8710,6 +9240,23 @@ func (c *ClientWithResponses) ListEnvironmentsWithResponse(ctx context.Context, 
 	return ParseListEnvironmentsResponse(rsp)
 }
 
+// CreateEnvironmentWithBodyWithResponse request with arbitrary body returning *CreateEnvironmentResponse
+func (c *ClientWithResponses) CreateEnvironmentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error) {
+	rsp, err := c.CreateEnvironmentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEnvironmentResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateEnvironmentWithResponse(ctx context.Context, body CreateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentResponse, error) {
+	rsp, err := c.CreateEnvironment(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateEnvironmentResponse(rsp)
+}
+
 // DeleteEnvironmentWithResponse request returning *DeleteEnvironmentResponse
 func (c *ClientWithResponses) DeleteEnvironmentWithResponse(ctx context.Context, environmentName string, reqEditors ...RequestEditorFn) (*DeleteEnvironmentResponse, error) {
 	rsp, err := c.DeleteEnvironment(ctx, environmentName, reqEditors...)
@@ -8728,21 +9275,21 @@ func (c *ClientWithResponses) GetEnvironmentWithResponse(ctx context.Context, en
 	return ParseGetEnvironmentResponse(rsp)
 }
 
-// PutEnvironmentWithBodyWithResponse request with arbitrary body returning *PutEnvironmentResponse
-func (c *ClientWithResponses) PutEnvironmentWithBodyWithResponse(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutEnvironmentResponse, error) {
-	rsp, err := c.PutEnvironmentWithBody(ctx, environmentName, contentType, body, reqEditors...)
+// UpdateEnvironmentWithBodyWithResponse request with arbitrary body returning *UpdateEnvironmentResponse
+func (c *ClientWithResponses) UpdateEnvironmentWithBodyWithResponse(ctx context.Context, environmentName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error) {
+	rsp, err := c.UpdateEnvironmentWithBody(ctx, environmentName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutEnvironmentResponse(rsp)
+	return ParseUpdateEnvironmentResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutEnvironmentWithResponse(ctx context.Context, environmentName string, body PutEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*PutEnvironmentResponse, error) {
-	rsp, err := c.PutEnvironment(ctx, environmentName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateEnvironmentWithResponse(ctx context.Context, environmentName string, body UpdateEnvironmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEnvironmentResponse, error) {
+	rsp, err := c.UpdateEnvironment(ctx, environmentName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutEnvironmentResponse(rsp)
+	return ParseUpdateEnvironmentResponse(rsp)
 }
 
 // GetEnvironmentMetricsWithResponse request returning *GetEnvironmentMetricsResponse
@@ -8763,6 +9310,23 @@ func (c *ClientWithResponses) ListFunctionsWithResponse(ctx context.Context, req
 	return ParseListFunctionsResponse(rsp)
 }
 
+// CreateFunctionWithBodyWithResponse request with arbitrary body returning *CreateFunctionResponse
+func (c *ClientWithResponses) CreateFunctionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFunctionResponse, error) {
+	rsp, err := c.CreateFunctionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFunctionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateFunctionWithResponse(ctx context.Context, body CreateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFunctionResponse, error) {
+	rsp, err := c.CreateFunction(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateFunctionResponse(rsp)
+}
+
 // DeleteFunctionWithResponse request returning *DeleteFunctionResponse
 func (c *ClientWithResponses) DeleteFunctionWithResponse(ctx context.Context, functionName string, reqEditors ...RequestEditorFn) (*DeleteFunctionResponse, error) {
 	rsp, err := c.DeleteFunction(ctx, functionName, reqEditors...)
@@ -8781,21 +9345,21 @@ func (c *ClientWithResponses) GetFunctionWithResponse(ctx context.Context, funct
 	return ParseGetFunctionResponse(rsp)
 }
 
-// PutFunctionWithBodyWithResponse request with arbitrary body returning *PutFunctionResponse
-func (c *ClientWithResponses) PutFunctionWithBodyWithResponse(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutFunctionResponse, error) {
-	rsp, err := c.PutFunctionWithBody(ctx, functionName, contentType, body, reqEditors...)
+// UpdateFunctionWithBodyWithResponse request with arbitrary body returning *UpdateFunctionResponse
+func (c *ClientWithResponses) UpdateFunctionWithBodyWithResponse(ctx context.Context, functionName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFunctionResponse, error) {
+	rsp, err := c.UpdateFunctionWithBody(ctx, functionName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutFunctionResponse(rsp)
+	return ParseUpdateFunctionResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutFunctionWithResponse(ctx context.Context, functionName string, body PutFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutFunctionResponse, error) {
-	rsp, err := c.PutFunction(ctx, functionName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateFunctionWithResponse(ctx context.Context, functionName string, body UpdateFunctionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFunctionResponse, error) {
+	rsp, err := c.UpdateFunction(ctx, functionName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutFunctionResponse(rsp)
+	return ParseUpdateFunctionResponse(rsp)
 }
 
 // ListFunctionDeploymentsWithResponse request returning *ListFunctionDeploymentsResponse
@@ -8905,6 +9469,23 @@ func (c *ClientWithResponses) ListModelProvidersWithResponse(ctx context.Context
 	return ParseListModelProvidersResponse(rsp)
 }
 
+// CreateModelProviderWithBodyWithResponse request with arbitrary body returning *CreateModelProviderResponse
+func (c *ClientWithResponses) CreateModelProviderWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelProviderResponse, error) {
+	rsp, err := c.CreateModelProviderWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModelProviderResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateModelProviderWithResponse(ctx context.Context, body CreateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelProviderResponse, error) {
+	rsp, err := c.CreateModelProvider(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModelProviderResponse(rsp)
+}
+
 // DeleteModelProviderWithResponse request returning *DeleteModelProviderResponse
 func (c *ClientWithResponses) DeleteModelProviderWithResponse(ctx context.Context, modelProviderName string, reqEditors ...RequestEditorFn) (*DeleteModelProviderResponse, error) {
 	rsp, err := c.DeleteModelProvider(ctx, modelProviderName, reqEditors...)
@@ -8923,21 +9504,21 @@ func (c *ClientWithResponses) GetModelProviderWithResponse(ctx context.Context, 
 	return ParseGetModelProviderResponse(rsp)
 }
 
-// PutModelProviderWithBodyWithResponse request with arbitrary body returning *PutModelProviderResponse
-func (c *ClientWithResponses) PutModelProviderWithBodyWithResponse(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutModelProviderResponse, error) {
-	rsp, err := c.PutModelProviderWithBody(ctx, modelProviderName, contentType, body, reqEditors...)
+// UpdateModelProviderWithBodyWithResponse request with arbitrary body returning *UpdateModelProviderResponse
+func (c *ClientWithResponses) UpdateModelProviderWithBodyWithResponse(ctx context.Context, modelProviderName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModelProviderResponse, error) {
+	rsp, err := c.UpdateModelProviderWithBody(ctx, modelProviderName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutModelProviderResponse(rsp)
+	return ParseUpdateModelProviderResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutModelProviderWithResponse(ctx context.Context, modelProviderName string, body PutModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*PutModelProviderResponse, error) {
-	rsp, err := c.PutModelProvider(ctx, modelProviderName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateModelProviderWithResponse(ctx context.Context, modelProviderName string, body UpdateModelProviderJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModelProviderResponse, error) {
+	rsp, err := c.UpdateModelProvider(ctx, modelProviderName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutModelProviderResponse(rsp)
+	return ParseUpdateModelProviderResponse(rsp)
 }
 
 // ListModelsWithResponse request returning *ListModelsResponse
@@ -9090,6 +9671,23 @@ func (c *ClientWithResponses) ListPoliciesWithResponse(ctx context.Context, reqE
 	return ParseListPoliciesResponse(rsp)
 }
 
+// CreatePolicyWithBodyWithResponse request with arbitrary body returning *CreatePolicyResponse
+func (c *ClientWithResponses) CreatePolicyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePolicyResponse, error) {
+	rsp, err := c.CreatePolicyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePolicyResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreatePolicyWithResponse(ctx context.Context, body CreatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePolicyResponse, error) {
+	rsp, err := c.CreatePolicy(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePolicyResponse(rsp)
+}
+
 // DeletePolicyWithResponse request returning *DeletePolicyResponse
 func (c *ClientWithResponses) DeletePolicyWithResponse(ctx context.Context, policyName string, reqEditors ...RequestEditorFn) (*DeletePolicyResponse, error) {
 	rsp, err := c.DeletePolicy(ctx, policyName, reqEditors...)
@@ -9108,21 +9706,21 @@ func (c *ClientWithResponses) GetPolicyWithResponse(ctx context.Context, policyN
 	return ParseGetPolicyResponse(rsp)
 }
 
-// PutPolicyWithBodyWithResponse request with arbitrary body returning *PutPolicyResponse
-func (c *ClientWithResponses) PutPolicyWithBodyWithResponse(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutPolicyResponse, error) {
-	rsp, err := c.PutPolicyWithBody(ctx, policyName, contentType, body, reqEditors...)
+// UpdatePolicyWithBodyWithResponse request with arbitrary body returning *UpdatePolicyResponse
+func (c *ClientWithResponses) UpdatePolicyWithBodyWithResponse(ctx context.Context, policyName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error) {
+	rsp, err := c.UpdatePolicyWithBody(ctx, policyName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutPolicyResponse(rsp)
+	return ParseUpdatePolicyResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutPolicyWithResponse(ctx context.Context, policyName string, body PutPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*PutPolicyResponse, error) {
-	rsp, err := c.PutPolicy(ctx, policyName, body, reqEditors...)
+func (c *ClientWithResponses) UpdatePolicyWithResponse(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error) {
+	rsp, err := c.UpdatePolicy(ctx, policyName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutPolicyResponse(rsp)
+	return ParseUpdatePolicyResponse(rsp)
 }
 
 // ListAllPendingInvitationsWithResponse request returning *ListAllPendingInvitationsResponse
@@ -9423,6 +10021,32 @@ func ParseListAgentsResponse(rsp *http.Response) (*ListAgentsResponse, error) {
 	return response, nil
 }
 
+// ParseCreateAgentResponse parses an HTTP response from a CreateAgentWithResponse call
+func ParseCreateAgentResponse(rsp *http.Response) (*CreateAgentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAgentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteAgentResponse parses an HTTP response from a DeleteAgentWithResponse call
 func ParseDeleteAgentResponse(rsp *http.Response) (*DeleteAgentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -9475,15 +10099,15 @@ func ParseGetAgentResponse(rsp *http.Response) (*GetAgentResponse, error) {
 	return response, nil
 }
 
-// ParsePutAgentResponse parses an HTTP response from a PutAgentWithResponse call
-func ParsePutAgentResponse(rsp *http.Response) (*PutAgentResponse, error) {
+// ParseUpdateAgentResponse parses an HTTP response from a UpdateAgentWithResponse call
+func ParseUpdateAgentResponse(rsp *http.Response) (*UpdateAgentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutAgentResponse{
+	response := &UpdateAgentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9943,6 +10567,32 @@ func ParseListEnvironmentsResponse(rsp *http.Response) (*ListEnvironmentsRespons
 	return response, nil
 }
 
+// ParseCreateEnvironmentResponse parses an HTTP response from a CreateEnvironmentWithResponse call
+func ParseCreateEnvironmentResponse(rsp *http.Response) (*CreateEnvironmentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateEnvironmentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteEnvironmentResponse parses an HTTP response from a DeleteEnvironmentWithResponse call
 func ParseDeleteEnvironmentResponse(rsp *http.Response) (*DeleteEnvironmentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -9995,15 +10645,15 @@ func ParseGetEnvironmentResponse(rsp *http.Response) (*GetEnvironmentResponse, e
 	return response, nil
 }
 
-// ParsePutEnvironmentResponse parses an HTTP response from a PutEnvironmentWithResponse call
-func ParsePutEnvironmentResponse(rsp *http.Response) (*PutEnvironmentResponse, error) {
+// ParseUpdateEnvironmentResponse parses an HTTP response from a UpdateEnvironmentWithResponse call
+func ParseUpdateEnvironmentResponse(rsp *http.Response) (*UpdateEnvironmentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutEnvironmentResponse{
+	response := &UpdateEnvironmentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -10073,6 +10723,32 @@ func ParseListFunctionsResponse(rsp *http.Response) (*ListFunctionsResponse, err
 	return response, nil
 }
 
+// ParseCreateFunctionResponse parses an HTTP response from a CreateFunctionWithResponse call
+func ParseCreateFunctionResponse(rsp *http.Response) (*CreateFunctionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateFunctionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Function
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteFunctionResponse parses an HTTP response from a DeleteFunctionWithResponse call
 func ParseDeleteFunctionResponse(rsp *http.Response) (*DeleteFunctionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10125,15 +10801,15 @@ func ParseGetFunctionResponse(rsp *http.Response) (*GetFunctionResponse, error) 
 	return response, nil
 }
 
-// ParsePutFunctionResponse parses an HTTP response from a PutFunctionWithResponse call
-func ParsePutFunctionResponse(rsp *http.Response) (*PutFunctionResponse, error) {
+// ParseUpdateFunctionResponse parses an HTTP response from a UpdateFunctionWithResponse call
+func ParseUpdateFunctionResponse(rsp *http.Response) (*UpdateFunctionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutFunctionResponse{
+	response := &UpdateFunctionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -10437,6 +11113,32 @@ func ParseListModelProvidersResponse(rsp *http.Response) (*ListModelProvidersRes
 	return response, nil
 }
 
+// ParseCreateModelProviderResponse parses an HTTP response from a CreateModelProviderWithResponse call
+func ParseCreateModelProviderResponse(rsp *http.Response) (*CreateModelProviderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateModelProviderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelProvider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteModelProviderResponse parses an HTTP response from a DeleteModelProviderWithResponse call
 func ParseDeleteModelProviderResponse(rsp *http.Response) (*DeleteModelProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10489,15 +11191,15 @@ func ParseGetModelProviderResponse(rsp *http.Response) (*GetModelProviderRespons
 	return response, nil
 }
 
-// ParsePutModelProviderResponse parses an HTTP response from a PutModelProviderWithResponse call
-func ParsePutModelProviderResponse(rsp *http.Response) (*PutModelProviderResponse, error) {
+// ParseUpdateModelProviderResponse parses an HTTP response from a UpdateModelProviderWithResponse call
+func ParseUpdateModelProviderResponse(rsp *http.Response) (*UpdateModelProviderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutModelProviderResponse{
+	response := &UpdateModelProviderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -10879,6 +11581,32 @@ func ParseListPoliciesResponse(rsp *http.Response) (*ListPoliciesResponse, error
 	return response, nil
 }
 
+// ParseCreatePolicyResponse parses an HTTP response from a CreatePolicyWithResponse call
+func ParseCreatePolicyResponse(rsp *http.Response) (*CreatePolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Policy
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeletePolicyResponse parses an HTTP response from a DeletePolicyWithResponse call
 func ParseDeletePolicyResponse(rsp *http.Response) (*DeletePolicyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10931,15 +11659,15 @@ func ParseGetPolicyResponse(rsp *http.Response) (*GetPolicyResponse, error) {
 	return response, nil
 }
 
-// ParsePutPolicyResponse parses an HTTP response from a PutPolicyWithResponse call
-func ParsePutPolicyResponse(rsp *http.Response) (*PutPolicyResponse, error) {
+// ParseUpdatePolicyResponse parses an HTTP response from a UpdatePolicyWithResponse call
+func ParseUpdatePolicyResponse(rsp *http.Response) (*UpdatePolicyResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutPolicyResponse{
+	response := &UpdatePolicyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -11627,142 +12355,143 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"pmYPXx/+JwAA//+RsNA81RoBAA==",
+	"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",
+	"JOkOxUriDjV7+PrwPwEAAP//dWfcPSEjAQA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
