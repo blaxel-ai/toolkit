@@ -77,7 +77,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 }
 
 // Helper function to handle common resource operations
-func (resource Resource) handleResourceOperation(resourceName, name string, spec interface{}, operation string) (*http.Response, error) {
+func (resource Resource) handleResourceOperation(name string, spec interface{}, operation string) (*http.Response, error) {
 	ctx := context.Background()
 
 	// Get the appropriate function based on operation
@@ -127,7 +127,7 @@ func (resource Resource) handleResourceOperation(resourceName, name string, spec
 }
 
 func (resource Resource) PutFn(resourceName string, name string, spec interface{}) {
-	response, err := resource.handleResourceOperation(resourceName, name, spec, "put")
+	response, err := resource.handleResourceOperation(name, spec, "put")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -163,7 +163,7 @@ func (resource Resource) PutFn(resourceName string, name string, spec interface{
 }
 
 func (resource Resource) PostFn(resourceName string, name string, spec interface{}) {
-	response, err := resource.handleResourceOperation(resourceName, name, spec, "post")
+	response, err := resource.handleResourceOperation(name, spec, "post")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
