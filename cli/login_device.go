@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/tmp-moon/toolkit/sdk"
+	"github.com/beamlit/toolkit/sdk"
 )
 
 func (r *Operations) DeviceModeLogin(workspace string) {

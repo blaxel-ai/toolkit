@@ -3,7 +3,7 @@ package cli
 import (
 	"reflect"
 
-	"github.com/tmp-moon/toolkit/sdk"
+	"github.com/beamlit/toolkit/sdk"
 )
 
 type Resource struct {

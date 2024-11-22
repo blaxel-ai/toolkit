@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
-	"github.com/tmp-moon/toolkit/sdk"
 )
 
 func (r *Operations) LogoutCmd() *cobra.Command {

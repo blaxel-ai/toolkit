@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
-	"github.com/tmp-moon/toolkit/sdk"
 )
 
 var BASE_URL = "https://api.beamlit.dev/v0"

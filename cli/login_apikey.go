@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmp-moon/toolkit/sdk"
+	"github.com/beamlit/toolkit/sdk"
 )
 
 func (r *Operations) ApiKeyLogin(workspace string) {

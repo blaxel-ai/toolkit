@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/tmp-moon/toolkit/cli"
+	"github.com/beamlit/toolkit/cli"
 )
 
 func main() {

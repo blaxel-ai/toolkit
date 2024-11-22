@@ -17,7 +17,7 @@ import (
 	"os"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/tmp-moon/toolkit/sdk"
+	"github.com/beamlit/toolkit/sdk"
 )
 
 var BASE_URL = "https://api.beamlit.dev/v0"

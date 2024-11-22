@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
-	"github.com/tmp-moon/toolkit/sdk"
 )
 
 func (r *Operations) ListOrSetWorkspacesCmd() *cobra.Command {

@@ -1,4 +1,4 @@
-module github.com/tmp-moon/toolkit
+module github.com/beamlit/toolkit
 
 go 1.23.2
 

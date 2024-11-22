@@ -19,7 +19,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-	"github.com/tmp-moon/toolkit/cli/register"
+	"github.com/beamlit/toolkit/cli/register"
 )
 
 const (
