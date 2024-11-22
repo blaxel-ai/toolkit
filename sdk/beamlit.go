@@ -31,6 +31,9 @@ type Agent struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// DisplayName Agent display name
 	DisplayName *string `json:"display_name,omitempty"`
 
@@ -43,8 +46,23 @@ type Agent struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace Workspace name
 	Workspace *string `json:"workspace,omitempty"`
+}
+
+// AgentChain Agent chain configuration
+type AgentChain struct {
+	// Description Description of the agent in case you want to override the default one
+	Description *string `json:"description,omitempty"`
+
+	// Enabled Whether the agent chain is enabled
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Name The name of the agent to chain to
+	Name *string `json:"name,omitempty"`
 }
 
 // AgentDeployment defines model for AgentDeployment.
@@ -52,11 +70,20 @@ type AgentDeployment struct {
 	// Agent The name of the agent
 	Agent *string `json:"agent,omitempty"`
 
+	// AgentChain Agent chaining configuration
+	AgentChain *[]AgentChain `json:"agent_chain,omitempty"`
+
 	// Configuration Deployment configurations key value and also a boolean secret to specify if it should be stored in secret manager
 	Configuration *DeploymentConfigurations `json:"configuration,omitempty"`
 
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
+	// Description Agent description, very important to have a clear description for your agent if you want to make it work with agent chaining
+	Description *string `json:"description,omitempty"`
 
 	// Enabled Whether the agent deployment is enabled
 	Enabled *bool `json:"enabled,omitempty"`
@@ -66,6 +93,9 @@ type AgentDeployment struct {
 
 	// Flavors Types of hardware available for deployments
 	Flavors *Flavors `json:"flavors,omitempty"`
+
+	// Functions Functions used by the agent, those functions needs to be created before setting it here
+	Functions *[]string `json:"functions,omitempty"`
 
 	// Labels Labels
 	Labels *Labels `json:"labels,omitempty"`
@@ -89,8 +119,80 @@ type AgentDeployment struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace The workspace the agent deployment belongs to
 	Workspace *string `json:"workspace,omitempty"`
+}
+
+// AgentDeploymentHistory defines model for AgentDeploymentHistory.
+type AgentDeploymentHistory struct {
+	// Agent Agent name
+	Agent *string `json:"agent,omitempty"`
+
+	// CreatedAt The date and time when the resource was created
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
+	// End End time
+	End *string `json:"end,omitempty"`
+
+	// Environment Environment name
+	Environment *string `json:"environment,omitempty"`
+
+	// Events Events
+	Events *[]AgentDeploymentHistoryEvent `json:"events,omitempty"`
+
+	// RequestId Request ID
+	RequestId *string `json:"request_id,omitempty"`
+
+	// Start Start time
+	Start *string `json:"start,omitempty"`
+
+	// Status Status, eg: running, success, failed
+	Status *string `json:"status,omitempty"`
+
+	// Took Number of milliseconds it took to complete the event
+	Took *int `json:"took,omitempty"`
+
+	// UpdatedAt The date and time when the resource was updated
+	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
+	// Workspace The workspace the agent deployment belongs to
+	Workspace *string `json:"workspace,omitempty"`
+}
+
+// AgentDeploymentHistoryEvent Agent deployment history event
+type AgentDeploymentHistoryEvent struct {
+	// End End time
+	End *string `json:"end,omitempty"`
+
+	// Name Name of the function or agent
+	Name *string `json:"name,omitempty"`
+
+	// Parameters Parameters
+	Parameters *string `json:"parameters,omitempty"`
+
+	// Start Start time
+	Start *string `json:"start,omitempty"`
+
+	// Status Status, eg: running, success, failed
+	Status *string `json:"status,omitempty"`
+
+	// SubFunction Function used in kit if a kit was used
+	SubFunction *string `json:"sub_function,omitempty"`
+
+	// Took Number of milliseconds it took to complete the event
+	Took *int `json:"took,omitempty"`
+
+	// Type Type, one of function or agent
+	Type *string `json:"type,omitempty"`
 }
 
 // AgentRelease Agent release, used to deploy a agent from one environment to another
@@ -110,6 +212,9 @@ type ApiKey struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// ExpiresIn Duration until expiration (in seconds)
 	ExpiresIn *string `json:"expires_in,omitempty"`
 
@@ -127,6 +232,9 @@ type ApiKey struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 }
 
 // ArrayMetric Array of metrics
@@ -227,6 +335,9 @@ type Environment struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// DisplayName The display name of the environment
 	DisplayName *string `json:"display_name,omitempty"`
 
@@ -241,6 +352,9 @@ type Environment struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 
 	// Workspace The workspace the environment belongs to
 	Workspace *string `json:"workspace,omitempty"`
@@ -269,6 +383,9 @@ type Function struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// DisplayName Function display name
 	DisplayName *string `json:"display_name,omitempty"`
 
@@ -281,6 +398,9 @@ type Function struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace Workspace name
 	Workspace *string `json:"workspace,omitempty"`
 }
@@ -292,6 +412,9 @@ type FunctionDeployment struct {
 
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
 
 	// Description Function description, very important for the agent function to work with an LLM
 	Description *string `json:"description,omitempty"`
@@ -307,6 +430,9 @@ type FunctionDeployment struct {
 
 	// Function The name of the function
 	Function *string `json:"function,omitempty"`
+
+	// Kit The kit of the function deployment
+	Kit *[]FunctionKit `json:"kit,omitempty"`
 
 	// Labels Labels
 	Labels *Labels `json:"labels,omitempty"`
@@ -330,8 +456,23 @@ type FunctionDeployment struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace The workspace the function deployment belongs to
 	Workspace *string `json:"workspace,omitempty"`
+}
+
+// FunctionKit Function kit
+type FunctionKit struct {
+	// Description Description of the function kit, very important for the agent to work with your kit
+	Description *string `json:"description,omitempty"`
+
+	// Name The kit name, very important for the agent to work with your kit
+	Name *string `json:"name,omitempty"`
+
+	// Parameters Kit parameters, for your kit to be callable with an Agent
+	Parameters *[]StoreFunctionParameter `json:"parameters,omitempty"`
 }
 
 // FunctionRelease Function release, used to deploy a function from one environment to another
@@ -378,14 +519,29 @@ type Metric struct {
 
 // Metrics Metrics for resources
 type Metrics struct {
+	// Agents Metrics for agents
+	Agents *interface{} `json:"agents,omitempty"`
+
+	// Functions Metrics for functions
+	Functions *interface{} `json:"functions,omitempty"`
+
+	// InferencePerSecondGlobal Array of metrics
+	InferencePerSecondGlobal *ArrayMetric `json:"inference_per_second_global,omitempty"`
+
 	// Models Metrics for models
 	Models *interface{} `json:"models,omitempty"`
+
+	// QueryPerSecond RPS value (in last 24 hours) per location, for all resources globally
+	QueryPerSecond *float32 `json:"query_per_second,omitempty"`
 }
 
 // Model defines model for Model.
 type Model struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
 
 	// DisplayName Model display name
 	DisplayName *string `json:"display_name,omitempty"`
@@ -399,6 +555,9 @@ type Model struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace The workspace the model belongs to
 	Workspace *string `json:"workspace,omitempty"`
 }
@@ -407,6 +566,9 @@ type Model struct {
 type ModelDeployment struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
 
 	// Enabled If false, the model deployment will not be active nor serve requests
 	Enabled *bool `json:"enabled,omitempty"`
@@ -444,6 +606,9 @@ type ModelDeployment struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 
 	// Workspace The workspace the model deployment belongs to
 	Workspace *string `json:"workspace,omitempty"`
@@ -508,6 +673,9 @@ type ModelProvider struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// Labels Labels
 	Labels *Labels `json:"labels,omitempty"`
 
@@ -519,6 +687,9 @@ type ModelProvider struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 
 	// Workspace Workspace name
 	Workspace *string `json:"workspace,omitempty"`
@@ -545,7 +716,10 @@ type ModelRelease struct {
 // ModelWithDeployments defines model for ModelWithDeployments.
 type ModelWithDeployments struct {
 	// CreatedAt The date and time when the resource was created
-	CreatedAt   *string           `json:"created_at,omitempty"`
+	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy   *string           `json:"created_by,omitempty"`
 	Deployments *ModelDeployments `json:"deployments,omitempty"`
 
 	// DisplayName Model display name
@@ -560,6 +734,9 @@ type ModelWithDeployments struct {
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
 
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+
 	// Workspace The workspace the model belongs to
 	Workspace *string `json:"workspace,omitempty"`
 }
@@ -568,6 +745,9 @@ type ModelWithDeployments struct {
 type PendingInvitation struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
 
 	// Email User email
 	Email *string `json:"email,omitempty"`
@@ -580,6 +760,9 @@ type PendingInvitation struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 
 	// Workspace Workspace name
 	Workspace *string `json:"workspace,omitempty"`
@@ -644,6 +827,9 @@ type Policy struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// DisplayName Policy display name
 	DisplayName *string `json:"display_name,omitempty"`
 
@@ -667,6 +853,9 @@ type Policy struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 
 	// Workspace The workspace the policy belongs to
 	Workspace *string `json:"workspace,omitempty"`
@@ -788,8 +977,14 @@ type StandardFieldsDynamoDb struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 }
 
 // StoreAgent defines model for StoreAgent.
@@ -799,6 +994,9 @@ type StoreAgent struct {
 
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
 
 	// Description Store agent description
 	Description *string `json:"description,omitempty"`
@@ -817,10 +1015,16 @@ type StoreAgent struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 }
 
 // StoreConfiguration Store configuration for resources (eg: agent, function, etc)
 type StoreConfiguration struct {
+	// AvailableModels Available models for the configuration
+	AvailableModels *[]string `json:"available_models,omitempty"`
+
 	// Description Store configuration description
 	Description *string `json:"description,omitempty"`
 
@@ -864,6 +1068,9 @@ type StoreFunction struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// Description Store function description
 	Description *string `json:"description,omitempty"`
 
@@ -872,6 +1079,9 @@ type StoreFunction struct {
 
 	// Image Store function image
 	Image *string `json:"image,omitempty"`
+
+	// Kit Store function kit
+	Kit *[]StoreFunctionKit `json:"kit,omitempty"`
 
 	// Labels Store function labels
 	Labels *map[string]interface{} `json:"labels,omitempty"`
@@ -884,6 +1094,21 @@ type StoreFunction struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
+}
+
+// StoreFunctionKit Store function kit
+type StoreFunctionKit struct {
+	// Description Description of the function kit, very important for the agent to work with your kit
+	Description *string `json:"description,omitempty"`
+
+	// Name The kit name, very important for the agent to work with your kit
+	Name *string `json:"name,omitempty"`
+
+	// Parameters Kit parameters, for your kit to be callable with an Agent
+	Parameters *[]StoreFunctionParameter `json:"parameters,omitempty"`
 }
 
 // StoreFunctionParameter Store function parameter
@@ -906,6 +1131,9 @@ type Workspace struct {
 	// CreatedAt The date and time when the resource was created
 	CreatedAt *string `json:"created_at,omitempty"`
 
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"created_by,omitempty"`
+
 	// DisplayName Workspace display name
 	DisplayName *string `json:"display_name,omitempty"`
 
@@ -917,6 +1145,9 @@ type Workspace struct {
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updated_by,omitempty"`
 }
 
 // WorkspaceUser Workspace user
@@ -987,6 +1218,9 @@ type PutAgentJSONRequestBody = Agent
 // PutAgentDeploymentJSONRequestBody defines body for PutAgentDeployment for application/json ContentType.
 type PutAgentDeploymentJSONRequestBody = AgentDeployment
 
+// PutAgentDeploymentHistoryJSONRequestBody defines body for PutAgentDeploymentHistory for application/json ContentType.
+type PutAgentDeploymentHistoryJSONRequestBody = AgentDeploymentHistory
+
 // PutEnvironmentJSONRequestBody defines body for PutEnvironment for application/json ContentType.
 type PutEnvironmentJSONRequestBody = Environment
 
@@ -999,8 +1233,11 @@ type PutFunctionDeploymentJSONRequestBody = FunctionDeployment
 // PutModelProviderJSONRequestBody defines body for PutModelProvider for application/json ContentType.
 type PutModelProviderJSONRequestBody = ModelProvider
 
-// PutModelJSONRequestBody defines body for PutModel for application/json ContentType.
-type PutModelJSONRequestBody = ModelWithDeployments
+// CreateModelJSONRequestBody defines body for CreateModel for application/json ContentType.
+type CreateModelJSONRequestBody = ModelWithDeployments
+
+// UpdateModelJSONRequestBody defines body for UpdateModel for application/json ContentType.
+type UpdateModelJSONRequestBody = ModelWithDeployments
 
 // PutModelDeploymentJSONRequestBody defines body for PutModelDeployment for application/json ContentType.
 type PutModelDeploymentJSONRequestBody = ModelDeployment
@@ -1145,6 +1382,20 @@ type ClientInterface interface {
 
 	PutAgentDeployment(ctx context.Context, agentName string, environmentName string, body PutAgentDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAgentDeploymentHistory request
+	ListAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAgentDeploymentHistory request
+	DeleteAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAgentDeploymentHistory request
+	GetAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutAgentDeploymentHistoryWithBody request with any body
+	PutAgentDeploymentHistoryWithBody(ctx context.Context, agentName string, environmentName string, requestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, body PutAgentDeploymentHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAgentDeploymentLogs request
 	GetAgentDeploymentLogs(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1249,16 +1500,21 @@ type ClientInterface interface {
 	// ListModels request
 	ListModels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateModelWithBody request with any body
+	CreateModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateModel(ctx context.Context, body CreateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteModel request
 	DeleteModel(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetModel request
 	GetModel(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutModelWithBody request with any body
-	PutModelWithBody(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateModelWithBody request with any body
+	UpdateModelWithBody(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutModel(ctx context.Context, modelName string, body PutModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateModel(ctx context.Context, modelName string, body UpdateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListModelDeployments request
 	ListModelDeployments(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1414,6 +1670,18 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for PutAgentDeployment
 	reg.CliCommand(ctx, "PutAgentDeployment", c.PutAgentDeployment)
 
+	// Register CLI commands for ListAgentDeploymentHistory
+	reg.CliCommand(ctx, "ListAgentDeploymentHistory", c.ListAgentDeploymentHistory)
+
+	// Register CLI commands for DeleteAgentDeploymentHistory
+	reg.CliCommand(ctx, "DeleteAgentDeploymentHistory", c.DeleteAgentDeploymentHistory)
+
+	// Register CLI commands for GetAgentDeploymentHistory
+	reg.CliCommand(ctx, "GetAgentDeploymentHistory", c.GetAgentDeploymentHistory)
+
+	// Register CLI commands for PutAgentDeploymentHistory
+	reg.CliCommand(ctx, "PutAgentDeploymentHistory", c.PutAgentDeploymentHistory)
+
 	// Register CLI commands for GetAgentDeploymentLogs
 	reg.CliCommand(ctx, "GetAgentDeploymentLogs", c.GetAgentDeploymentLogs)
 
@@ -1510,14 +1778,17 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for ListModels
 	reg.CliCommand(ctx, "ListModels", c.ListModels)
 
+	// Register CLI commands for CreateModel
+	reg.CliCommand(ctx, "CreateModel", c.CreateModel)
+
 	// Register CLI commands for DeleteModel
 	reg.CliCommand(ctx, "DeleteModel", c.DeleteModel)
 
 	// Register CLI commands for GetModel
 	reg.CliCommand(ctx, "GetModel", c.GetModel)
 
-	// Register CLI commands for PutModel
-	reg.CliCommand(ctx, "PutModel", c.PutModel)
+	// Register CLI commands for UpdateModel
+	reg.CliCommand(ctx, "UpdateModel", c.UpdateModel)
 
 	// Register CLI commands for ListModelDeployments
 	reg.CliCommand(ctx, "ListModelDeployments", c.ListModelDeployments)
@@ -1739,6 +2010,66 @@ func (c *Client) PutAgentDeploymentWithBody(ctx context.Context, agentName strin
 
 func (c *Client) PutAgentDeployment(ctx context.Context, agentName string, environmentName string, body PutAgentDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutAgentDeploymentRequest(c.Server, agentName, environmentName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAgentDeploymentHistoryRequest(c.Server, agentName, environmentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAgentDeploymentHistoryRequest(c.Server, agentName, environmentName, requestId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAgentDeploymentHistoryRequest(c.Server, agentName, environmentName, requestId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutAgentDeploymentHistoryWithBody(ctx context.Context, agentName string, environmentName string, requestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAgentDeploymentHistoryRequestWithBody(c.Server, agentName, environmentName, requestId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutAgentDeploymentHistory(ctx context.Context, agentName string, environmentName string, requestId string, body PutAgentDeploymentHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutAgentDeploymentHistoryRequest(c.Server, agentName, environmentName, requestId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2181,6 +2512,30 @@ func (c *Client) ListModels(ctx context.Context, reqEditors ...RequestEditorFn) 
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateModelWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModelRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateModel(ctx context.Context, body CreateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModelRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteModel(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteModelRequest(c.Server, modelName)
 	if err != nil {
@@ -2205,8 +2560,8 @@ func (c *Client) GetModel(ctx context.Context, modelName string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutModelWithBody(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutModelRequestWithBody(c.Server, modelName, contentType, body)
+func (c *Client) UpdateModelWithBody(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModelRequestWithBody(c.Server, modelName, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2217,8 +2572,8 @@ func (c *Client) PutModelWithBody(ctx context.Context, modelName string, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutModel(ctx context.Context, modelName string, body PutModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutModelRequest(c.Server, modelName, body)
+func (c *Client) UpdateModel(ctx context.Context, modelName string, body UpdateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModelRequest(c.Server, modelName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3062,6 +3417,204 @@ func NewPutAgentDeploymentRequestWithBody(server string, agentName string, envir
 	}
 
 	operationPath := fmt.Sprintf("/agents/%s/deployments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAgentDeploymentHistoryRequest generates requests for ListAgentDeploymentHistory
+func NewListAgentDeploymentHistoryRequest(server string, agentName string, environmentName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "agentName", runtime.ParamLocationPath, agentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/deployments/%s/history", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteAgentDeploymentHistoryRequest generates requests for DeleteAgentDeploymentHistory
+func NewDeleteAgentDeploymentHistoryRequest(server string, agentName string, environmentName string, requestId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "agentName", runtime.ParamLocationPath, agentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "requestId", runtime.ParamLocationPath, requestId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/deployments/%s/history/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAgentDeploymentHistoryRequest generates requests for GetAgentDeploymentHistory
+func NewGetAgentDeploymentHistoryRequest(server string, agentName string, environmentName string, requestId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "agentName", runtime.ParamLocationPath, agentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "requestId", runtime.ParamLocationPath, requestId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/deployments/%s/history/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutAgentDeploymentHistoryRequest calls the generic PutAgentDeploymentHistory builder with application/json body
+func NewPutAgentDeploymentHistoryRequest(server string, agentName string, environmentName string, requestId string, body PutAgentDeploymentHistoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutAgentDeploymentHistoryRequestWithBody(server, agentName, environmentName, requestId, "application/json", bodyReader)
+}
+
+// NewPutAgentDeploymentHistoryRequestWithBody generates requests for PutAgentDeploymentHistory with any type of body
+func NewPutAgentDeploymentHistoryRequestWithBody(server string, agentName string, environmentName string, requestId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "agentName", runtime.ParamLocationPath, agentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "requestId", runtime.ParamLocationPath, requestId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/deployments/%s/history/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4235,6 +4788,46 @@ func NewListModelsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateModelRequest calls the generic CreateModel builder with application/json body
+func NewCreateModelRequest(server string, body CreateModelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateModelRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateModelRequestWithBody generates requests for CreateModel with any type of body
+func NewCreateModelRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/models")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteModelRequest generates requests for DeleteModel
 func NewDeleteModelRequest(server string, modelName string) (*http.Request, error) {
 	var err error
@@ -4303,19 +4896,19 @@ func NewGetModelRequest(server string, modelName string) (*http.Request, error) 
 	return req, nil
 }
 
-// NewPutModelRequest calls the generic PutModel builder with application/json body
-func NewPutModelRequest(server string, modelName string, body PutModelJSONRequestBody) (*http.Request, error) {
+// NewUpdateModelRequest calls the generic UpdateModel builder with application/json body
+func NewUpdateModelRequest(server string, modelName string, body UpdateModelJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutModelRequestWithBody(server, modelName, "application/json", bodyReader)
+	return NewUpdateModelRequestWithBody(server, modelName, "application/json", bodyReader)
 }
 
-// NewPutModelRequestWithBody generates requests for PutModel with any type of body
-func NewPutModelRequestWithBody(server string, modelName string, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateModelRequestWithBody generates requests for UpdateModel with any type of body
+func NewUpdateModelRequestWithBody(server string, modelName string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5734,6 +6327,20 @@ type ClientWithResponsesInterface interface {
 
 	PutAgentDeploymentWithResponse(ctx context.Context, agentName string, environmentName string, body PutAgentDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAgentDeploymentResponse, error)
 
+	// ListAgentDeploymentHistoryWithResponse request
+	ListAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*ListAgentDeploymentHistoryResponse, error)
+
+	// DeleteAgentDeploymentHistoryWithResponse request
+	DeleteAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*DeleteAgentDeploymentHistoryResponse, error)
+
+	// GetAgentDeploymentHistoryWithResponse request
+	GetAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*GetAgentDeploymentHistoryResponse, error)
+
+	// PutAgentDeploymentHistoryWithBodyWithResponse request with any body
+	PutAgentDeploymentHistoryWithBodyWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAgentDeploymentHistoryResponse, error)
+
+	PutAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, body PutAgentDeploymentHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAgentDeploymentHistoryResponse, error)
+
 	// GetAgentDeploymentLogsWithResponse request
 	GetAgentDeploymentLogsWithResponse(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*GetAgentDeploymentLogsResponse, error)
 
@@ -5838,16 +6445,21 @@ type ClientWithResponsesInterface interface {
 	// ListModelsWithResponse request
 	ListModelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
 
+	// CreateModelWithBodyWithResponse request with any body
+	CreateModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelResponse, error)
+
+	CreateModelWithResponse(ctx context.Context, body CreateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelResponse, error)
+
 	// DeleteModelWithResponse request
 	DeleteModelWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*DeleteModelResponse, error)
 
 	// GetModelWithResponse request
 	GetModelWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*GetModelResponse, error)
 
-	// PutModelWithBodyWithResponse request with any body
-	PutModelWithBodyWithResponse(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutModelResponse, error)
+	// UpdateModelWithBodyWithResponse request with any body
+	UpdateModelWithBodyWithResponse(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModelResponse, error)
 
-	PutModelWithResponse(ctx context.Context, modelName string, body PutModelJSONRequestBody, reqEditors ...RequestEditorFn) (*PutModelResponse, error)
+	UpdateModelWithResponse(ctx context.Context, modelName string, body UpdateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModelResponse, error)
 
 	// ListModelDeploymentsWithResponse request
 	ListModelDeploymentsWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*ListModelDeploymentsResponse, error)
@@ -6146,6 +6758,94 @@ func (r PutAgentDeploymentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutAgentDeploymentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListAgentDeploymentHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]AgentDeploymentHistory
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAgentDeploymentHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAgentDeploymentHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteAgentDeploymentHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentDeploymentHistory
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAgentDeploymentHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAgentDeploymentHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAgentDeploymentHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentDeploymentHistory
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAgentDeploymentHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAgentDeploymentHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutAgentDeploymentHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AgentDeploymentHistory
+}
+
+// Status returns HTTPResponse.Status
+func (r PutAgentDeploymentHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutAgentDeploymentHistoryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6856,6 +7556,28 @@ func (r ListModelsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateModelResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Model
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateModelResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateModelResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6900,14 +7622,14 @@ func (r GetModelResponse) StatusCode() int {
 	return 0
 }
 
-type PutModelResponse struct {
+type UpdateModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Model
 }
 
 // Status returns HTTPResponse.Status
-func (r PutModelResponse) Status() string {
+func (r UpdateModelResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6915,7 +7637,7 @@ func (r PutModelResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutModelResponse) StatusCode() int {
+func (r UpdateModelResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7863,6 +8585,50 @@ func (c *ClientWithResponses) PutAgentDeploymentWithResponse(ctx context.Context
 	return ParsePutAgentDeploymentResponse(rsp)
 }
 
+// ListAgentDeploymentHistoryWithResponse request returning *ListAgentDeploymentHistoryResponse
+func (c *ClientWithResponses) ListAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*ListAgentDeploymentHistoryResponse, error) {
+	rsp, err := c.ListAgentDeploymentHistory(ctx, agentName, environmentName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAgentDeploymentHistoryResponse(rsp)
+}
+
+// DeleteAgentDeploymentHistoryWithResponse request returning *DeleteAgentDeploymentHistoryResponse
+func (c *ClientWithResponses) DeleteAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*DeleteAgentDeploymentHistoryResponse, error) {
+	rsp, err := c.DeleteAgentDeploymentHistory(ctx, agentName, environmentName, requestId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAgentDeploymentHistoryResponse(rsp)
+}
+
+// GetAgentDeploymentHistoryWithResponse request returning *GetAgentDeploymentHistoryResponse
+func (c *ClientWithResponses) GetAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, reqEditors ...RequestEditorFn) (*GetAgentDeploymentHistoryResponse, error) {
+	rsp, err := c.GetAgentDeploymentHistory(ctx, agentName, environmentName, requestId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAgentDeploymentHistoryResponse(rsp)
+}
+
+// PutAgentDeploymentHistoryWithBodyWithResponse request with arbitrary body returning *PutAgentDeploymentHistoryResponse
+func (c *ClientWithResponses) PutAgentDeploymentHistoryWithBodyWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutAgentDeploymentHistoryResponse, error) {
+	rsp, err := c.PutAgentDeploymentHistoryWithBody(ctx, agentName, environmentName, requestId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAgentDeploymentHistoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutAgentDeploymentHistoryWithResponse(ctx context.Context, agentName string, environmentName string, requestId string, body PutAgentDeploymentHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAgentDeploymentHistoryResponse, error) {
+	rsp, err := c.PutAgentDeploymentHistory(ctx, agentName, environmentName, requestId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutAgentDeploymentHistoryResponse(rsp)
+}
+
 // GetAgentDeploymentLogsWithResponse request returning *GetAgentDeploymentLogsResponse
 func (c *ClientWithResponses) GetAgentDeploymentLogsWithResponse(ctx context.Context, agentName string, environmentName string, reqEditors ...RequestEditorFn) (*GetAgentDeploymentLogsResponse, error) {
 	rsp, err := c.GetAgentDeploymentLogs(ctx, agentName, environmentName, reqEditors...)
@@ -8183,6 +8949,23 @@ func (c *ClientWithResponses) ListModelsWithResponse(ctx context.Context, reqEdi
 	return ParseListModelsResponse(rsp)
 }
 
+// CreateModelWithBodyWithResponse request with arbitrary body returning *CreateModelResponse
+func (c *ClientWithResponses) CreateModelWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModelResponse, error) {
+	rsp, err := c.CreateModelWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModelResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateModelWithResponse(ctx context.Context, body CreateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModelResponse, error) {
+	rsp, err := c.CreateModel(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModelResponse(rsp)
+}
+
 // DeleteModelWithResponse request returning *DeleteModelResponse
 func (c *ClientWithResponses) DeleteModelWithResponse(ctx context.Context, modelName string, reqEditors ...RequestEditorFn) (*DeleteModelResponse, error) {
 	rsp, err := c.DeleteModel(ctx, modelName, reqEditors...)
@@ -8201,21 +8984,21 @@ func (c *ClientWithResponses) GetModelWithResponse(ctx context.Context, modelNam
 	return ParseGetModelResponse(rsp)
 }
 
-// PutModelWithBodyWithResponse request with arbitrary body returning *PutModelResponse
-func (c *ClientWithResponses) PutModelWithBodyWithResponse(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutModelResponse, error) {
-	rsp, err := c.PutModelWithBody(ctx, modelName, contentType, body, reqEditors...)
+// UpdateModelWithBodyWithResponse request with arbitrary body returning *UpdateModelResponse
+func (c *ClientWithResponses) UpdateModelWithBodyWithResponse(ctx context.Context, modelName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModelResponse, error) {
+	rsp, err := c.UpdateModelWithBody(ctx, modelName, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutModelResponse(rsp)
+	return ParseUpdateModelResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutModelWithResponse(ctx context.Context, modelName string, body PutModelJSONRequestBody, reqEditors ...RequestEditorFn) (*PutModelResponse, error) {
-	rsp, err := c.PutModel(ctx, modelName, body, reqEditors...)
+func (c *ClientWithResponses) UpdateModelWithResponse(ctx context.Context, modelName string, body UpdateModelJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModelResponse, error) {
+	rsp, err := c.UpdateModel(ctx, modelName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutModelResponse(rsp)
+	return ParseUpdateModelResponse(rsp)
 }
 
 // ListModelDeploymentsWithResponse request returning *ListModelDeploymentsResponse
@@ -8812,6 +9595,110 @@ func ParsePutAgentDeploymentResponse(rsp *http.Response) (*PutAgentDeploymentRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AgentDeployment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAgentDeploymentHistoryResponse parses an HTTP response from a ListAgentDeploymentHistoryWithResponse call
+func ParseListAgentDeploymentHistoryResponse(rsp *http.Response) (*ListAgentDeploymentHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAgentDeploymentHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []AgentDeploymentHistory
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAgentDeploymentHistoryResponse parses an HTTP response from a DeleteAgentDeploymentHistoryWithResponse call
+func ParseDeleteAgentDeploymentHistoryResponse(rsp *http.Response) (*DeleteAgentDeploymentHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAgentDeploymentHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentDeploymentHistory
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAgentDeploymentHistoryResponse parses an HTTP response from a GetAgentDeploymentHistoryWithResponse call
+func ParseGetAgentDeploymentHistoryResponse(rsp *http.Response) (*GetAgentDeploymentHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAgentDeploymentHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentDeploymentHistory
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutAgentDeploymentHistoryResponse parses an HTTP response from a PutAgentDeploymentHistoryWithResponse call
+func ParsePutAgentDeploymentHistoryResponse(rsp *http.Response) (*PutAgentDeploymentHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutAgentDeploymentHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentDeploymentHistory
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9654,6 +10541,32 @@ func ParseListModelsResponse(rsp *http.Response) (*ListModelsResponse, error) {
 	return response, nil
 }
 
+// ParseCreateModelResponse parses an HTTP response from a CreateModelWithResponse call
+func ParseCreateModelResponse(rsp *http.Response) (*CreateModelResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateModelResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Model
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteModelResponse parses an HTTP response from a DeleteModelWithResponse call
 func ParseDeleteModelResponse(rsp *http.Response) (*DeleteModelResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -9706,15 +10619,15 @@ func ParseGetModelResponse(rsp *http.Response) (*GetModelResponse, error) {
 	return response, nil
 }
 
-// ParsePutModelResponse parses an HTTP response from a PutModelWithResponse call
-func ParsePutModelResponse(rsp *http.Response) (*PutModelResponse, error) {
+// ParseUpdateModelResponse parses an HTTP response from a UpdateModelWithResponse call
+func ParseUpdateModelResponse(rsp *http.Response) (*UpdateModelResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutModelResponse{
+	response := &UpdateModelResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -10714,131 +11627,142 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AQA=",
+	"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",
+	"pmYPXx/+JwAA//+RsNA81RoBAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

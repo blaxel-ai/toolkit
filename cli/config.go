@@ -16,6 +16,7 @@ type Resource struct {
 	Get      interface{}
 	Delete   interface{}
 	Put      interface{}
+	Post     interface{}
 }
 
 var resources = []*Resource{

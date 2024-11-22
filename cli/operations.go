@@ -41,7 +41,16 @@ func (r *Operations) CliCommand(ctx context.Context, operationId string, fn inte
 		}
 		return
 	}
-	if operation[0] == "put" {
+	if operation[0] == "put" || operation[0] == "update" {
+		for _, resource := range resources {
+			if resource.Singular == operation[1] {
+				resource.Put = fn
+				break
+			}
+		}
+		return
+	}
+	if operation[0] == "create" {
 		for _, resource := range resources {
 			if resource.Singular == operation[1] {
 				resource.Put = fn
