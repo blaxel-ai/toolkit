@@ -27,7 +27,7 @@ def new_client_with_credentials(config: RunClientWithCredentials):
     provider: Auth = None
     if config.credentials.api_key:
         provider = ApiKeyProvider(config.credentials, config.workspace)
-    elif config.credentials.access_token:
+    elif config.credentials.accessToken:
         provider = BearerToken(config.credentials, config.workspace, config.api_url)
     else:
         provider = PublicProvider()

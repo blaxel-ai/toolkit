@@ -33,7 +33,7 @@ class DeviceLoginFinalizeRequest:
 
 @dataclass
 class DeviceLoginFinalizeResponse:
-    access_token: str
+    accessToken: str
     expires_in: int
     refresh_token: str
     token_type: str
@@ -47,7 +47,7 @@ class BearerToken(Auth):
 
     def refresh_if_needed(self) -> Optional[Exception]:
         # Need to refresh token if expires in less than 10 minutes
-        parts = self.credentials.access_token.split('.')
+        parts = self.credentials.accessToken.split('.')
         if len(parts) != 3:
             return Exception("Invalid JWT token format")
 
@@ -69,7 +69,7 @@ class BearerToken(Auth):
         if err:
             return err
 
-        request.headers['X-Beamlit-Authorization'] = f'Bearer {self.credentials.access_token}'
+        request.headers['X-Beamlit-Authorization'] = f'Bearer {self.credentials.accessToken}'
         request.headers['X-Beamlit-Workspace'] = self.workspace_name
         yield request
 
@@ -101,7 +101,7 @@ class BearerToken(Auth):
 
             from .credentials import Credentials, save_credentials
             creds = Credentials(
-                access_token=finalize_response.access_token,
+                accessToken=finalize_response.accessToken,
                 refresh_token=finalize_response.refresh_token,
                 expires_in=finalize_response.expires_in,
                 device_code=self.credentials.device_code

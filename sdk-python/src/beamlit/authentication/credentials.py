@@ -8,7 +8,7 @@ import yaml
 @dataclass
 class Credentials:
     api_key: str = ""
-    access_token: str = ""
+    accessToken: str = ""
     refresh_token: str = ""
     expires_in: int = 0
     device_code: str = ""
@@ -66,7 +66,7 @@ def save_config(config: Config):
             {
                 "name": ws.name,
                 "credentials": {
-                    "access_token": ws.credentials.access_token,
+                    "accessToken": ws.credentials.accessToken,
                     "api_key": ws.credentials.api_key
                 }
             }
@@ -136,7 +136,7 @@ def create_home_dir_if_missing():
 
 def save_credentials(workspace_name: str, credentials: Credentials):
     create_home_dir_if_missing()
-    if not credentials.access_token and not credentials.api_key:
+    if not credentials.accessToken and not credentials.api_key:
         print("No credentials to save, error")
         return
 

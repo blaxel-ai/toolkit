@@ -46,8 +46,8 @@ func printTable(_ Resource, slices []interface{}) {
 				name = "-"
 			}
 
-			// Get the created_at field, default to "-" if not found
-			createdAt, _ := itemMap["created_at"].(string)
+			// Get the createdAt field, default to "-" if not found
+			createdAt, _ := itemMap["createdAt"].(string)
 			if createdAt == "" {
 				createdAt = "-"
 			} else {
@@ -57,8 +57,8 @@ func printTable(_ Resource, slices []interface{}) {
 				}
 			}
 
-			// Get the updated_at field, default to "-" if not found
-			updatedAt, _ := itemMap["updated_at"].(string)
+			// Get the updatedAt field, default to "-" if not found
+			updatedAt, _ := itemMap["updatedAt"].(string)
 			if updatedAt == "" {
 				updatedAt = "-"
 			} else {

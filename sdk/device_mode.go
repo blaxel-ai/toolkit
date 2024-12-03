@@ -12,29 +12,29 @@ import (
 )
 
 type DeviceLogin struct {
-	ClientID string `json:"client_id"`
+	ClientID string `json:"clientId"`
 	Scope    string `json:"scope"`
 }
 
 type DeviceLoginResponse struct {
-	ClientID                string `json:"client_id"`
-	DeviceCode              string `json:"device_code"`
-	UserCode                string `json:"user_code"`
-	ExpiresIn               int    `json:"expires_in"`
+	ClientID                string `json:"clientId"`
+	DeviceCode              string `json:"deviceCode"`
+	UserCode                string `json:"userCode"`
+	ExpiresIn               int    `json:"expiresIn"`
 	Interval                int    `json:"interval"`
 	VerificationURI         string `json:"verification_uri"`
 	VerificationURIComplete string `json:"verification_uri_complete"`
 }
 type DeviceLoginFinalizeRequest struct {
 	GrantType  string `json:"grant_type"`
-	ClientID   string `json:"client_id"`
-	DeviceCode string `json:"device_code"`
+	ClientID   string `json:"clientId"`
+	DeviceCode string `json:"deviceCode"`
 }
 
 type DeviceLoginFinalizeResponse struct {
-	AccessToken  string `json:"access_token"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"accessToken"`
+	ExpiresIn    int    `json:"expiresIn"`
+	RefreshToken string `json:"refreshToken"`
 	TokenType    string `json:"token_type"`
 }
 
@@ -90,10 +90,10 @@ func (s *BearerToken) DoRefresh() error {
 	}
 	url := s.baseUrl + "/oauth/token"
 	refreshData := map[string]string{
-		"grant_type":    "refresh_token",
-		"refresh_token": s.credentials.RefreshToken,
-		"device_code":   s.credentials.DeviceCode,
-		"client_id":     "beamlit",
+		"grant_type":   "refreshToken",
+		"refreshToken": s.credentials.RefreshToken,
+		"deviceCode":   s.credentials.DeviceCode,
+		"clientId":     "beamlit",
 	}
 
 	jsonData, err := json.Marshal(refreshData)

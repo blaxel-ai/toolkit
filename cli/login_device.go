@@ -62,7 +62,7 @@ func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string
 	url := r.BaseURL + "/oauth/token"
 
 	payload := sdk.DeviceLoginFinalizeRequest{
-		GrantType:  "urn:ietf:params:oauth:grant-type:device_code",
+		GrantType:  "urn:ietf:params:oauth:grant-type:deviceCode",
 		ClientID:   "beamlit",
 		DeviceCode: deviceCode,
 	}
