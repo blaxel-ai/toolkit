@@ -24,6 +24,7 @@ dependencies = [
     "langchain-openai>=0.2.4,<0.3.0",
     "langgraph>=0.2.40,<0.3.0",
     "fastapi[standard]>=0.115.4,<0.116.0",
+    "asgi-correlation-id>=4.3.4,<5.0.0",
     "mcp>=1.1.2",
     "traceloop-sdk>=0.33.12",
     "opentelemetry-sdk>=1.28.2",
