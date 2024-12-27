@@ -7,9 +7,16 @@ from logging import getLogger
 from uuid import uuid4
 
 from asgi_correlation_id import CorrelationIdMiddleware
-from beamlit.common.settings import get_settings, init
+from beamlit.common.settings import SETTINGS, get_settings, init
+from beamlit.common.instrumentation import (
+    get_metrics_exporter,
+    get_resource_attributes,
+    get_span_exporter,
+    instrument_app,
+)
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from traceloop.sdk import Traceloop
 
 from .middlewares import AccessLogMiddleware, AddProcessTimeHeader
 
@@ -33,6 +40,14 @@ logger.info(
     f" on {settings.server.host}:{settings.server.port}"
 )
 
+Traceloop.init(
+    app_name=SETTINGS.name,
+    exporter=get_span_exporter(),
+    metrics_exporter=get_metrics_exporter(),
+    resource_attributes=get_resource_attributes(),
+    should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
+)
+
 app = FastAPI(docs_url=None, redoc_url=None)
 app.add_middleware(
     CorrelationIdMiddleware,
@@ -41,7 +56,7 @@ app.add_middleware(
 )
 app.add_middleware(AddProcessTimeHeader)
 app.add_middleware(AccessLogMiddleware)
-
+instrument_app(app)
 
 @app.get("/health")
 async def health():
