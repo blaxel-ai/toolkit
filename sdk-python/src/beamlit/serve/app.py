@@ -7,7 +7,7 @@ from logging import getLogger
 from uuid import uuid4
 
 from asgi_correlation_id import CorrelationIdMiddleware
-from beamlit.common.settings import SETTINGS, get_settings, init
+from beamlit.common.settings import get_settings, init
 from beamlit.common.instrumentation import (
     get_metrics_exporter,
     get_resource_attributes,
@@ -41,7 +41,7 @@ logger.info(
 )
 
 Traceloop.init(
-    app_name=SETTINGS.name,
+    app_name=settings.name,
     exporter=get_span_exporter(),
     metrics_exporter=get_metrics_exporter(),
     resource_attributes=get_resource_attributes(),
