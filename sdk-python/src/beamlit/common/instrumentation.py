@@ -26,7 +26,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from typing_extensions import Dict
 
-from .settings import SETTINGS
+from .settings import get_settings
 
 tracer: trace.Tracer | None = None
 meter: metrics.Meter | None = None
@@ -49,8 +49,11 @@ def get_resource_attributes() -> Dict[str, Any]:
     resources_dict: Dict[str, Any] = {}
     for key in resources.attributes:
         resources_dict[key] = resources.attributes[key]
-    resources_dict["workspace"] = SETTINGS.workspace
-    resources_dict["service.name"] = SETTINGS.name
+    settings = get_settings()
+    if settings is None:
+        raise Exception("Settings are not initialized")
+    resources_dict["workspace"] = settings.workspace
+    resources_dict["service.name"] = settings.name
     return resources_dict
 
 
@@ -65,11 +68,14 @@ def get_span_exporter() -> OTLPSpanExporter:
 def instrument_app(app: FastAPI):
     global tracer
     global meter
+    settings = get_settings()
+    if settings is None:
+        raise Exception("Settings are not initialized")
     resource = Resource.create(
         {
-            "service.name": SETTINGS.name,
-            "service.namespace": SETTINGS.workspace,
-            "service.workspace": SETTINGS.workspace,
+            "service.name": settings.name,
+            "service.namespace": settings.workspace,
+            "service.workspace": settings.workspace,
         }
     )
     # Set up the TracerProvider
