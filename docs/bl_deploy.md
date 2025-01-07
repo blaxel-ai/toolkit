@@ -1,19 +1,29 @@
 ---
-title: "bl delete location"
-slug: bl_delete_location
+title: "bl deploy"
+slug: bl_deploy
 ---
-## bl delete location
+## bl deploy
 
-Delete a Location
+Deploy a beamlit agent app
+
+### Synopsis
+
+Deploy a beamlit agent app, you must be in a beamlit agent app directory.
 
 ```
-bl delete location name [flags]
+bl deploy [flags]
+```
+
+### Examples
+
+```
+bl deploy
 ```
 
 ### Options
 
 ```
-  -h, --help   help for location
+  -h, --help   help for deploy
 ```
 
 ### Options inherited from parent commands
@@ -27,5 +37,5 @@ bl delete location name [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
 

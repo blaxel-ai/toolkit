@@ -1,19 +1,19 @@
 ---
-title: "bl get locations"
-slug: bl_get_locations
+title: "bl version"
+slug: bl_version
 ---
-## bl get locations
+## bl version
 
-Get a Location
+Get the version of the CLI
 
 ```
-bl get locations [flags]
+bl version [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for locations
+  -h, --help   help for version
 ```
 
 ### Options inherited from parent commands
@@ -27,5 +27,5 @@ bl get locations [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
 

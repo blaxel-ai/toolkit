@@ -40,13 +40,14 @@ logger.info(
     f" on {settings.server.host}:{settings.server.port}"
 )
 
-Traceloop.init(
-    app_name=settings.name,
-    exporter=get_span_exporter(),
-    metrics_exporter=get_metrics_exporter(),
-    resource_attributes=get_resource_attributes(),
-    should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
-)
+if settings.enable_opentelemetry:
+    Traceloop.init(
+        app_name=settings.name,
+        exporter=get_span_exporter(),
+        metrics_exporter=get_metrics_exporter(),
+        resource_attributes=get_resource_attributes(),
+        should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
+    )
 
 app = FastAPI(docs_url=None, redoc_url=None)
 app.add_middleware(

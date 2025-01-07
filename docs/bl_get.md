@@ -28,7 +28,6 @@ Get a resource
 * [bl get environments](bl_get_environments.md)	 - Get a Environment
 * [bl get functions](bl_get_functions.md)	 - Get a Function
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - Get a IntegrationConnection
-* [bl get locations](bl_get_locations.md)	 - Get a Location
 * [bl get modelproviders](bl_get_modelproviders.md)	 - Get a ModelProvider
 * [bl get models](bl_get_models.md)	 - Get a Model
 * [bl get policies](bl_get_policies.md)	 - Get a Policy
