@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     mcp_hub_url: str = Field(default="https://mcp-hub-server.beamlit.workers.com")
     registry_url: str = Field(default="https://us.registry.beamlit.com")
     log_level: str = Field(default="INFO")
-    enable_opentelemetry: bool = Field(default=True)
+    enable_opentelemetry: bool = Field(default=False)
     agent: SettingsAgent = SettingsAgent()
     server: SettingsServer = SettingsServer()
     authentication: SettingsAuthentication = SettingsAuthentication()

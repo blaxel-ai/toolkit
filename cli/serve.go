@@ -15,7 +15,6 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	var hotreload bool
 	var module string
 	var remote bool
-	var enableOpentelemetry bool
 
 	cmd := &cobra.Command{
 		Use:     "serve",
@@ -46,7 +45,6 @@ func (r *Operations) ServeCmd() *cobra.Command {
 			uvicorn.Env = append(uvicorn.Env, fmt.Sprintf("BL_SERVER_PORT=%d", port))
 			uvicorn.Env = append(uvicorn.Env, fmt.Sprintf("BL_SERVER_HOST=%s", host))
 			uvicorn.Env = append(uvicorn.Env, fmt.Sprintf("BL_SERVER_MODULE=%s", module))
-			uvicorn.Env = append(uvicorn.Env, fmt.Sprintf("BL_ENABLE_OPENTELEMETRY=%t", enableOpentelemetry))
 
 			// Add all current environment variables if not already set
 			for _, envVar := range os.Environ() {
@@ -92,6 +90,5 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&module, "module", "m", "agent.main", "Module to serve, can be an agent or a function")
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
 	cmd.Flags().BoolVarP(&remote, "remote", "r", false, "Serve the project remotely. It will use functions deployed on beamlit cloud")
-	cmd.Flags().BoolVarP(&enableOpentelemetry, "opentelemetry", "", false, "Enable opentelemetry tracing, metrics and logging")
 	return cmd
 }
