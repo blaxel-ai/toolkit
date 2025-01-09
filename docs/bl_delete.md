@@ -44,7 +44,6 @@ bl delete [flags]
 * [bl delete environment](bl_delete_environment.md)	 - Delete a Environment
 * [bl delete function](bl_delete_function.md)	 - Delete a Function
 * [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete a IntegrationConnection
-* [bl delete location](bl_delete_location.md)	 - Delete a Location
 * [bl delete model](bl_delete_model.md)	 - Delete a Model
 * [bl delete modelprovider](bl_delete_modelprovider.md)	 - Delete a ModelProvider
 * [bl delete policy](bl_delete_policy.md)	 - Delete a Policy

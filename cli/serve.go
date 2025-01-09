@@ -29,6 +29,8 @@ func (r *Operations) ServeCmd() *cobra.Command {
 				"beamlit.serve.app:app",
 				"--port",
 				fmt.Sprintf("%d", port),
+				"--host",
+				host,
 			)
 			if hotreload {
 				uvicorn.Args = append(uvicorn.Args, "--reload")
