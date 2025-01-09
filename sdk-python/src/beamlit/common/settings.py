@@ -42,7 +42,7 @@ class SettingsServer(BaseSettings):
     module: str = Field(default="main.main")
     port: int = Field(default=80)
     host: str = Field(default="0.0.0.0")
-
+    directory: str = Field(default="src")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

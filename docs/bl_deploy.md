@@ -23,7 +23,9 @@ bl deploy
 ### Options
 
 ```
-  -h, --help   help for deploy
+  -d, --directory string   Directory to deploy, defaults to current directory (default "src")
+  -h, --help               help for deploy
+  -m, --module string      Module to serve, can be an agent or a function (default "agent.main")
 ```
 
 ### Options inherited from parent commands

@@ -7,13 +7,10 @@ from logging import getLogger
 from uuid import uuid4
 
 from asgi_correlation_id import CorrelationIdMiddleware
-from beamlit.common.settings import get_settings, init
-from beamlit.common.instrumentation import (
-    get_metrics_exporter,
-    get_resource_attributes,
-    get_span_exporter,
-    instrument_app,
-)
+from beamlit.common import HTTPError, get_settings, init
+from beamlit.common.instrumentation import (get_metrics_exporter,
+                                            get_resource_attributes,
+                                            get_span_exporter, instrument_app)
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from traceloop.sdk import Traceloop
@@ -91,10 +88,17 @@ async def root(request: Request):
         content = {"error": str(e)}
         if settings.environment == "development":
             content["traceback"] = str(traceback.format_exc())
-        logger.error(f"{content}")
+        logger.error(str(traceback.format_exc()))
         return JSONResponse(status_code=400, content=content)
+    except HTTPError as e:
+        content = {"error": e.message, "status_code": e.status_code}
+        if settings.environment == "development":
+            content["traceback"] = str(traceback.format_exc())
+        logger.error(f"{e.status_code} {str(traceback.format_exc())}")
+        return JSONResponse(status_code=e.status_code, content=content)
     except Exception as e:
         content = {"error": f"Internal server error, {e}"}
         if settings.environment == "development":
             content["traceback"] = str(traceback.format_exc())
+        logger.error(str(traceback.format_exc()))
         return JSONResponse(status_code=500, content=content)

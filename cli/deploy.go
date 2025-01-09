@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func executePythonGenerateBeamlitDeployment(tempDir string) error {
+func executePythonGenerateBeamlitDeployment(tempDir string, module string, directory string) error {
 	pythonCode := fmt.Sprintf(`
 from beamlit.deploy import generate_beamlit_deployment
 generate_beamlit_deployment("%s")
@@ -21,6 +21,8 @@ generate_beamlit_deployment("%s")
 	cmd := exec.Command("python", "-c", pythonCode)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = append(cmd.Env, fmt.Sprintf("BL_SERVER_MODULE=%s", module))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("BL_SERVER_DIRECTORY=%s", directory))
 	return cmd.Run()
 }
 
@@ -75,7 +77,6 @@ func buildBeamlitDeployment(dockerfile string, destination string) error {
 		"build",
 		"-t",
 		destination,
-		"--push",
 		"--platform",
 		"linux/amd64",
 		"-f",
@@ -96,16 +97,43 @@ func buildBeamlitDeployment(dockerfile string, destination string) error {
 		done <- cmd.Run()
 	}()
 
-	// Wait for either command completion or interrupt
-	select {
-	case err := <-done:
-		if err != nil {
-			fmt.Printf("Error building beamlit deployment: %v\n", err)
-			return err
-		}
-		fmt.Printf("Beamlit deployment from %s built successfully\n", dockerfile)
-		return nil
+	// Wait for command completion
+	if err := <-done; err != nil {
+		fmt.Printf("Error building beamlit deployment: %v\n", err)
+		return err
 	}
+	fmt.Printf("Beamlit deployment from %s built successfully\n", dockerfile)
+	return nil
+}
+
+func pushBeamlitDeployment(destination string) error {
+	fmt.Printf("Pushing beamlit deployment to %s\n", destination)
+	cmd := exec.Command(
+		"docker",
+		"push",
+		destination,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	// Create a channel to catch interrupt signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	// Create a channel to receive command completion status
+	done := make(chan error)
+
+	// Run the command in a goroutine
+	go func() {
+		done <- cmd.Run()
+	}()
+
+	// Wait for command completion
+	if err := <-done; err != nil {
+		fmt.Printf("Error pushing beamlit deployment: %v\n", err)
+		return err
+	}
+	fmt.Printf("Beamlit deployment pushed successfully: %s\n", destination)
+	return nil
 }
 
 func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, path string, info os.FileInfo, err error) error {
@@ -139,11 +167,22 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, path
 	// Check if file is a Dockerfile
 	if filepath.Base(path) == "Dockerfile" {
 		// Build the Docker image
-		destination := fmt.Sprintf("%s/%s/%ss/%s", r.GetRegistryURL(), workspace, resourceType, name)
+		// Read destination from destination.txt
+		destinationFile := filepath.Join(filepath.Dir(path), "destination.txt")
+		destinationBytes, err := os.ReadFile(destinationFile)
+		if err != nil {
+			return fmt.Errorf("failed to read destination file: %w", err)
+		}
+		destination := strings.TrimSpace(string(destinationBytes))
 		fmt.Printf("Building Docker image for %s at %s\n", name, destination)
 		err = buildBeamlitDeployment(path, destination)
 		if err != nil {
 			return fmt.Errorf("failed to build Docker image: %w", err)
+		}
+		fmt.Printf("Pushing Docker image for %s at %s\n", name, destination)
+		err = pushBeamlitDeployment(destination)
+		if err != nil {
+			return fmt.Errorf("failed to push Docker image: %w", err)
 		}
 	}
 	if filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml" {
@@ -157,7 +196,8 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, path
 }
 
 func (r *Operations) DeployAgentAppCmd() *cobra.Command {
-
+	var module string
+	var directory string
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -177,7 +217,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			}
 
 			// Execute Python script using the Python interpreter
-			err = executePythonGenerateBeamlitDeployment(tempDir)
+			err = executePythonGenerateBeamlitDeployment(tempDir, module, directory)
 			if err != nil {
 				fmt.Printf("Error executing Python script: %v\n", err)
 				os.Exit(1)
@@ -220,5 +260,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			}
 		},
 	}
+	cmd.Flags().StringVarP(&module, "module", "m", "agent.main", "Module to serve, can be an agent or a function")
+	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
 	return cmd
 }

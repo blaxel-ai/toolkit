@@ -7,6 +7,7 @@ from typing import Callable, Literal
 
 from beamlit.models import StoreFunctionParameter
 
+
 @dataclass
 class Resource:
     type: Literal["agent", "function"]
@@ -16,7 +17,7 @@ class Resource:
     func: Callable
 
 
-def get_resources(from_decorator, dir="src") -> list[Resource]:
+def get_resources(from_decorator, dir) -> list[Resource]:
     """
     Scans through Python files in a directory to find functions decorated with a specific decorator.
 

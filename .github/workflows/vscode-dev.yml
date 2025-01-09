@@ -1,0 +1,65 @@
+name: VSCode Extension Development build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "vscode/**"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    permissions:
+        actions: read
+        contents: read
+        deployments: read
+        packages: none
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096 --openssl-legacy-provider
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: ./vscode
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-tags: true
+        fetch-depth: 0
+    - name: Use node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Install dependencies
+      run: npm install
+    - name: Prepare environment
+      run: |
+        npm install -g typescript
+        npm install -g gulp
+        npm install -g vsce
+    - name: Build
+      run: npm run compile
+    - name: Lint extension source
+      run: gulp tslint
+    - name: Smoke test (Linux)
+      run: xvfb-run -a npm run test
+      if: runner.os == 'Linux'
+    - name: Smoke test (Mac, Windows)
+      run: npm run test
+      if: runner.os != 'Linux'
+    - name: Package extension
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+      run: |
+        npm run package
+        vsce package
+        mkdir vsix
+        mv *.vsix vsix
+    - name: Archive extension
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsix
+        path: vsix

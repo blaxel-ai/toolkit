@@ -3,7 +3,7 @@ from typing import Any
 
 import requests
 from beamlit.client import AuthenticatedClient
-from beamlit.common.settings import get_settings
+from beamlit.common import HTTPError, get_settings
 
 
 class RunClient:
@@ -45,4 +45,6 @@ class RunClient:
             kwargs["json"] = json
 
         response = client.request(method, url, **kwargs)
+        if response.status_code >= 400:
+            raise HTTPError(response.status_code, response.text)
         return response
