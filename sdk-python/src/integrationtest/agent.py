@@ -13,6 +13,7 @@ from beamlit.agents import agent
         "spec": {
             "description": "A chat agent using Beamlit to handle your tasks.",
             "model": "gpt-4o-mini",
+            "policies": ["only-us"],
         },
     },
 )

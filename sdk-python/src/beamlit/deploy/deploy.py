@@ -2,12 +2,20 @@ import ast
 import json
 import os
 import sys
+import uuid
 from logging import getLogger
 from typing import Literal
 
 from beamlit.common.settings import Settings, get_settings, init
-from beamlit.models import (Agent, AgentChain, AgentSpec, EnvironmentMetadata,
-                            Flavor, Function, FunctionSpec, Runtime)
+from beamlit.models import (
+    Agent,
+    AgentSpec,
+    EnvironmentMetadata,
+    Flavor,
+    Function,
+    FunctionSpec,
+    Runtime,
+)
 
 from .format import arg_to_dict, format_agent_chain, format_parameters
 from .parser import Resource, get_description, get_parameters, get_resources
@@ -15,11 +23,16 @@ from .parser import Resource, get_description, get_parameters, get_resources
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "src"))
 
+random_id = str(uuid.uuid4())[:8]
+def slugify(name: str) -> str:
+    return name.lower().replace(" ", "-").replace("_", "-")
 
 def get_runtime_image(type: str, name: str) -> str:
     settings = get_settings()
     registry_url = settings.registry_url.replace("https://", "").replace("http://", "")
     image = f"{registry_url}/{settings.workspace}/{type}s/{name}"
+    # Generate a random ID to ensure unique image tags
+    image = f"{image}:{random_id}"
     return image
 
 
@@ -110,7 +123,7 @@ def get_agent_yaml(
 apiVersion: beamlit.com/v1alpha1
 kind: Agent
 metadata:
-  name: {agent.metadata.name}
+  name: {slugify(agent.metadata.name)}
   displayName: {agent.metadata.display_name or agent.metadata.name}
   environment: {settings.environment}
   workspace: {settings.workspace}
@@ -144,7 +157,7 @@ def get_function_yaml(function: Function, settings: Settings) -> str:
 apiVersion: beamlit.com/v1alpha1
 kind: Function
 metadata:
-  name: {function.metadata.name}
+  name: {slugify(function.metadata.name)}
   displayName: {function.metadata.display_name or function.metadata.name}
   environment: {settings.environment}
 spec:
@@ -244,29 +257,29 @@ def generate_beamlit_deployment(directory: str):
         # write deployment file
         agent_dir = os.path.join(agents_dir, agent.metadata.name)
         os.makedirs(agent_dir, exist_ok=True)
-        with open(os.path.join(agent_dir, f"agent.yaml"), "w") as f:
+        with open(os.path.join(agent_dir, "agent.yaml"), "w") as f:
             content = get_agent_yaml(agent, functions, settings)
             f.write(content)
         # write dockerfile for build
-        with open(os.path.join(agent_dir, f"Dockerfile"), "w") as f:
+        with open(os.path.join(agent_dir, "Dockerfile"), "w") as f:
             content = dockerfile("agent", resource, agent)
             f.write(content)
         # write destination docker
-        with open(os.path.join(agent_dir, f"destination.txt"), "w") as f:
+        with open(os.path.join(agent_dir, "destination.txt"), "w") as f:
             content = agent.spec.runtime.image
             f.write(content)
     for resource, function in functions:
         # write deployment file
         function_dir = os.path.join(functions_dir, function.metadata.name)
         os.makedirs(function_dir, exist_ok=True)
-        with open(os.path.join(function_dir, f"function.yaml"), "w") as f:
+        with open(os.path.join(function_dir, "function.yaml"), "w") as f:
             content = get_function_yaml(function, settings)
             f.write(content)
         # write dockerfile for build
-        with open(os.path.join(function_dir, f"Dockerfile"), "w") as f:
+        with open(os.path.join(function_dir, "Dockerfile"), "w") as f:
             content = dockerfile("function", resource, function)
             f.write(content)
         # write destination docker
-        with open(os.path.join(function_dir, f"destination.txt"), "w") as f:
+        with open(os.path.join(function_dir, "destination.txt"), "w") as f:
             content = function.spec.runtime.image
             f.write(content)

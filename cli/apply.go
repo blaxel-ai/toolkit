@@ -13,6 +13,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type ApplyResult struct {
+	Kind   string
+	Name   string
+	Result string
+}
+
 func (r *Operations) ApplyCmd() *cobra.Command {
 	var filePath string
 	var recursive bool
@@ -27,7 +33,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 			cat file.yaml | bl apply -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			err := r.Apply(filePath, recursive)
+			_, err := r.Apply(filePath, recursive)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -46,22 +52,28 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 	return cmd
 }
 
-func (r *Operations) Apply(filePath string, recursive bool) error {
+func (r *Operations) Apply(filePath string, recursive bool) ([]ApplyResult, error) {
 	results, err := getResults(filePath, recursive)
 	if err != nil {
-		return fmt.Errorf("error getting results: %w", err)
+		return nil, fmt.Errorf("error getting results: %w", err)
 	}
+	applyResults := []ApplyResult{}
 
 	// À ce stade, results contient tous vos documents YAML
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
 				name := result.Metadata.(map[string]interface{})["name"].(string)
-				resource.PutFn(resource.Kind, name, result)
+				status := resource.PutFn(resource.Kind, name, result)
+				applyResults = append(applyResults, ApplyResult{
+					Kind:   resource.Kind,
+					Name:   name,
+					Result: status,
+				})
 			}
 		}
 	}
-	return nil
+	return applyResults, nil
 }
 
 // Helper function to handle common resource operations
@@ -125,70 +137,71 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 	return response, nil
 }
 
-func (resource Resource) PutFn(resourceName string, name string, resourceObject interface{}) {
+func (resource Resource) PutFn(resourceName string, name string, resourceObject interface{}) string {
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := resource.handleResourceOperation(name, resourceObject, "put")
 	if err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return
+		return "failed"
 	}
 	if response == nil {
-		return
+		return "failed"
 	}
 
 	defer response.Body.Close()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return
+		return "failed"
 	}
 
 	if response.StatusCode == 404 {
 		// Need to create the resource
-		resource.PostFn(resourceName, name, resourceObject)
-		return
+		return resource.PostFn(resourceName, name, resourceObject)
 	}
 
 	if response.StatusCode >= 400 {
 		ErrorHandler(response.Request, resourceName, name, buf.String())
-		return
+		return "failed"
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return
+		return "failed"
 	}
 	fmt.Printf("Resource %s:%s configured\n", resourceName, name)
+	return "configured"
 }
 
-func (resource Resource) PostFn(resourceName string, name string, resourceObject interface{}) {
+func (resource Resource) PostFn(resourceName string, name string, resourceObject interface{}) string {
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := resource.handleResourceOperation(name, resourceObject, "post")
 	if err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return
+		return "failed"
 	}
 	if response == nil {
-		return
+		return "failed"
 	}
 
 	defer response.Body.Close()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return
+		return "failed"
 	}
 
 	if response.StatusCode >= 400 {
 		ErrorHandler(response.Request, resourceName, name, buf.String())
-		return
+		return "failed"
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return
+		return "failed"
 	}
 	fmt.Printf("Resource %s:%s created\n", resourceName, name)
+	return "created"
 }

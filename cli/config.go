@@ -20,6 +20,7 @@ type Resource struct {
 	Delete           interface{}
 	Put              interface{}
 	Post             interface{}
+	WithStatus       bool
 }
 
 var resources = []*Resource{
@@ -46,6 +47,7 @@ var resources = []*Resource{
 		ListParamsType:   reflect.TypeOf(sdk.ListModelsParams{}),
 		GetParamsType:    reflect.TypeOf(sdk.GetModelParams{}),
 		DeleteParamsType: reflect.TypeOf(sdk.DeleteModelParams{}),
+		WithStatus:       true,
 	},
 	{
 		Kind:     "ModelProvider",
@@ -63,6 +65,7 @@ var resources = []*Resource{
 		ListParamsType:   reflect.TypeOf(sdk.ListFunctionsParams{}),
 		GetParamsType:    reflect.TypeOf(sdk.GetFunctionParams{}),
 		DeleteParamsType: reflect.TypeOf(sdk.DeleteFunctionParams{}),
+		WithStatus:       true,
 	},
 	{
 		Kind:             "Agent",
@@ -73,6 +76,7 @@ var resources = []*Resource{
 		ListParamsType:   reflect.TypeOf(sdk.ListAgentsParams{}),
 		GetParamsType:    reflect.TypeOf(sdk.GetAgentParams{}),
 		DeleteParamsType: reflect.TypeOf(sdk.DeleteAgentParams{}),
+		WithStatus:       true,
 	},
 	{
 		Kind:     "IntegrationConnection",

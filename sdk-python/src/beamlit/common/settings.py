@@ -2,6 +2,16 @@ import os
 from logging import getLogger
 from typing import Tuple, Type, Union
 
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph.graph.graph import CompiledGraph
+from pydantic import Field
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
+
 from beamlit.api.agents import get_agent
 from beamlit.api.functions import get_function
 from beamlit.api.models import get_model
@@ -9,11 +19,6 @@ from beamlit.client import AuthenticatedClient
 from beamlit.common.logger import init as init_logger
 from beamlit.models import Agent, Function, Model
 from beamlit.types import UNSET, Unset
-from langchain_core.language_models.chat_models import BaseChatModel
-from langgraph.graph.graph import CompiledGraph
-from pydantic import Field
-from pydantic_settings import (BaseSettings, PydanticBaseSettingsSource,
-                               SettingsConfigDict, YamlConfigSettingsSource)
 
 global SETTINGS
 SETTINGS = None
@@ -100,7 +105,6 @@ def init_agent(
     client: AuthenticatedClient,
     destination: str = f"{os.getcwd()}/src/beamlit_generated.py",
 ):
-    from beamlit.api.agents import get_agent_deployment
     from beamlit.common.generate import generate
 
     logger = getLogger(__name__)

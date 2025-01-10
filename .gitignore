@@ -8,3 +8,4 @@ tmp
 beamlit_generated.py
 test.yaml
 node_modules
+.beamlit

@@ -1,15 +1,19 @@
-import os
 from dataclasses import dataclass
 from typing import Dict, Generator
 
-from beamlit.common.settings import Settings, get_settings
 from httpx import Auth, Request, Response
+
+from beamlit.common.settings import Settings, get_settings
 
 from ..client import AuthenticatedClient
 from .apikey import ApiKeyProvider
 from .clientcredentials import ClientCredentials
-from .credentials import (Credentials, current_context, load_credentials,
-                          load_credentials_from_settings)
+from .credentials import (
+    Credentials,
+    current_context,
+    load_credentials,
+    load_credentials_from_settings,
+)
 from .device_mode import BearerToken
 
 

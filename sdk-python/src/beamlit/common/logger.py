@@ -27,5 +27,5 @@ def init(log_level: str):
     logging.getLogger("httpx").propagate = False
 
     handler = logging.StreamHandler()
-    handler.setFormatter(ColoredFormatter(f"%(levelname)s %(name)s - %(message)s"))
+    handler.setFormatter(ColoredFormatter("%(levelname)s %(name)s - %(message)s"))
     logging.basicConfig(level=log_level, handlers=[handler])

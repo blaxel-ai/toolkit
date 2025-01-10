@@ -565,7 +565,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 				return
 			}
 			fmt.Printf(`Your beamlit agent app has been created. Start working on it:
-cd %s && source .venv/bin/activate;
+cd %s;
 bl serve --hotreload;
 `, opts.Directory)
 		},

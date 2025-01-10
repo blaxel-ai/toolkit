@@ -18,11 +18,18 @@ func executePythonGenerateBeamlitDeployment(tempDir string, module string, direc
 from beamlit.deploy import generate_beamlit_deployment
 generate_beamlit_deployment("%s")
 	`, tempDir)
-	cmd := exec.Command("python", "-c", pythonCode)
+	pythonCmd := "python"
+	if _, err := os.Stat(".venv"); !os.IsNotExist(err) {
+		pythonCmd = ".venv/bin/python"
+	}
+	cmd := exec.Command(pythonCmd, "-c", pythonCode)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(cmd.Env, fmt.Sprintf("BL_SERVER_MODULE=%s", module))
 	cmd.Env = append(cmd.Env, fmt.Sprintf("BL_SERVER_DIRECTORY=%s", directory))
+	if os.Getenv("BL_ENV") != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("BL_ENV=%s", os.Getenv("BL_ENV")))
+	}
 	return cmd.Run()
 }
 
@@ -34,7 +41,10 @@ func dockerLogin(registryURL string, apiUrl string) error {
 		password = credentials.APIKey
 	} else if credentials.AccessToken != "" {
 		provider := sdk.NewBearerTokenProvider(credentials, workspace, apiUrl)
-		provider.RefreshIfNeeded()
+		err := provider.RefreshIfNeeded()
+		if err != nil {
+			return fmt.Errorf("failed to refresh credentials: %w", err)
+		}
 		password = provider.GetCredentials().AccessToken
 	} else {
 		return fmt.Errorf("no credentials found")
@@ -136,7 +146,7 @@ func pushBeamlitDeployment(destination string) error {
 	return nil
 }
 
-func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, path string, info os.FileInfo, err error) error {
+func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, applyResults *[]ApplyResult, path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -187,10 +197,11 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, path
 	}
 	if filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml" {
 		fmt.Printf("Applying configuration for %s:%s -> file: %s\n", resourceType, name, filepath.Base(path))
-		err = r.Apply(path, false)
+		results, err := r.Apply(path, false)
 		if err != nil {
 			return fmt.Errorf("failed to apply configuration: %w", err)
 		}
+		*applyResults = append(*applyResults, results...)
 	}
 	return nil
 }
@@ -208,7 +219,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 
 			// Create a temporary directory for deployment files
-			tempDir := "deploy-tmp-dir"
+			tempDir := ".beamlit"
 
 			err := dockerLogin(r.GetRegistryURL(), r.BaseURL)
 			if err != nil {
@@ -224,39 +235,67 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			}
 
 			agents := []string{}
+			applyResults := []ApplyResult{}
 
-			// Walk through the temporary directory recursively
+			// Walk through the temporary directory recursively, we deploy everything except agents
 			err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-				return r.handleDeploymentFile(tempDir, &agents, path, info, err)
+				if !strings.Contains(path, "agents/") {
+					return r.handleDeploymentFile(tempDir, &agents, &applyResults, path, info, err)
+				}
+				return nil
+			})
+			if err != nil {
+				fmt.Printf("Error deploying beamlit app: %v\n", err)
+				os.Exit(1)
+			}
+			// Walk through the temporary directory recursively, we deploy agents last
+			err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if strings.Contains(path, "agents/") {
+					return r.handleDeploymentFile(tempDir, &agents, &applyResults, path, info, err)
+				}
+				return nil
 			})
 			if err != nil {
 				fmt.Printf("Error deploying beamlit app: %v\n", err)
 				os.Exit(1)
 			}
 
+			
 			env := "production"
 			if environment != "" {
 				env = environment
 			}
-			fmt.Printf("Your beamlit agents are ready:\n")
+			// Print apply summary in table format
+			if len(applyResults) > 0 {
+				fmt.Print("\nSummary:\n\n")
+				fmt.Printf("%-20s %-30s %-10s\n", "KIND", "NAME", "RESULT")
+				fmt.Printf("%-20s %-30s %-10s\n", "----", "----", "------")
+				for _, result := range applyResults {
+					fmt.Printf("%-20s %-30s %-10s\n", result.Kind, result.Name, result.Result)
+				}
+				fmt.Println()
+			}
+			if len(agents) > 1 {
+				fmt.Printf("Your beamlit agents are ready:\n")
+			} else {
+				fmt.Printf("Your beamlit agent is ready:\n")
+			}
 			for _, agent := range agents {
 				fmt.Printf(
-					"- %s at %s/%s/global-inference-network/agent/%s?environment=%s\n",
-					agent,
+					"- Url: %s/%s/global-inference-network/agent/%s?environment=%s\n",
 					r.AppURL,
 					workspace,
 					agent,
 					env,
 				)
-			}
-			// Clean up temporary directory
-			err = os.RemoveAll(tempDir)
-			if err != nil {
-				fmt.Printf("Error cleaning up temporary directory: %v\n", err)
-				os.Exit(1)
+				fmt.Printf("  Watch status: bl get agent %s --watch\n", agent)
+				fmt.Printf("  Run: bl run agent %s --data '{\"inputs\": \"Hello world\"}'\n\n", agent)
 			}
 		},
 	}

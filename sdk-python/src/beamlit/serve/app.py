@@ -7,13 +7,17 @@ from logging import getLogger
 from uuid import uuid4
 
 from asgi_correlation_id import CorrelationIdMiddleware
-from beamlit.common import HTTPError, get_settings, init
-from beamlit.common.instrumentation import (get_metrics_exporter,
-                                            get_resource_attributes,
-                                            get_span_exporter, instrument_app)
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from traceloop.sdk import Traceloop
+
+from beamlit.common import HTTPError, get_settings, init
+from beamlit.common.instrumentation import (
+    get_metrics_exporter,
+    get_resource_attributes,
+    get_span_exporter,
+    instrument_app,
+)
 
 from .middlewares import AccessLogMiddleware, AddProcessTimeHeader
 
@@ -56,6 +60,7 @@ app.add_middleware(AddProcessTimeHeader)
 app.add_middleware(AccessLogMiddleware)
 instrument_app(app)
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -68,7 +73,7 @@ async def root(request: Request):
     try:
         body = await request.json()
 
-        original_func = getattr(func, '__wrapped__', func)
+        original_func = getattr(func, "__wrapped__", func)
         if asyncio.iscoroutinefunction(func) or asyncio.iscoroutinefunction(original_func):
             response = await func(body)
         else:

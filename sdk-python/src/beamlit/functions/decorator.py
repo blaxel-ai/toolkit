@@ -4,11 +4,12 @@ import json
 from collections.abc import Callable
 from logging import getLogger
 
+from langchain_core.tools import create_schema_from_function
+
 from beamlit.authentication import new_client
 from beamlit.common.settings import get_settings
 from beamlit.models import Function, FunctionKit
 from beamlit.run import RunClient
-from langchain_core.tools import create_schema_from_function
 
 logger = getLogger(__name__)
 
@@ -67,10 +68,16 @@ def kit(bl_kit: FunctionKit = None, **kwargs: dict) -> Callable:
     return wrapper
 
 
-def function(*args, function: Function = None, kit=False, **kwargs: dict) -> Callable:
+def function(*args, function: Function | dict = None, kit=False, **kwargs: dict) -> Callable:
     """Create function tools with Beamlit and LangChain integration."""
     settings = get_settings()
-
+    if function is not None and not isinstance(function, dict):
+        raise Exception(
+            'function must be a dictionary, example: @function(function={"metadata": {"name": "my_function"}})'
+        )
+    if isinstance(function, dict):
+        function = Function(**function)
+        
     def wrapper(func: Callable) -> Callable:
         if function and not func.__doc__ and function.spec and function.spec.description:
             func.__doc__ = function.spec.description

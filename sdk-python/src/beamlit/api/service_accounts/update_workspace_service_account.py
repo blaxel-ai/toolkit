@@ -6,7 +6,9 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.update_workspace_service_account_body import UpdateWorkspaceServiceAccountBody
-from ...models.update_workspace_service_account_response_200 import UpdateWorkspaceServiceAccountResponse200
+from ...models.update_workspace_service_account_response_200 import (
+    UpdateWorkspaceServiceAccountResponse200,
+)
 from ...types import Response
 
 

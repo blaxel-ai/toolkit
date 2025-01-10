@@ -34,12 +34,19 @@ func retrieveKey(itemMap map[string]interface{}, key string) string {
 	if value, ok := itemMap["metadata"].(map[string]interface{})[key]; ok {
 		return value.(string)
 	}
+	if value, ok := itemMap["status"].(map[string]interface{})[key]; ok {
+		return value.(string)
+	}
 	return "-"
 }
 
-func printTable(_ Resource, slices []interface{}) {
+func printTable(resource Resource, slices []interface{}) {
 	// Print header with fixed width columns
-	fmt.Printf("%-15s %-24s %-20s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
+	if resource.WithStatus {
+		fmt.Printf("%-15s %-24s %-20s %-20s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
+	} else {
+		fmt.Printf("%-15s %-24s %-20s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
+	}
 
 	// Print each item in the array
 	for _, item := range slices {
@@ -70,8 +77,12 @@ func printTable(_ Resource, slices []interface{}) {
 				}
 			}
 
-			// Print the fields with fixed width columns
-			fmt.Printf("%-15s %-24s %-20s %-20s\n", workspace, name, createdAt, updatedAt)
+			if resource.WithStatus {
+				status := retrieveKey(itemMap, "deploymentStatus")
+				fmt.Printf("%-15s %-24s %-20s %-20s %-20s\n", workspace, name, createdAt, updatedAt, status)
+			} else {
+				fmt.Printf("%-15s %-24s %-20s %-20s\n", workspace, name, createdAt, updatedAt)
+			}
 		}
 	}
 }
@@ -85,6 +96,7 @@ func printJson(resource Resource, slices []interface{}) {
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],
+				Status:     sliceMap["status"],
 			})
 		}
 	}
@@ -106,6 +118,7 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],
+				Status:     sliceMap["status"],
 			})
 		}
 	}

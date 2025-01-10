@@ -5,7 +5,9 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.delete_workspace_service_account_response_200 import DeleteWorkspaceServiceAccountResponse200
+from ...models.delete_workspace_service_account_response_200 import (
+    DeleteWorkspaceServiceAccountResponse200,
+)
 from ...types import Response
 
 

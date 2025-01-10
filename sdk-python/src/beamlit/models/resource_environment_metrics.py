@@ -8,7 +8,9 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.metric import Metric
     from ..models.qps import QPS
-    from ..models.resource_environment_metrics_inference_per_region import ResourceEnvironmentMetricsInferencePerRegion
+    from ..models.resource_environment_metrics_inference_per_region import (
+        ResourceEnvironmentMetricsInferencePerRegion,
+    )
     from ..models.resource_environment_metrics_query_per_region_per_code import (
         ResourceEnvironmentMetricsQueryPerRegionPerCode,
     )

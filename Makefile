@@ -34,6 +34,7 @@ doc:
 
 lint:
 	golangci-lint run
+	uv run ruff check --fix
 
 install:
 	uv pip install openapi-python-client

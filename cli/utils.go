@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
 
@@ -117,11 +119,12 @@ func handleDirectory(filePath string, recursive bool, n int) ([]Result, error) {
 }
 
 func retrieveListParams(typeParams reflect.Type, options map[string]string) reflect.Value {
+	caser := cases.Title(language.English)
 	paramsValue := reflect.New(typeParams)
 
 	elemValue := paramsValue.Elem()
 	for fieldName, value := range options {
-		field := elemValue.FieldByName(strings.Title(fieldName))
+		field := elemValue.FieldByName(caser.String(fieldName))
 		if field.IsValid() && field.CanSet() {
 			switch field.Kind() {
 			case reflect.Ptr:

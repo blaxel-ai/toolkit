@@ -126,13 +126,11 @@ def get_span_exporter() -> OTLPSpanExporter | None:
         return None
     return OTLPSpanExporter(headers=get_auth_headers())
 
-
 # Your existing function to initialize tracing and metrics
 def instrument_app(app: FastAPI):
     global tracer
     global meter
     settings = get_settings()
-
     if not settings.enable_opentelemetry:
         # Use NoOp implementations to stub tracing and metrics
         trace.set_tracer_provider(NoOpTracerProvider())

@@ -8,7 +8,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"reflect"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -18,6 +21,7 @@ func (r *Operations) GetCmd() *cobra.Command {
 		Use:   "get",
 		Short: "Get a resource",
 	}
+	var watch bool
 	for _, resource := range resources {
 		subcmd := &cobra.Command{
 			Use:     resource.Plural,
@@ -27,18 +31,44 @@ func (r *Operations) GetCmd() *cobra.Command {
 				options := map[string]string{
 					"environment": environment,
 				}
-				if len(args) == 0 {
-					resource.ListFn(options)
-					return
-				}
-				if len(args) == 1 {
-					resource.GetFn(args[0], options)
+				if watch {
+					seconds := 2
+					duration := time.Duration(seconds) * time.Second
+
+					// Execute immediately before starting the ticker
+					executeAndDisplayWatch(args, *resource, options, seconds)
+
+					// Create a ticker to periodically fetch updates
+					ticker := time.NewTicker(duration)
+					defer ticker.Stop()
+
+					// Handle Ctrl+C gracefully
+					sigChan := make(chan os.Signal, 1)
+					signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+					for {
+						select {
+						case <-ticker.C:
+							executeAndDisplayWatch(args, *resource, options, seconds)
+						case <-sigChan:
+							fmt.Println("\nStopped watching.")
+							return
+						}
+					}
+				} else {
+					if len(args) == 0 {
+						resource.ListFn(options)
+						return
+					}
+					if len(args) == 1 {
+						resource.GetFn(args[0], options)
+					}
 				}
 			},
 		}
 		cmd.AddCommand(subcmd)
 	}
-
+	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
 	return cmd
 }
 
@@ -154,4 +184,37 @@ func (resource Resource) ListFn(options map[string]string) {
 	}
 	// Check the output format
 	output(resource, slices, outputFormat)
+}
+
+// Helper function to execute and display results
+func executeAndDisplayWatch(args []string, resource Resource, options map[string]string, seconds int) {
+	// Create a pipe to capture output
+	r, w, _ := os.Pipe()
+	// Save the original stdout
+	stdout := os.Stdout
+	// Set stdout to our pipe
+	os.Stdout = w
+
+	// Execute the resource function
+	if len(args) == 0 {
+		resource.ListFn(options)
+	} else if len(args) == 1 {
+		resource.GetFn(args[0], options)
+	}
+
+	// Close the write end of the pipe
+	w.Close()
+
+	// Read the output from the pipe
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+
+	// Restore stdout
+	os.Stdout = stdout
+	r.Close()
+
+	// Clear screen and move cursor to top-left
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("Every %ds: watching %s\n\n", seconds, resource.Kind)
+	fmt.Print(buf.String())
 }
