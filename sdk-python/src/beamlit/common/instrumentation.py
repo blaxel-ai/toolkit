@@ -1,5 +1,8 @@
+import base64
+from datetime import datetime
 from typing import Any
 
+from authlib.integrations.requests_client import OAuth2Session
 from fastapi import FastAPI
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
@@ -22,20 +25,77 @@ from typing_extensions import Dict
 
 from .settings import get_settings
 
+# Global variables
 tracer: trace.Tracer | None = None
 meter: metrics.Meter | None = None
+oauth_session: OAuth2Session | None = None
+current_token: Dict[str, Any] | None = None
 
 
-def get_tracer() -> trace.Tracer:
-    if tracer is None:
-        raise Exception("Tracer is not initialized")
-    return tracer
+def get_token() -> Dict[str, Any]:
+    # Fetch settings from the environment or config
+    settings = get_settings()
+
+    # Retrieve the base64-encoded credentials from the settings
+    base64_creds = (
+        settings.authentication.client.credentials
+        if settings and settings.authentication.client.credentials
+        else ""
+    )
+    client_id, client_secret = "", ""
+    # Decode the base64 credentials if present
+    if base64_creds:
+        try:
+            # Decode and split the credentials into client_id and client_secret
+            decoded_creds = base64.b64decode(base64_creds).decode("utf-8")
+            client_id, client_secret = decoded_creds.split(":")
+        except Exception:
+            # Return an empty token if the credentials are invalid with expiration time time.time() + 60
+            return {
+                "access_token": "",
+                "expires_at": datetime.now().timestamp() + 7200,
+            }
+
+    else:
+        return {
+            "access_token": "",
+            "expires_at": datetime.now().timestamp() + 7200,
+        }
+
+    # Initialize OAuth2 session with the appropriate credentials
+    global oauth_session
+    if oauth_session is None:
+        oauth_session = OAuth2Session(
+            client_id=client_id, client_secret=client_secret
+        )
+
+    # Fetch the token from the OAuth2 server
+    token = oauth_session.fetch_token(
+        url=f"{settings.base_url}/oauth/token",
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    return token
 
 
-def get_meter() -> metrics.Meter:
-    if meter is None:
-        raise Exception("Meter is not initialized")
-    return meter
+# Token renewal function
+def renew_token_if_needed() -> Dict[str, Any]:
+    global current_token
+    if (
+        current_token is None
+        or current_token["expires_at"] < datetime.now().timestamp()
+    ):
+        current_token = get_token()
+    return current_token
+
+
+# Function to get headers with the current token
+def get_auth_headers() -> Dict[str, str]:
+    token = renew_token_if_needed()
+    return {
+        "authorization": f"Bearer {token['access_token']}",
+        "x-beamlit-workspace": get_settings().workspace,
+    }
 
 
 def get_resource_attributes() -> Dict[str, Any]:
@@ -51,29 +111,27 @@ def get_resource_attributes() -> Dict[str, Any]:
     return resources_dict
 
 
+# OTLP Metric Exporter with token refresh
 def get_metrics_exporter() -> OTLPMetricExporter | None:
     settings = get_settings()
-    if settings is None:
-        raise Exception("Settings are not initialized")
     if not settings.enable_opentelemetry:
-        # Return None or a NoOpExporter equivalent
         return None
-    return OTLPMetricExporter()
+    return OTLPMetricExporter(headers=get_auth_headers())
 
 
+# OTLP Span Exporter with token refresh
 def get_span_exporter() -> OTLPSpanExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
         return None
-    return OTLPSpanExporter()
+    return OTLPSpanExporter(headers=get_auth_headers())
 
 
+# Your existing function to initialize tracing and metrics
 def instrument_app(app: FastAPI):
     global tracer
     global meter
     settings = get_settings()
-    if settings is None:
-        raise Exception("Settings are not initialized")
 
     if not settings.enable_opentelemetry:
         # Use NoOp implementations to stub tracing and metrics
@@ -115,9 +173,13 @@ def instrument_app(app: FastAPI):
 
     # Only instrument the app when OpenTelemetry is enabled
     FastAPIInstrumentor.instrument_app(
-        app=app, tracer_provider=trace.get_tracer_provider(), meter_provider=metrics.get_meter_provider()
+        app=app,
+        tracer_provider=trace.get_tracer_provider(),
+        meter_provider=metrics.get_meter_provider(),
     )
-    HTTPXClientInstrumentor().instrument(meter_provider=metrics.get_meter_provider())
+    HTTPXClientInstrumentor().instrument(
+        meter_provider=metrics.get_meter_provider()
+    )
     LoggingInstrumentor(tracer_provider=trace.get_tracer_provider()).instrument(
         set_logging_format=True
     )
