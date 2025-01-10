@@ -25,7 +25,6 @@ from typing_extensions import Dict
 
 from .settings import get_settings
 
-# Global variables
 tracer: trace.Tracer | None = None
 meter: metrics.Meter | None = None
 oauth_session: OAuth2Session | None = None
@@ -43,10 +42,8 @@ def get_token() -> Dict[str, Any]:
         else ""
     )
     client_id, client_secret = "", ""
-    # Decode the base64 credentials if present
     if base64_creds:
         try:
-            # Decode and split the credentials into client_id and client_secret
             decoded_creds = base64.b64decode(base64_creds).decode("utf-8")
             client_id, client_secret = decoded_creds.split(":")
         except Exception:
@@ -62,14 +59,12 @@ def get_token() -> Dict[str, Any]:
             "expires_at": datetime.now().timestamp() + 7200,
         }
 
-    # Initialize OAuth2 session with the appropriate credentials
     global oauth_session
     if oauth_session is None:
         oauth_session = OAuth2Session(
             client_id=client_id, client_secret=client_secret
         )
 
-    # Fetch the token from the OAuth2 server
     token = oauth_session.fetch_token(
         url=f"{settings.base_url}/oauth/token",
         client_id=client_id,
@@ -78,7 +73,6 @@ def get_token() -> Dict[str, Any]:
     return token
 
 
-# Token renewal function
 def renew_token_if_needed() -> Dict[str, Any]:
     global current_token
     if (
@@ -89,7 +83,6 @@ def renew_token_if_needed() -> Dict[str, Any]:
     return current_token
 
 
-# Function to get headers with the current token
 def get_auth_headers() -> Dict[str, str]:
     token = renew_token_if_needed()
     return {
@@ -111,7 +104,6 @@ def get_resource_attributes() -> Dict[str, Any]:
     return resources_dict
 
 
-# OTLP Metric Exporter with token refresh
 def get_metrics_exporter() -> OTLPMetricExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
@@ -119,14 +111,13 @@ def get_metrics_exporter() -> OTLPMetricExporter | None:
     return OTLPMetricExporter(headers=get_auth_headers())
 
 
-# OTLP Span Exporter with token refresh
 def get_span_exporter() -> OTLPSpanExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
         return None
     return OTLPSpanExporter(headers=get_auth_headers())
 
-# Your existing function to initialize tracing and metrics
+
 def instrument_app(app: FastAPI):
     global tracer
     global meter
@@ -169,7 +160,6 @@ def instrument_app(app: FastAPI):
     else:
         meter = metrics.get_meter(__name__)
 
-    # Only instrument the app when OpenTelemetry is enabled
     FastAPIInstrumentor.instrument_app(
         app=app,
         tracer_provider=trace.get_tracer_provider(),
