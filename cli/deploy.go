@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -31,119 +29,6 @@ generate_beamlit_deployment("%s")
 		cmd.Env = append(cmd.Env, fmt.Sprintf("BL_ENV=%s", os.Getenv("BL_ENV")))
 	}
 	return cmd.Run()
-}
-
-func dockerLogin(registryURL string, apiUrl string) error {
-	credentials := sdk.LoadCredentials(workspace)
-
-	var password string
-	if credentials.APIKey != "" {
-		password = credentials.APIKey
-	} else if credentials.AccessToken != "" {
-		provider := sdk.NewBearerTokenProvider(credentials, workspace, apiUrl)
-		err := provider.RefreshIfNeeded()
-		if err != nil {
-			return fmt.Errorf("failed to refresh credentials: %w", err)
-		}
-		password = provider.GetCredentials().AccessToken
-	} else {
-		return fmt.Errorf("no credentials found")
-	}
-	cmd := exec.Command(
-		"docker",
-		"login",
-		"-u", "beamlit",
-		"--password-stdin",
-		registryURL,
-	)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Could not login to beamlit registry (%s): %v", registryURL, err)
-		return err
-	}
-
-	_, err = stdin.Write([]byte(password))
-	if err != nil {
-		return err
-	}
-
-	stdin.Close()
-
-	return cmd.Wait()
-}
-
-func buildBeamlitDeployment(dockerfile string, destination string) error {
-	fmt.Printf("Building beamlit deployment from %s to %s\n", dockerfile, destination)
-	cmd := exec.Command(
-		"docker",
-		"build",
-		"-t",
-		destination,
-		"--platform",
-		"linux/amd64",
-		"-f",
-		dockerfile,
-		".",
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	// Create a channel to catch interrupt signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
-	// Create a channel to receive command completion status
-	done := make(chan error)
-
-	// Run the command in a goroutine
-	go func() {
-		done <- cmd.Run()
-	}()
-
-	// Wait for command completion
-	if err := <-done; err != nil {
-		fmt.Printf("Error building beamlit deployment: %v\n", err)
-		return err
-	}
-	fmt.Printf("Beamlit deployment from %s built successfully\n", dockerfile)
-	return nil
-}
-
-func pushBeamlitDeployment(destination string) error {
-	fmt.Printf("Pushing beamlit deployment to %s\n", destination)
-	cmd := exec.Command(
-		"docker",
-		"push",
-		destination,
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	// Create a channel to catch interrupt signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
-	// Create a channel to receive command completion status
-	done := make(chan error)
-
-	// Run the command in a goroutine
-	go func() {
-		done <- cmd.Run()
-	}()
-
-	// Wait for command completion
-	if err := <-done; err != nil {
-		fmt.Printf("Error pushing beamlit deployment: %v\n", err)
-		return err
-	}
-	fmt.Printf("Beamlit deployment pushed successfully: %s\n", destination)
-	return nil
 }
 
 func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, applyResults *[]ApplyResult, path string, info os.FileInfo, err error) error {
@@ -174,30 +59,9 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, appl
 		}
 	}
 
-	// Check if file is a Dockerfile
-	if filepath.Base(path) == "Dockerfile" {
-		// Build the Docker image
-		// Read destination from destination.txt
-		destinationFile := filepath.Join(filepath.Dir(path), "destination.txt")
-		destinationBytes, err := os.ReadFile(destinationFile)
-		if err != nil {
-			return fmt.Errorf("failed to read destination file: %w", err)
-		}
-		destination := strings.TrimSpace(string(destinationBytes))
-		fmt.Printf("Building Docker image for %s at %s\n", name, destination)
-		err = buildBeamlitDeployment(path, destination)
-		if err != nil {
-			return fmt.Errorf("failed to build Docker image: %w", err)
-		}
-		fmt.Printf("Pushing Docker image for %s at %s\n", name, destination)
-		err = pushBeamlitDeployment(destination)
-		if err != nil {
-			return fmt.Errorf("failed to push Docker image: %w", err)
-		}
-	}
 	if filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml" {
 		fmt.Printf("Applying configuration for %s:%s -> file: %s\n", resourceType, name, filepath.Base(path))
-		results, err := r.Apply(path, false)
+		results, err := r.Apply(path, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to apply configuration: %w", err)
 		}
@@ -221,14 +85,8 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Create a temporary directory for deployment files
 			tempDir := ".beamlit"
 
-			err := dockerLogin(r.GetRegistryURL(), r.BaseURL)
-			if err != nil {
-				fmt.Printf("Could not login to beamlit registry (%s): %v\n", r.GetRegistryURL(), err)
-				os.Exit(1)
-			}
-
 			// Execute Python script using the Python interpreter
-			err = executePythonGenerateBeamlitDeployment(tempDir, module, directory)
+			err := executePythonGenerateBeamlitDeployment(tempDir, module, directory)
 			if err != nil {
 				fmt.Printf("Error executing Python script: %v\n", err)
 				os.Exit(1)
@@ -266,7 +124,6 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			
 			env := "production"
 			if environment != "" {
 				env = environment
@@ -277,7 +134,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 				fmt.Printf("%-20s %-30s %-10s\n", "KIND", "NAME", "RESULT")
 				fmt.Printf("%-20s %-30s %-10s\n", "----", "----", "------")
 				for _, result := range applyResults {
-					fmt.Printf("%-20s %-30s %-10s\n", result.Kind, result.Name, result.Result)
+					fmt.Printf("%-20s %-30s %-10s\n", result.Kind, result.Name, result.Result.Status)
 				}
 				fmt.Println()
 			}

@@ -10,13 +10,19 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
+
+type ResourceOperationResult struct {
+	Status string
+	UploadURL string
+}
 
 type ApplyResult struct {
 	Kind   string
 	Name   string
-	Result string
+	Result ResourceOperationResult
 }
 
 func (r *Operations) ApplyCmd() *cobra.Command {
@@ -33,7 +39,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 			cat file.yaml | bl apply -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := r.Apply(filePath, recursive)
+			_, err := r.Apply(filePath, recursive, false)
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -52,7 +58,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 	return cmd
 }
 
-func (r *Operations) Apply(filePath string, recursive bool) ([]ApplyResult, error) {
+func (r *Operations) Apply(filePath string, recursive bool, upload bool) ([]ApplyResult, error) {
 	results, err := getResults(filePath, recursive)
 	if err != nil {
 		return nil, fmt.Errorf("error getting results: %w", err)
@@ -64,11 +70,11 @@ func (r *Operations) Apply(filePath string, recursive bool) ([]ApplyResult, erro
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
 				name := result.Metadata.(map[string]interface{})["name"].(string)
-				status := resource.PutFn(resource.Kind, name, result)
+				result := resource.PutFn(resource.Kind, name, result, upload)
 				applyResults = append(applyResults, ApplyResult{
 					Kind:   resource.Kind,
 					Name:   name,
-					Result: status,
+					Result: result,
 				})
 			}
 		}
@@ -77,7 +83,7 @@ func (r *Operations) Apply(filePath string, recursive bool) ([]ApplyResult, erro
 }
 
 // Helper function to handle common resource operations
-func (resource Resource) handleResourceOperation(name string, resourceObject interface{}, operation string) (*http.Response, error) {
+func (resource Resource) handleResourceOperation(name string, resourceObject interface{}, operation string, upload bool) (*http.Response, error) {
 	ctx := context.Background()
 
 	// Get the appropriate function based on operation
@@ -105,17 +111,28 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 
 	// Call the function
 	var results []reflect.Value
+	opts := []sdk.RequestEditorFn{}
+	if upload {
+		opts = append(opts, sdk.RequestEditorFn(func(ctx context.Context, req *http.Request) error {
+			q := req.URL.Query()
+			q.Add("upload", "true")
+			req.URL.RawQuery = q.Encode()
+			return nil
+		}))
+	}
 	switch operation {
 	case "put":
 		results = fn.Call([]reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
 			reflect.ValueOf(destBody).Elem(),
+			reflect.ValueOf(opts),
 		})
 	case "post":
 		results = fn.Call([]reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(destBody).Elem(),
+			reflect.ValueOf(opts),
 		})
 	default:
 		return nil, fmt.Errorf("invalid operation: %s", operation)
@@ -137,71 +154,89 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 	return response, nil
 }
 
-func (resource Resource) PutFn(resourceName string, name string, resourceObject interface{}) string {
+func (resource Resource) PutFn(resourceName string, name string, resourceObject interface{}, upload bool) ResourceOperationResult {
+	failedResponse := ResourceOperationResult{
+		Status: "failed",
+	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	response, err := resource.handleResourceOperation(name, resourceObject, "put")
+	response, err := resource.handleResourceOperation(name, resourceObject, "put", upload)
 	if err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return "failed"
+		return failedResponse
 	}
 	if response == nil {
-		return "failed"
+		return failedResponse
 	}
 
 	defer response.Body.Close()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return "failed"
+		return failedResponse
 	}
 
 	if response.StatusCode == 404 {
 		// Need to create the resource
-		return resource.PostFn(resourceName, name, resourceObject)
+		return resource.PostFn(resourceName, name, resourceObject, upload)
 	}
 
 	if response.StatusCode >= 400 {
 		ErrorHandler(response.Request, resourceName, name, buf.String())
-		return "failed"
+		return failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
-		return "failed"
+		return failedResponse
+	}
+	result := ResourceOperationResult{
+		Status: "configured",
+	}
+	if uploadUrl := response.Header.Get("X-Beamlit-Upload-Url"); uploadUrl != "" {
+		result.UploadURL = uploadUrl
 	}
 	fmt.Printf("Resource %s:%s configured\n", resourceName, name)
-	return "configured"
+	return result
 }
 
-func (resource Resource) PostFn(resourceName string, name string, resourceObject interface{}) string {
+func (resource Resource) PostFn(resourceName string, name string, resourceObject interface{}, upload bool) ResourceOperationResult {
+	failedResponse := ResourceOperationResult{
+		Status: "failed",
+	}	
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	response, err := resource.handleResourceOperation(name, resourceObject, "post")
+	response, err := resource.handleResourceOperation(name, resourceObject, "post", upload)
 	if err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return "failed"
+		return failedResponse
 	}
 	if response == nil {
-		return "failed"
+		return failedResponse
 	}
 
 	defer response.Body.Close()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return "failed"
+		return failedResponse
 	}
 
 	if response.StatusCode >= 400 {
 		ErrorHandler(response.Request, resourceName, name, buf.String())
-		return "failed"
+		return failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
-		return "failed"
+		return failedResponse
 	}
+	result := ResourceOperationResult{
+		Status: "created",
+	}
+	if uploadUrl := response.Header.Get("X-Beamlit-Upload-Url"); uploadUrl != "" {
+		result.UploadURL = uploadUrl
+	}	
 	fmt.Printf("Resource %s:%s created\n", resourceName, name)
-	return "created"
+	return result
 }

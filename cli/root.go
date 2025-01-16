@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var BASE_URL = "https://api.beamlit.com/v0"
+var BASE_URL = "http://localhost:1337"
 var APP_URL = "https://app.beamlit.com"
 var RUN_URL = "https://run.beamlit.com"
 var REGISTRY_URL = "https://us.registry.beamlit.com"
 
 func init() {
 	if os.Getenv("BL_ENV") == "dev" {
-		BASE_URL = "https://api.beamlit.dev/v0"
+		BASE_URL = "http://localhost:1337"
 		APP_URL = "https://app.beamlit.dev"
 		RUN_URL = "https://run.beamlit.dev"
 		REGISTRY_URL = "https://eu.registry.beamlit.dev"
@@ -58,7 +58,6 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		client = c
-
 		ctx := context.Background()
 		c.RegisterCliCommands(reg, ctx)
 		return nil
