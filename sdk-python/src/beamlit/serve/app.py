@@ -3,6 +3,7 @@ import importlib
 import os
 import sys
 import traceback
+from contextlib import asynccontextmanager
 from logging import getLogger
 from uuid import uuid4
 
@@ -13,9 +14,9 @@ from traceloop.sdk import Traceloop
 
 from beamlit.common import HTTPError, get_settings, init
 from beamlit.common.instrumentation import (
-    get_metrics_exporter,
     get_resource_attributes,
     get_span_exporter,
+    shutdown_instrumentation,
     instrument_app,
 )
 
@@ -41,16 +42,14 @@ logger.info(
     f" on {settings.server.host}:{settings.server.port}"
 )
 
-if settings.enable_opentelemetry:
-    Traceloop.init(
-        app_name=settings.name,
-        exporter=get_span_exporter(),
-        metrics_exporter=get_metrics_exporter(),
-        resource_attributes=get_resource_attributes(),
-        should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
-    )
 
-app = FastAPI(docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    shutdown_instrumentation()
+
+
+app = FastAPI(docs_url=None, redoc_url=None, lifespan=lifespan)
 app.add_middleware(
     CorrelationIdMiddleware,
     header_name="x-beamlit-request-id",
@@ -59,6 +58,13 @@ app.add_middleware(
 app.add_middleware(AddProcessTimeHeader)
 app.add_middleware(AccessLogMiddleware)
 instrument_app(app)
+if settings.enable_opentelemetry:
+    Traceloop.init(
+        app_name=settings.name,
+        exporter=get_span_exporter(),
+        resource_attributes=get_resource_attributes(),
+        should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
+    )
 
 
 @app.get("/health")

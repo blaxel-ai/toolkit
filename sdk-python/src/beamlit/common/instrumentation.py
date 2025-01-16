@@ -10,7 +10,6 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
 )
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.metrics import NoOpMeterProvider
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
@@ -112,12 +111,17 @@ def instrument_app(app: FastAPI):
         meter = meter_provider.get_meter(__name__)
     else:
         meter = metrics.get_meter(__name__)
-
     # Only instrument the app when OpenTelemetry is enabled
-    FastAPIInstrumentor.instrument_app(
-        app=app, tracer_provider=trace.get_tracer_provider(), meter_provider=metrics.get_meter_provider()
-    )
-    HTTPXClientInstrumentor().instrument(meter_provider=metrics.get_meter_provider())
-    LoggingInstrumentor(tracer_provider=trace.get_tracer_provider()).instrument(
-        set_logging_format=True
-    )
+    FastAPIInstrumentor.instrument_app(app)
+    HTTPXClientInstrumentor().instrument()
+
+
+def shutdown_instrumentation():
+    if tracer is not None:
+        trace_provider = trace.get_tracer_provider()
+        if isinstance(trace_provider, TracerProvider):
+            trace_provider.shutdown()
+    if meter is not None:
+        meter_provider = metrics.get_meter_provider()
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider.shutdown()
