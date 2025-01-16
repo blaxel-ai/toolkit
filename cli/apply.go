@@ -111,29 +111,35 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 
 	// Call the function
 	var results []reflect.Value
-	opts := []sdk.RequestEditorFn{}
+	var opts sdk.RequestEditorFn
 	if upload {
-		opts = append(opts, sdk.RequestEditorFn(func(ctx context.Context, req *http.Request) error {
+		opts = sdk.RequestEditorFn(func(ctx context.Context, req *http.Request) error {
 			q := req.URL.Query()
 			q.Add("upload", "true")
 			req.URL.RawQuery = q.Encode()
 			return nil
-		}))
+		})
 	}
 	switch operation {
 	case "put":
-		results = fn.Call([]reflect.Value{
+		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
 			reflect.ValueOf(destBody).Elem(),
-			reflect.ValueOf(opts),
-		})
+		}
+		if opts != nil {
+			values = append(values, reflect.ValueOf(opts))
+		}		
+		results = fn.Call(values)
 	case "post":
-		results = fn.Call([]reflect.Value{
+		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(destBody).Elem(),
-			reflect.ValueOf(opts),
-		})
+		}
+		if opts != nil {
+			values = append(values, reflect.ValueOf(opts))
+		}
+		results = fn.Call(values)
 	default:
 		return nil, fmt.Errorf("invalid operation: %s", operation)
 	}
