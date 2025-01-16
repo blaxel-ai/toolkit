@@ -172,7 +172,6 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-instrumentation-httpx" },
-    { name = "opentelemetry-instrumentation-logging" },
     { name = "opentelemetry-sdk" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -182,7 +181,7 @@ dependencies = [
     { name = "traceloop-sdk" },
 ]
 
-[package.dependency-groups]
+[package.dev-dependencies]
 dev = [
     { name = "ruff" },
 ]
@@ -202,7 +201,6 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.2" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.49b2" },
     { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.49b2" },
-    { name = "opentelemetry-instrumentation-logging", specifier = ">=0.49b2" },
     { name = "opentelemetry-sdk", specifier = ">=1.28.2" },
     { name = "pydantic", specifier = ">=2.10.3,<2.11.0" },
     { name = "pydantic-settings", specifier = ">=2.6.1,<2.7.0" },
@@ -212,7 +210,7 @@ requires-dist = [
     { name = "traceloop-sdk", specifier = ">=0.33.12" },
 ]
 
-[package.metadata.dependency-groups]
+[package.metadata.requires-dev]
 dev = [{ name = "ruff", specifier = ">=0.8.2" }]
 
 [[package]]

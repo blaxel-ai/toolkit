@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -59,10 +58,8 @@ func (r *Operations) ServeCmd() *cobra.Command {
 			// Add all current environment variables if not already set
 			for _, envVar := range os.Environ() {
 				found := false
-				envVarName := strings.Split(envVar, "=")[0]
 				for _, existingVar := range uvicorn.Env {
-					existingEnvVarName := strings.Split(existingVar, "=")[0]
-					if envVarName == existingEnvVarName {
+					if envVar == existingVar {
 						found = true
 						break
 					}

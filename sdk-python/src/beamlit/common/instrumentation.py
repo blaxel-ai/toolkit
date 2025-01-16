@@ -145,11 +145,16 @@ def instrument_app(app: FastAPI):
         logger_provider = _logs.get_logger_provider()
 
     # Only instrument the app when OpenTelemetry is enabled
-    FastAPIInstrumentor.instrument_app(
-        app=app,
-        tracer_provider=trace.get_tracer_provider(),
-        meter_provider=metrics.get_meter_provider(),
-    )
-    HTTPXClientInstrumentor().instrument(
-        meter_provider=metrics.get_meter_provider()
-    )
+    FastAPIInstrumentor.instrument_app(app)
+    HTTPXClientInstrumentor().instrument()
+
+
+def shutdown_instrumentation():
+    if tracer is not None:
+        trace_provider = trace.get_tracer_provider()
+        if isinstance(trace_provider, TracerProvider):
+            trace_provider.shutdown()
+    if meter is not None:
+        meter_provider = metrics.get_meter_provider()
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider.shutdown()

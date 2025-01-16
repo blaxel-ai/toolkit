@@ -6,13 +6,15 @@ import importlib
 import os
 from logging import getLogger
 
-from langchain_core.tools import Tool
+from langchain_core.tools import StructuredTool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
+from langchain_core.tools.base import create_schema_from_function
 
 from beamlit.api.models import get_model
 from beamlit.authentication import new_client
-from beamlit.common.settings import init
+from beamlit.common import slugify
+from beamlit.common.settings import get_settings, init
 from beamlit.errors import UnexpectedStatus
 from beamlit.functions.mcp.mcp import MCPClient, MCPToolkit
 from beamlit.functions.remote.remote import RemoteToolkit
@@ -22,9 +24,10 @@ from .chain import ChainToolkit
 from .chat import get_chat_model
 
 
-def get_functions(dir="src/functions", from_decorator="function", remote_functions_empty=True):
+def get_functions(client, dir="src/functions", from_decorator="function", remote_functions_empty=True):
     functions = []
     logger = getLogger(__name__)
+    settings = get_settings()
 
     # Walk through all Python files in functions directory and subdirectories
     if not os.path.exists(dir):
@@ -73,8 +76,9 @@ def get_functions(dir="src/functions", from_decorator="function", remote_functio
                                             keyword.value, ast.Constant
                                         ):
                                             is_kit = keyword.value.value
-                                if is_kit:
+                                if is_kit and not settings.remote:
                                     kit_functions = get_functions(
+                                        client,
                                         dir=os.path.join(root),
                                         from_decorator="kit",
                                         remote_functions_empty=remote_functions_empty,
@@ -84,23 +88,30 @@ def get_functions(dir="src/functions", from_decorator="function", remote_functio
                                 # Get the decorated function
                                 if not is_kit and hasattr(module, func_name):
                                     func = getattr(module, func_name)
-                                    if asyncio.iscoroutinefunction(func):
-                                        functions.append(
-                                            Tool(
-                                                name=func.__name__,
-                                                description=func.__doc__,
-                                                func=func,
-                                                coroutine=func,
-                                            )
-                                        )
+                                    if settings.remote:
+                                        toolkit = RemoteToolkit(client, slugify(func.__name__))
+                                        toolkit.initialize()
+                                        functions.extend(toolkit.get_tools())
                                     else:
-                                        functions.append(
-                                            Tool(
-                                                name=func.__name__,
-                                                description=func.__doc__,
-                                                func=func,
+                                        if asyncio.iscoroutinefunction(func):
+                                            functions.append(
+                                                StructuredTool(
+                                                    name=func.__name__,
+                                                    description=func.__doc__,
+                                                    func=func,
+                                                    coroutine=func,
+                                                    args_schema=create_schema_from_function(func.__name__, func)
+                                                )
                                             )
-                                        )
+                                        else:
+                                            functions.append(
+                                                StructuredTool(
+                                                    name=func.__name__,
+                                                    description=func.__doc__,
+                                                    func=func,
+                                                    args_schema=create_schema_from_function(func.__name__, func)
+                                                )
+                                            )
                     except Exception as e:
                         logger.warning(f"Error processing {file_path}: {e!s}")
     return functions
@@ -108,7 +119,7 @@ def get_functions(dir="src/functions", from_decorator="function", remote_functio
 
 def agent(
     agent: Agent | dict = None,
-    override_chat_model=None,
+    override_model=None,
     override_agent=None,
     mcp_hub=None,
     remote_functions=None,
@@ -121,7 +132,7 @@ def agent(
             )
 
         client = new_client()
-        chat_model = override_chat_model or None
+        chat_model = override_model or None
         settings = init()
 
         def wrapper(func):
@@ -139,10 +150,12 @@ def agent(
 
         # Initialize functions array to store decorated functions
         functions = get_functions(
+            client,
             dir=settings.agent.functions_directory,
             remote_functions_empty=not remote_functions,
         )
-        settings.agent.functions = functions
+
+        
 
         if agent is not None:
             metadata = AgentMetadata(**agent.get("metadata", {}))
@@ -197,6 +210,8 @@ def agent(
             toolkit = ChainToolkit(client, agent.spec.agent_chain)
             toolkit.initialize()
             functions.extend(toolkit.get_tools())
+
+        settings.agent.functions = functions
 
         if override_agent is None and len(functions) == 0:
             raise ValueError(

@@ -57,9 +57,13 @@ export class BearerToken {
 
   private async refreshIfNeeded(): Promise<null> {
     // Need to refresh token if expires in less than 10 minutes
+    if (!this.credentials.access_token) {
+      return await this.doRefresh();
+    }
+
     const parts = this.credentials.access_token?.split(".") || [];
     if (parts.length !== 3) {
-      throw new Error("Invalid JWT token format");
+      return await this.doRefresh();
     }
 
     try {
@@ -71,23 +75,9 @@ export class BearerToken {
         return await this.doRefresh();
       }
     } catch (e) {
-      throw new Error(`Failed to decode/parse JWT claims: ${e}`);
+      return await this.doRefresh();
     }
-
     return null;
-  }
-
-  intercept(req: Request): void {
-    const err = this.refreshIfNeeded();
-    if (err) {
-      throw err;
-    }
-
-    req.headers.set(
-      "X-Beamlit-Authorization",
-      `Bearer ${this.credentials.access_token}`
-    );
-    req.headers.set("X-Beamlit-Workspace", this.workspace_name);
   }
 
   private async doRefresh(): Promise<null> {

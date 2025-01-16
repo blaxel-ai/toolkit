@@ -6,6 +6,7 @@ import uuid
 from logging import getLogger
 from typing import Literal
 
+from beamlit.common import slugify
 from beamlit.common.settings import Settings, get_settings, init
 from beamlit.models import (
     Agent,
@@ -24,8 +25,6 @@ sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "src"))
 
 random_id = str(uuid.uuid4())[:8]
-def slugify(name: str) -> str:
-    return name.lower().replace(" ", "-").replace("_", "-")
 
 def get_runtime_image(type: str, name: str) -> str:
     settings = get_settings()
@@ -130,7 +129,7 @@ metadata:
 spec:
   enabled: true
   policies: [{", ".join(agent.spec.policies or [])}]
-  functions: [{", ".join([f"{function.metadata.name}" for (_, function) in functions])}]
+  functions: [{", ".join([f"{slugify(function.metadata.name)}" for (_, function) in functions])}]
   agentChain: {format_agent_chain(agent.spec.agent_chain)}
   model: {agent.spec.model}
   runtime:

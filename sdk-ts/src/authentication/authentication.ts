@@ -64,7 +64,7 @@ export function newClientWithCredentials(config: RunClientWithCredentials) {
 
   if (config.credentials.apiKey) {
     provider = new ApiKeyAuth(config.credentials, config.workspace);
-  } else if (config.credentials.access_token) {
+  } else if (config.credentials.access_token || config.credentials.refresh_token) {
     provider = new BearerToken(
       config.credentials,
       config.workspace,

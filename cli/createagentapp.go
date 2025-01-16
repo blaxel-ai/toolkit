@@ -534,7 +534,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 		Aliases: []string{"ca", "caa"},
 		Short:   "Create a new beamlit agent app",
 		Long:    "Create a new beamlit agent app",
-		Example: `bl create-agent-app`,
+		Example: `bl create-agent-app my-agent-app`,
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if len(args) < 1 {
