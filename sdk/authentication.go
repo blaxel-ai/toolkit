@@ -31,6 +31,8 @@ func GetAuthProvider(credentials Credentials, workspace string, apiUrl string) A
 		return NewApiKeyProvider(credentials, workspace)
 	} else if credentials.AccessToken != "" {
 		return NewBearerTokenProvider(credentials, workspace, apiUrl)
+	} else if credentials.ClientCredentials != "" {
+		return NewClientCredentialsProvider(credentials, workspace, apiUrl)
 	}
 	return NewPublicProvider()
 }

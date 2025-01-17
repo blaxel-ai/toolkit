@@ -15,6 +15,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func executeInstallDependencies() error {
+	cmd := exec.Command("uv", "sync", "--refresh", "--force-reinstall", "--prerelease", "allow")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s", os.Getenv("PATH")))
+	return cmd.Run()
+}
+
 func executePythonGenerateBeamlitDeployment(tempDir string, module string, directory string) error {
 	pythonCode := fmt.Sprintf(`
 from beamlit.deploy import generate_beamlit_deployment
@@ -221,6 +229,7 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, appl
 func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 	var module string
 	var directory string
+	var dependencies bool
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -233,6 +242,13 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Create a temporary directory for deployment files
 			tempDir := ".beamlit"
 
+			if dependencies {
+				err := executeInstallDependencies()
+				if err != nil {
+					fmt.Printf("Error installing dependencies: %v\n", err)
+					os.Exit(1)
+				}
+			}
 			// Execute Python script using the Python interpreter
 			err := executePythonGenerateBeamlitDeployment(tempDir, module, directory)
 			if err != nil {
@@ -291,7 +307,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			if len(errChan) > 0 {
 				os.Exit(1)
 			}
-			
+
 			env := "production"
 			if environment != "" {
 				env = environment
@@ -326,5 +342,6 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&module, "module", "m", "agent.main", "Module to serve, can be an agent or a function")
 	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
+	cmd.Flags().BoolVarP(&dependencies, "dependencies", "D", false, "Install dependencies")
 	return cmd
 }
