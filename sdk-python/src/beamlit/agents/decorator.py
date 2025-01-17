@@ -119,7 +119,7 @@ def get_functions(client, dir="src/functions", from_decorator="function", remote
 
 def agent(
     agent: Agent | dict = None,
-    override_chat_model=None,
+    override_model=None,
     override_agent=None,
     mcp_hub=None,
     remote_functions=None,
@@ -132,7 +132,7 @@ def agent(
             )
 
         client = new_client()
-        chat_model = override_chat_model or None
+        chat_model = override_model or None
         settings = init()
 
         def wrapper(func):

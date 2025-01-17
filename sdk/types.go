@@ -22,3 +22,7 @@ type Credentials struct {
 	DeviceCode   string `yaml:"device_code"`
 	ClientCredentials string `yaml:"client_credentials"`
 }
+
+func (c Credentials) IsValid() bool {
+	return c.APIKey != "" || c.AccessToken != "" || c.RefreshToken != ""
+}
