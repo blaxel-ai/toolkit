@@ -1,17 +1,27 @@
 package cli
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
-	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
+
+func executeInstallDependencies() error {
+	cmd := exec.Command("uv", "sync", "--refresh", "--force-reinstall", "--prerelease", "allow")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s", os.Getenv("PATH")))
+	return cmd.Run()
+}
 
 func executePythonGenerateBeamlitDeployment(tempDir string, module string, directory string) error {
 	pythonCode := fmt.Sprintf(`
@@ -33,116 +43,137 @@ generate_beamlit_deployment("%s")
 	return cmd.Run()
 }
 
-func dockerLogin(registryURL string, apiUrl string) error {
-	credentials := sdk.LoadCredentials(workspace)
+func handleZipFile(zipWriter *zip.Writer, currentDir string, path string, info os.FileInfo) error {
+	// Get relative path
+	relPath, err := filepath.Rel(currentDir, path)
+	if err != nil {
+		return fmt.Errorf("failed to get relative path: %w", err)
+	}
 
-	var password string
-	if credentials.APIKey != "" {
-		password = credentials.APIKey
-	} else if credentials.AccessToken != "" {
-		provider := sdk.NewBearerTokenProvider(credentials, workspace, apiUrl)
-		err := provider.RefreshIfNeeded()
-		if err != nil {
-			return fmt.Errorf("failed to refresh credentials: %w", err)
-		}
-		password = provider.GetCredentials().AccessToken
+	// Skip if at root
+	if relPath == "." {
+		return nil
+	}
+
+	// Create zip header
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return fmt.Errorf("failed to create zip header: %w", err)
+	}
+	header.Name = relPath
+
+	if info.IsDir() {
+		header.Name += "/"
 	} else {
-		return fmt.Errorf("no credentials found")
+		header.Method = zip.Deflate
 	}
-	cmd := exec.Command(
-		"docker",
-		"login",
-		"-u", "beamlit",
-		"--password-stdin",
-		registryURL,
-	)
 
-	stdin, err := cmd.StdinPipe()
+	writer, err := zipWriter.CreateHeader(header)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create zip entry: %w", err)
 	}
 
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// If not a directory, write file content
+	if !info.IsDir() {
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", path, err)
+		}
+		defer file.Close()
 
-	if err := cmd.Start(); err != nil {
-		fmt.Printf("Could not login to beamlit registry (%s): %v", registryURL, err)
-		return err
+		_, err = io.Copy(writer, file)
+		if err != nil {
+			return fmt.Errorf("failed to write file %s to zip: %w", path, err)
+		}
 	}
-
-	_, err = stdin.Write([]byte(password))
-	if err != nil {
-		return err
-	}
-
-	stdin.Close()
-
-	return cmd.Wait()
-}
-
-func buildBeamlitDeployment(dockerfile string, destination string) error {
-	fmt.Printf("Building beamlit deployment from %s to %s\n", dockerfile, destination)
-	cmd := exec.Command(
-		"docker",
-		"build",
-		"-t",
-		destination,
-		"--platform",
-		"linux/amd64",
-		"-f",
-		dockerfile,
-		".",
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	// Create a channel to catch interrupt signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
-	// Create a channel to receive command completion status
-	done := make(chan error)
-
-	// Run the command in a goroutine
-	go func() {
-		done <- cmd.Run()
-	}()
-
-	// Wait for command completion
-	if err := <-done; err != nil {
-		fmt.Printf("Error building beamlit deployment: %v\n", err)
-		return err
-	}
-	fmt.Printf("Beamlit deployment from %s built successfully\n", dockerfile)
 	return nil
 }
 
-func pushBeamlitDeployment(destination string) error {
-	fmt.Printf("Pushing beamlit deployment to %s\n", destination)
-	cmd := exec.Command(
-		"docker",
-		"push",
-		destination,
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	// Create a channel to catch interrupt signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+func createZip(currentDir string, path string) (*os.File, error) {
+	// Create a temporary zip file
+	zipFile, err := os.CreateTemp("", "beamlit-*.zip")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp zip file: %w", err)
+	}
+	defer os.Remove(zipFile.Name())
 
-	// Create a channel to receive command completion status
-	done := make(chan error)
+	// Create zip writer
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
 
-	// Run the command in a goroutine
-	go func() {
-		done <- cmd.Run()
-	}()
+	// Walk through the directory
+	err = filepath.Walk(currentDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 
-	// Wait for command completion
-	if err := <-done; err != nil {
-		fmt.Printf("Error pushing beamlit deployment: %v\n", err)
+		// Skip .beamlit directory
+		ignores := []string{".beamlit", ".venv", ".git", "node_modules"}
+		for _, ignore := range ignores {
+			if strings.Contains(path, ignore) {
+				return nil
+			}
+		}
+
+		return handleZipFile(zipWriter, currentDir, path, info)
+	})
+
+	// Write dockerfile if it exists
+	deployDir := filepath.Dir(path)
+	dockerfilePath := filepath.Join(deployDir, "Dockerfile")
+	if fileInfo, err := os.Stat(dockerfilePath); err == nil {
+		if err := handleZipFile(zipWriter, deployDir, dockerfilePath, fileInfo); err != nil {
+			return nil, fmt.Errorf("failed to add Dockerfile to zip: %w", err)
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zip archive: %w", err)
+	}
+
+	// Close zip writer before uploading
+	if err := zipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close zip writer: %w", err)
+	}
+	return zipFile, nil
+}
+
+func handleUpload(resourceType string, name string, path string, uploadUrl string) error {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	fmt.Printf("Uploading %s:%s path: %s\n", resourceType, name, path)
+
+	zipFile, err := createZip(currentDir, path)
+	if err != nil {
+		return fmt.Errorf("failed to create zip file: %w", err)
+	}
+	zipFile.Seek(0, 0)
+	defer zipFile.Close()
+
+	// Upload the zip file
+	req, err := http.NewRequest("PUT", uploadUrl, zipFile)
+	if err != nil {
+		return fmt.Errorf("failed to create upload request: %w", err)
+	}
+	fileInfo, err := zipFile.Stat()
+	if err != nil {
 		return err
 	}
-	fmt.Printf("Beamlit deployment pushed successfully: %s\n", destination)
+	req.ContentLength = fileInfo.Size()
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to upload file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("upload failed with status: %s", resp.Status)
+	}
 	return nil
 }
 
@@ -174,32 +205,21 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, appl
 		}
 	}
 
-	// Check if file is a Dockerfile
-	if filepath.Base(path) == "Dockerfile" {
-		// Build the Docker image
-		// Read destination from destination.txt
-		destinationFile := filepath.Join(filepath.Dir(path), "destination.txt")
-		destinationBytes, err := os.ReadFile(destinationFile)
-		if err != nil {
-			return fmt.Errorf("failed to read destination file: %w", err)
-		}
-		destination := strings.TrimSpace(string(destinationBytes))
-		fmt.Printf("Building Docker image for %s at %s\n", name, destination)
-		err = buildBeamlitDeployment(path, destination)
-		if err != nil {
-			return fmt.Errorf("failed to build Docker image: %w", err)
-		}
-		fmt.Printf("Pushing Docker image for %s at %s\n", name, destination)
-		err = pushBeamlitDeployment(destination)
-		if err != nil {
-			return fmt.Errorf("failed to push Docker image: %w", err)
-		}
-	}
 	if filepath.Ext(path) == ".yaml" || filepath.Ext(path) == ".yml" {
 		fmt.Printf("Applying configuration for %s:%s -> file: %s\n", resourceType, name, filepath.Base(path))
-		results, err := r.Apply(path, false)
+		results, err := r.Apply(path, false, true)
 		if err != nil {
 			return fmt.Errorf("failed to apply configuration: %w", err)
+		}
+		if len(results) > 0 {
+			result := results[0]
+			if result.Result.UploadURL != "" {
+				// HANDLE UPLOAD
+				err := handleUpload(resourceType, name, path, result.Result.UploadURL)
+				if err != nil {
+					return fmt.Errorf("failed to upload file: %w", err)
+				}
+			}
 		}
 		*applyResults = append(*applyResults, results...)
 	}
@@ -209,6 +229,7 @@ func (r *Operations) handleDeploymentFile(tempDir string, agents *[]string, appl
 func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 	var module string
 	var directory string
+	var dependencies bool
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -221,14 +242,15 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Create a temporary directory for deployment files
 			tempDir := ".beamlit"
 
-			err := dockerLogin(r.GetRegistryURL(), r.BaseURL)
-			if err != nil {
-				fmt.Printf("Could not login to beamlit registry (%s): %v\n", r.GetRegistryURL(), err)
-				os.Exit(1)
+			if dependencies {
+				err := executeInstallDependencies()
+				if err != nil {
+					fmt.Printf("Error installing dependencies: %v\n", err)
+					os.Exit(1)
+				}
 			}
-
 			// Execute Python script using the Python interpreter
-			err = executePythonGenerateBeamlitDeployment(tempDir, module, directory)
+			err := executePythonGenerateBeamlitDeployment(tempDir, module, directory)
 			if err != nil {
 				fmt.Printf("Error executing Python script: %v\n", err)
 				os.Exit(1)
@@ -236,37 +258,56 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 
 			agents := []string{}
 			applyResults := []ApplyResult{}
-
-			// Walk through the temporary directory recursively, we deploy everything except agents
+			// Walk through the temporary directory recursively and collect files
+			var filesToProcess []string
 			err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
-				if !strings.Contains(path, "agents/") {
-					return r.handleDeploymentFile(tempDir, &agents, &applyResults, path, info, err)
-				}
+				filesToProcess = append(filesToProcess, path)
 				return nil
 			})
 			if err != nil {
-				fmt.Printf("Error deploying beamlit app: %v\n", err)
-				os.Exit(1)
-			}
-			// Walk through the temporary directory recursively, we deploy agents last
-			err = filepath.Walk(tempDir, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if strings.Contains(path, "agents/") {
-					return r.handleDeploymentFile(tempDir, &agents, &applyResults, path, info, err)
-				}
-				return nil
-			})
-			if err != nil {
-				fmt.Printf("Error deploying beamlit app: %v\n", err)
+				fmt.Printf("Error collecting deployment files: %v\n", err)
 				os.Exit(1)
 			}
 
-			
+			// Process files in parallel using a worker pool
+			var wg sync.WaitGroup
+			errChan := make(chan error, len(filesToProcess))
+
+			for _, path := range filesToProcess {
+				wg.Add(1)
+				go func(p string) {
+					defer wg.Done()
+					info, err := os.Stat(p)
+					if err != nil {
+						errChan <- err
+						return
+					}
+
+					err = r.handleDeploymentFile(tempDir, &agents, &applyResults, p, info, nil)
+					if err != nil {
+						errChan <- err
+						return
+					}
+				}(path)
+			}
+
+			// Wait for all goroutines to complete
+			wg.Wait()
+			close(errChan)
+
+			// Check for any errors
+			for err := range errChan {
+				if err != nil {
+					fmt.Printf("Error deploying beamlit app: %v\n", err)
+				}
+			}
+			if len(errChan) > 0 {
+				os.Exit(1)
+			}
+
 			env := "production"
 			if environment != "" {
 				env = environment
@@ -277,7 +318,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 				fmt.Printf("%-20s %-30s %-10s\n", "KIND", "NAME", "RESULT")
 				fmt.Printf("%-20s %-30s %-10s\n", "----", "----", "------")
 				for _, result := range applyResults {
-					fmt.Printf("%-20s %-30s %-10s\n", result.Kind, result.Name, result.Result)
+					fmt.Printf("%-20s %-30s %-10s\n", result.Kind, result.Name, result.Result.Status)
 				}
 				fmt.Println()
 			}
@@ -301,5 +342,6 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&module, "module", "m", "agent.main", "Module to serve, can be an agent or a function")
 	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
+	cmd.Flags().BoolVarP(&dependencies, "dependencies", "D", false, "Install dependencies")
 	return cmd
 }

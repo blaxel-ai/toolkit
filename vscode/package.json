@@ -2,7 +2,7 @@
   "name": "vscode-beamlit-tools",
   "displayName": "Beamlit Explorer",
   "description": "Ship AI agents that just work.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "icon": "resources/beamlit.png",
   "publisher": "beamlit",
   "engines": {
@@ -87,7 +87,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@beamlit/sdk": "^0.0.4",
+    "@beamlit/sdk": "^0.0.5",
     "js-yaml": "^4.1.0"
   }
 }

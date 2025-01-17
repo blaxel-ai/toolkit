@@ -107,7 +107,7 @@ func createHomeDirIfMissing() {
 
 func SaveCredentials(workspaceName string, credentials Credentials) {
 	createHomeDirIfMissing()
-	if credentials.AccessToken == "" && credentials.APIKey == "" {
+	if credentials.AccessToken == "" && credentials.APIKey == "" && credentials.ClientCredentials == "" {
 		fmt.Println("No credentials to save, error")
 		return
 	}

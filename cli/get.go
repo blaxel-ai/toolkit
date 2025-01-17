@@ -207,7 +207,11 @@ func executeAndDisplayWatch(args []string, resource Resource, options map[string
 
 	// Read the output from the pipe
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, err := io.Copy(&buf, r)
+	if err != nil {
+		fmt.Printf("Error reading output: %v", err)
+		os.Exit(1)
+	}
 
 	// Restore stdout
 	os.Stdout = stdout

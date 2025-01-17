@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/beamlit/toolkit/sdk"
@@ -21,6 +22,7 @@ func init() {
 		REGISTRY_URL = "https://eu.registry.beamlit.dev"
 	}
 }
+
 
 var workspace string
 var outputFormat string
@@ -45,6 +47,10 @@ var rootCmd = &cobra.Command{
 			RegistryURL: REGISTRY_URL,
 		}
 		credentials := sdk.LoadCredentials(workspace)
+		if !credentials.IsValid() && workspace != "" {
+			fmt.Printf("Invalid credentials for workspace %s\n", workspace)
+			fmt.Printf("Please run `bl login %s` to fix it credentials.\n", workspace)
+		}
 		var err error
 		c, err := sdk.NewClientWithCredentials(
 			sdk.RunClientWithCredentials{
@@ -58,7 +64,6 @@ var rootCmd = &cobra.Command{
 			return err
 		}
 		client = c
-
 		ctx := context.Background()
 		c.RegisterCliCommands(reg, ctx)
 		return nil

@@ -1,10 +1,15 @@
 import base64
 from datetime import datetime
+import logging
 from typing import Any
 
 from authlib.integrations.requests_client import OAuth2Session
 from fastapi import FastAPI
-from opentelemetry import metrics, trace
+from opentelemetry import _logs, metrics, trace
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
+    OTLPLogExporter,
+)
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
     OTLPMetricExporter,
 )
@@ -13,8 +18,9 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
 )
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.metrics import NoOpMeterProvider
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
@@ -27,6 +33,9 @@ from .settings import get_settings
 
 tracer: trace.Tracer | None = None
 meter: metrics.Meter | None = None
+logger: LoggerProvider | None = None
+
+
 oauth_session: OAuth2Session | None = None
 current_token: Dict[str, Any] | None = None
 
@@ -91,6 +100,12 @@ def get_auth_headers() -> Dict[str, str]:
     }
 
 
+def get_logger() -> LoggerProvider:
+    if logger is None:
+        raise Exception("Logger is not initialized")
+    return logger
+
+
 def get_resource_attributes() -> Dict[str, Any]:
     resources = Resource.create()
     resources_dict: Dict[str, Any] = {}
@@ -116,6 +131,13 @@ def get_span_exporter() -> OTLPSpanExporter | None:
     if not settings.enable_opentelemetry:
         return None
     return OTLPSpanExporter(headers=get_auth_headers())
+
+
+def get_log_exporter() -> OTLPLogExporter | None:
+    settings = get_settings()
+    if not settings.enable_opentelemetry:
+        return None
+    return OTLPLogExporter(headers=get_auth_headers())
 
 
 def instrument_app(app: FastAPI):
@@ -160,14 +182,31 @@ def instrument_app(app: FastAPI):
     else:
         meter = metrics.get_meter(__name__)
 
-    FastAPIInstrumentor.instrument_app(
-        app=app,
-        tracer_provider=trace.get_tracer_provider(),
-        meter_provider=metrics.get_meter_provider(),
-    )
-    HTTPXClientInstrumentor().instrument(
-        meter_provider=metrics.get_meter_provider()
-    )
-    LoggingInstrumentor(tracer_provider=trace.get_tracer_provider()).instrument(
-        set_logging_format=True
-    )
+
+    if not isinstance(_logs.get_logger_provider(), LoggerProvider):
+        logger_provider = LoggerProvider()
+        set_logger_provider(logger_provider)
+        logger_provider.add_log_record_processor(
+            BatchLogRecordProcessor(get_log_exporter())
+        )
+        handler = LoggingHandler(
+            level=logging.NOTSET, logger_provider=logger_provider
+        )
+        logging.getLogger().addHandler(handler)
+    else:
+        logger_provider = _logs.get_logger_provider()
+
+    # Only instrument the app when OpenTelemetry is enabled
+    FastAPIInstrumentor.instrument_app(app)
+    HTTPXClientInstrumentor().instrument()
+
+
+def shutdown_instrumentation():
+    if tracer is not None:
+        trace_provider = trace.get_tracer_provider()
+        if isinstance(trace_provider, TracerProvider):
+            trace_provider.shutdown()
+    if meter is not None:
+        meter_provider = metrics.get_meter_provider()
+        if isinstance(meter_provider, MeterProvider):
+            meter_provider.shutdown()

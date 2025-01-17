@@ -10,7 +10,6 @@ models = list_models.sync(client=client)
 model: Model = get_model.sync(
     "gpt-3-5-turbo", client=client
 )
-# init_agent(client=client)
 run_client = RunClient(client=client)
 response = run_client.run(
     "model",

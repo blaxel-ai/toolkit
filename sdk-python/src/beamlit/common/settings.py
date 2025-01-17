@@ -1,5 +1,4 @@
 import os
-from logging import getLogger
 from typing import Tuple, Type, Union
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -12,22 +11,17 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from beamlit.api.agents import get_agent
-from beamlit.api.functions import get_function
-from beamlit.api.models import get_model
-from beamlit.client import AuthenticatedClient
 from beamlit.common.logger import init as init_logger
 from beamlit.models import Agent, Function, Model
-from beamlit.types import UNSET, Unset
 
 global SETTINGS
 SETTINGS = None
 
 class SettingsAgent(BaseSettings):
-    agent: Union[None, CompiledGraph, BaseChatModel] = None
-    chain: Union[Unset, list[Agent]] = UNSET
-    model: Union[Unset, Model] = UNSET
-    functions: Union[Unset, list[Function]] = UNSET
+    agent: Union[None, CompiledGraph] = None
+    chain: Union[None, list[Agent]] = None
+    model: Union[None, Model] = None
+    functions: Union[None, list[Function]] = None
     functions_directory: str = Field(default="src/functions")
     chat_model: Union[None, BaseChatModel] = None
     module: str = Field(default="main.main")
@@ -99,59 +93,6 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     return SETTINGS
-
-
-def init_agent(
-    client: AuthenticatedClient,
-    destination: str = f"{os.getcwd()}/src/beamlit_generated.py",
-):
-    from beamlit.common.generate import generate
-
-    logger = getLogger(__name__)
-    settings = get_settings()
-    # Init configuration from environment variables
-    if settings.agent.functions or settings.agent.chain:
-        return
-
-    # Init configuration from beamlit control plane
-    name = settings.name
-    env = settings.environment
-
-    agent = get_agent.sync(name, environment=env, client=client)
-    if not agent:
-        raise ValueError(f"Agent {name} not found")
-    functions: list[Function] = []
-    agents_chain: list[Agent] = []
-    if agent.spec.functions:
-        for function in agent.spec.functions:
-            function = get_function.sync(function, environment=env, client=client)
-            if function:
-                functions.append(function)
-        settings.agent.functions = functions
-
-    if agent.spec.agentChain:
-        for chain in agent.spec.agentChain:
-            if chain.enabled:
-                agentChain = get_agent.sync(chain.name, environment=env, client=client)
-                if chain.description:
-                    agentChain.spec.description = chain.description
-                agents_chain.append(agentChain)
-        settings.agent.chain = agents_chain
-    if agent.spec.model:
-        model = get_model.sync(agent.spec.model, environment=env, client=client)
-        settings.agent.model = model
-
-    content_generate = generate(destination, dry_run=True)
-    compared_content = None
-    if os.path.exists(destination):
-        compared_content = open(destination).read()
-
-    if not os.path.exists(destination) or (
-        compared_content and content_generate != compared_content
-    ):
-        logger.info("Generating agent code")
-        generate(destination)
-
 
 def init() -> Settings:
     """Parse the beamlit.yaml file to get configurations."""

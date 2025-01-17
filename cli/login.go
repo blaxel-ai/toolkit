@@ -30,6 +30,11 @@ func (r *Operations) LoginCmd() *cobra.Command {
 				environment = args[1]
 			}
 
+			if os.Getenv("BL_AUTHENTICATION_CLIENT_CREDENTIALS") != "" {
+				r.ClientCredentialsLogin(workspace, environment, os.Getenv("BL_AUTHENTICATION_CLIENT_CREDENTIALS"))
+				return
+			}
+			
 			if os.Getenv("BL_API_KEY") != "" {
 				r.ApiKeyLogin(workspace, environment)
 				return
