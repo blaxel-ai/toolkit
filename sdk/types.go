@@ -24,5 +24,5 @@ type Credentials struct {
 }
 
 func (c Credentials) IsValid() bool {
-	return c.APIKey != "" || c.AccessToken != "" || c.RefreshToken != ""
+	return c.APIKey != "" || c.AccessToken != "" || c.RefreshToken != "" || c.ClientCredentials != ""
 }
