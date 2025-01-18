@@ -1,9 +1,6 @@
-import base64
 import logging
-from datetime import datetime
 from typing import Any
 
-from authlib.integrations.requests_client import OAuth2Session
 from fastapi import FastAPI
 from opentelemetry import _logs, metrics, trace
 from opentelemetry._logs import set_logger_provider
@@ -32,6 +29,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import NoOpTracerProvider
 from typing_extensions import Dict
 
+from beamlit.authentication import get_authentication_headers
+
 from .settings import get_settings
 
 tracer: trace.Tracer | None = None
@@ -39,67 +38,12 @@ meter: metrics.Meter | None = None
 logger: LoggerProvider | None = None
 
 
-oauth_session: OAuth2Session | None = None
-current_token: Dict[str, Any] | None = None
-
-
-def get_token() -> Dict[str, Any]:
-    # Fetch settings from the environment or config
+def auth_headers() -> Dict[str, str]:
     settings = get_settings()
-
-    # Retrieve the base64-encoded credentials from the settings
-    base64_creds = (
-        settings.authentication.client.credentials
-        if settings and settings.authentication.client.credentials
-        else ""
-    )
-    client_id, client_secret = "", ""
-    if base64_creds:
-        try:
-            decoded_creds = base64.b64decode(base64_creds).decode("utf-8")
-            client_id, client_secret = decoded_creds.split(":")
-        except Exception:
-            # Return an empty token if the credentials are invalid with expiration time time.time() + 60
-            return {
-                "access_token": "",
-                "expires_at": datetime.now().timestamp() + 7200,
-            }
-
-    else:
-        return {
-            "access_token": "",
-            "expires_at": datetime.now().timestamp() + 7200,
-        }
-
-    global oauth_session
-    if oauth_session is None:
-        oauth_session = OAuth2Session(
-            client_id=client_id, client_secret=client_secret
-        )
-
-    token = oauth_session.fetch_token(
-        url=f"{settings.base_url}/oauth/token",
-        client_id=client_id,
-        client_secret=client_secret,
-    )
-    return token
-
-
-def renew_token_if_needed() -> Dict[str, Any]:
-    global current_token
-    if (
-        current_token is None
-        or current_token["expires_at"] < datetime.now().timestamp()
-    ):
-        current_token = get_token()
-    return current_token
-
-
-def get_auth_headers() -> Dict[str, str]:
-    token = renew_token_if_needed()
+    headers = get_authentication_headers(settings)
     return {
-        "authorization": f"Bearer {token['access_token']}",
-        "x-beamlit-workspace": get_settings().workspace,
+        "x-beamlit-authorization": headers.get("X-Beamlit-Authorization", ""),
+        "x-beamlit-workspace": headers.get("X-Beamlit-Workspace", ""),
     }
 
 
@@ -115,8 +59,6 @@ def get_resource_attributes() -> Dict[str, Any]:
     for key in resources.attributes:
         resources_dict[key] = resources.attributes[key]
     settings = get_settings()
-    if settings is None:
-        raise Exception("Settings are not initialized")
     resources_dict["workspace"] = settings.workspace
     resources_dict["service.name"] = settings.name
     return resources_dict
@@ -126,21 +68,21 @@ def get_metrics_exporter() -> OTLPMetricExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
         return None
-    return OTLPMetricExporter(headers=get_auth_headers())
+    return OTLPMetricExporter(headers=auth_headers())
 
 
 def get_span_exporter() -> OTLPSpanExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
         return None
-    return OTLPSpanExporter(headers=get_auth_headers())
+    return OTLPSpanExporter(headers=auth_headers())
 
 
 def get_log_exporter() -> OTLPLogExporter | None:
     settings = get_settings()
     if not settings.enable_opentelemetry:
         return None
-    return OTLPLogExporter(headers=get_auth_headers())
+    return OTLPLogExporter(headers=auth_headers())
 
 
 def instrument_app(app: FastAPI):
@@ -185,7 +127,6 @@ def instrument_app(app: FastAPI):
     else:
         meter = metrics.get_meter(__name__)
 
-
     if not isinstance(_logs.get_logger_provider(), LoggerProvider):
         logger_provider = LoggerProvider()
         set_logger_provider(logger_provider)
@@ -203,7 +144,6 @@ def instrument_app(app: FastAPI):
     FastAPIInstrumentor.instrument_app(app)
     HTTPXClientInstrumentor().instrument()
     SystemMetricsInstrumentor().instrument()
-
 
 
 def shutdown_instrumentation():
