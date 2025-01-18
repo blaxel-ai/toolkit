@@ -12,17 +12,19 @@ from beamlit.agents import agent
         },
         "spec": {
             "description": "A chat agent using Beamlit to handle your tasks.",
-            "model": "gpt-4o-mini",
-            "policies": ["only-us"],
+            "model": "gpt-3-5-turbo",
         },
     },
 )
-async def main(agent, chat_model, tools, body, headers=None, query_params=None, **_):
+async def main(
+    agent, chat_model, tools, body, headers=None, query_params=None, **_
+):
     agent_config = {"configurable": {"thread_id": str(uuid.uuid4())}}
-    if body.get("inputs"):
-        body["input"] = body["inputs"]
+    json = await body.json()
+    # if "inputs" in json:
+    # body["input"] = json["inputs"]
 
-    agent_body = {"messages": [("user", body["input"])]}
+    agent_body = {"messages": [("user", json["inputs"])]}
     responses = []
 
     async for chunk in agent.astream(agent_body, config=agent_config):
