@@ -15,9 +15,6 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
 )
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.system_metrics import (
-    SystemMetricsInstrumentor,
-)
 from opentelemetry.metrics import NoOpMeterProvider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
@@ -143,7 +140,6 @@ def instrument_app(app: FastAPI):
     # Only instrument the app when OpenTelemetry is enabled
     FastAPIInstrumentor.instrument_app(app)
     HTTPXClientInstrumentor().instrument()
-    SystemMetricsInstrumentor().instrument()
 
 
 def shutdown_instrumentation():
