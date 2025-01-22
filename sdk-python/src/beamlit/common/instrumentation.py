@@ -125,7 +125,7 @@ def instrument_app(app: FastAPI):
         meter = metrics.get_meter(__name__)
 
     if not isinstance(_logs.get_logger_provider(), LoggerProvider):
-        logger_provider = LoggerProvider()
+        logger_provider = LoggerProvider(resource=resource)
         set_logger_provider(logger_provider)
         logger_provider.add_log_record_processor(
             BatchLogRecordProcessor(get_log_exporter())
