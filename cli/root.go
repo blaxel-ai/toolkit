@@ -23,7 +23,6 @@ func init() {
 	}
 }
 
-
 var workspace string
 var outputFormat string
 var environment string
@@ -33,7 +32,7 @@ var verbose bool
 var version string
 var commit string
 var date string
-
+var utc bool
 var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Beamlit CLI is a command line tool to interact with Beamlit APIs.",
@@ -109,6 +108,8 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
 	rootCmd.PersistentFlags().StringVarP(&environment, "env", "e", "", "Environment. One of: development,production")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
+
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace
 	}

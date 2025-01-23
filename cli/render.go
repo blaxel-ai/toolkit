@@ -43,9 +43,9 @@ func retrieveKey(itemMap map[string]interface{}, key string) string {
 func printTable(resource Resource, slices []interface{}) {
 	// Print header with fixed width columns
 	if resource.WithStatus {
-		fmt.Printf("%-15s %-24s %-20s %-20s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
+		fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
 	} else {
-		fmt.Printf("%-15s %-24s %-20s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
+		fmt.Printf("%-15s %-24s %-24s %-24s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
 	}
 
 	// Print each item in the array
@@ -59,32 +59,36 @@ func printTable(resource Resource, slices []interface{}) {
 			name := retrieveKey(itemMap, "name")
 
 			// Get the created_at field, default to "-" if not found
-			createdAt := retrieveKey(itemMap, "createdAt")
-			if createdAt != "-" {
-				// Parse and format the date
-				if parsedTime, err := time.Parse(time.RFC3339, createdAt); err == nil {
-					createdAt = parsedTime.Format("2006-01-02 15:04:05")
-				}
-			}
+			createdAt := retrieveDate(itemMap, "createdAt")
 
 			// Get the updated_at field, default to "-" if not found
-			updatedAt := retrieveKey(itemMap, "updatedAt")
-			if updatedAt != "-" {
-				// Parse and format the date
-				// Parse and format the date
-				if parsedTime, err := time.Parse(time.RFC3339, updatedAt); err == nil {
-					updatedAt = parsedTime.Format("2006-01-02 15:04:05")
-				}
-			}
+			updatedAt := retrieveDate(itemMap, "updatedAt")
 
 			if resource.WithStatus {
 				status := retrieveKey(itemMap, "deploymentStatus")
-				fmt.Printf("%-15s %-24s %-20s %-20s %-20s\n", workspace, name, createdAt, updatedAt, status)
+				fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", workspace, name, createdAt, updatedAt, status)
 			} else {
-				fmt.Printf("%-15s %-24s %-20s %-20s\n", workspace, name, createdAt, updatedAt)
+				fmt.Printf("%-15s %-24s %-24s %-24s\n", workspace, name, createdAt, updatedAt)
 			}
 		}
 	}
+}
+
+func retrieveDate(itemMap map[string]interface{}, key string) string {
+	value := retrieveKey(itemMap, key)
+	if value != "-" {
+		// Parse and format the date
+		if parsedTime, err := time.Parse(time.RFC3339, value); err == nil {
+			// Convert the parsed time to local time
+			localTime := parsedTime.Local()
+			if utc {
+				localTime = parsedTime.UTC()
+			}
+			// Format the local time with dynamic timezone
+			value = localTime.Format("2006-01-02 15:04:05 MST")
+		}
+	}
+	return value
 }
 
 func printJson(resource Resource, slices []interface{}) {
