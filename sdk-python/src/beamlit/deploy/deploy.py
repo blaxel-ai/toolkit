@@ -227,7 +227,7 @@ def clean_auto_generated(
                         except yaml.YAMLError:
                             continue
 
-def generate_beamlit_deployment(directory: str):
+def generate_beamlit_deployment(directory: str, name: str):
     """
     Generates all necessary deployment files for Beamlit agents and functions.
 
@@ -247,6 +247,8 @@ def generate_beamlit_deployment(directory: str):
     agents: list[tuple[Resource, Agent]] = []
     for resource in get_resources("agent", settings.server.directory):
         agent = get_beamlit_deployment_from_resource(resource)
+        if name and agent.metadata.name != name:
+            agent.metadata.name = slugify(name)
         if agent:
             agents.append((resource, agent))
     for resource in get_resources("function", settings.server.directory):

@@ -24,6 +24,7 @@ class Workspace:
         display_name (Union[Unset, str]): Workspace display name
         labels (Union[Unset, WorkspaceLabels]): Workspace labels
         name (Union[Unset, str]): Workspace name
+        quotasomitempty (Union[Unset, Any]): Workspace quotas
         region (Union[Unset, str]): Workspace write region
     """
 
@@ -34,6 +35,7 @@ class Workspace:
     display_name: Union[Unset, str] = UNSET
     labels: Union[Unset, "WorkspaceLabels"] = UNSET
     name: Union[Unset, str] = UNSET
+    quotasomitempty: Union[Unset, Any] = UNSET
     region: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -54,6 +56,8 @@ class Workspace:
 
         name = self.name
 
+        quotasomitempty = self.quotasomitempty
+
         region = self.region
 
         field_dict: dict[str, Any] = {}
@@ -73,6 +77,8 @@ class Workspace:
             field_dict["labels"] = labels
         if name is not UNSET:
             field_dict["name"] = name
+        if quotasomitempty is not UNSET:
+            field_dict["quotas,omitempty"] = quotasomitempty
         if region is not UNSET:
             field_dict["region"] = region
 
@@ -104,6 +110,8 @@ class Workspace:
 
         name = d.pop("name", UNSET)
 
+        quotasomitempty = d.pop("quotas,omitempty", UNSET)
+
         region = d.pop("region", UNSET)
 
         workspace = cls(
@@ -114,6 +122,7 @@ class Workspace:
             display_name=display_name,
             labels=labels,
             name=name,
+            quotasomitempty=quotasomitempty,
             region=region,
         )
 

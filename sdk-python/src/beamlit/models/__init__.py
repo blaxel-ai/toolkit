@@ -59,7 +59,6 @@ from .metrics_rps_per_code import MetricsRpsPerCode
 from .model import Model
 from .model_metadata import ModelMetadata
 from .model_private_cluster import ModelPrivateCluster
-from .model_provider import ModelProvider
 from .model_release import ModelRelease
 from .model_spec import ModelSpec
 from .owner_fields import OwnerFields
@@ -188,7 +187,6 @@ __all__ = (
     "Model",
     "ModelMetadata",
     "ModelPrivateCluster",
-    "ModelProvider",
     "ModelRelease",
     "ModelSpec",
     "OwnerFields",

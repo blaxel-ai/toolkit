@@ -20,11 +20,13 @@ class IntegrationConnectionSpec:
     Attributes:
         config (Union[Unset, IntegrationConnectionConfig]): Integration config
         integration (Union[Unset, str]): Integration type
+        sandbox (Union[Unset, bool]): Sandbox mode
         secret (Union[Unset, IntegrationConnectionSecret]): Integration secret
     """
 
     config: Union[Unset, "IntegrationConnectionConfig"] = UNSET
     integration: Union[Unset, str] = UNSET
+    sandbox: Union[Unset, bool] = UNSET
     secret: Union[Unset, "IntegrationConnectionSecret"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -34,6 +36,8 @@ class IntegrationConnectionSpec:
             config = self.config.to_dict()
 
         integration = self.integration
+
+        sandbox = self.sandbox
 
         secret: Union[Unset, dict[str, Any]] = UNSET
         if self.secret and not isinstance(self.secret, Unset):
@@ -46,6 +50,8 @@ class IntegrationConnectionSpec:
             field_dict["config"] = config
         if integration is not UNSET:
             field_dict["integration"] = integration
+        if sandbox is not UNSET:
+            field_dict["sandbox"] = sandbox
         if secret is not UNSET:
             field_dict["secret"] = secret
 
@@ -68,6 +74,8 @@ class IntegrationConnectionSpec:
 
         integration = d.pop("integration", UNSET)
 
+        sandbox = d.pop("sandbox", UNSET)
+
         _secret = d.pop("secret", UNSET)
         secret: Union[Unset, IntegrationConnectionSecret]
         if isinstance(_secret, Unset):
@@ -78,6 +86,7 @@ class IntegrationConnectionSpec:
         integration_connection_spec = cls(
             config=config,
             integration=integration,
+            sandbox=sandbox,
             secret=secret,
         )
 

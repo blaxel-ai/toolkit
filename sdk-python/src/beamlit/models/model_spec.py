@@ -30,8 +30,8 @@ class ModelSpec:
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
+        sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
-        model_provider (Union[Unset, str]): Model provider name
     """
 
     configurations: Union[Unset, "CoreSpecConfigurations"] = UNSET
@@ -42,8 +42,8 @@ class ModelSpec:
     policies: Union[Unset, list[str]] = UNSET
     private_clusters: Union[Unset, "ModelPrivateCluster"] = UNSET
     runtime: Union[Unset, "Runtime"] = UNSET
+    sandbox: Union[Unset, bool] = UNSET
     serverless_config: Union[Unset, "ServerlessConfig"] = UNSET
-    model_provider: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -80,11 +80,11 @@ class ModelSpec:
         if self.runtime and not isinstance(self.runtime, Unset):
             runtime = self.runtime.to_dict()
 
+        sandbox = self.sandbox
+
         serverless_config: Union[Unset, dict[str, Any]] = UNSET
         if self.serverless_config and not isinstance(self.serverless_config, Unset):
             serverless_config = self.serverless_config.to_dict()
-
-        model_provider = self.model_provider
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -105,10 +105,10 @@ class ModelSpec:
             field_dict["privateClusters"] = private_clusters
         if runtime is not UNSET:
             field_dict["runtime"] = runtime
+        if sandbox is not UNSET:
+            field_dict["sandbox"] = sandbox
         if serverless_config is not UNSET:
             field_dict["serverlessConfig"] = serverless_config
-        if model_provider is not UNSET:
-            field_dict["modelProvider"] = model_provider
 
         return field_dict
 
@@ -165,14 +165,14 @@ class ModelSpec:
         else:
             runtime = Runtime.from_dict(_runtime)
 
+        sandbox = d.pop("sandbox", UNSET)
+
         _serverless_config = d.pop("serverlessConfig", UNSET)
         serverless_config: Union[Unset, ServerlessConfig]
         if isinstance(_serverless_config, Unset):
             serverless_config = UNSET
         else:
             serverless_config = ServerlessConfig.from_dict(_serverless_config)
-
-        model_provider = d.pop("modelProvider", UNSET)
 
         model_spec = cls(
             configurations=configurations,
@@ -183,8 +183,8 @@ class ModelSpec:
             policies=policies,
             private_clusters=private_clusters,
             runtime=runtime,
+            sandbox=sandbox,
             serverless_config=serverless_config,
-            model_provider=model_provider,
         )
 
         model_spec.additional_properties = d

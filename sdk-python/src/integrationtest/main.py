@@ -8,4 +8,4 @@ client = new_client()
 models = list_models.sync(client=client)
 
 print(models)
-generate_beamlit_deployment(".beamlit")
+generate_beamlit_deployment(".beamlit", "")

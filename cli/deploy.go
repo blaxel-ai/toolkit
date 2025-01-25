@@ -23,11 +23,11 @@ func executeInstallDependencies() error {
 	return cmd.Run()
 }
 
-func executePythonGenerateBeamlitDeployment(tempDir string, module string, directory string) error {
+func executePythonGenerateBeamlitDeployment(tempDir string, module string, directory string, name string) error {
 	pythonCode := fmt.Sprintf(`
 from beamlit.deploy import generate_beamlit_deployment
-generate_beamlit_deployment("%s")
-	`, tempDir)
+generate_beamlit_deployment("%s", "%s")
+	`, tempDir, name)
 	pythonCmd := "python"
 	if _, err := os.Stat(".venv"); !os.IsNotExist(err) {
 		pythonCmd = ".venv/bin/python"
@@ -230,6 +230,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 	var module string
 	var directory string
 	var dependencies bool
+	var name string
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -250,7 +251,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 				}
 			}
 			// Execute Python script using the Python interpreter
-			err := executePythonGenerateBeamlitDeployment(tempDir, module, directory)
+			err := executePythonGenerateBeamlitDeployment(tempDir, module, directory, name)
 			if err != nil {
 				fmt.Printf("Error executing Python script: %v\n", err)
 				os.Exit(1)
@@ -338,10 +339,12 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 				fmt.Printf("  Watch status: bl get agent %s --watch\n", agent)
 				fmt.Printf("  Run: bl run agent %s --data '{\"inputs\": \"Hello world\"}'\n\n", agent)
 			}
+
 		},
 	}
 	cmd.Flags().StringVarP(&module, "module", "m", "agent.main", "Module to serve, can be an agent or a function")
 	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
 	cmd.Flags().BoolVarP(&dependencies, "dependencies", "D", false, "Install dependencies")
+	cmd.Flags().StringVarP(&name, "name", "n", "", "Optional name for the deployment")
 	return cmd
 }

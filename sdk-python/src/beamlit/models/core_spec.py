@@ -30,6 +30,7 @@ class CoreSpec:
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
+        sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
     """
 
@@ -41,6 +42,7 @@ class CoreSpec:
     policies: Union[Unset, list[str]] = UNSET
     private_clusters: Union[Unset, "ModelPrivateCluster"] = UNSET
     runtime: Union[Unset, "Runtime"] = UNSET
+    sandbox: Union[Unset, bool] = UNSET
     serverless_config: Union[Unset, "ServerlessConfig"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -78,6 +80,8 @@ class CoreSpec:
         if self.runtime and not isinstance(self.runtime, Unset):
             runtime = self.runtime.to_dict()
 
+        sandbox = self.sandbox
+
         serverless_config: Union[Unset, dict[str, Any]] = UNSET
         if self.serverless_config and not isinstance(self.serverless_config, Unset):
             serverless_config = self.serverless_config.to_dict()
@@ -101,6 +105,8 @@ class CoreSpec:
             field_dict["privateClusters"] = private_clusters
         if runtime is not UNSET:
             field_dict["runtime"] = runtime
+        if sandbox is not UNSET:
+            field_dict["sandbox"] = sandbox
         if serverless_config is not UNSET:
             field_dict["serverlessConfig"] = serverless_config
 
@@ -159,6 +165,8 @@ class CoreSpec:
         else:
             runtime = Runtime.from_dict(_runtime)
 
+        sandbox = d.pop("sandbox", UNSET)
+
         _serverless_config = d.pop("serverlessConfig", UNSET)
         serverless_config: Union[Unset, ServerlessConfig]
         if isinstance(_serverless_config, Unset):
@@ -175,6 +183,7 @@ class CoreSpec:
             policies=policies,
             private_clusters=private_clusters,
             runtime=runtime,
+            sandbox=sandbox,
             serverless_config=serverless_config,
         )
 
