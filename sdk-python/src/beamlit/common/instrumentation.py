@@ -1,5 +1,6 @@
+import importlib
 import logging
-from typing import Any
+from typing import Any, Optional, Type
 
 from fastapi import FastAPI
 from opentelemetry import _logs, metrics, trace
@@ -13,8 +14,9 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
     OTLPSpanExporter,
 )
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.fastapi import (  # type: ignore
+    FastAPIInstrumentor,
+)
 from opentelemetry.metrics import NoOpMeterProvider
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
@@ -33,6 +35,8 @@ from .settings import get_settings
 tracer: trace.Tracer | None = None
 meter: metrics.Meter | None = None
 logger: LoggerProvider | None = None
+
+log = logging.getLogger(__name__)
 
 
 def auth_headers() -> Dict[str, str]:
@@ -82,6 +86,121 @@ def get_log_exporter() -> OTLPLogExporter | None:
     return OTLPLogExporter(headers=auth_headers())
 
 
+def _import_class(module_path: str, class_name: str) -> Optional[Type]:  # type: ignore
+    """Dynamically import a class from a module path."""
+    try:
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    except (ImportError, AttributeError) as e:
+        log.error(f"Could not import {class_name} from {module_path}: {str(e)}")
+        return None
+
+
+# Define mapping of instrumentor info: (module path, class name, required package)
+INSTRUMENTOR_CONFIGS = {
+    "httpx": (
+        "opentelemetry.instrumentation.httpx",
+        "HTTPXClientInstrumentor",
+        "httpx",
+    ),
+    "anthropic": (
+        "opentelemetry.instrumentation.anthropic",
+        "AnthropicInstrumentor",
+        "anthropic",
+    ),
+    "chroma": (
+        "opentelemetry.instrumentation.chroma",
+        "ChromaInstrumentor",
+        "chromadb",
+    ),
+    "cohere": (
+        "opentelemetry.instrumentation.cohere",
+        "CohereInstrumentor",
+        "cohere",
+    ),
+    "groq": ("opentelemetry.instrumentation.groq", "GroqInstrumentor", "groq"),
+    "lance": (
+        "opentelemetry.instrumentation.lance",
+        "LanceInstrumentor",
+        "pylance",
+    ),
+    "langchain": (
+        "opentelemetry.instrumentation.langchain",
+        "LangchainInstrumentor",
+        "langchain",
+    ),
+    "llama_index": (
+        "opentelemetry.instrumentation.llama_index",
+        "LlamaIndexInstrumentor",
+        "llama_index",
+    ),
+    "marqo": (
+        "opentelemetry.instrumentation.marqo",
+        "MarqoInstrumentor",
+        "marqo",
+    ),
+    "milvus": (
+        "opentelemetry.instrumentation.milvus",
+        "MilvusInstrumentor",
+        "pymilvus",
+    ),
+    "mistralai": (
+        "opentelemetry.instrumentation.mistralai",
+        "MistralAiInstrumentor",
+        "mistralai",
+    ),
+    "ollama": (
+        "opentelemetry.instrumentation.ollama",
+        "OllamaInstrumentor",
+        "ollama",
+    ),
+    "openai": (
+        "opentelemetry.instrumentation.openai",
+        "OpenAIInstrumentor",
+        "openai",
+    ),
+    "pinecone": (
+        "opentelemetry.instrumentation.pinecone",
+        "PineconeInstrumentor",
+        "pinecone",
+    ),
+    "qdrant": (
+        "opentelemetry.instrumentation.qdrant",
+        "QdrantInstrumentor",
+        "qdrant_client",
+    ),
+    "replicate": (
+        "opentelemetry.instrumentation.replicate",
+        "ReplicateInstrumentor",
+        "replicate",
+    ),
+    "together": (
+        "opentelemetry.instrumentation.together",
+        "TogetherAiInstrumentor",
+        "together",
+    ),
+    "watsonx": (
+        "opentelemetry.instrumentation.watsonx",
+        "WatsonxInstrumentor",
+        "ibm_watson_machine_learning",
+    ),
+    "weaviate": (
+        "opentelemetry.instrumentation.weaviate",
+        "WeaviateInstrumentor",
+        "weaviate",
+    ),
+}
+
+
+def _is_package_installed(package_name: str) -> bool:
+    """Check if a package is installed."""
+    try:
+        importlib.import_module(package_name)
+        return True
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
 def instrument_app(app: FastAPI):
     global tracer
     global meter
@@ -106,7 +225,7 @@ def instrument_app(app: FastAPI):
     # Set up the TracerProvider if not already set
     if not isinstance(trace.get_tracer_provider(), TracerProvider):
         trace_provider = TracerProvider(resource=resource)
-        span_processor = BatchSpanProcessor(get_span_exporter())
+        span_processor = BatchSpanProcessor(get_span_exporter())  # type: ignore
         trace_provider.add_span_processor(span_processor)
         trace.set_tracer_provider(trace_provider)
         tracer = trace_provider.get_tracer(__name__)
@@ -115,7 +234,7 @@ def instrument_app(app: FastAPI):
 
     # Set up the MeterProvider if not already set
     if not isinstance(metrics.get_meter_provider(), MeterProvider):
-        metrics_exporter = PeriodicExportingMetricReader(get_metrics_exporter())
+        metrics_exporter = PeriodicExportingMetricReader(get_metrics_exporter())  # type: ignore
         meter_provider = MeterProvider(
             resource=resource, metric_readers=[metrics_exporter]
         )
@@ -128,7 +247,7 @@ def instrument_app(app: FastAPI):
         logger_provider = LoggerProvider(resource=resource)
         set_logger_provider(logger_provider)
         logger_provider.add_log_record_processor(
-            BatchLogRecordProcessor(get_log_exporter())
+            BatchLogRecordProcessor(get_log_exporter())  # type: ignore
         )
         handler = LoggingHandler(
             level=logging.NOTSET, logger_provider=logger_provider
@@ -138,8 +257,27 @@ def instrument_app(app: FastAPI):
         logger_provider = _logs.get_logger_provider()
 
     # Only instrument the app when OpenTelemetry is enabled
-    FastAPIInstrumentor.instrument_app(app)
-    HTTPXClientInstrumentor().instrument()
+    FastAPIInstrumentor.instrument_app(app)  # type: ignore
+
+    for name, (
+        module_path,
+        class_name,
+        required_package,
+    ) in INSTRUMENTOR_CONFIGS.items():
+        if _is_package_installed(required_package):
+            instrumentor_class = _import_class(module_path, class_name)  # type: ignore
+            if instrumentor_class:
+                try:
+                    instrumentor_class().instrument()
+                    log.info(f"Successfully instrumented {name}")
+                except Exception as e:
+                    log.error(f"Failed to instrument {name}: {str(e)}")
+            else:
+                log.error(f"Could not load instrumentor for {name}")
+        else:
+            log.debug(
+                f"Skipping {name} instrumentation - required package '{required_package}' not installed"
+            )
 
 
 def shutdown_instrumentation():

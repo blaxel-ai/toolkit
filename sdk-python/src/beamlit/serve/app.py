@@ -10,12 +10,9 @@ from uuid import uuid4
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
-from traceloop.sdk import Traceloop
 
 from beamlit.common import HTTPError, get_settings, init
 from beamlit.common.instrumentation import (
-    get_resource_attributes,
-    get_span_exporter,
     instrument_app,
     shutdown_instrumentation,
 )
@@ -58,13 +55,6 @@ app.add_middleware(
 app.add_middleware(AddProcessTimeHeader)
 app.add_middleware(AccessLogMiddleware)
 instrument_app(app)
-if settings.enable_opentelemetry:
-    Traceloop.init(
-        app_name=settings.name,
-        exporter=get_span_exporter(),
-        resource_attributes=get_resource_attributes(),
-        should_enrich_metrics=os.getenv("ENRICHED_METRICS", "false") == "true",
-    )
 
 
 @app.get("/health")
