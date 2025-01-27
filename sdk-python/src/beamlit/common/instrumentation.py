@@ -269,11 +269,11 @@ def instrument_app(app: FastAPI):
             if instrumentor_class:
                 try:
                     instrumentor_class().instrument()
-                    log.info(f"Successfully instrumented {name}")
+                    log.debug(f"Successfully instrumented {name}")
                 except Exception as e:
-                    log.error(f"Failed to instrument {name}: {str(e)}")
+                    log.debug(f"Failed to instrument {name}: {str(e)}")
             else:
-                log.error(f"Could not load instrumentor for {name}")
+                log.debug(f"Could not load instrumentor for {name}")
         else:
             log.debug(
                 f"Skipping {name} instrumentation - required package '{required_package}' not installed"
