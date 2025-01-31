@@ -3,6 +3,8 @@ import ast
 import asyncio
 import importlib.util
 import os
+import traceback
+
 from logging import getLogger
 from typing import Union
 
@@ -132,6 +134,10 @@ def get_functions(
                 toolkit.initialize()
                 functions.extend(toolkit.get_tools())
             except Exception as e:
+                logger.debug(
+                    f"Failed to initialize remote function {function}: {e!s}\n"
+                    f"Traceback:\n{traceback.format_exc()}"
+                )
                 logger.warn(f"Failed to initialize remote function {function}: {e!s}")
 
     if chain:

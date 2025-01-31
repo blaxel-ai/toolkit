@@ -19,6 +19,7 @@ TYPE_MAP = {
     "integer": int,
     "number": float,
     "array": list,
+    "object": dict,
     "boolean": bool,
     "string": str,
     "null": type(None),
