@@ -76,17 +76,27 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-    Run(
+    Chat(
         ctx context.Context,
-        workspaceName string,
+        workspace string,
         environment string,
         resourceType string,
         resourceName string,
-        method string,
-        path string,
-        headers map[string]string,
-        body string,
-        reqEditors ...RequestEditorFn,
+    ) error
+    Run(
+		ctx context.Context,
+		workspaceName string,
+		environment string,
+		resourceType string,
+		resourceName string,
+		method string,
+		path string,
+		headers map[string]string,
+		params []string,
+		body string,
+		debug bool,
+		local bool,
+		reqEditors ...RequestEditorFn,
     ) (*http.Response, error)
 
 {{range . -}}

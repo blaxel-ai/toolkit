@@ -3,20 +3,23 @@ module github.com/beamlit/toolkit
 go 1.23.2
 
 require (
+	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/fatih/color v1.18.0
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/oapi-codegen/runtime v1.1.1
+	github.com/qeesung/image2ascii v1.0.1
 	github.com/spf13/cobra v1.8.1
+	golang.org/x/term v0.28.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
+	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
-	github.com/charmbracelet/bubbles v0.20.0 // indirect
 	github.com/charmbracelet/x/ansi v0.4.5 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
@@ -29,13 +32,15 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
 	golang.org/x/sync v0.9.0 // indirect
 )
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/charmbracelet/bubbletea v1.2.4 // indirect
+	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20241127125741-aad810dfbce6
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
@@ -52,6 +57,6 @@ require (
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.19.0
 )

@@ -112,6 +112,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.AddCommand(reg.ServeCmd())
 	rootCmd.AddCommand(reg.CreateAgentAppCmd())
 	rootCmd.AddCommand(reg.DeployAgentAppCmd())
+	rootCmd.AddCommand(reg.ChatCmd())
 	rootCmd.AddCommand(reg.VersionCmd())
 
 	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")
