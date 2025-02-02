@@ -20,6 +20,7 @@ Beamlit CLI is a command line tool to interact with Beamlit APIs.
 ### SEE ALSO
 
 * [bl apply](bl_apply.md)	 - Apply a configuration to a resource by file
+* [bl chat](bl_chat.md)	 - Chat with an agent
 * [bl completion](bl_completion.md)	 - Generate the autocompletion script for the specified shell
 * [bl create-agent-app](bl_create-agent-app.md)	 - Create a new beamlit agent app
 * [bl delete](bl_delete.md)	 - Delete a resource

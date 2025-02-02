@@ -22,11 +22,13 @@ bl run function my-function --data '{"query": "4+2"}'
 
 ```
       --data string          JSON body data for the inference request
+      --debug                Debug mode
       --header stringArray   Request headers in 'Key: Value' format. Can be specified multiple times
   -h, --help                 help for run
+      --local                Run locally
       --method string        HTTP method for the inference request (default "POST")
+      --params strings       Query params sent to the inference request
       --path string          path for the inference request
-      --show-headers         Show response headers in output
       --upload-file string   This transfers the specified local file to the remote URL
 ```
 
