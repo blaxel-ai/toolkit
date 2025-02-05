@@ -122,18 +122,6 @@ export async function createApp(
     }
   );
 
-  // instrumentApp();
-
-  // if (settings.enableOpentelemetry) {
-  //   const { Traceloop } = require("@traceloop/sdk");
-  //   Traceloop.init({
-  //     appName: settings.name,
-  //     exporter: getSpanExporter(),
-  //     resourceAttributes: getResourceAttributes(),
-  //     shouldEnrichMetrics: process.env.ENRICHED_METRICS === "true",
-  //   });
-  // }
-
   /**
    * Health check endpoint.
    * @returns An object indicating the status.
@@ -196,13 +184,6 @@ export async function createApp(
       }
     });
   }
-
-  /**
-   * Hook to execute on application close.
-   */
-  app.addHook("onClose", async () => {
-    // await shutdownInstrumentation();
-  });
 
   return app;
 }

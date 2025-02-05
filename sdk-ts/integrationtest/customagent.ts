@@ -1,15 +1,14 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { CompiledGraph, MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { ChatOpenAI } from "@langchain/openai";
 import { FastifyRequest } from "fastify";
 import { v4 as uuidv4 } from "uuid";
+import { createApp, runApp } from "../src/serve/app";
 import {
-  createApp,
+  getChatModel,
   getDefaultThread,
   getFunctions,
   logger,
-  runApp,
   wrapAgent,
 } from "../src";
 import { helloworld } from "./customfunctions/helloworld";
@@ -47,7 +46,7 @@ export const agent = async () => {
   const functions = await getFunctions();
   functions.push(helloworld);
 
-  const model = new ChatOpenAI();
+  const model = await getChatModel("gpt-4o-mini");
   return wrapAgent(handleRequest, {
     agent: {
       metadata: {
