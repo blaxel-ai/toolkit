@@ -1,4 +1,4 @@
-import { logger } from "../common/logger.js";
+import { instrumentApp } from "../common/instrumentation.js";
 import { createApp, runApp } from "./app.js";
 
 /**
@@ -6,4 +6,4 @@ import { createApp, runApp } from "./app.js";
  */
 createApp()
   .then((app) => runApp(app))
-  .catch((err) => logger.error(err));
+  .catch((err) => console.error(err));

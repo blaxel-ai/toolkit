@@ -17,12 +17,13 @@ import {
 } from "@opentelemetry/sdk-metrics";
 import { AlwaysOnSampler, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
-import { getAuthenticationHeaders } from "../authentication/authentication.js";
 import { Instrumentation, registerInstrumentations } from "@opentelemetry/instrumentation";
-import { getSettings } from "./settings.js";
-import { metrics } from '@opentelemetry/api';
+import { diag, DiagConsoleLogger, DiagLogLevel, metrics } from '@opentelemetry/api';
 import { LangChainInstrumentation } from "@traceloop/instrumentation-langchain";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
+import { logs, Logger } from '@opentelemetry/api-logs';
+
+
 let tracerProvider: NodeTracerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
 let loggerProvider: LoggerProvider | null = null;
@@ -33,15 +34,7 @@ type InstrumentationInfo = {
     requiredPackages: string[]; // At least one package is required
 }
 
-// Initialize instrumentations and log the result
-const pinoInstrumentation = new PinoInstrumentation();
-const fastifyInstrumentation = new FastifyInstrumentation();
-const httpInstrumentation = new HttpInstrumentation();
-instrumentApp().then(() => {
-}).catch((error) => {
-    console.error("Error initializing instrumentation:", error);
-});
-
+let otelLogger: Logger | null = null;
 
 // Define mapping of instrumentor info: (module path, class name, required package)
 const instrumentationMap: Record<string, InstrumentationInfo> = {
@@ -102,11 +95,36 @@ const instrumentationMap: Record<string, InstrumentationInfo> = {
     }
 }
 
+let isInstrumentationInitialized = false;
+
+instrumentApp().then(() => {
+    isInstrumentationInitialized = true;
+}).catch((error) => {
+    console.error("Error initializing instrumentation:", error);
+});
+
+process.on("SIGINT", () => {
+    shutdownInstrumentation().catch(error => {
+        console.debug("Fatal error during shutdown:", error);
+        process.exit(0);
+    });
+});
+
+process.on("SIGTERM", () => {
+    shutdownInstrumentation().catch(error => {
+        console.debug("Fatal error during shutdown:", error);
+        process.exit(0);
+    });
+});
+
+
+
 /**
  * Retrieve authentication headers.
  */
 async function authHeaders(): Promise<Record<string, string>> {
-    const headers = await getAuthenticationHeaders();
+    const getAuthenticationHeaders = require("../authentication/authentication.js");
+    const headers = await getAuthenticationHeaders.getAuthenticationHeaders();
     return {
         "x-beamlit-authorization": headers?.["X-Beamlit-Authorization"] || "",
         "x-beamlit-workspace": headers?.["X-Beamlit-Workspace"] || "",
@@ -125,7 +143,8 @@ export function getLoggerProviderInstance(): LoggerProvider {
  * Get resource attributes for OpenTelemetry.
  */
 function getResourceAttributes(): Record<string, any> {
-    const settings = getSettings();
+    const getSettings = require("./settings.js");
+    const settings = getSettings.getSettings();
     return {
         "service.name": settings.name,
         workspace: settings.workspace,
@@ -135,7 +154,8 @@ function getResourceAttributes(): Record<string, any> {
  * Initialize and return the OTLP Metric Exporter.
  */
 async function getMetricExporter(): Promise<OTLPMetricExporter | null> {
-    const settings = getSettings();
+    const getSettings = require("./settings.js");
+    const settings = getSettings.getSettings();
     if (!settings.enableOpentelemetry) {
         return null;
     }
@@ -148,7 +168,8 @@ async function getMetricExporter(): Promise<OTLPMetricExporter | null> {
  * Initialize and return the OTLP Trace Exporter.
  */
 async function getTraceExporter(): Promise<OTLPTraceExporter | null> {
-    const settings = getSettings();
+    const getSettings = require("./settings.js");
+    const settings = getSettings.getSettings(); 
     if (!settings.enableOpentelemetry) {
         return null;
     }
@@ -161,7 +182,8 @@ async function getTraceExporter(): Promise<OTLPTraceExporter | null> {
  * Initialize and return the OTLP Log Exporter.
  */
 async function getLogExporter(): Promise<OTLPLogExporter | null> {
-    const settings = getSettings();
+    const getSettings = require("./settings.js");
+    const settings = getSettings.getSettings();
     if (!settings.enableOpentelemetry) {
         return null;
     }
@@ -169,6 +191,13 @@ async function getLogExporter(): Promise<OTLPLogExporter | null> {
     return new OTLPLogExporter({
         headers: headers,
     });
+}
+
+export function getLogger(): Logger {
+    if (!otelLogger) {
+        throw new Error("Logger is not initialized");
+    }
+    return otelLogger;
 }
 
 /**
@@ -196,75 +225,84 @@ async function importInstrumentationClass(modulePath: string, className: string)
     }
 }
 
-function loadInstrumentation(logger: any): Instrumentation[] {
+async function loadInstrumentation(): Promise<Instrumentation[]> {
     let instrumentations: Instrumentation[] = [];
     for (const [name, info] of Object.entries(instrumentationMap)) {
         if (info.requiredPackages.some(pkg => isPackageInstalled(pkg))) {
-            importInstrumentationClass(
+            const module = await importInstrumentationClass(
                 info.modulePath,
                 info.className
-            ).then((module: any) => {
-                if (module) {
-                    try {
-                        const instrumentor = new module() as Instrumentation;
-                        instrumentor.enable();
-                        instrumentations.push(instrumentor);
-                        if (name === "langchain") {
-                            const langchain = instrumentor as LangChainInstrumentation;
+            );
+            if (module) {
+                try {
+                    const instrumentor = new module() as Instrumentation;
+                    instrumentor.enable();
+                    instrumentations.push(instrumentor);
+                    if (name === "langchain") {
+                        const langchain = instrumentor as LangChainInstrumentation;
 
-                            const RunnableModule = require("@langchain/core/runnables");
-                            const ToolsModule = require("@langchain/core/tools");
-                            const ChainsModule = require("langchain/chains");
-                            const AgentsModule = require("langchain/agents");
-                            const VectorStoresModule = require("@langchain/core/vectorstores");
+                        const RunnableModule = require("@langchain/core/runnables");
+                        const ToolsModule = require("@langchain/core/tools");
+                        const ChainsModule = require("langchain/chains");
+                        const AgentsModule = require("langchain/agents");
+                        const VectorStoresModule = require("@langchain/core/vectorstores");
 
-                            langchain.manuallyInstrument(
-                                {
-                                    runnablesModule: RunnableModule,
-                                    toolsModule: ToolsModule,
-                                    chainsModule: ChainsModule,
-                                    agentsModule: AgentsModule,
-                                    vectorStoreModule: VectorStoresModule,
-                                }
-                            );
-                        }
-                        logger.debug(`Successfully instrumented ${name}`);
-                    } catch (error) {
-                        logger.debug(`Failed to instrument ${name}: ${error}`);
+                        langchain.manuallyInstrument(
+                            {
+                                runnablesModule: RunnableModule,
+                                toolsModule: ToolsModule,
+                                chainsModule: ChainsModule,
+                                agentsModule: AgentsModule,
+                                vectorStoreModule: VectorStoresModule,
+                            }
+                        );
                     }
-                } else {
-                    logger.debug(`Could not load instrumentor for ${name}`);
+                } catch (error) {
+                    console.debug(`Failed to instrument ${name}: ${error}`);
                 }
-            }).catch((error: any) => {
-                logger.debug(`Failed to load instrumentation for ${name}: ${error}`);
-            });
+            }
         }
     }
     return instrumentations;
 }
 
+
 /**
  * Instrument the Fastify application with OpenTelemetry.
  */
 export async function instrumentApp() {
-    // Instrument Fastify and HTTP and Pino
-    const loggerLib = await import("./logger.js");
-    const logger = loggerLib.logger;
-    // Dynamically load and enable instrumentations based on installed packages
+    if (!process.env.BL_ENABLE_OPENTELEMETRY || isInstrumentationInitialized) {
+        return;
+    }
+    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ALL);
+    isInstrumentationInitialized = true;
 
-    const instrumentations = loadInstrumentation(logger);
+    const instrumentations = await loadInstrumentation();
+    const pinoInstrumentation = new PinoInstrumentation();
+    const fastifyInstrumentation = new FastifyInstrumentation();
+    const httpInstrumentation = new HttpInstrumentation();
     instrumentations.push(fastifyInstrumentation);
     instrumentations.push(httpInstrumentation);
     instrumentations.push(pinoInstrumentation);
-    const settings = getSettings();
-    if (!settings.enableOpentelemetry) {
-        return;
-    }
 
     const resource = new Resource(getResourceAttributes());
 
+
+    // Initialize Logger Provider with exporter
+    const logExporter = await getLogExporter();
+    if (!logExporter) {
+        throw new Error("Log exporter is not initialized");
+    }
+    loggerProvider = new LoggerProvider({
+        resource,
+    });
+    loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
+    logs.setGlobalLoggerProvider(loggerProvider);
+
+    
+
+
     // Initialize Tracer Provider with exporter
-    //const traceExporter = await getTraceExporter();
     const traceExporter = await getTraceExporter();
     if (!traceExporter) {
         throw new Error("Trace exporter is not initialized");
@@ -275,7 +313,6 @@ export async function instrumentApp() {
         spanProcessors: [new BatchSpanProcessor(traceExporter)],
     });
     tracerProvider.register(); // This registers it as the global tracer provider
-
     // Initialize Meter Provider with exporter
     const metricExporter = await getMetricExporter();
     if (!metricExporter) {
@@ -293,35 +330,8 @@ export async function instrumentApp() {
     // Register as global meter provider
     metrics.setGlobalMeterProvider(meterProvider);
 
-    // Initialize Logger Provider with exporter
-    const logExporter = await getLogExporter();
-    if (!logExporter) {
-        throw new Error("Log exporter is not initialized");
-    }
-    loggerProvider = new LoggerProvider({
-        resource,
-    });
-    loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
-
     registerInstrumentations({
         instrumentations: instrumentations,
-        loggerProvider: loggerProvider,
-        tracerProvider: tracerProvider,
-        meterProvider: meterProvider,
-    });
-
-    process.on("SIGINT", () => {
-        shutdownInstrumentation().catch(error => {
-            console.debug("Fatal error during shutdown:", error);
-            process.exit(0);
-        });
-    });
-
-    process.on("SIGTERM", () => {
-        shutdownInstrumentation().catch(error => {
-            console.debug("Fatal error during shutdown:", error);
-            process.exit(0);
-        });
     });
 }
 
@@ -331,7 +341,6 @@ export async function instrumentApp() {
 async function shutdownInstrumentation() {
     try {
         const shutdownPromises = [];
-
         if (tracerProvider) {
             shutdownPromises.push(
                 tracerProvider.shutdown()

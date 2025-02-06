@@ -1,3 +1,4 @@
+import { instrumentApp } from "../src/common/instrumentation";
 import { HumanMessage } from "@langchain/core/messages";
 import { CompiledGraph, MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
