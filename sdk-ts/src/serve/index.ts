@@ -1,4 +1,4 @@
-import "../common/instrumentation.js";
+import "../common/instrumentation.js"; // Ensure instrumentation is initialized
 import { createApp, runApp } from "./app.js";
 
 /**
