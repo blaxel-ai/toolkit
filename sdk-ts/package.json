@@ -102,6 +102,7 @@
   "devDependencies": {
     "@eslint/js": "^9.19.0",
     "@jest/globals": "^29.7.0",
+    "@langchain/deepseek": "^0.0.1",
     "@tsconfig/node20": "^20.1.4",
     "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4.0.9",

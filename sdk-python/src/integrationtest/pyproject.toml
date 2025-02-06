@@ -13,5 +13,6 @@ beamlit = { path = "../../" }
 
 [dependency-groups]
 dev = [
+    "langchain-deepseek-official>=0.1.0.post1",
     "langchain-openai>=0.3.3",
 ]

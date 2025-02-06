@@ -44,7 +44,7 @@ async function getDeepSeekChatModel() {
     return ChatDeepSeek;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/deepseek. Please install it with: npm install @langchain/deepseek"
     );
     throw e;
   }

@@ -59,7 +59,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 }
 
 func (r *Operations) Apply(filePath string, recursive bool, upload bool) ([]ApplyResult, error) {
-	results, err := getResults(filePath, recursive)
+	results, err := getResults("apply", filePath, recursive)
 	if err != nil {
 		return nil, fmt.Errorf("error getting results: %w", err)
 	}

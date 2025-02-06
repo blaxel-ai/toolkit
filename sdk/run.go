@@ -65,8 +65,10 @@ func NewRunRequest(
 	if err != nil {
 		return nil, err
 	}
+
+	path = strings.TrimPrefix(path, "/")
 	if local {
-		path = ""
+		path = "" + path
 	} else if path != "" {
 		path = fmt.Sprintf("%s/%ss/%s/%s", workspaceName, resourceType, resourceName, path)
 	} else {

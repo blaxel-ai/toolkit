@@ -27,7 +27,7 @@ func (r *Operations) ChatCmd() *cobra.Command {
 			resourceType := "agent"
 			resourceName := args[0]
 
-			err := client.Chat(context.Background(), workspace, environment, resourceType, resourceName)
+			err := client.Chat(context.Background(), workspace, environment, resourceType, resourceName, debug, local)
 			if err != nil {
 				fmt.Println("Error: Failed to chat", err)
 				os.Exit(1)

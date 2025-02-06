@@ -18,13 +18,17 @@ func (c *Client) Chat(
 	environment string,
 	resourceType string,
 	resourceName string,
+	debug bool,
+	local bool,
 ) error {
-	err := c.CheckResource(ctx, workspace, environment, resourceType, resourceName)
-	if err != nil {
-		return err
+	if !local {
+		err := c.CheckResource(ctx, workspace, environment, resourceType, resourceName)
+		if err != nil {
+			return err
+		}
 	}
 
-	return c.BootChat(ctx, workspace, environment, resourceType, resourceName)
+	return c.BootChat(ctx, workspace, environment, resourceType, resourceName, debug, local)
 }
 
 func (c *Client) BootChat(
@@ -33,6 +37,8 @@ func (c *Client) BootChat(
 	environment string,
 	resourceType string,
 	resourceName string,
+	debug bool,
+	local bool,
 ) error {
 
 	m := &chat.ChatModel{
@@ -42,6 +48,8 @@ func (c *Client) BootChat(
 		ResType:     resourceType,
 		ResName:     resourceName,
 		SendMessage: c.SendMessage,
+		Debug:       debug,
+		Local:       local,
 	}
 
 	p := tea.NewProgram(
@@ -92,6 +100,8 @@ func (c *Client) SendMessage(
 	resourceType string,
 	resourceName string,
 	message string,
+	debug bool,
+	local bool,
 ) (string, error) {
 	type Input struct {
 		Inputs string `json:"inputs"`
@@ -111,8 +121,8 @@ func (c *Client) SendMessage(
 		map[string]string{},
 		[]string{},
 		string(inputBody),
-		false,
-		false,
+		debug,
+		local,
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to send message: %w", err)

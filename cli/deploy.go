@@ -193,7 +193,10 @@ func handleUpload(resourceType string, name string, path string, uploadUrl strin
 	if err != nil {
 		return fmt.Errorf("failed to create zip file: %w", err)
 	}
-	zipFile.Seek(0, 0)
+	_, err = zipFile.Seek(0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to seek to start of zip file: %w", err)
+	}
 	defer zipFile.Close()
 
 	// Upload the zip file
@@ -385,9 +388,9 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// }
 			fmt.Println()
 			if len(agents) > 1 {
-				fmt.Printf("Your beamlit agents are ready:\n")
+				fmt.Printf("Your beamlit agents are deploying:\n")
 			} else {
-				fmt.Printf("Your beamlit agent is ready:\n")
+				fmt.Printf("Your beamlit agent is deploying:\n")
 			}
 			for _, agent := range agents {
 				fmt.Printf(

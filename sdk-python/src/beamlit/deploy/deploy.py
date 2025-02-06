@@ -191,7 +191,7 @@ def dockerfile(
 FROM python:3.12-slim
 
 ARG UV_VERSION="latest"
-RUN apt update && apt install -y curl
+RUN apt update && apt install -y curl build-essential
 
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

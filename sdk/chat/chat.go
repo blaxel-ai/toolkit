@@ -25,7 +25,9 @@ type ChatModel struct {
 	ResType     string
 	ResName     string
 	Loading     bool
-	SendMessage func(ctx context.Context, workspace string, environment string, resType string, resName string, message string) (string, error)
+	Debug       bool
+	Local       bool
+	SendMessage func(ctx context.Context, workspace string, environment string, resType string, resName string, message string, debug bool, local bool) (string, error)
 }
 
 type responseMsg struct {
@@ -94,7 +96,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(
 				m.spinner.Tick,
 				func() tea.Msg {
-					response, err := m.SendMessage(context.Background(), m.Workspace, m.Environment, m.ResType, m.ResName, userInput)
+					response, err := m.SendMessage(context.Background(), m.Workspace, m.Environment, m.ResType, m.ResName, userInput, m.Debug, m.Local)
 					if err != nil {
 						return errMsg{err}
 					}

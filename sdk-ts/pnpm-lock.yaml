@@ -41,7 +41,7 @@ importers:
       '@opentelemetry/exporter-logs-otlp-http':
         specifier: ^0.57.1
         version: 0.57.1(@opentelemetry/api@1.9.0)
-      '@opentelemetry/exporter-metrics-otlp-http':
+      '@opentelemetry/exporter-trace-otlp-http':
         specifier: ^0.57.1
         version: 0.57.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/exporter-trace-otlp-http':
@@ -156,6 +156,9 @@ importers:
       '@jest/globals':
         specifier: ^29.7.0
         version: 29.7.0
+      '@langchain/deepseek':
+        specifier: ^0.0.1
+        version: 0.0.1(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)
       '@tsconfig/node20':
         specifier: ^20.1.4
         version: 20.1.4
@@ -1369,6 +1372,12 @@ packages:
     resolution: {integrity: sha512-gIszaRKWmP1HEgOhJLJaMiTMH8U3W9hG6raWihwpCTb0Ns7owjrmaqmgMa9h3W4/0xriaKfrfFBd6tepKsfxZA==}
     engines: {node: '>=18'}
 
+  '@langchain/deepseek@0.0.1':
+    resolution: {integrity: sha512-jgrbitvV4p7Kqo/Fyni9coCliNXUrJ2XChdR8eHvQg3RL+w13DIQjJn2mrkCrb7v6Is1rI7It2x3yIbADL71Yg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.3.0 <0.4.0'
+
   '@langchain/langgraph-checkpoint@0.0.15':
     resolution: {integrity: sha512-AiJkvsYHqNbCh1Tx823qs2lf2qRqeB4EAMejirOk8gkpPszAGYua5c3niKYkcKR2tU8Snhrmj7Gm9HKZSFOXyw==}
     engines: {node: '>=18'}
@@ -1392,6 +1401,12 @@ packages:
 
   '@langchain/openai@0.3.17':
     resolution: {integrity: sha512-uw4po32OKptVjq+CYHrumgbfh4NuD7LqyE+ZgqY9I/LrLc6bHLMc+sisHmI17vgek0K/yqtarI0alPJbzrwyag==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.3.29 <0.4.0'
+
+  '@langchain/openai@0.4.2':
+    resolution: {integrity: sha512-Cuj7qbVcycALTP0aqZuPpEc7As8cwiGaU21MhXRyZFs+dnWxKYxZ1Q1z4kcx6cYkq/I+CNwwmk+sP+YruU73Aw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/core': '>=0.3.29 <0.4.0'
@@ -5362,6 +5377,15 @@ snapshots:
     transitivePeerDependencies:
       - openai
 
+  '@langchain/deepseek@0.0.1(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)':
+    dependencies:
+      '@langchain/core': 0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
+      '@langchain/openai': 0.4.2(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)
+      zod: 3.24.1
+    transitivePeerDependencies:
+      - encoding
+      - ws
+
   '@langchain/langgraph-checkpoint@0.0.15(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))':
     dependencies:
       '@langchain/core': 0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
@@ -5392,6 +5416,17 @@ snapshots:
     optional: true
 
   '@langchain/openai@0.3.17(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)':
+    dependencies:
+      '@langchain/core': 0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
+      js-tiktoken: 1.0.16
+      openai: 4.80.0(ws@8.18.0)(zod@3.24.1)
+      zod: 3.24.1
+      zod-to-json-schema: 3.24.1(zod@3.24.1)
+    transitivePeerDependencies:
+      - encoding
+      - ws
+
+  '@langchain/openai@0.4.2(@langchain/core@0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)':
     dependencies:
       '@langchain/core': 0.3.33(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
       js-tiktoken: 1.0.16

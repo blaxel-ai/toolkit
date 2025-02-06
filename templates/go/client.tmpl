@@ -82,6 +82,8 @@ type ClientInterface interface {
         environment string,
         resourceType string,
         resourceName string,
+        debug bool,
+        local bool,
     ) error
     Run(
 		ctx context.Context,

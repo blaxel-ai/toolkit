@@ -30,8 +30,8 @@ func formatOperationId(operationId string) []string {
 	return []string{words[0], strings.Join(words[1:], "")}
 }
 
-func getResults(filePath string, recursive bool) ([]Result, error) {
-	return getResultsWrapper(filePath, recursive, 0)
+func getResults(action string, filePath string, recursive bool) ([]Result, error) {
+	return getResultsWrapper(action, filePath, recursive, 0)
 }
 
 func handleSecret(filePath string, content string) (string, error) {
@@ -81,7 +81,7 @@ func handleSecret(filePath string, content string) (string, error) {
 	return content, nil
 }
 
-func getResultsWrapper(filePath string, recursive bool, n int) ([]Result, error) {
+func getResultsWrapper(action string, filePath string, recursive bool, n int) ([]Result, error) {
 	var reader io.Reader
 	var results []Result
 	// Choisir la source (stdin ou fichier)
@@ -97,7 +97,7 @@ func getResultsWrapper(filePath string, recursive bool, n int) ([]Result, error)
 			if n > 0 && !recursive && strings.Contains(filePath, "/") {
 				return nil, nil
 			}
-			return handleDirectory(filePath, recursive, n)
+			return handleDirectory(action, filePath, recursive, n)
 		}
 		// Skip non-YAML files
 		if !strings.HasSuffix(strings.ToLower(filePath), ".yml") && !strings.HasSuffix(strings.ToLower(filePath), ".yaml") {
@@ -116,24 +116,26 @@ func getResultsWrapper(filePath string, recursive bool, n int) ([]Result, error)
 		return nil, fmt.Errorf("error reading content: %v", err)
 	}
 
-	// Replace environment variables in the content
 	contentStr := string(content)
-	re := regexp.MustCompile(`\$([A-Za-z0-9_]+)|\${([A-Za-z0-9_]+)}`)
-	contentStr = re.ReplaceAllStringFunc(contentStr, func(match string) string {
-		// Remove $, ${, and } to get the env var name
-		varName := match
-		varName = strings.TrimPrefix(varName, "$")
-		varName = strings.TrimPrefix(varName, "{")
-		varName = strings.TrimSuffix(varName, "}")
+	if action == "apply" {
+		// Replace environment variables in the content
+		re := regexp.MustCompile(`\$([A-Za-z0-9_]+)|\${([A-Za-z0-9_]+)}`)
+		contentStr = re.ReplaceAllStringFunc(contentStr, func(match string) string {
+			// Remove $, ${, and } to get the env var name
+			varName := match
+			varName = strings.TrimPrefix(varName, "$")
+			varName = strings.TrimPrefix(varName, "{")
+			varName = strings.TrimSuffix(varName, "}")
 
-		if value, exists := os.LookupEnv(varName); exists {
-			return value
+			if value, exists := os.LookupEnv(varName); exists {
+				return value
+			}
+			return match // Keep original if env var not found
+		})
+		contentStr, err = handleSecret(filePath, contentStr)
+		if err != nil {
+			return nil, fmt.Errorf("error handling secret: %v", err)
 		}
-		return match // Keep original if env var not found
-	})
-	contentStr, err = handleSecret(filePath, contentStr)
-	if err != nil {
-		return nil, fmt.Errorf("error handling secret: %v", err)
 	}
 	// Lire et parser les documents YAML
 	decoder := yaml.NewDecoder(strings.NewReader(contentStr))
@@ -151,7 +153,7 @@ func getResultsWrapper(filePath string, recursive bool, n int) ([]Result, error)
 	return results, nil
 }
 
-func handleDirectory(filePath string, recursive bool, n int) ([]Result, error) {
+func handleDirectory(action string, filePath string, recursive bool, n int) ([]Result, error) {
 	var results []Result
 	files, err := os.ReadDir(filePath)
 	if err != nil {
@@ -160,7 +162,7 @@ func handleDirectory(filePath string, recursive bool, n int) ([]Result, error) {
 
 	for _, file := range files {
 		path := fmt.Sprintf("%s/%s", filePath, file.Name())
-		fileResults, err := getResultsWrapper(path, recursive, n+1)
+		fileResults, err := getResultsWrapper(action, path, recursive, n+1)
 		if err != nil {
 			fmt.Printf("error getting results for file %s: %v", path, err)
 			continue

@@ -217,7 +217,10 @@ requires-dist = [
 ]
 
 [package.metadata.dependency-groups]
-dev = [{ name = "ruff", specifier = ">=0.8.2" }]
+dev = [
+    { name = "pdoc3", specifier = ">=0.11.5" },
+    { name = "ruff", specifier = ">=0.8.2" },
+]
 
 [[package]]
 name = "certifi"
@@ -635,6 +638,7 @@ dependencies = [
 
 [package.dependency-groups]
 dev = [
+    { name = "langchain-deepseek-official" },
     { name = "langchain-openai" },
 ]
 
@@ -642,7 +646,10 @@ dev = [
 requires-dist = [{ name = "beamlit", directory = "../../" }]
 
 [package.metadata.dependency-groups]
-dev = [{ name = "langchain-openai", specifier = ">=0.3.3" }]
+dev = [
+    { name = "langchain-deepseek-official", specifier = ">=0.1.0.post1" },
+    { name = "langchain-openai", specifier = ">=0.3.3" },
+]
 
 [[package]]
 name = "jinja2"
@@ -772,6 +779,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/57/b3/426268e07273c395affc6dd02cdf89803888121cfc59ce60922f363aeff8/langchain_core-0.3.33.tar.gz", hash = "sha256:b5dd93a4e7f8198d2fc6048723b0bfecf7aaf128b0d268cbac19c34c1579b953", size = 331492 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/78/463bc92174555cc04b3e234faa169bb8b58f36fff77892d7b8ae2b4f58e4/langchain_core-0.3.33-py3-none-any.whl", hash = "sha256:269706408a2223f863ff1f9616f31903a5712403199d828b50aadbc4c28b553a", size = 412656 },
+]
+
+[[package]]
+name = "langchain-deepseek-official"
+version = "0.1.0.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langchain-openai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ff/bb/5ed486cde3ec5cbff760c89e0076a170f45e83b7491f3bfcb30201de46af/langchain_deepseek_official-0.1.0.post1.tar.gz", hash = "sha256:5fd4d113192e4fd2b59acfb5c192b0e82b1ad7641b4019372ae10537f2dbd20f", size = 4554 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/90/84/4fe16ccce5081ad870951a2e33447b609ff2d19ffe4ba9ccc7f213e59011/langchain_deepseek_official-0.1.0.post1-py3-none-any.whl", hash = "sha256:23a1f89f3d61b1b3babd8831a87708b2f1d3ff0142b135f92743ed7c124d1009", size = 5223 },
 ]
 
 [[package]]

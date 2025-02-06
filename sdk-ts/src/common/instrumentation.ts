@@ -118,6 +118,7 @@ process.on("SIGTERM", () => {
 
 
 
+
 /**
  * Retrieve authentication headers.
  */
@@ -313,6 +314,7 @@ export async function instrumentApp() {
         spanProcessors: [new BatchSpanProcessor(traceExporter)],
     });
     tracerProvider.register(); // This registers it as the global tracer provider
+
     // Initialize Meter Provider with exporter
     const metricExporter = await getMetricExporter();
     if (!metricExporter) {

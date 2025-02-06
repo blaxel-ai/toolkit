@@ -28,7 +28,7 @@ func (r *Operations) DeleteCmd() *cobra.Command {
 			options := map[string]string{
 				"environment": environment,
 			}
-			results, err := getResults(filePath, recursive)
+			results, err := getResults("delete", filePath, recursive)
 			if err != nil {
 				fmt.Printf("error getting results: %v", err)
 				os.Exit(1)

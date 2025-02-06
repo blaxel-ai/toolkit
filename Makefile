@@ -30,9 +30,14 @@ sdk-ts:
 
 build:
 	goreleaser release --snapshot --clean --skip homebrew
-	cp ./dist/beamlit_darwin_arm64/beamlit ~/.local/bin/beamlit
-	cp ~/.local/bin/beamlit ~/.local/bin/bl
-
+	@if [ "$(shell uname -s)" = "Darwin" ]; then \
+		if [ -d "./dist/beamlit_darwin_arm64" ]; then \
+			cp ./dist/beamlit_darwin_arm64/beamlit ~/.local/bin/beamlit; \
+		else \
+			cp ./dist/beamlit_darwin_arm64_v8.0/beamlit ~/.local/bin/beamlit; \
+		fi; \
+		cp ~/.local/bin/beamlit ~/.local/bin/bl; \
+	fi
 doc:
 	rm -rf docs
 	go run main.go docs --format=markdown --output=docs
