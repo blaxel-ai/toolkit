@@ -1,4 +1,4 @@
-import { instrumentApp } from "../common/instrumentation.js";
+import "../common/instrumentation.js";
 import { createApp, runApp } from "./app.js";
 
 /**

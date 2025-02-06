@@ -18,7 +18,7 @@ import {
 import { AlwaysOnSampler, BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { Instrumentation, registerInstrumentations } from "@opentelemetry/instrumentation";
-import { diag, DiagConsoleLogger, DiagLogLevel, metrics } from '@opentelemetry/api';
+import { metrics } from '@opentelemetry/api';
 import { LangChainInstrumentation } from "@traceloop/instrumentation-langchain";
 import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { logs, Logger } from '@opentelemetry/api-logs';
@@ -98,7 +98,6 @@ const instrumentationMap: Record<string, InstrumentationInfo> = {
 let isInstrumentationInitialized = false;
 
 instrumentApp().then(() => {
-    isInstrumentationInitialized = true;
 }).catch((error) => {
     console.error("Error initializing instrumentation:", error);
 });
@@ -274,7 +273,6 @@ export async function instrumentApp() {
     if (!process.env.BL_ENABLE_OPENTELEMETRY || isInstrumentationInitialized) {
         return;
     }
-    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ALL);
     isInstrumentationInitialized = true;
 
     const pinoInstrumentation = new PinoInstrumentation();

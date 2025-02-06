@@ -1,3 +1,4 @@
+import "../common/instrumentation.js"; // Ensure instrumentation is initialized
 import websocket from "@fastify/websocket";
 import { AsyncLocalStorage } from "async_hooks";
 import {
