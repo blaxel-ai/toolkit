@@ -277,10 +277,12 @@ export async function instrumentApp() {
     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ALL);
     isInstrumentationInitialized = true;
 
-    const instrumentations = await loadInstrumentation();
     const pinoInstrumentation = new PinoInstrumentation();
     const fastifyInstrumentation = new FastifyInstrumentation();
     const httpInstrumentation = new HttpInstrumentation();
+    
+    const instrumentations = await loadInstrumentation();
+    
     instrumentations.push(fastifyInstrumentation);
     instrumentations.push(httpInstrumentation);
     instrumentations.push(pinoInstrumentation);
