@@ -6,7 +6,7 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { FastifyInstrumentation } from "@opentelemetry/instrumentation-fastify";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
-import { Resource } from "@opentelemetry/resources";
+import { envDetector, Resource } from "@opentelemetry/resources";
 import {
     BatchLogRecordProcessor,
     LoggerProvider,
@@ -142,10 +142,12 @@ export function getLoggerProviderInstance(): LoggerProvider {
 /**
  * Get resource attributes for OpenTelemetry.
  */
-function getResourceAttributes(): Record<string, any> {
+async function getResourceAttributes(): Promise<Record<string, any>> {
     const getSettings = require("./settings.js");
     const settings = getSettings.getSettings();
+    const resource = await envDetector.detect()
     return {
+        ...resource.attributes,
         "service.name": settings.name,
         workspace: settings.workspace,
     }
@@ -169,7 +171,7 @@ async function getMetricExporter(): Promise<OTLPMetricExporter | null> {
  */
 async function getTraceExporter(): Promise<OTLPTraceExporter | null> {
     const getSettings = require("./settings.js");
-    const settings = getSettings.getSettings(); 
+    const settings = getSettings.getSettings();
     if (!settings.enableOpentelemetry) {
         return null;
     }
@@ -281,12 +283,12 @@ export async function instrumentApp() {
     const httpInstrumentation = new HttpInstrumentation();
     
     const instrumentations = await loadInstrumentation();
-    
+
     instrumentations.push(fastifyInstrumentation);
     instrumentations.push(httpInstrumentation);
     instrumentations.push(pinoInstrumentation);
 
-    const resource = new Resource(getResourceAttributes());
+    const resource = new Resource(await getResourceAttributes());
 
 
     // Initialize Logger Provider with exporter
@@ -300,7 +302,7 @@ export async function instrumentApp() {
     loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
     logs.setGlobalLoggerProvider(loggerProvider);
 
-    
+
 
 
     // Initialize Tracer Provider with exporter
