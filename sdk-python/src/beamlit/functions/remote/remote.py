@@ -114,7 +114,6 @@ class RemoteToolkit:
     function: str
     _function: Function | None = None
     _service_name: str | None = None
-    _sse: bool = False
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     def initialize(self) -> None:
@@ -125,7 +124,6 @@ class RemoteToolkit:
                 function_name = self.function.upper().replace("-", "_")
                 if os.getenv(f"BL_FUNCTION_{function_name}_SERVICE_NAME"):
                     self._service_name = os.getenv(f"BL_FUNCTION_{function_name}_SERVICE_NAME")
-                    self._sse = os.getenv(f"BL_FUNCTION_{function_name}_SSE") == "true"
                 self._function = response.parsed
             except UnexpectedStatus as e:
                 settings = get_settings()
@@ -150,7 +148,7 @@ class RemoteToolkit:
             url = f"{settings.run_url}/{settings.workspace}/functions/{self._function.metadata.name}"
             if self._service_name:
                 url = f"https://{self._service_name}.{settings.run_internal_hostname}"
-            mcp_client = MCPClient(self.client, url, sse=self._sse)
+            mcp_client = MCPClient(self.client, url)
             mcp_toolkit = MCPToolkit(client=mcp_client)
             mcp_toolkit.initialize()
             return mcp_toolkit.get_tools()

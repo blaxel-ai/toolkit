@@ -28,29 +28,33 @@ logger = logging.getLogger(__name__)
 
 
 class MCPClient:
-    def __init__(self, client: AuthenticatedClient, url: str, sse: bool = False):
+    def __init__(self, client: AuthenticatedClient, url: str):
         self.client = client
         self.url = url
-        self.sse = sse
+        self._sse = False
 
     async def list_sse_tools(self) -> ListToolsResult:
         # Create a new context for each SSE connection
-        async with sse_client(f"{self.url}/sse") as (read_stream, write_stream):
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                response = await session.list_tools()
-                return response
+        try:
+            async with sse_client(f"{self.url}/sse") as (read_stream, write_stream):
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    response = await session.list_tools()
+                    return response
+        except Exception:
+            self._sse = False
+            logger.info("SSE not available, trying HTTP")
+            return None  # Signal to list_tools() to try HTTP instead
 
     def list_tools(self) -> ListToolsResult:
-        if self.sse:
+        try:
             loop = asyncio.get_event_loop()
-            try:
-                result = loop.run_until_complete(self.list_sse_tools())
-                return result
-            except Exception as e:
-                logger.error(f"Error in list_tools: {e}")
-                raise
-        else:
+            result = loop.run_until_complete(self.list_sse_tools())
+            if result is None:  # SSE failed, try HTTP
+                raise Exception("SSE failed")
+            self._sse = True
+            return result
+        except Exception:  # Fallback to HTTP
             client = self.client.get_httpx_client()
             response = client.request("GET", f"{self.url}/tools/list")
             response.raise_for_status()
@@ -61,14 +65,14 @@ class MCPClient:
         tool_name: str,
         arguments: dict[str, Any] = None,
     ) -> requests.Response | AsyncIterator[CallToolResult]:
-        if self.sse:
+        if self._sse:
             async with sse_client(f"{self.url}/sse") as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
                     response = await session.call_tool(tool_name, arguments or {})
                     content = pydantic_core.to_json(response).decode()
                     return content
-        else:
+        else: # Fallback to HTTP
             client = self.client.get_httpx_client()
             response = client.request(
                 "POST",
@@ -126,7 +130,6 @@ class MCPToolkit(BaseToolkit):
     """The MCP session used to obtain the tools"""
 
     _tools: ListToolsResult | None = None
-    sse: bool = False
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     def initialize(self) -> None:
@@ -146,7 +149,6 @@ class MCPToolkit(BaseToolkit):
                 name=tool.name,
                 description=tool.description or "",
                 args_schema=create_schema_model(tool.name, tool.inputSchema),
-                sse=self.sse,
             )
             # list_tools returns a PaginatedResult, but I don't see a way to pass the cursor to retrieve more tools
             for tool in self._tools.tools
