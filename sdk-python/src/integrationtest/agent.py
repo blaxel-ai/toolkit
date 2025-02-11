@@ -17,15 +17,15 @@ settings = init()
             "model": "gpt-4o-mini",
         },
     },
-    #remote_functions=["brave-search"],
-    local_functions=[
-        {
-            "name": "github-search",
-            "description": "A tool that searches GitHub for a given query",
-            "url": "http://0.0.0.0:8000",
-            "sse": True,
-        }
-    ],
+    remote_functions=["brave-search"],
+    # local_functions=[
+    #     {
+    #         "name": "github-search",
+    #         "description": "A tool that searches GitHub for a given query",
+    #         "url": "http://0.0.0.0:8000",
+    #         "sse": True,
+    #     }
+    # ],
 )
 async def main(
     input, agent, functions
@@ -33,7 +33,9 @@ async def main(
     agent_config = {"configurable": {"thread_id": str(uuid.uuid4())}}
     print(functions)
 
-    agent_body = {"messages": [("user", input)]}
+    body = await input.json()
+
+    agent_body = {"messages": [("user", body["inputs"])]}
     responses = []
 
     async for chunk in agent.astream(agent_body, config=agent_config):

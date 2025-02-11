@@ -48,6 +48,8 @@ class RunClient:
         json: dict[str, Any] | None = None,
         data: str | None = None,
         params: dict[str, str] | None = None,
+        cloud: bool = False,
+        service_name: str | None = None,
     ) -> requests.Response:
         """Execute an HTTP request against a Beamlit resource.
 
@@ -61,6 +63,8 @@ class RunClient:
             json (dict[str, Any] | None, optional): JSON payload to send with the request. Defaults to None.
             data (str | None, optional): Raw data to send with the request. Defaults to None.
             params (dict[str, str] | None, optional): Query parameters to include in the URL. Defaults to None.
+            cloud (bool, optional): Whether to use the cloud endpoint. Defaults to False.
+            service_name (str | None, optional): The name of the service to use. Defaults to None.
 
         Returns:
             requests.Response: The HTTP response from the server.
@@ -72,14 +76,17 @@ class RunClient:
         headers = headers or {}
         params = params or {}
 
-        # Build the path
-        if path:
-            path = f"{settings.workspace}/{resource_type}s/{resource_name}/{path}"
-        else:
-            path = f"{settings.workspace}/{resource_type}s/{resource_name}"
+        if cloud and path and service_name:
+            url = f"https://{service_name}.{settings.run_internal_hostname}/{path}"
+        
+        if cloud and not path and service_name:
+            url = f"https://{service_name}.{settings.run_internal_hostname}"
 
-        client = self.client.get_httpx_client()
-        url = urllib.parse.urljoin(settings.run_url, path)
+        if not cloud and path:
+            url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}/{path}")
+
+        if not cloud and not path:
+            url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}")
 
         kwargs = {
             "headers": headers,
@@ -90,7 +97,16 @@ class RunClient:
         if json:
             kwargs["json"] = json
 
-        response = client.request(method, url, **kwargs)
-        if response.status_code >= 400:
+        response = self.client.request(method, url, **kwargs)
+        if response.status_code >= 400 and not cloud:
             raise HTTPError(response.status_code, response.text)
+        if response.status_code >= 400 and cloud: # Redirect to the public endpoint if the resource is in the cloud and the request fails
+            if path:
+                url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}/{path}")
+            else:
+                url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}")
+            response = self.client.request(method, url, **kwargs)
+            if response.status_code >= 400:
+                raise HTTPError(response.status_code, response.text)
+            return response
         return response

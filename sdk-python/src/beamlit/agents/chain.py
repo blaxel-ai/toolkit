@@ -2,7 +2,7 @@ import asyncio
 import warnings
 from dataclasses import dataclass
 from typing import Callable
-
+import os
 import pydantic
 import typing_extensions as t
 from langchain_core.tools.base import BaseTool, ToolException
@@ -21,6 +21,8 @@ class ChainTool(BaseTool):
 
     client: RunClient
     handle_tool_error: bool | str | Callable[[ToolException], str] | None = True
+    _cloud: bool = False
+    _service_name: str | None = None
 
     @t.override
     def _run(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
@@ -58,6 +60,8 @@ class ChainTool(BaseTool):
             self.name,
             settings.environment,
             "POST",
+            cloud=self._cloud,
+            service_name=self._service_name,
             json=kwargs,
         )
         return result.text
@@ -91,6 +95,8 @@ class ChainToolkit:
 
     client: AuthenticatedClient
     chain: list[AgentChain]
+    _cloud: bool = False
+    _service_name: str | None = None
     _chain: list[Agent] | None = None
 
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
@@ -103,6 +109,8 @@ class ChainToolkit:
             RuntimeError: If initialization fails due to missing agents.
         """
         """Initialize the session and retrieve tools list"""
+        settings = get_settings()
+        self._cloud = settings.cloud
         if self._chain is None:
             agents = list_agents.sync_detailed(
                 client=self.client,
@@ -111,6 +119,9 @@ class ChainToolkit:
             agents_chain = []
             for chain in chain_enabled:
                 agent = [agent for agent in agents if agent.metadata.name == chain.name]
+                agent_name = agent[0].metadata.name.upper().replace("-", "_")
+                if os.getenv(f"BL_AGENT_{agent_name}_SERVICE_NAME"):
+                    self._service_name = os.getenv(f"BL_AGENT_{agent_name}_SERVICE_NAME")
                 if agent:
                     agent[0].spec.prompt = chain.prompt or agent[0].spec.prompt
                     agent[0].spec.description = chain.description or agent[0].spec.description
@@ -136,6 +147,8 @@ class ChainToolkit:
                 name=agent.metadata.name,
                 description=agent.spec.description or agent.spec.prompt or "",
                 args_schema=ChainInput,
+                cloud=self._cloud,
+                service_name=self._service_name,
             )
             for agent in self._chain
         ]

@@ -7,6 +7,7 @@ import asyncio
 import warnings
 from dataclasses import dataclass
 from typing import Callable
+import os
 
 import pydantic
 import typing_extensions as t
@@ -66,7 +67,8 @@ class RemoteTool(BaseTool):
     resource_name: str
     kit: bool = False
     handle_tool_error: bool | str | Callable[[ToolException], str] | None = True
-
+    service_name: str | None = None
+    cloud: bool = False
     @t.override
     def _run(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
         warnings.warn(
@@ -86,7 +88,9 @@ class RemoteTool(BaseTool):
             self.resource_name,
             settings.environment,
             "POST",
-            json=body
+            cloud=self.cloud,
+            service_name=self.service_name,
+            json=body,
         )
         return result.text
 
@@ -109,6 +113,8 @@ class RemoteToolkit:
     client: AuthenticatedClient
     function: str
     _function: Function | None = None
+    _service_name: str | None = None
+    _sse: bool = False
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     def initialize(self) -> None:
@@ -116,6 +122,10 @@ class RemoteToolkit:
         if self._function is None:
             try:
                 response = get_function.sync_detailed(self.function, client=self.client)
+                function_name = self.function.upper().replace("-", "_")
+                if os.getenv(f"BL_FUNCTION_{function_name}_SERVICE_NAME"):
+                    self._service_name = os.getenv(f"BL_FUNCTION_{function_name}_SERVICE_NAME")
+                    self._sse = os.getenv(f"BL_FUNCTION_{function_name}_SSE") == "true"
                 self._function = response.parsed
             except UnexpectedStatus as e:
                 settings = get_settings()
@@ -138,7 +148,9 @@ class RemoteToolkit:
 
         if self._function.spec.integration_connections:
             url = f"{settings.run_url}/{settings.workspace}/functions/{self._function.metadata.name}"
-            mcp_client = MCPClient(self.client, url, sse=False)
+            if self._service_name:
+                url = f"https://{self._service_name}.{settings.run_internal_hostname}"
+            mcp_client = MCPClient(self.client, url, sse=self._sse)
             mcp_toolkit = MCPToolkit(client=mcp_client)
             mcp_toolkit.initialize()
             return mcp_toolkit.get_tools()
@@ -152,6 +164,8 @@ class RemoteToolkit:
                     kit=True,
                     description=func.description or "",
                     args_schema=create_dynamic_schema(func.name, func.parameters),
+                    cloud=settings.cloud,
+                    service_name=self._service_name,
                 )
                 for func in self._function.spec.kit
             ]
@@ -166,5 +180,7 @@ class RemoteToolkit:
                     self._function.metadata.name,
                     self._function.spec.parameters
                 ),
+                cloud=settings.cloud,
+                service_name=self._service_name,
             )
         ]
