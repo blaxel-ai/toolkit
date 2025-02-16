@@ -24,6 +24,7 @@ export class LocalToolkit {
   private _function: Function | null = null;
   private _runClient: RunClient;
   private settings: Settings;
+  private _mcpToolkit: MCPToolkit | null = null;
 
   /**
    * Creates an instance of RemoteToolkit.
@@ -72,6 +73,11 @@ export class LocalToolkit {
       "x-beamlit-workspace": headers?.["X-Beamlit-Workspace"] || "",
     });
     await this.modelContextProtocolClient.connect(transport);
+    const mcpClient = new MCPClient(this.modelContextProtocolClient, transport);
+    const mcpToolkit = new MCPToolkit(mcpClient);
+    await mcpToolkit.initialize();
+    this._mcpToolkit = mcpToolkit;
+    
   }
 
   /**
@@ -86,15 +92,6 @@ export class LocalToolkit {
       throw new Error("Must initialize the toolkit first");
     }
 
-    if (
-      this._function.metadata &&
-      this._function.spec?.integrationConnections
-    ) {
-      const mcpClient = new MCPClient(this.modelContextProtocolClient);
-      const mcpToolkit = new MCPToolkit(mcpClient);
-      await mcpToolkit.initialize();
-      return mcpToolkit.getTools();
-    }
-    return [];
+    return this._mcpToolkit?.getTools() || [];
   }
 }

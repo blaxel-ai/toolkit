@@ -199,11 +199,12 @@ async def get_functions(
                 await toolkit.initialize()
                 functions.extend(await toolkit.get_tools())
             except Exception as e:
-                logger.debug(
-                    f"Failed to initialize local function {function}: {e!s}\n"
-                    f"Traceback:\n{traceback.format_exc()}"
-                )
-                logger.warn(f"Failed to initialize local function {function}: {e!s}")
+                if not isinstance(e, RuntimeError):
+                    logger.debug(
+                        f"Failed to initialize local function {function}: {e!s}\n"
+                        f"Traceback:\n{traceback.format_exc()}"
+                    )
+                    logger.warn(f"Failed to initialize local function {function}: {e!s}")
 
     if chain:
         toolkit = ChainToolkit(client, chain)

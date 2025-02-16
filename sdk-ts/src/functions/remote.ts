@@ -133,7 +133,7 @@ export class RemoteToolkit {
       }
       try {
         await this.modelContextProtocolClient.connect(transport);
-        const mcpClient = new MCPClient(this.modelContextProtocolClient);
+        const mcpClient = new MCPClient(this.modelContextProtocolClient, transport);
         const mcpToolkit = new MCPToolkit(mcpClient);
         this._mcpToolkit = mcpToolkit;
         await mcpToolkit.initialize();
@@ -145,7 +145,7 @@ export class RemoteToolkit {
             "x-beamlit-workspace": headers?.["X-Beamlit-Workspace"] || "",
           });
           await this.modelContextProtocolClient.connect(transport);
-          const mcpClient = new MCPClient(this.modelContextProtocolClient);
+          const mcpClient = new MCPClient(this.modelContextProtocolClient, transport);
           const mcpToolkit = new MCPToolkit(mcpClient);
           this._mcpToolkit = mcpToolkit;
           try {

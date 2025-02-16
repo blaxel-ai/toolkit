@@ -40,7 +40,7 @@ const handleRequest = async (request: FastifyRequest, args: AgentType) => {
 
 export const agent = async () => {
   const functions = await getFunctions({
-    localFunctions: [{ name: "brave-search-2", description: "brave-search-2", url: "http://localhost:8787/main/functions/brave-search-2" }],
+    localFunctions: [{ name: "brave-search-2", description: "brave-search-2", url: "http://localhost:1400" }],
   });
   functions.push(helloworld);
   console.log(functions);
