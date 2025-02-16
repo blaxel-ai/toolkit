@@ -1,7 +1,0 @@
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: "otel"
-    static_configs:
-      - targets: ["otel:9464"]
