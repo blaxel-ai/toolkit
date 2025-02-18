@@ -11,7 +11,7 @@ func (r *Operations) VersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Get the version of the CLI",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Beamlit CLI: %s\n", version)
+			fmt.Printf("Blaxel CLI: %s\n", version)
 			fmt.Printf("Git commit: %s\n", commit)
 			fmt.Printf("Built at: %s\n", date)
 		},

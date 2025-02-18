@@ -93,7 +93,7 @@ func printJson(resource Resource, slices []interface{}) {
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
 			formatted = append(formatted, Result{
-				ApiVersion: "beamlit.com/v1alpha1",
+				ApiVersion: "blaxel.ai/v1alpha1",
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],
@@ -115,7 +115,7 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
 			formatted = append(formatted, Result{
-				ApiVersion: "beamlit.com/v1alpha1",
+				ApiVersion: "blaxel.ai/v1alpha1",
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],

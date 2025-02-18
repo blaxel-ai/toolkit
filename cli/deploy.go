@@ -23,13 +23,13 @@ func executeInstallDependencies() error {
 	return cmd.Run()
 }
 
-func executePythonGenerateBeamlitDeployment(deployDir string, module string, directory string, name string) error {
+func executePythonGenerateBlaxelDeployment(deployDir string, module string, directory string, name string) error {
 	if module == "" {
 		module = "agent.main"
 	}
 	pythonCode := fmt.Sprintf(`
-from beamlit.deploy import generate_beamlit_deployment
-generate_beamlit_deployment("%s", "%s")
+from blaxel.deploy import generate_blaxel_deployment
+generate_blaxel_deployment("%s", "%s")
 	`, deployDir, name)
 	pythonCmd := "python"
 	if _, err := os.Stat(".venv"); !os.IsNotExist(err) {
@@ -48,19 +48,19 @@ generate_beamlit_deployment("%s", "%s")
 	return cmd.Run()
 }
 
-func executeTypescriptGenerateBeamlitDeployment(deployDir string, module string, directory string, name string) error {
+func executeTypescriptGenerateBlaxelDeployment(deployDir string, module string, directory string, name string) error {
 	if module == "" {
 		module = "agent.agent"
 	}
 
 	tsCode := fmt.Sprintf(`
-import { generateBeamlitDeployment } from "@beamlit/sdk";
+import { generateBlaxelDeployment } from "@blaxel/sdk";
 
-generateBeamlitDeployment("%s", "%s");
+generateBlaxelDeployment("%s", "%s");
 	`, deployDir, name)
 
 	// Create temporary file in deployDir
-	tmpFile, err := os.CreateTemp("./", "beamlit-*.ts")
+	tmpFile, err := os.CreateTemp("./", "blaxel-*.ts")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file in %s: %w", deployDir, err)
 	}
@@ -134,7 +134,7 @@ func handleZipFile(zipWriter *zip.Writer, currentDir string, path string, info o
 
 func createZip(currentDir string, path string) (*os.File, error) {
 	// Create a temporary zip file
-	zipFile, err := os.CreateTemp("", "beamlit-*.zip")
+	zipFile, err := os.CreateTemp("", "blaxel-*.zip")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp zip file: %w", err)
 	}
@@ -150,8 +150,8 @@ func createZip(currentDir string, path string) (*os.File, error) {
 			return err
 		}
 
-		// Skip .beamlit directory
-		ignores := []string{".beamlit", ".venv", ".git", "node_modules"}
+		// Skip .blaxel directory
+		ignores := []string{".blaxel", ".venv", ".git", "node_modules"}
 		for _, ignore := range ignores {
 			if strings.Contains(path, ignore) {
 				return nil
@@ -283,13 +283,13 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
 		Aliases: []string{"d", "dp"},
-		Short:   "Deploy a beamlit agent app",
-		Long:    "Deploy a beamlit agent app, you must be in a beamlit agent app directory.",
+		Short:   "Deploy a blaxel agent app",
+		Long:    "Deploy a blaxel agent app, you must be in a blaxel agent app directory.",
 		Example: `bl deploy`,
 		Run: func(cmd *cobra.Command, args []string) {
 
 			// Create a temporary directory for deployment files
-			deployDir := ".beamlit"
+			deployDir := ".blaxel"
 
 			if dependencies {
 				err := executeInstallDependencies()
@@ -301,13 +301,13 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			language := moduleLanguage()
 			switch language {
 			case "python":
-				err := executePythonGenerateBeamlitDeployment(deployDir, module, directory, name)
+				err := executePythonGenerateBlaxelDeployment(deployDir, module, directory, name)
 				if err != nil {
 					fmt.Printf("Error executing Python script: %v\n", err)
 					os.Exit(1)
 				}
 			case "typescript":
-				err := executeTypescriptGenerateBeamlitDeployment(deployDir, module, directory, name)
+				err := executeTypescriptGenerateBlaxelDeployment(deployDir, module, directory, name)
 				if err != nil {
 					fmt.Printf("Error executing Typescript script: %v\n", err)
 					os.Exit(1)
@@ -367,7 +367,7 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Check for any errors
 			for err := range errChan {
 				if err != nil {
-					fmt.Printf("Error deploying beamlit app: %v\n", err)
+					fmt.Printf("Error deploying blaxel app: %v\n", err)
 				}
 			}
 			if len(errChan) > 0 {
@@ -385,9 +385,9 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// }
 			fmt.Println()
 			if len(agents) > 1 {
-				fmt.Printf("Your beamlit agents are deploying:\n")
+				fmt.Printf("Your blaxel agents are deploying:\n")
 			} else {
-				fmt.Printf("Your beamlit agent is deploying:\n")
+				fmt.Printf("Your blaxel agent is deploying:\n")
 			}
 			for _, agent := range agents {
 				fmt.Printf(

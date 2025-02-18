@@ -1,1 +1,1 @@
-uv run beamlit-docs src/beamlit -o docs --force --skip-errors
+uv run blaxel-docs src/blaxel -o docs --force --skip-errors

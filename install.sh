@@ -189,9 +189,9 @@ End of functions from https://github.com/client9/posixshell
 ------------------------------------------------------------------------
 EOF
 
-OWNER=beamlit
+OWNER=blaxel
 REPO=toolkit
-BINARY=beamlit
+BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-./bin}
 PREFIX="$OWNER/$REPO"

@@ -12,7 +12,7 @@ func loadConfig() Config {
 	config := Config{}
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
-		configPath := filepath.Join(homeDir, ".beamlit", "config.yaml")
+		configPath := filepath.Join(homeDir, ".blaxel", "config.yaml")
 		if data, err := os.ReadFile(configPath); err == nil {
 			if err := yaml.Unmarshal(data, &config); err != nil {
 				// Invalid YAML, use empty credentials
@@ -33,7 +33,7 @@ func saveConfig(config Config) {
 		fmt.Printf("Error getting home directory: %v\n", err)
 		os.Exit(1)
 	}
-	configDir := filepath.Join(homeDir, ".beamlit")
+	configDir := filepath.Join(homeDir, ".blaxel")
 	configFile := filepath.Join(configDir, "config.yaml")
 	if err := os.WriteFile(configFile, yamlData, 0600); err != nil {
 		fmt.Printf("Error writing credentials file: %v\n", err)
@@ -90,7 +90,7 @@ func createHomeDirIfMissing() {
 		return
 	}
 
-	credentialsDir := filepath.Join(homeDir, ".beamlit")
+	credentialsDir := filepath.Join(homeDir, ".blaxel")
 	credentialsFile := filepath.Join(credentialsDir, "credentials.json")
 
 	// Check if credentials file exists

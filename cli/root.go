@@ -10,23 +10,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var BASE_URL = "https://api.beamlit.com/v0"
-var APP_URL = "https://app.beamlit.com"
-var RUN_URL = "https://run.beamlit.com"
-var REGISTRY_URL = "https://us.registry.beamlit.com"
+var BASE_URL = "https://api.blaxel.ai/v0"
+var APP_URL = "https://app.blaxel.ai"
+var RUN_URL = "https://run.blaxel.ai"
+var REGISTRY_URL = "https://us.registry.blaxel.ai"
 
 func init() {
 	env := os.Getenv("BL_ENV")
 	if env == "dev" {
-		BASE_URL = "https://api.beamlit.dev/v0"
-		APP_URL = "https://app.beamlit.dev"
-		RUN_URL = "https://run.beamlit.dev"
-		REGISTRY_URL = "https://eu.registry.beamlit.dev"
+		BASE_URL = "https://api.blaxel.dev/v0"
+		APP_URL = "https://app.blaxel.dev"
+		RUN_URL = "https://run.blaxel.dev"
+		REGISTRY_URL = "https://eu.registry.blaxel.dev"
 	} else if env == "local" {
 		BASE_URL = "http://localhost:8080/v0"
 		APP_URL = "http://localhost:3000"
-		RUN_URL = "https://run.beamlit.dev"
-		REGISTRY_URL = "https://eu.registry.beamlit.dev"
+		RUN_URL = "https://run.blaxel.dev"
+		REGISTRY_URL = "https://eu.registry.blaxel.dev"
 	}
 }
 
@@ -41,7 +41,7 @@ var date string
 var utc bool
 var rootCmd = &cobra.Command{
 	Use:   "bl",
-	Short: "Beamlit CLI is a command line tool to interact with Beamlit APIs.",
+	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		setEnvs()
 
@@ -70,7 +70,7 @@ var rootCmd = &cobra.Command{
 				Credentials: credentials,
 				Workspace:   workspace,
 				Headers: map[string]string{
-					"User-Agent": fmt.Sprintf("beamlit/v%s (%s/%s) beamlit/%s", version, os, arch, commitShort),
+					"User-Agent": fmt.Sprintf("blaxel/v%s (%s/%s) blaxel/%s", version, os, arch, commitShort),
 				},
 			},
 		)
@@ -85,13 +85,13 @@ var rootCmd = &cobra.Command{
 }
 
 func setEnvs() {
-	if url := os.Getenv("BEAMLIT_API_URL"); url != "" {
+	if url := os.Getenv("BLAXEL_API_URL"); url != "" {
 		BASE_URL = url
 	}
-	if runUrl := os.Getenv("BEAMLIT_RUN_URL"); runUrl != "" {
+	if runUrl := os.Getenv("BLAXEL_RUN_URL"); runUrl != "" {
 		RUN_URL = runUrl
 	}
-	if appUrl := os.Getenv("BEAMLIT_APP_URL"); appUrl != "" {
+	if appUrl := os.Getenv("BLAXEL_APP_URL"); appUrl != "" {
 		APP_URL = appUrl
 	}
 }

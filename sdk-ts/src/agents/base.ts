@@ -286,7 +286,7 @@ export const wrapAgent: WrapAgentType = async (
   if (functions.length === 0 && !overrideAgent) {
     logger.warn(`
       You can define this function in directory ${settings.agent.functionsDirectory}. Here is a sample function you can use:\n\n
-      import { wrapFunction } from '@beamlit/sdk/functions'\n\n
+      import { wrapFunction } from '@blaxel/sdk/functions'\n\n
       wrapFunction(() => return 'Hello, world!', { name: 'hello_world', description: 'This is a sample function' })
       `);
   }

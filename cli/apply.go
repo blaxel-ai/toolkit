@@ -162,7 +162,7 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 			return nil, nil
 		}
 
-		autoGenLabel, ok := labels["x-beamlit-auto-generated"].(string)
+		autoGenLabel, ok := labels["x-blaxel-auto-generated"].(string)
 		if !ok || autoGenLabel != "true" {
 			return nil, nil
 		}
@@ -269,7 +269,7 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 	result := ResourceOperationResult{
 		Status: "configured",
 	}
-	if uploadUrl := response.Header.Get("X-Beamlit-Upload-Url"); uploadUrl != "" {
+	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
 	fmt.Printf("Resource %s:%s configured\n", resourceName, name)
@@ -310,7 +310,7 @@ func (resource Resource) PostFn(resourceName string, name string, resourceObject
 	result := ResourceOperationResult{
 		Status: "created",
 	}
-	if uploadUrl := response.Header.Get("X-Beamlit-Upload-Url"); uploadUrl != "" {
+	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
 	fmt.Printf("Resource %s:%s created\n", resourceName, name)

@@ -15,7 +15,7 @@ func NewApiKeyProvider(credentials Credentials, workspaceName string) *ApiKeyAut
 }
 
 func (s *ApiKeyAuth) Intercept(ctx context.Context, req *http.Request) error {
-	req.Header.Set("X-Beamlit-Api-Key", s.credentials.APIKey)
-	req.Header.Set("X-Beamlit-Workspace", s.workspaceName)
+	req.Header.Set("X-Blaxel-Api-Key", s.credentials.APIKey)
+	req.Header.Set("X-Blaxel-Workspace", s.workspaceName)
 	return nil
 }

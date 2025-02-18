@@ -103,7 +103,7 @@ export const wrapFunction: WrapFunctionType = async (
   const name = slugify(
     options?.name || options?.function?.metadata?.name || ""
   );
-  const functionBeamlit: Function = {
+  const functionBlaxel: Function = {
     metadata: {
       name: name || slugify(func.name),
       displayName:
@@ -113,19 +113,19 @@ export const wrapFunction: WrapFunctionType = async (
   };
 
   const zodSchema = parametersToZodSchema(parameters);
-  let toolBeamlit: StructuredTool[];
+  let toolBlaxel: StructuredTool[];
   if (settings.remote) {
     const toolkit = new RemoteToolkit(
       client,
-      functionBeamlit.metadata?.name || ""
+      functionBlaxel.metadata?.name || ""
     );
     await toolkit.initialize();
-    toolBeamlit = await toolkit.getTools();
+    toolBlaxel = await toolkit.getTools();
   } else {
-    toolBeamlit = [
+    toolBlaxel = [
       tool(func, {
-        name: functionBeamlit.metadata?.name || "",
-        description: functionBeamlit.spec?.description || "",
+        name: functionBlaxel.metadata?.name || "",
+        description: functionBlaxel.spec?.description || "",
         schema: zodSchema,
       }),
     ];
@@ -138,7 +138,7 @@ export const wrapFunction: WrapFunctionType = async (
       }
       return func(body);
     },
-    function: functionBeamlit,
-    tools: toolBeamlit,
+    function: functionBlaxel,
+    tools: toolBlaxel,
   };
 };

@@ -3,7 +3,7 @@ import fs from "fs";
 import * as yaml from "js-yaml";
 import { Agent } from "../src";
 import { init, logger } from "../src/common";
-import { generateBeamlitDeployment } from "../src/deploy/deploy";
+import { generateBlaxelDeployment } from "../src/deploy/deploy";
 
 const functionsDir = "tmp/functions";
 const agentsDir = "tmp";
@@ -24,7 +24,7 @@ describe("Functions", () => {
 
     try {
       fs.rmSync(`tmp`, { recursive: true });
-      fs.rmSync(`.beamlit`, { recursive: true });
+      fs.rmSync(`.blaxel`, { recursive: true });
     } catch (e) {
       logger.error(e);
     }
@@ -61,14 +61,14 @@ import { wrapAgent } from "../src/agents/base";
 export const agent = async () => wrapAgent((r) => { return; }, { agent: { metadata: { name: "agent-custom" }, spec: { model: "gpt-4o-mini" }}})
         `
     );
-    await generateBeamlitDeployment(".beamlit");
-    expect(fs.existsSync(`.beamlit/agents/agent-math/agent.yaml`)).toBe(true);
-    expect(fs.existsSync(`.beamlit/agents/agent-custom/agent.yaml`)).toBe(true);
-    expect(fs.existsSync(`.beamlit/functions/add/function.yaml`)).toBe(true);
-    expect(fs.existsSync(`.beamlit/functions/sub/function.yaml`)).toBe(true);
+    await generateBlaxelDeployment(".blaxel");
+    expect(fs.existsSync(`.blaxel/agents/agent-math/agent.yaml`)).toBe(true);
+    expect(fs.existsSync(`.blaxel/agents/agent-custom/agent.yaml`)).toBe(true);
+    expect(fs.existsSync(`.blaxel/functions/add/function.yaml`)).toBe(true);
+    expect(fs.existsSync(`.blaxel/functions/sub/function.yaml`)).toBe(true);
 
     // Read the YAML file for agent-math and verify remoteFunctions contains ["search"]
-    const agentMathYamlPath = `.beamlit/agents/agent-math/agent.yaml`;
+    const agentMathYamlPath = `.blaxel/agents/agent-math/agent.yaml`;
     const agentMathYamlContent = fs.readFileSync(agentMathYamlPath, "utf8");
     const agentMathConfig = yaml.load(agentMathYamlContent) as Agent;
 

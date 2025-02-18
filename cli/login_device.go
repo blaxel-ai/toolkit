@@ -17,7 +17,7 @@ func (r *Operations) DeviceModeLogin(workspace string) {
 	url := r.BaseURL + "/login/device"
 
 	payload := sdk.DeviceLogin{
-		ClientID: "beamlit",
+		ClientID: "blaxel",
 		Scope:    "offline_access",
 	}
 
@@ -63,7 +63,7 @@ func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string
 
 	payload := sdk.DeviceLoginFinalizeRequest{
 		GrantType:  "urn:ietf:params:oauth:grant-type:device_code",
-		ClientID:   "beamlit",
+		ClientID:   "blaxel",
 		DeviceCode: deviceCode,
 	}
 

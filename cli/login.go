@@ -13,7 +13,7 @@ import (
 func (r *Operations) LoginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login [workspace]",
-		Short: "Login to Beamlit",
+		Short: "Login to Blaxel",
 		Args:  cobra.MaximumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			workspace := "" // Default workspace

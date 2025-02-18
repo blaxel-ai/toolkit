@@ -44,7 +44,7 @@ slug: %s
 				return doc.GenMarkdownTreeCustom(rootCmd, outputDir, filePrepender, linkHandler)
 			case "man":
 				header := &doc.GenManHeader{
-					Title:   "BEAMLIT",
+					Title:   "BLAXEL",
 					Section: "1",
 				}
 				return doc.GenManTree(rootCmd, header, outputDir)

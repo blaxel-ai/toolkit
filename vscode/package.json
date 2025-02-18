@@ -1,10 +1,10 @@
 {
-  "name": "vscode-beamlit-tools",
-  "displayName": "Beamlit Explorer",
+  "name": "vscode-blaxel-tools",
+  "displayName": "Blaxel Explorer",
   "description": "Ship AI agents that just work.",
   "version": "0.0.4",
-  "icon": "resources/beamlit.png",
-  "publisher": "beamlit",
+  "icon": "resources/blaxel.png",
+  "publisher": "blaxel",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -20,36 +20,36 @@
   },
   "contributes": {
     "views": {
-      "beamlitView": [
+      "blaxelView": [
         {
-          "id": "extension.vsBeamlitExplorer",
-          "name": "Beamlit"
+          "id": "extension.vsBlaxelExplorer",
+          "name": "Blaxel"
         }
       ]
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "beamlitView",
-          "title": "Beamlit",
-          "icon": "resources/beamlit.png"
+          "id": "blaxelView",
+          "title": "Blaxel",
+          "icon": "resources/blaxel.png"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
-          "command": "beamlit.refresh",
-          "when": "view == extension.vsBeamlitExplorer",
+          "command": "blaxel.refresh",
+          "when": "view == extension.vsBlaxelExplorer",
           "group": "navigation"
         }
       ]
     },
     "commands": [
       {
-        "command": "beamlit.refresh",
+        "command": "blaxel.refresh",
         "title": "Refresh",
-        "category": "Beamlit",
+        "category": "Blaxel",
         "icon": {
           "light": "resources/refresh-light.svg",
           "dark": "resources/refresh-dark.svg"
@@ -88,7 +88,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@beamlit/sdk": "^0.0.57-alpha.61",
+    "@blaxel/sdk": "^0.0.57-alpha.61",
     "@pinecone-database/pinecone": "^4.1.0",
     "@qdrant/js-client-rest": "^1.13.0",
     "chromadb": "^1.10.4",

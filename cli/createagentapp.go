@@ -307,7 +307,7 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 		formTemplates.WithTheme(GetHuhTheme())
 		err = formTemplates.Run()
 		if err != nil {
-			fmt.Println("Cancel create beamlit agent app")
+			fmt.Println("Cancel create blaxel agent app")
 			os.Exit(0)
 		}
 	}
@@ -334,7 +334,7 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 	if err == nil {
 		agentAppOptions.Author = currentUser.Username
 	} else {
-		agentAppOptions.Author = "beamlit"
+		agentAppOptions.Author = "blaxel"
 	}
 	languages, templates, err := retrieveTemplates()
 	if err != nil {
@@ -379,7 +379,7 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 	form.WithTheme(GetHuhTheme())
 	err = form.Run()
 	if err != nil {
-		fmt.Println("Cancel create beamlit agent app")
+		fmt.Println("Cancel create blaxel agent app")
 		os.Exit(0)
 	}
 	promptTemplateConfig(&agentAppOptions)
@@ -543,7 +543,7 @@ func createAgentApp(opts CreateAgentAppOptions) error {
 }
 
 // CreateAgentAppCmd returns a cobra.Command that implements the 'create-agent-app' CLI command.
-// The command creates a new Beamlit agent app in the specified directory after collecting
+// The command creates a new Blaxel agent app in the specified directory after collecting
 // necessary configuration through an interactive prompt.
 // Usage: bl create-agent-app directory
 func (r *Operations) CreateAgentAppCmd() *cobra.Command {
@@ -552,8 +552,8 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 		Use:     "create-agent-app directory",
 		Args:    cobra.MaximumNArgs(2),
 		Aliases: []string{"ca", "caa"},
-		Short:   "Create a new beamlit agent app",
-		Long:    "Create a new beamlit agent app",
+		Short:   "Create a new blaxel agent app",
+		Long:    "Create a new blaxel agent app",
 		Example: `bl create-agent-app my-agent-app`,
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -570,7 +570,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 
 			var err error
 			spinnerErr := spinner.New().
-				Title("Creating your beamlit agent app...").
+				Title("Creating your blaxel agent app...").
 				Action(func() {
 					err = createAgentApp(opts)
 				}).
@@ -599,7 +599,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			fmt.Printf(`Your beamlit agent app has been created. Start working on it:
+			fmt.Printf(`Your blaxel agent app has been created. Start working on it:
 cd %s;
 bl serve --hotreload;
 `, opts.Directory)

@@ -1,4 +1,4 @@
-# VS Code Beamlit Project Ownership
+# VS Code Blaxel Project Ownership
 
 ## Maintainers
 

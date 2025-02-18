@@ -4,7 +4,7 @@ export async function handleControlplaneCache(
   if (req.method !== "GET") {
     return null;
   }
-  const allowedHosts = new Set(["api.beamlit.com", "api.beamlit.dev"]);
+  const allowedHosts = new Set(["api.blaxel.ai", "api.blaxel.dev"]);
   const url = new URL(req.url);
   if (!allowedHosts.has(url.hostname)) {
     return null;
@@ -16,7 +16,7 @@ export async function handleControlplaneCache(
   }
   const objectType = pathSegments[4];
   const name = pathSegments[5];
-  const requirePath = `${process.cwd()}/.beamlit/cache/${objectType}/${name}.json`;
+  const requirePath = `${process.cwd()}/.blaxel/cache/${objectType}/${name}.json`;
 
   let fs;
   try {

@@ -25,7 +25,7 @@ func (r *Operations) RunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
-		Short: "Run a resource on beamlit",
+		Short: "Run a resource on blaxel",
 		Example: `bl run agent my-agent --data '{"inputs": "Hello, world!"}'
 bl run model my-model --data '{"inputs": "Hello, world!"}'
 bl run function my-function --data '{"query": "4+2"}'`,

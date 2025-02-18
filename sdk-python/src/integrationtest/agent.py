@@ -1,8 +1,8 @@
 import asyncio
 import uuid
 
-from beamlit.agents import agent
-from beamlit.common import init
+from blaxel.agents import agent
+from blaxel.aimon import init
 
 settings = init()
 
@@ -12,7 +12,7 @@ settings = init()
             "name": "agent-custom",
         },
         "spec": {
-            "description": "A chat agent using Beamlit to handle your tasks.",
+            "description": "A chat agent using Blaxel to handle your tasks.",
             "model": "gpt-4o-mini",
         },
     },
@@ -46,7 +46,7 @@ async def main(
 
 if __name__ == "__main__":
     async def check():
-        input = "Give me the content of the README.md file for beamlit/toolkit repository"
+        input = "Give me the content of the README.md file for blaxel/toolkit repository"
         response = await main(input)
         print(response)
 

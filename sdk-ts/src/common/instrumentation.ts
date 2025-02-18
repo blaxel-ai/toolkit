@@ -136,8 +136,8 @@ async function authHeaders(): Promise<Record<string, string>> {
   const getAuthenticationHeaders = require("../authentication/authentication.js");
   const headers = await getAuthenticationHeaders.getAuthenticationHeaders();
   return {
-    "x-beamlit-authorization": headers?.["X-Beamlit-Authorization"] || "",
-    "x-beamlit-workspace": headers?.["X-Beamlit-Workspace"] || "",
+    "x-blaxel-authorization": headers?.["X-Blaxel-Authorization"] || "",
+    "x-blaxel-workspace": headers?.["X-Blaxel-Workspace"] || "",
   };
 }
 /**

@@ -1,20 +1,20 @@
 {
-  "name": "@beamlit/sdk",
+  "name": "@blaxel/sdk",
   "version": "0.0.34",
-  "description": "Beamlit SDK for TypeScript",
+  "description": "Blaxel SDK for TypeScript",
   "license": "MIT",
-  "author": "Beamlit, INC (https://beamlit.com)",
-  "homepage": "https://beamlit.com",
-  "bugs": "https://github.com/beamlit/toolkit/issues",
+  "author": "Blaxel, INC (https://blaxel.ai)",
+  "homepage": "https://blaxel.ai",
+  "bugs": "https://github.com/blaxel/toolkit/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/beamlit/toolkit/sdk-ts"
+    "url": "https://github.com/blaxel/toolkit/sdk-ts"
   },
   "engines": {
     "node": ">=18"
   },
   "keywords": [
-    "beamlit",
+    "blaxel",
     "agent",
     "mcp"
   ],

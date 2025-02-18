@@ -7,7 +7,7 @@
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
-project_name: beamlit
+project_name: blaxel
 
 before:
   hooks:
@@ -49,21 +49,21 @@ changelog:
 
 release:
   header: |
-    ## Beamlit CLI: {{ .Tag }} ({{ .Date }})
+    ## Blaxel CLI: {{ .Tag }} ({{ .Date }})
 
     See our amazing latest updates below.
   footer: |
     Have a good one.
 
 brews:
-  - name: beamlit
-    caveats: Beamlit is a tool to ship AI agents that never slack.
-    homepage: "https://www.beamlit.com"
+  - name: blaxel
+    caveats: Blaxel is a tool to ship AI agents that never slack.
+    homepage: "https://www.blaxel.ai"
     install: |
-      bin.install "beamlit"
-      bin.install_symlink "beamlit" => "bl"
+      bin.install "blaxel"
+      bin.install_symlink "blaxel" => "bl"
     repository:
       owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
-      name: homebrew-beamlit
+      name: homebrew-blaxel
       pull_request:
         enabled: true

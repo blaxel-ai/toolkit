@@ -1,6 +1,6 @@
 <p align="center">
-  <img alt="Beamlit Logo" src="https://beamlit.com/logo_short.png" height="140" />
-  <h3 align="center">Visual Studio Code extension for Beamlit</h3>
+  <img alt="Blaxel Logo" src="https://blaxel.ai/logo_short.png" height="140" />
+  <h3 align="center">Visual Studio Code extension for Blaxel</h3>
   <p align="center">The complete platform to build AI agents and deploy them in secure
 and sandboxed environments, for low-latency and high-availability.</p>
 </p>
@@ -8,7 +8,7 @@ and sandboxed environments, for low-latency and high-availability.</p>
 ## Features
 
 Add an explorer view where you can:
-- List Beamlit resources
+- List Blaxel resources
   - Agents
   - Functions
   - Models
@@ -18,11 +18,11 @@ Add an explorer view where you can:
 
 ## Requirements
 
-1. Install Beamlit CLI
+1. Install Blaxel CLI
 ```bash
 curl -fsSL https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh | BINDIR=$HOME/.local/bin sh
 ```
-2. Login to Beamlit's Platform
+2. Login to Blaxel's Platform
 ```
 bl login YOUR_WORKSPACE
 ```
@@ -31,7 +31,7 @@ bl login YOUR_WORKSPACE
 
 - Have to login with CLI before using the extension
 - You cannot switch workspace, to do so you need to use the cli to login or switch context to the workspace you want
-- You cannot create resources on Beamlit platform
+- You cannot create resources on Blaxel platform
 
 ## Following extension guidelines
 

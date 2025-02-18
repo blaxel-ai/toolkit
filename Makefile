@@ -6,20 +6,20 @@ sdk-go:
 	cp ../controlplane/api/api/definitions/controlplane.yml ./definition.yml
 	oapi-codegen -package=sdk \
 		-generate=types,client,spec \
-		-o=sdk/beamlit.go \
+		-o=sdk/blaxel.go \
 		-templates=./templates/go \
 		definition.yml
 
 sdk-python:
 	cp ../controlplane/api/api/definitions/controlplane.yml ./definition.yml
-	rm -rf sdk-python/src/beamlit/api sdk-python/src/beamlit/models
+	rm -rf sdk-python/src/blaxel/api sdk-python/src/blaxel/models
 	openapi-python-client generate \
 		--path=definition.yml \
 		--output-path=./tmp-sdk-python \
 		--overwrite \
 		--custom-template-path=./templates/python \
 		--config=./config/openapi-python-client.yml
-	cp -r ./tmp-sdk-python/beamlit/* ./sdk-python/src/beamlit/
+	cp -r ./tmp-sdk-python/blaxel/* ./sdk-python/src/blaxel/
 	rm -rf ./tmp-sdk-python
 	cd sdk-python && uv run ruff check --fix
 
@@ -39,12 +39,12 @@ sdk-ts:
 build:
 	goreleaser release --snapshot --clean --skip homebrew
 	@if [ "$(shell uname -s)" = "Darwin" ]; then \
-		if [ -d "./dist/beamlit_darwin_arm64" ]; then \
-			cp ./dist/beamlit_darwin_arm64/beamlit ~/.local/bin/beamlit; \
+		if [ -d "./dist/blaxel_darwin_arm64" ]; then \
+			cp ./dist/blaxel_darwin_arm64/blaxel ~/.local/bin/blaxel; \
 		else \
-			cp ./dist/beamlit_darwin_arm64_v8.0/beamlit ~/.local/bin/beamlit; \
+			cp ./dist/blaxel_darwin_arm64_v8.0/blaxel ~/.local/bin/blaxel; \
 		fi; \
-		cp ~/.local/bin/beamlit ~/.local/bin/bl; \
+		cp ~/.local/bin/blaxel ~/.local/bin/bl; \
 	fi
 
 doc: doc-go doc-python doc-ts

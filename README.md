@@ -1,9 +1,9 @@
-# Beamlit Toolkit
+# Blaxel Toolkit
 
 ## Install cli on MacOS
 ```sh
-brew tap beamlit/beamlit
-brew install beamlit
+brew tap beamlit/blaxel
+brew install blaxel
 ```
 
 ## Sample usage of SDK
@@ -20,14 +20,14 @@ import (
 	"github.com/beamlit/toolkit/sdk"
 )
 
-var BASE_URL = "https://api.beamlit.com/v0"
-var RUN_URL = "https://run.beamlit.com"
+var BASE_URL = "https://api.blaxel.ai/v0"
+var RUN_URL = "https://run.blaxel.ai"
 
 func init() {
-	if url := os.Getenv("BEAMLIT_API_URL"); url != "" {
+	if url := os.Getenv("BLAXEL_API_URL"); url != "" {
 		BASE_URL = url
 	}
-	if runUrl := os.Getenv("BEAMLIT_RUN_URL"); runUrl != "" {
+	if runUrl := os.Getenv("BLAXEL_RUN_URL"); runUrl != "" {
 		RUN_URL = runUrl
 	}
 }

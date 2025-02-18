@@ -131,11 +131,11 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
 
   if (dir && fs.existsSync(dir)) {
     logger.info(`Importing functions from ${dir}`);
-    const functionsBeamlit = await retrieveWrapperFunction(
+    const functionsBlaxel = await retrieveWrapperFunction(
       dir,
       warning ?? false
     );
-    functionsBeamlit.forEach((func) => {
+    functionsBlaxel.forEach((func) => {
       functions.push(...func.tools);
     });
   }

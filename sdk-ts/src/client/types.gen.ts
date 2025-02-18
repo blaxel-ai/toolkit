@@ -104,7 +104,7 @@ export type AgentSpec = CoreSpec & {
 };
 
 /**
- * Long-lived API key for accessing Beamlit
+ * Long-lived API key for accessing Blaxel
  */
 export type ApiKey = TimeFields & OwnerFields & {
     /**
@@ -151,7 +151,7 @@ export type Configuration = {
      */
     countries?: Array<unknown>;
     /**
-     * Private locations managed with beamlit operator
+     * Private locations managed with blaxel operator
      */
     privateLocations?: Array<unknown>;
 };

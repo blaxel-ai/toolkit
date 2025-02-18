@@ -83,8 +83,8 @@ func (s *BearerToken) Intercept(ctx context.Context, req *http.Request) error {
 		return err
 	}
 
-	req.Header.Set("X-Beamlit-Authorization", fmt.Sprintf("Bearer %s", s.credentials.AccessToken))
-	req.Header.Set("X-Beamlit-Workspace", s.workspaceName)
+	req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", s.credentials.AccessToken))
+	req.Header.Set("X-Blaxel-Workspace", s.workspaceName)
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (s *BearerToken) DoRefresh() error {
 		"grant_type":    "refresh_token",
 		"refresh_token": s.credentials.RefreshToken,
 		"device_code":   s.credentials.DeviceCode,
-		"client_id":     "beamlit",
+		"client_id":     "blaxel",
 	}
 
 	jsonData, err := json.Marshal(refreshData)

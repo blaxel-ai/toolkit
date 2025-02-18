@@ -22,7 +22,7 @@ func (r *Operations) DeleteCmd() *cobra.Command {
 		Example: `
 			bl delete -f ./my-resource.yaml
 			# Or using stdin
-			cat file.yaml | beamlit delete -f -
+			cat file.yaml | blaxel delete -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := getResults("delete", filePath, recursive)

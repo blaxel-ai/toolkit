@@ -39,5 +39,5 @@ jobs:
       - name: Upload assets
         uses: actions/upload-artifact@v4
         with:
-          name: beamlit
+          name: blaxel
           path: dist/*

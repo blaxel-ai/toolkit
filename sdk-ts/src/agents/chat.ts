@@ -180,8 +180,8 @@ export async function getChatModelFull(
 
   const headers = await getAuthenticationHeaders();
   const jwt =
-    headers["X-Beamlit-Authorization"]?.replace("Bearer ", "") ||
-    headers["X-Beamlit-Api-Key"] ||
+    headers["X-Blaxel-Authorization"]?.replace("Bearer ", "") ||
+    headers["X-Blaxel-Api-Key"] ||
     "";
   let provider = agentModel?.spec?.runtime?.type;
   if (!provider) {

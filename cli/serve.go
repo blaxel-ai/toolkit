@@ -21,8 +21,8 @@ func (r *Operations) ServeCmd() *cobra.Command {
 		Use:     "serve",
 		Args:    cobra.MaximumNArgs(1),
 		Aliases: []string{"s", "se"},
-		Short:   "Serve a beamlit project",
-		Long:    "Serve a beamlit project",
+		Short:   "Serve a blaxel project",
+		Long:    "Serve a blaxel project",
 		Example: `  bl serve --remote --hotreload --port 1338`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var activeProc *exec.Cmd
@@ -63,7 +63,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&host, "host", "H", "0.0.0.0", "Bind socket to this port. If 0, an available port will be picked")
 	cmd.Flags().StringVarP(&module, "module", "m", "", "Module to serve, can be an agent or a function")
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
-	cmd.Flags().BoolVarP(&remote, "remote", "r", false, "Serve the project remotely. It will use functions deployed on beamlit cloud")
+	cmd.Flags().BoolVarP(&remote, "remote", "r", false, "Serve the project remotely. It will use functions deployed on blaxel cloud")
 	return cmd
 }
 
@@ -75,7 +75,7 @@ func startUvicornServer(port int, host string, hotreload bool, module string, re
 
 	uvicorn := exec.Command(
 		uvicornCmd,
-		"beamlit.serve.app:app",
+		"blaxel.serve.app:app",
 		"--port",
 		fmt.Sprintf("%d", port),
 		"--host",

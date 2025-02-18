@@ -23,7 +23,7 @@ func ErrorHandler(request *http.Request, kind string, name string, body string) 
 
 	// Afficher l'erreur et le code
 
-	workspace := request.Header.Get("X-Beamlit-Workspace")
+	workspace := request.Header.Get("X-Blaxel-Workspace")
 	workspace = strings.ReplaceAll(workspace, "\n", "")
 	workspace = strings.ReplaceAll(workspace, "\r", "")
 	if workspace != "" {

@@ -2,8 +2,8 @@ from logging import getLogger
 
 from starlette.websockets import WebSocket
 
-from beamlit.agents import agent
-from beamlit.common import init
+from blaxel.agents import agent
+from blaxel.aimon import init
 
 settings = init()
 logger = getLogger(__name__)
@@ -15,7 +15,7 @@ logger = getLogger(__name__)
             "name": "voice-agent",
         },
         "spec": {
-            "description": "A chat agent using Beamlit to handle your tasks.",
+            "description": "A chat agent using Blaxel to handle your tasks.",
             "model": "gpt-4o-mini-realtime-preview",
         },
     },

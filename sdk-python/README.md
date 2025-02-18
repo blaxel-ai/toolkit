@@ -1,11 +1,11 @@
-# beamlit
-A client library for accessing Beamlit Control Plane
+# blaxel
+A client library for accessing Blaxel Control Plane
 
 ## Usage
 First, create a client:
 
 ```python
-from beamlit.authentication import (RunClientWithCredentials, load_credentials,
+from blaxel.authentication import (RunClientWithCredentials, load_credentials,
                                     new_client_with_credentials)
 
 WORKSPACE_NAME = "development"
@@ -22,9 +22,9 @@ Now call your endpoint and use your models:
 ```python
 from typing import List
 
-from beamlit.api.models import list_models
-from beamlit.types import Response
-from beamlit.models.model import Model
+from blaxel.api.models import list_models
+from blaxel.types import Response
+from blaxel.models.model import Model
 
 with client as client:
     models: List[Model] = list_models.sync(client=client)
@@ -37,9 +37,9 @@ Or do the same thing with an async version:
 ```python
 from typing import List
 
-from beamlit.api.models import list_models
-from beamlit.types import Response
-from beamlit.models.model import Model
+from blaxel.api.models import list_models
+from blaxel.types import Response
+from blaxel.models.model import Model
 
 async with client as client:
     models: List[Model] = await list_models.asyncio(client=client)

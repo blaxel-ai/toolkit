@@ -25,7 +25,7 @@ function loadConfig(): Config {
 
   const homeDir = homedir();
   if (homeDir) {
-    const configPath = join(homeDir, ".beamlit", "config.yaml");
+    const configPath = join(homeDir, ".blaxel", "config.yaml");
     if (existsSync(configPath)) {
       try {
         const data = yaml.load(readFileSync(configPath, "utf8")) as any;
@@ -65,7 +65,7 @@ function saveConfig(config: Config): void {
     throw new Error("Could not determine home directory");
   }
 
-  const configDir = join(homeDir, ".beamlit");
+  const configDir = join(homeDir, ".blaxel");
   const configFile = join(configDir, "config.yaml");
 
   mkdirSync(configDir, { recursive: true, mode: 0o700 });
@@ -161,7 +161,7 @@ export function createHomeDirIfMissing(): void {
     return;
   }
 
-  const credentialsDir = join(homeDir, ".beamlit");
+  const credentialsDir = join(homeDir, ".blaxel");
   const credentialsFile = join(credentialsDir, "credentials.json");
 
   if (existsSync(credentialsFile)) {

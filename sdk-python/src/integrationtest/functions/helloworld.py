@@ -1,4 +1,4 @@
-from beamlit.functions import function
+from blaxel.functions import function
 
 
 @function(
@@ -10,4 +10,4 @@ from beamlit.functions import function
 )
 def helloworld(query: str):
     """A function for saying hello to the world."""
-    return "Hello from Beamlit!"
+    return "Hello from Blaxel!"

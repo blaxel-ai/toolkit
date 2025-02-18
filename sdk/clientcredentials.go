@@ -99,8 +99,8 @@ func (c *ClientCredentials) Intercept(ctx context.Context, req *http.Request) er
 		return err
 	}
 
-	req.Header.Set("X-Beamlit-Authorization", fmt.Sprintf("Bearer %s", c.credentials.AccessToken))
-	req.Header.Set("X-Beamlit-Workspace", c.workspaceName)
+	req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", c.credentials.AccessToken))
+	req.Header.Set("X-Blaxel-Workspace", c.workspaceName)
 	return nil
 }
 
@@ -113,7 +113,7 @@ func (c *ClientCredentials) DoRefresh() error {
 		"grant_type":    "refresh_token",
 		"refresh_token": c.credentials.RefreshToken,
 		"device_code":   c.credentials.DeviceCode,
-		"client_id":     "beamlit",
+		"client_id":     "blaxel",
 	}
 
 	jsonData, err := json.Marshal(refreshData)

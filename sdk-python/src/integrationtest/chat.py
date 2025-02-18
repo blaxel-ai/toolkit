@@ -2,9 +2,9 @@ import asyncio
 
 from langgraph.graph.graph import CompiledGraph
 
-from beamlit.agents import agent, get_chat_model
-from beamlit.common import init
-from beamlit.functions import function
+from blaxel.agents import agent, get_chat_model
+from blaxel.aimon import init
+from blaxel.functions import function
 
 settings = init()
 chat = get_chat_model("gpt-4o-mini") # all good

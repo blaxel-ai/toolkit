@@ -92,10 +92,10 @@ export async function createApp(
   app.addHook(
     "onRequest",
     (request: FastifyRequest, reply: FastifyReply, done: () => void) => {
-      const requestId = request.headers["x-beamlit-request-id"] || uuidv4();
+      const requestId = request.headers["x-blaxel-request-id"] || uuidv4();
       (request.raw as CustomIncomingMessage).timeStart = process.hrtime();
       asyncLocalStorage.run(requestId as string, () => {
-        reply.header("x-beamlit-request-id", requestId);
+        reply.header("x-blaxel-request-id", requestId);
         done();
       });
     }
@@ -115,7 +115,7 @@ export async function createApp(
         processTime[1] / 1000000
       ).toFixed(2)}ms`;
       reply.header("X-Process-Time", processTimeString);
-      const requestId = reply.getHeader("x-beamlit-request-id");
+      const requestId = reply.getHeader("x-blaxel-request-id");
       logger.info(
         `${request.method} ${processTimeString} ${request.url} rid=${requestId}`
       );

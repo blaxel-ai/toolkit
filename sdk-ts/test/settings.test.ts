@@ -11,7 +11,7 @@ describe("Settings", () => {
 
   it("should initialize with default values", () => {
     expect(settings.authentication.apiKey).toBeNull();
-    expect(settings.baseUrl).toBe("https://api.beamlit.com/v0");
+    expect(settings.baseUrl).toBe("https://api.blaxel.ai/v0");
   });
 
   it("should handle boolean and number values", () => {
@@ -39,7 +39,7 @@ describe("Settings", () => {
 
   it("should update settings from yaml settings", () => {
     fs.writeFileSync(
-      "beamlit.yaml",
+      "blaxel.yaml",
       `
 workspace: main
 authentication:
@@ -48,7 +48,7 @@ authentication:
     settings = init();
     expect(settings.workspace).toBe("main");
     expect(settings.authentication.jwt).toBe("test-jwt");
-    fs.unlinkSync("beamlit.yaml");
+    fs.unlinkSync("blaxel.yaml");
   });
 
   it("should validate baseUrl format", () => {
@@ -62,10 +62,10 @@ authentication:
   it("should validate baseUrl format", () => {
     process.env.BL_ENV = "dev";
     const checkSettings = init();
-    expect(checkSettings.baseUrl).toBe("https://api.beamlit.dev/v0");
-    expect(checkSettings.runUrl).toBe("https://run.beamlit.dev");
-    expect(checkSettings.registryUrl).toBe("https://eu.registry.beamlit.dev");
-    expect(checkSettings.appUrl).toBe("https://app.beamlit.dev");
+    expect(checkSettings.baseUrl).toBe("https://api.blaxel.dev/v0");
+    expect(checkSettings.runUrl).toBe("https://run.blaxel.dev");
+    expect(checkSettings.registryUrl).toBe("https://eu.registry.blaxel.dev");
+    expect(checkSettings.appUrl).toBe("https://app.blaxel.dev");
     delete process.env.BL_ENV;
   });
 });

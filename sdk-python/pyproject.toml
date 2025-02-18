@@ -1,5 +1,5 @@
 [project]
-name = "beamlit"
+name = "blaxel"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,9 +7,9 @@ authors = [
     { name = "cploujoux", email = "ch.ploujoux@gmail.com" }
 ]
 packages = [
-    {include = "beamlit"},
+    {include = "blaxel"},
 ]
-include = ["CHANGELOG.md", "beamlit/py.typed"]
+include = ["CHANGELOG.md", "blaxel/py.typed"]
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.20.0,<0.28.0",
@@ -60,7 +60,7 @@ dev = [
 ]
 
 [project.scripts]
-beamlit-docs = "pdoc.cli:main ['src/beamlit', '-o', 'docs', '--html', '--force', '--skip-errors']"
+blaxel-docs = "pdoc.cli:main ['src/blaxel', '-o', 'docs', '--html', '--force', '--skip-errors']"
 
 [build-system]
 requires = ["hatchling"]

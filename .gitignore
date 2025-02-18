@@ -1,11 +1,11 @@
 definition.yml
 dist
 dist/
-/beamlit
+/blaxel
 .DS_Store
 .venv
 tmp
-beamlit_generated.py
+blaxel_generated.py
 test.yaml
 node_modules
-.beamlit
+.blaxel
