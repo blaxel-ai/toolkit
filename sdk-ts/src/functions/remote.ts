@@ -117,7 +117,10 @@ export class RemoteToolkit {
 
       const headers = await getAuthenticationHeaders();
       const envVar = toEnvVar(this._function.metadata.name || "");
-      if (process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]) {
+      if (
+        process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`] &&
+        this.settings.runInternalHostname
+      ) {
         this.fallbackUrl = url;
         url = `https://${process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]}.${
           this.settings.runInternalHostname

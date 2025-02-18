@@ -8,6 +8,7 @@ import os
 import warnings
 from dataclasses import dataclass
 from typing import Callable
+from urllib.parse import urljoin
 
 import pydantic
 import typing_extensions as t
@@ -144,8 +145,8 @@ class RemoteToolkit:
         if self._function.spec.integration_connections:
             fallback_url = None
             url = f"{settings.run_url}/{settings.workspace}/functions/{self._function.metadata.name}"
-            if self._service_name:
-                fallback_url = f"https://{self._service_name}.{settings.run_internal_hostname}"
+            if self._service_name and settings.run_internal_hostname:
+                fallback_url = urljoin(settings.run_url, f"{settings.workspace}/functions/{self._function.metadata.name}")
                 url = f"https://{self._service_name}.{settings.run_internal_hostname}"
             mcp_client = MCPClient(self.client, url, fallback_url)
             mcp_toolkit = MCPToolkit(client=mcp_client, url=url)

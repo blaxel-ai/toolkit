@@ -87,7 +87,7 @@ export class RunClient {
     const serviceEnvVar = `BL_${options.resourceType.toUpperCase()}_${toEnvVar(
       options.resourceName
     )}_SERVICE_NAME`;
-    if (process.env[serviceEnvVar]) {
+    if (process.env[serviceEnvVar] && settings.runInternalHostname) {
       try {
         const internalUrl = `https://${process.env[serviceEnvVar]}.${settings.runInternalHostname}`;
         const internalPath = options.path || "";

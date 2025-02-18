@@ -72,10 +72,10 @@ class RunClient:
         headers = headers or {}
         params = params or {}
 
-        if cloud and path and service_name:
+        if cloud and path and service_name and settings.run_internal_hostname:
             url = f"https://{service_name}.{settings.run_internal_hostname}/{path}"
 
-        if cloud and not path and service_name:
+        if cloud and not path and service_name and settings.run_internal_hostname:
             url = f"https://{service_name}.{settings.run_internal_hostname}"
 
         if not cloud and path:

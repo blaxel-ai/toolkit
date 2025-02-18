@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     base_url: str = Field(default="https://api.blaxel.ai/v0")
     app_url: str = Field(default="https://app.blaxel.ai")
     run_url: str = Field(default="https://run.blaxel.ai")
-    run_internal_hostname: str = Field(default="internal.run.blaxel.ai")
+    run_internal_hostname: str
     registry_url: str = Field(default="https://us.registry.blaxel.ai")
     log_level: str = Field(default="INFO")
     enable_opentelemetry: bool = Field(default=False)

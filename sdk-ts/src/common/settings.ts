@@ -64,7 +64,7 @@ const Settings = z.object({
     .string()
     .regex(/^https?:\/\/[^\s/$.?#].[^\s]*$/, "Invalid URL format")
     .default("https://run.blaxel.ai"),
-  runInternalHostname: z.string().default("internal.run.beamlit.net"),
+  runInternalHostname: z.string(),
   registryUrl: z
     .string()
     .regex(/^https?:\/\/[^\s/$.?#].[^\s]*$/, "Invalid URL format")
