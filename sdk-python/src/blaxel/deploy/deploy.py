@@ -189,6 +189,11 @@ def dockerfile(
     Returns:
         str: Dockerfile content
     """
+
+    cliInstallUrl = "https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh"
+    if os.getenv("BL_ENV") == "dev":
+        cliInstallUrl = "https://raw.githubusercontent.com/cploujoux/toolkit/main/install.sh"
+
     settings = get_settings()
     if type == "agent":
         module = f"{resource.module.__file__.split('/')[-1].replace('.py', '')}.{resource.module.__name__}"
@@ -206,7 +211,7 @@ RUN apt update && apt install -y curl build-essential
 
 # Install uv.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-RUN curl -fsSL https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh | BINDIR=/bin sh
+RUN curl -fsSL {cliInstallUrl} | BINDIR=/bin sh
 WORKDIR /blaxel
 
 # Install the application dependencies.
