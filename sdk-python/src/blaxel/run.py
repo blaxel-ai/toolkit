@@ -5,9 +5,8 @@ import urllib.parse
 from typing import Any
 
 import requests
-
 from blaxel.client import AuthenticatedClient
-from blaxel.aimon import HTTPError, get_settings
+from blaxel.common import HTTPError, get_settings
 
 
 class RunClient:
@@ -93,7 +92,7 @@ class RunClient:
         if json:
             kwargs["json"] = json
 
-        response = self.client.request(method, url, **kwargs)
+        response = self.client.get_httpx_client().request(method, url, **kwargs)
         if response.status_code >= 400 and not cloud:
             raise HTTPError(response.status_code, response.text)
         if response.status_code >= 400 and cloud: # Redirect to the public endpoint if the resource is in the cloud and the request fails
@@ -101,7 +100,7 @@ class RunClient:
                 url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}/{path}")
             else:
                 url = urllib.parse.urljoin(settings.run_url, f"{settings.workspace}/{resource_type}s/{resource_name}")
-            response = self.client.request(method, url, **kwargs)
+            response = self.client.get_httpx_client().request(method, url, **kwargs)
             if response.status_code >= 400:
                 raise HTTPError(response.status_code, response.text)
             return response

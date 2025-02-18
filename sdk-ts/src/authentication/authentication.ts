@@ -1,4 +1,5 @@
 import { createClient, createConfig } from "@hey-api/client-fetch";
+import { handleControlplaneCache } from "../common/cache.js";
 import { getSettings } from "../common/settings.js";
 import { ApiKeyAuth } from "./apikey.js";
 import { ClientCredentials } from "./clientcredentials.js";
@@ -9,7 +10,6 @@ import {
 } from "./credentials.js";
 import { BearerToken } from "./deviceMode.js";
 import { Credentials } from "./types.js";
-import { handleControlplaneCache } from "../common/cache.js";
 
 interface RunClientWithCredentials {
   credentials: Credentials;
@@ -86,7 +86,12 @@ export function newClient() {
   return client;
 }
 
-let providerInstance: ApiKeyAuth | BearerToken | ClientCredentials | PublicAuth | null = null
+let providerInstance:
+  | ApiKeyAuth
+  | BearerToken
+  | ClientCredentials
+  | PublicAuth
+  | null = null;
 
 /**
  * Determines the appropriate authentication provider based on the client configuration.
@@ -120,7 +125,7 @@ function getProvider(config: RunClientWithCredentials) {
   } else {
     provider = new PublicAuth();
   }
-  providerInstance = provider
+  providerInstance = provider;
   return provider;
 }
 
@@ -137,9 +142,9 @@ export function newClientWithCredentials(config: RunClientWithCredentials) {
     createConfig({
       baseUrl: settings.baseUrl,
       fetch: async (req) => {
-        const cache = await handleControlplaneCache(req)
-        if(cache) {
-          return cache
+        const cache = await handleControlplaneCache(req);
+        if (cache) {
+          return cache;
         }
         const headers = await provider.getHeaders();
         Object.entries(headers).forEach(([key, value]) => {

@@ -34,6 +34,22 @@ from blaxel.models import AgentChain
 
 logger = getLogger(__name__)
 
+MAX_RETRIES = 10
+RETRY_DELAY = 1  # 1 second delay between retries
+
+async def initialize_with_retry(toolkit, function_name: str, max_retries: int):
+    for attempt in range(1, max_retries + 1):
+        try:
+            await toolkit.initialize()
+            return await toolkit.get_tools()
+        except Exception as e:
+            if attempt == max_retries:
+                logger.warn(f"Failed to initialize function {function_name} after {max_retries} attempts: {e!s}")
+                raise
+            logger.info(f"Attempt {attempt} failed for {function_name}, retrying...")
+            await asyncio.sleep(RETRY_DELAY)
+    return []
+
 async def get_functions(
     remote_functions: Union[list[str], None] = None,
     local_functions: Union[list[dict], None] = None,
@@ -178,13 +194,12 @@ async def get_functions(
                                                 )
                         except Exception as e:
                             logger.warning(f"Error processing {file_path}: {e!s}")
-
     if remote_functions:
         for function in remote_functions:
             try:
                 toolkit = RemoteToolkit(client, function)
-                await toolkit.initialize()
-                functions.extend(await toolkit.get_tools())
+                tools = await initialize_with_retry(toolkit, function, MAX_RETRIES)
+                functions.extend(tools)
             except Exception as e:
                 if not isinstance(e, RuntimeError):
                     logger.debug(
@@ -196,8 +211,8 @@ async def get_functions(
         for function in local_functions:
             try:
                 toolkit = LocalToolKit(client, function)
-                await toolkit.initialize()
-                functions.extend(await toolkit.get_tools())
+                tools = await initialize_with_retry(toolkit, function["name"], MAX_RETRIES)
+                functions.extend(tools)
             except Exception as e:
                 logger.debug(
                     f"Failed to initialize local function {function}: {e!s}\n"

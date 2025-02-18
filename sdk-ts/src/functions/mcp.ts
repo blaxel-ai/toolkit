@@ -1,5 +1,6 @@
 import { StructuredTool, tool } from "@langchain/core/tools";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
@@ -55,14 +56,15 @@ export function getMCPTool(
  */
 export class MCPClient {
   private client: Client;
-
+  private transport: Transport;
   /**
    * Creates an instance of MCPClient.
    *
    * @param {Client} client - The Model Context Protocol client instance.
    */
-  constructor(client: Client) {
+  constructor(client: Client, transport: Transport) {
     this.client = client;
+    this.transport = transport;
   }
 
   /**
@@ -72,6 +74,13 @@ export class MCPClient {
    * @throws Will throw an error if the request fails.
    */
   async listTools(): Promise<ListToolsResult> {
+    if (this.client.transport === undefined) {
+      try {
+        await this.client.connect(this.transport);
+      } catch (error) {
+        throw new Error(`Failed to connect to MCP: ${error}`);
+      }
+    }
     return this.client.listTools();
   }
 
@@ -84,6 +93,13 @@ export class MCPClient {
    * @throws Will throw an error if the call fails or if the tool returns an error.
    */
   async callTool(toolName: string, args: any): Promise<any> {
+    if (this.client.transport === undefined) {
+      try {
+        await this.client.connect(this.transport);
+      } catch (error) {
+        throw new Error(`Failed to connect to MCP: ${error}`);
+      }
+    }
     return this.client.callTool({
       name: toolName,
       arguments: args,
@@ -114,7 +130,11 @@ export class MCPToolkit {
    */
   async initialize(): Promise<void> {
     if (!this._tools) {
-      this._tools = await this.client.listTools();
+      try {
+        this._tools = await this.client.listTools();
+      } catch (error) {
+        throw new Error(`Failed to list tools: ${error}`);
+      }
     }
   }
 

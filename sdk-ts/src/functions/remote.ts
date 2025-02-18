@@ -114,6 +114,7 @@ export class RemoteToolkit {
     ) {
       let url = `${this.settings.runUrl}/${this.settings.workspace}/functions/${this._function.metadata.name}`;
       let transport: Transport;
+
       const headers = await getAuthenticationHeaders();
       const envVar = toEnvVar(this._function.metadata.name || "");
       if (process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]) {
@@ -121,19 +122,16 @@ export class RemoteToolkit {
         url = `https://${process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]}.${
           this.settings.runInternalHostname
         }`;
-        transport = new WebSocketClientTransport(new URL(url), {
-          "x-blaxel-authorization": headers?.["X-Blaxel-Authorization"] || "",
-          "x-blaxel-workspace": headers?.["X-Blaxel-Workspace"] || "",
-        });
+        transport = new WebSocketClientTransport(new URL(url), headers);
       } else {
-        transport = new WebSocketClientTransport(new URL(url), {
-          "x-blaxel-authorization": headers?.["X-Blaxel-Authorization"] || "",
-          "x-blaxel-workspace": headers?.["X-Blaxel-Workspace"] || "",
-        });
+        transport = new WebSocketClientTransport(new URL(url), headers);
       }
       try {
         await this.modelContextProtocolClient.connect(transport);
-        const mcpClient = new MCPClient(this.modelContextProtocolClient);
+        const mcpClient = new MCPClient(
+          this.modelContextProtocolClient,
+          transport
+        );
         const mcpToolkit = new MCPToolkit(mcpClient);
         this._mcpToolkit = mcpToolkit;
         await mcpToolkit.initialize();
@@ -145,7 +143,10 @@ export class RemoteToolkit {
             "x-blaxel-workspace": headers?.["X-Blaxel-Workspace"] || "",
           });
           await this.modelContextProtocolClient.connect(transport);
-          const mcpClient = new MCPClient(this.modelContextProtocolClient);
+          const mcpClient = new MCPClient(
+            this.modelContextProtocolClient,
+            transport
+          );
           const mcpToolkit = new MCPToolkit(mcpClient);
           this._mcpToolkit = mcpToolkit;
           try {

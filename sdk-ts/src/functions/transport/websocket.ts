@@ -78,6 +78,7 @@ export class WebSocketClientTransport implements Transport {
       this._socket.onclose = () => {
         logger.debug("WebSocket closed");
         this.onclose?.();
+        this._socket = undefined;
       };
 
       this._socket.onmessage = (event: WebSocket.MessageEvent) => {
@@ -100,19 +101,35 @@ export class WebSocketClientTransport implements Transport {
 
   async close(): Promise<void> {
     this._socket?.close();
+    this._socket = undefined;
+    this.onclose?.();
   }
 
   async send(message: JSONRPCMessage): Promise<void> {
     let attempts = 0;
     while (attempts < MAX_RETRIES) {
       try {
-        if (!this._socket) {
-          throw new Error("Not connected");
+        if (!this._socket || this._socket.readyState !== WebSocket.OPEN) {
+          if (!this._socket) {
+            // Only try to start if socket doesn't exist
+            await this.start();
+          } else {
+            throw new Error("WebSocket is not in OPEN state");
+          }
         }
 
-        await new Promise<void>((resolve) => {
-          this._socket?.send(JSON.stringify(message));
-          resolve();
+        await new Promise<void>((resolve, reject) => {
+          try {
+            this._socket?.send(JSON.stringify(message), (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
+          } catch (error) {
+            reject(error);
+          }
         });
         return;
       } catch (error) {

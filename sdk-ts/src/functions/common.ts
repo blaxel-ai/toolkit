@@ -67,6 +67,58 @@ export type GetFunctionsOptions = {
   warning?: boolean;
 };
 
+const MAX_RETRIES = 10;
+const RETRY_DELAY = 1000; // 1 second delay between retries
+
+const initializeWithRetry = async (
+  toolkit: RemoteToolkit | LocalToolkit,
+  name: string,
+  maxRetries: number,
+  url?: string
+) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    switch (toolkit.constructor.name) {
+      case "RemoteToolkit": {
+        try {
+          await toolkit.initialize(name);
+          return await toolkit.getTools();
+        } catch (error) {
+          console.log(error);
+          if (attempt === maxRetries) {
+            logger.warn(
+              `Failed to initialize remote function ${name} after ${maxRetries} attempts: ${error}`
+            );
+            throw error;
+          }
+          logger.info(`Attempt ${attempt} failed for ${name}, retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        }
+        break;
+      }
+      case "LocalToolkit": {
+        try {
+          if (!url) {
+            throw new Error("URL is required for local functions");
+          }
+          await toolkit.initialize(url);
+          return await toolkit.getTools();
+        } catch (error) {
+          if (attempt === maxRetries) {
+            logger.warn(
+              `Failed to initialize local function ${name} after ${maxRetries} attempts: ${error}`
+            );
+            throw error;
+          }
+          logger.info(`Attempt ${attempt} failed for ${name}, retrying...`);
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+        }
+        break;
+      }
+    }
+  }
+  return [];
+};
+
 /**
  * Recursively retrieves and wraps functions from the specified directory.
  *
@@ -145,8 +197,8 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
       remoteFunctions.map(async (name) => {
         try {
           const toolkit = new RemoteToolkit(client, name);
-          await toolkit.initialize();
-          functions.push(...(await toolkit.getTools()));
+          const tools = await initializeWithRetry(toolkit, name, MAX_RETRIES);
+          functions.push(...(tools || []));
         } catch (error) {
           logger.warn(`Failed to initialize remote function ${name}: ${error}`);
         }
@@ -162,9 +214,20 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
   if (localFunctions) {
     await Promise.all(
       localFunctions.map(async (func) => {
-        const toolkit = new LocalToolkit(client, func.name, func.url);
-        await toolkit.initialize(func.name);
-        functions.push(...(await toolkit.getTools()));
+        try {
+          const toolkit = new LocalToolkit(client, func.name, func.url);
+          const tools = await initializeWithRetry(
+            toolkit,
+            func.name,
+            MAX_RETRIES,
+            func.url
+          );
+          functions.push(...(tools || []));
+        } catch (error) {
+          logger.warn(
+            `Failed to initialize local function ${func.name}: ${error}`
+          );
+        }
       })
     );
   }

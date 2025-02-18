@@ -96,52 +96,7 @@ class ClientCredentials(Auth):
         Raises:
             Exception: If token refresh fails.
         """
-        err = self.do_refresh()
-        if err:
-            return err
-
+        self.get_token()
         request.headers["X-Blaxel-Authorization"] = f"Bearer {self.credentials.access_token}"
         request.headers["X-Blaxel-Workspace"] = self.workspace_name
         yield request
-
-    def do_refresh(self) -> Optional[Exception]:
-        """
-        Performs the token refresh using the refresh token.
-
-        Returns:
-            Optional[Exception]: An exception if refreshing fails, otherwise None.
-        """
-        if not self.credentials.refresh_token:
-            return Exception("No refresh token to refresh")
-
-        url = f"{self.base_url}/oauth/token"
-        refresh_data = {
-            "grant_type": "refresh_token",
-            "refresh_token": self.credentials.refresh_token,
-            "device_code": self.credentials.device_code,
-            "client_id": "blaxel",
-        }
-
-        try:
-            response = post(url, json=refresh_data, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            finalize_response = DeviceLoginFinalizeResponse(**response.json())
-
-            if not finalize_response.refresh_token:
-                finalize_response.refresh_token = self.credentials.refresh_token
-
-            from .credentials import Credentials, save_credentials
-
-            creds = Credentials(
-                access_token=finalize_response.access_token,
-                refresh_token=finalize_response.refresh_token,
-                expires_in=finalize_response.expires_in,
-                device_code=self.credentials.device_code,
-            )
-
-            self.credentials = creds
-            save_credentials(self.workspace_name, creds)
-            return None
-
-        except Exception as e:
-            return Exception(f"Failed to refresh token: {str(e)}")

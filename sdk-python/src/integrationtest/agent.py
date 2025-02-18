@@ -13,17 +13,9 @@ settings = init()
         },
         "spec": {
             "description": "A chat agent using Blaxel to handle your tasks.",
-            "model": "gpt-4o-mini",
+            "model": "sandbox-openai",
         },
     },
-    remote_functions=[],
-    # local_functions=[
-    #     {
-    #         "name": "github-search",
-    #         "description": "A tool that searches GitHub for a given query",
-    #         "url": "http://0.0.0.0:8000",
-    #     }
-    # ],
 )
 async def main(
     input, agent, functions
