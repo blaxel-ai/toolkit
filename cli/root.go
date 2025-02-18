@@ -85,13 +85,13 @@ var rootCmd = &cobra.Command{
 }
 
 func setEnvs() {
-	if url := os.Getenv("BLAXEL_API_URL"); url != "" {
+	if url := os.Getenv("BL_API_URL"); url != "" {
 		BASE_URL = url
 	}
-	if runUrl := os.Getenv("BLAXEL_RUN_URL"); runUrl != "" {
+	if runUrl := os.Getenv("BL_RUN_URL"); runUrl != "" {
 		RUN_URL = runUrl
 	}
-	if appUrl := os.Getenv("BLAXEL_APP_URL"); appUrl != "" {
+	if appUrl := os.Getenv("BL_APP_URL"); appUrl != "" {
 		APP_URL = appUrl
 	}
 }

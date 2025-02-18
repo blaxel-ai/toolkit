@@ -24,10 +24,10 @@ var BASE_URL = "https://api.blaxel.ai/v0"
 var RUN_URL = "https://run.blaxel.ai"
 
 func init() {
-	if url := os.Getenv("BLAXEL_API_URL"); url != "" {
+	if url := os.Getenv("BL_API_URL"); url != "" {
 		BASE_URL = url
 	}
-	if runUrl := os.Getenv("BLAXEL_RUN_URL"); runUrl != "" {
+	if runUrl := os.Getenv("BL_RUN_URL"); runUrl != "" {
 		RUN_URL = runUrl
 	}
 }
