@@ -1,5 +1,5 @@
-Module beamlit.models.store_function_labels
-===========================================
+Module blaxel.models.store_function_labels
+==========================================
 
 Classes
 -------

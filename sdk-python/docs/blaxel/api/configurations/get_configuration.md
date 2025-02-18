@@ -1,10 +1,10 @@
-Module beamlit.api.configurations.get_configuration
-===================================================
+Module blaxel.api.configurations.get_configuration
+==================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.configuration.Configuration | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.configuration.Configuration | None`
 :   List all configurations
     
     Raises:
@@ -14,7 +14,7 @@ Functions
     Returns:
         Configuration
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.configuration.Configuration]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.configuration.Configuration]`
 :   List all configurations
     
     Raises:
@@ -24,7 +24,7 @@ Functions
     Returns:
         Response[Configuration]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.configuration.Configuration | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.configuration.Configuration | None`
 :   List all configurations
     
     Raises:
@@ -34,7 +34,7 @@ Functions
     Returns:
         Configuration
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.configuration.Configuration]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.configuration.Configuration]`
 :   List all configurations
     
     Raises:

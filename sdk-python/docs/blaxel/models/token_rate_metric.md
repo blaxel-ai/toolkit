@@ -1,10 +1,10 @@
-Module beamlit.models.token_rate_metric
-=======================================
+Module blaxel.models.token_rate_metric
+======================================
 
 Classes
 -------
 
-`TokenRateMetric(model: beamlit.types.Unset | str = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, trend: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`TokenRateMetric(model: blaxel.types.Unset | str = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, trend: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Token rate metric
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `model: beamlit.types.Unset | str`
+    `model: blaxel.types.Unset | str`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
-    `token_total: beamlit.types.Unset | float`
+    `token_total: blaxel.types.Unset | float`
     :
 
-    `trend: beamlit.types.Unset | float`
+    `trend: blaxel.types.Unset | float`
     :
 
     ### Methods

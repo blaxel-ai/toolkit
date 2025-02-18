@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.delete_integration_connection
-=============================================================
+Module blaxel.api.integrations.delete_integration_connection
+============================================================
 
 Functions
 ---------
 
-`asyncio(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`asyncio(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Delete integration
     
      Deletes an integration connection by integration name and connection name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`asyncio_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`asyncio_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Delete integration
     
      Deletes an integration connection by integration name and connection name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[IntegrationConnection]
 
-`sync(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`sync(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Delete integration
     
      Deletes an integration connection by integration name and connection name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`sync_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`sync_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Delete integration
     
      Deletes an integration connection by integration name and connection name.

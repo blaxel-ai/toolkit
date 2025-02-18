@@ -1,10 +1,10 @@
-Module beamlit.models.websocket_channel
-=======================================
+Module blaxel.models.websocket_channel
+======================================
 
 Classes
 -------
 
-`WebsocketChannel(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, connection_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`WebsocketChannel(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, connection_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   WebSocket connection details
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `connection_id: beamlit.types.Unset | str`
+    `connection_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods

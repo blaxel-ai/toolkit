@@ -1,10 +1,10 @@
-Module beamlit.api.policies.delete_policy
-=========================================
+Module blaxel.api.policies.delete_policy
+========================================
 
 Functions
 ---------
 
-`asyncio(policy_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.policy.Policy | None`
+`asyncio(policy_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.policy.Policy | None`
 :   Delete policy
     
      Deletes a policy by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Policy
 
-`asyncio_detailed(policy_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`asyncio_detailed(policy_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Delete policy
     
      Deletes a policy by name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Policy]
 
-`sync(policy_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.policy.Policy | None`
+`sync(policy_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.policy.Policy | None`
 :   Delete policy
     
      Deletes a policy by name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Policy
 
-`sync_detailed(policy_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`sync_detailed(policy_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Delete policy
     
      Deletes a policy by name.

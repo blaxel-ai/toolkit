@@ -1,10 +1,10 @@
-Module beamlit.models.integration_repository
-============================================
+Module blaxel.models.integration_repository
+===========================================
 
 Classes
 -------
 
-`IntegrationRepository(id: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, organization: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`IntegrationRepository(id: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, organization: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Integration repository
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `organization: beamlit.types.Unset | str`
+    `organization: blaxel.types.Unset | str`
     :
 
-    `url: beamlit.types.Unset | str`
+    `url: blaxel.types.Unset | str`
     :
 
     ### Methods

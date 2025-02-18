@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.list_integration_connections
-============================================================
+Module blaxel.api.integrations.list_integration_connections
+===========================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.integration_connection.IntegrationConnection] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.integration_connection.IntegrationConnection] | None`
 :   List integrations connections
     
      Returns a list of all connections integrations in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['IntegrationConnection']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.integration_connection.IntegrationConnection]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.integration_connection.IntegrationConnection]]`
 :   List integrations connections
     
      Returns a list of all connections integrations in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['IntegrationConnection']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.integration_connection.IntegrationConnection] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.integration_connection.IntegrationConnection] | None`
 :   List integrations connections
     
      Returns a list of all connections integrations in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['IntegrationConnection']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.integration_connection.IntegrationConnection]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.integration_connection.IntegrationConnection]]`
 :   List integrations connections
     
      Returns a list of all connections integrations in the workspace.

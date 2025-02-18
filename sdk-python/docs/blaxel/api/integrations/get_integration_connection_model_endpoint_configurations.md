@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.get_integration_connection_model_endpoint_configurations
-========================================================================================
+Module blaxel.api.integrations.get_integration_connection_model_endpoint_configurations
+=======================================================================================
 
 Functions
 ---------
 
-`asyncio_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`asyncio_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Get integration connection model endpoint configurations
     
      Returns a list of all endpoint configurations for a model.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Response[Any]
 
-`sync_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`sync_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Get integration connection model endpoint configurations
     
      Returns a list of all endpoint configurations for a model.

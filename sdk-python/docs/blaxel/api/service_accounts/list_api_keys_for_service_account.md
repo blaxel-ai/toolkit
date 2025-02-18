@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.list_api_keys_for_service_account
-=====================================================================
+Module blaxel.api.service_accounts.list_api_keys_for_service_account
+====================================================================
 
 Functions
 ---------
 
-`asyncio(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.api_key.ApiKey] | None`
+`asyncio(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.api_key.ApiKey] | None`
 :   List API keys for service account
     
      Returns a list of all API keys for a service account.
@@ -19,7 +19,7 @@ Functions
     Returns:
         list['ApiKey']
 
-`asyncio_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.api_key.ApiKey]]`
+`asyncio_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.api_key.ApiKey]]`
 :   List API keys for service account
     
      Returns a list of all API keys for a service account.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[list['ApiKey']]
 
-`sync(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.api_key.ApiKey] | None`
+`sync(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.api_key.ApiKey] | None`
 :   List API keys for service account
     
      Returns a list of all API keys for a service account.
@@ -49,7 +49,7 @@ Functions
     Returns:
         list['ApiKey']
 
-`sync_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.api_key.ApiKey]]`
+`sync_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.api_key.ApiKey]]`
 :   List API keys for service account
     
      Returns a list of all API keys for a service account.

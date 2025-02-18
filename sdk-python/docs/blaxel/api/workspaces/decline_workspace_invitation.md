@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.decline_workspace_invitation
-==========================================================
+Module blaxel.api.workspaces.decline_workspace_invitation
+=========================================================
 
 Functions
 ---------
 
-`asyncio(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.pending_invitation.PendingInvitation | None`
+`asyncio(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.pending_invitation.PendingInvitation | None`
 :   Decline invitation to workspace
     
      Declines an invitation to a workspace.
@@ -19,7 +19,7 @@ Functions
     Returns:
         PendingInvitation
 
-`asyncio_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.pending_invitation.PendingInvitation]`
+`asyncio_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.pending_invitation.PendingInvitation]`
 :   Decline invitation to workspace
     
      Declines an invitation to a workspace.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[PendingInvitation]
 
-`sync(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.pending_invitation.PendingInvitation | None`
+`sync(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.pending_invitation.PendingInvitation | None`
 :   Decline invitation to workspace
     
      Declines an invitation to a workspace.
@@ -49,7 +49,7 @@ Functions
     Returns:
         PendingInvitation
 
-`sync_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.pending_invitation.PendingInvitation]`
+`sync_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.pending_invitation.PendingInvitation]`
 :   Decline invitation to workspace
     
      Declines an invitation to a workspace.

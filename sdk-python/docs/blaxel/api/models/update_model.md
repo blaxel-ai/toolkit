@@ -1,10 +1,10 @@
-Module beamlit.api.models.update_model
-======================================
+Module blaxel.api.models.update_model
+=====================================
 
 Functions
 ---------
 
-`asyncio(model_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.models.model.Model | None`
+`asyncio(model_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.models.model.Model | None`
 :   Create or update model
     
      Update a model by name.
@@ -20,7 +20,7 @@ Functions
     Returns:
         Model
 
-`asyncio_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`asyncio_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Create or update model
     
      Update a model by name.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[Model]
 
-`sync(model_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.models.model.Model | None`
+`sync(model_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.models.model.Model | None`
 :   Create or update model
     
      Update a model by name.
@@ -52,7 +52,7 @@ Functions
     Returns:
         Model
 
-`sync_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`sync_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Create or update model
     
      Update a model by name.

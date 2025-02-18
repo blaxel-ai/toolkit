@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.create_api_key_for_service_account
-======================================================================
+Module blaxel.api.service_accounts.create_api_key_for_service_account
+=====================================================================
 
 Functions
 ---------
 
-`asyncio(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> beamlit.models.api_key.ApiKey | None`
+`asyncio(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> blaxel.models.api_key.ApiKey | None`
 :   Create API key for service account
     
      Creates an API key for a service account.
@@ -20,7 +20,7 @@ Functions
     Returns:
         ApiKey
 
-`asyncio_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> beamlit.types.Response[beamlit.models.api_key.ApiKey]`
+`asyncio_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> blaxel.types.Response[blaxel.models.api_key.ApiKey]`
 :   Create API key for service account
     
      Creates an API key for a service account.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[ApiKey]
 
-`sync(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> beamlit.models.api_key.ApiKey | None`
+`sync(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> blaxel.models.api_key.ApiKey | None`
 :   Create API key for service account
     
      Creates an API key for a service account.
@@ -52,7 +52,7 @@ Functions
     Returns:
         ApiKey
 
-`sync_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> beamlit.types.Response[beamlit.models.api_key.ApiKey]`
+`sync_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.create_api_key_for_service_account_body.CreateApiKeyForServiceAccountBody) ‑> blaxel.types.Response[blaxel.models.api_key.ApiKey]`
 :   Create API key for service account
     
      Creates an API key for a service account.

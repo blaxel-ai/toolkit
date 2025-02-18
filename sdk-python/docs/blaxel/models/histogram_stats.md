@@ -1,10 +1,10 @@
-Module beamlit.models.histogram_stats
-=====================================
+Module blaxel.models.histogram_stats
+====================================
 
 Classes
 -------
 
-`HistogramStats(average: beamlit.types.Unset | float = <beamlit.types.Unset object>, p50: beamlit.types.Unset | float = <beamlit.types.Unset object>, p90: beamlit.types.Unset | float = <beamlit.types.Unset object>, p99: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`HistogramStats(average: blaxel.types.Unset | float = <blaxel.types.Unset object>, p50: blaxel.types.Unset | float = <blaxel.types.Unset object>, p90: blaxel.types.Unset | float = <blaxel.types.Unset object>, p99: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Histogram stats
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average: beamlit.types.Unset | float`
+    `average: blaxel.types.Unset | float`
     :
 
-    `p50: beamlit.types.Unset | float`
+    `p50: blaxel.types.Unset | float`
     :
 
-    `p90: beamlit.types.Unset | float`
+    `p90: blaxel.types.Unset | float`
     :
 
-    `p99: beamlit.types.Unset | float`
+    `p99: blaxel.types.Unset | float`
     :
 
     ### Methods

@@ -1,5 +1,5 @@
-Module beamlit.models.workspace_labels
-======================================
+Module blaxel.models.workspace_labels
+=====================================
 
 Classes
 -------

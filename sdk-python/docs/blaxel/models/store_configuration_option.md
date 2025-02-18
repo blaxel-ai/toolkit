@@ -1,10 +1,10 @@
-Module beamlit.models.store_configuration_option
-================================================
+Module blaxel.models.store_configuration_option
+===============================================
 
 Classes
 -------
 
-`StoreConfigurationOption(if_: beamlit.types.Unset | str = <beamlit.types.Unset object>, label: beamlit.types.Unset | str = <beamlit.types.Unset object>, value: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreConfigurationOption(if_: blaxel.types.Unset | str = <blaxel.types.Unset object>, label: blaxel.types.Unset | str = <blaxel.types.Unset object>, value: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store configuration options for a select type configuration
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `if_: beamlit.types.Unset | str`
+    `if_: blaxel.types.Unset | str`
     :
 
-    `label: beamlit.types.Unset | str`
+    `label: blaxel.types.Unset | str`
     :
 
-    `value: beamlit.types.Unset | str`
+    `value: blaxel.types.Unset | str`
     :
 
     ### Methods

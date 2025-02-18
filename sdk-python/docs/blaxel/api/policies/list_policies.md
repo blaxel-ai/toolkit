@@ -1,10 +1,10 @@
-Module beamlit.api.policies.list_policies
-=========================================
+Module blaxel.api.policies.list_policies
+========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.policy.Policy] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.policy.Policy] | None`
 :   List policies
     
      Returns a list of all policies in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['Policy']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.policy.Policy]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.policy.Policy]]`
 :   List policies
     
      Returns a list of all policies in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['Policy']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.policy.Policy] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.policy.Policy] | None`
 :   List policies
     
      Returns a list of all policies in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['Policy']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.policy.Policy]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.policy.Policy]]`
 :   List policies
     
      Returns a list of all policies in the workspace.

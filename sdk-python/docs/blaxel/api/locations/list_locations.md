@@ -1,10 +1,10 @@
-Module beamlit.api.locations.list_locations
-===========================================
+Module blaxel.api.locations.list_locations
+==========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.location_response.LocationResponse] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.location_response.LocationResponse] | None`
 :   List locations
     
      Returns a list of all locations available with status.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['LocationResponse']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.location_response.LocationResponse]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.location_response.LocationResponse]]`
 :   List locations
     
      Returns a list of all locations available with status.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['LocationResponse']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.location_response.LocationResponse] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.location_response.LocationResponse] | None`
 :   List locations
     
      Returns a list of all locations available with status.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['LocationResponse']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.location_response.LocationResponse]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.location_response.LocationResponse]]`
 :   List locations
     
      Returns a list of all locations available with status.

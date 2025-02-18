@@ -1,10 +1,10 @@
-Module beamlit.models.spec_configuration
-========================================
+Module blaxel.models.spec_configuration
+=======================================
 
 Classes
 -------
 
-`SpecConfiguration(secret: beamlit.types.Unset | bool = <beamlit.types.Unset object>, value: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`SpecConfiguration(secret: blaxel.types.Unset | bool = <blaxel.types.Unset object>, value: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `secret: beamlit.types.Unset | bool`
+    `secret: blaxel.types.Unset | bool`
     :
 
-    `value: beamlit.types.Unset | str`
+    `value: blaxel.types.Unset | str`
     :
 
     ### Methods

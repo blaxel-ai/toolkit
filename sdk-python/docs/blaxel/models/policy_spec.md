@@ -1,10 +1,10 @@
-Module beamlit.models.policy_spec
-=================================
+Module blaxel.models.policy_spec
+================================
 
 Classes
 -------
 
-`PolicySpec(flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, locations: beamlit.types.Unset | list['PolicyLocation'] = <beamlit.types.Unset object>, max_tokens: beamlit.types.Unset | ForwardRef('PolicyMaxTokens') = <beamlit.types.Unset object>, resource_types: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PolicySpec(flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, locations: blaxel.types.Unset | list['PolicyLocation'] = <blaxel.types.Unset object>, max_tokens: blaxel.types.Unset | ForwardRef('PolicyMaxTokens') = <blaxel.types.Unset object>, resource_types: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Policy specification
     
     Attributes:

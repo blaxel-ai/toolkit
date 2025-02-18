@@ -1,10 +1,10 @@
-Module beamlit.models.integration_connection
-============================================
+Module blaxel.models.integration_connection
+===========================================
 
 Classes
 -------
 
-`IntegrationConnection(metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpec') = <beamlit.types.Unset object>)`
+`IntegrationConnection(metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpec') = <blaxel.types.Unset object>)`
 :   Integration Connection
     
     Attributes:

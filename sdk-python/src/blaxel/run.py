@@ -5,6 +5,7 @@ import urllib.parse
 from typing import Any
 
 import requests
+
 from blaxel.client import AuthenticatedClient
 from blaxel.common import HTTPError, get_settings
 

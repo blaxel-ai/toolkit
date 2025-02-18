@@ -1,10 +1,10 @@
-Module beamlit.api.models.list_models
-=====================================
+Module blaxel.api.models.list_models
+====================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.model.Model] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.model.Model] | None`
 :   List models
     
      Returns a list of all models in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['Model']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.model.Model]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.model.Model]]`
 :   List models
     
      Returns a list of all models in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['Model']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.model.Model] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.model.Model] | None`
 :   List models
     
      Returns a list of all models in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['Model']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.model.Model]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.model.Model]]`
 :   List models
     
      Returns a list of all models in the workspace.

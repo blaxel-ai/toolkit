@@ -1,5 +1,5 @@
-Module beamlit.models.form_secrets
-==================================
+Module blaxel.models.form_secrets
+=================================
 
 Classes
 -------

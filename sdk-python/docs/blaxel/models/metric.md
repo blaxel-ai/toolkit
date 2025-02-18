@@ -1,10 +1,10 @@
-Module beamlit.models.metric
-============================
+Module blaxel.models.metric
+===========================
 
 Classes
 -------
 
-`Metric(rate: beamlit.types.Unset | int = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | int = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Metric(rate: blaxel.types.Unset | int = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | int = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Metric
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `rate: beamlit.types.Unset | int`
+    `rate: blaxel.types.Unset | int`
     :
 
-    `request_total: beamlit.types.Unset | int`
+    `request_total: blaxel.types.Unset | int`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods

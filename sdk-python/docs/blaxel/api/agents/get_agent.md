@@ -1,10 +1,10 @@
-Module beamlit.api.agents.get_agent
-===================================
+Module blaxel.api.agents.get_agent
+==================================
 
 Functions
 ---------
 
-`asyncio(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.agent.Agent | None`
+`asyncio(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.agent.Agent | None`
 :   Get agent by name
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         Agent
 
-`asyncio_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.agent.Agent]`
+`asyncio_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.agent.Agent]`
 :   Get agent by name
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[Agent]
 
-`sync(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.agent.Agent | None`
+`sync(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.agent.Agent | None`
 :   Get agent by name
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         Agent
 
-`sync_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.agent.Agent]`
+`sync_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.agent.Agent]`
 :   Get agent by name
     
     Args:

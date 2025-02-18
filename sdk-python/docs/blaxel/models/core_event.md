@@ -1,14 +1,15 @@
-Module beamlit.models.core_event
-================================
+Module blaxel.models.core_event
+===============================
 
 Classes
 -------
 
-`CoreEvent(message: beamlit.types.Unset | str = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>, time: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CoreEvent(message: blaxel.types.Unset | str = <blaxel.types.Unset object>, revision: blaxel.types.Unset | str = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>, time: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Core event
     
     Attributes:
         message (Union[Unset, str]): Event message
+        revision (Union[Unset, str]): RevisionID link to the event
         status (Union[Unset, str]): Event status
         time (Union[Unset, str]): Event time
         type_ (Union[Unset, str]): Event type
@@ -28,16 +29,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `message: beamlit.types.Unset | str`
+    `message: blaxel.types.Unset | str`
     :
 
-    `status: beamlit.types.Unset | str`
+    `revision: blaxel.types.Unset | str`
     :
 
-    `time: beamlit.types.Unset | str`
+    `status: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `time: blaxel.types.Unset | str`
+    :
+
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods

@@ -1,10 +1,10 @@
-Module beamlit.models.request_duration_over_time_metric
-=======================================================
+Module blaxel.models.request_duration_over_time_metric
+======================================================
 
 Classes
 -------
 
-`RequestDurationOverTimeMetric(average: beamlit.types.Unset | float = <beamlit.types.Unset object>, p50: beamlit.types.Unset | float = <beamlit.types.Unset object>, p90: beamlit.types.Unset | float = <beamlit.types.Unset object>, p99: beamlit.types.Unset | float = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`RequestDurationOverTimeMetric(average: blaxel.types.Unset | float = <blaxel.types.Unset object>, p50: blaxel.types.Unset | float = <blaxel.types.Unset object>, p90: blaxel.types.Unset | float = <blaxel.types.Unset object>, p99: blaxel.types.Unset | float = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Request duration over time metric
     
     Attributes:
@@ -29,19 +29,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average: beamlit.types.Unset | float`
+    `average: blaxel.types.Unset | float`
     :
 
-    `p50: beamlit.types.Unset | float`
+    `p50: blaxel.types.Unset | float`
     :
 
-    `p90: beamlit.types.Unset | float`
+    `p90: blaxel.types.Unset | float`
     :
 
-    `p99: beamlit.types.Unset | float`
+    `p99: blaxel.types.Unset | float`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods

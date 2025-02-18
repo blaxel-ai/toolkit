@@ -16,7 +16,7 @@ bl delete [flags]
 
 			bl delete -f ./my-resource.yaml
 			# Or using stdin
-			cat file.yaml | beamlit delete -f -
+			cat file.yaml | blaxel delete -f -
 		
 ```
 
@@ -39,7 +39,7 @@ bl delete [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl delete agent](bl_delete_agent.md)	 - Delete a Agent
 * [bl delete function](bl_delete_function.md)	 - Delete a Function
 * [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete a IntegrationConnection

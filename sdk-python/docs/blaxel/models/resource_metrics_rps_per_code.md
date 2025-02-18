@@ -1,5 +1,5 @@
-Module beamlit.models.resource_metrics_rps_per_code
-===================================================
+Module blaxel.models.resource_metrics_rps_per_code
+==================================================
 
 Classes
 -------

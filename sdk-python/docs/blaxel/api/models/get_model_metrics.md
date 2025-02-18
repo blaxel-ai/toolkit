@@ -1,10 +1,10 @@
-Module beamlit.api.models.get_model_metrics
-===========================================
+Module blaxel.api.models.get_model_metrics
+==========================================
 
 Functions
 ---------
 
-`asyncio(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.resource_metrics.ResourceMetrics | None`
+`asyncio(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.resource_metrics.ResourceMetrics | None`
 :   Get model metrics
     
      Returns metrics for a model by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         ResourceMetrics
 
-`asyncio_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.resource_metrics.ResourceMetrics]`
+`asyncio_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.resource_metrics.ResourceMetrics]`
 :   Get model metrics
     
      Returns metrics for a model by name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[ResourceMetrics]
 
-`sync(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.resource_metrics.ResourceMetrics | None`
+`sync(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.resource_metrics.ResourceMetrics | None`
 :   Get model metrics
     
      Returns metrics for a model by name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         ResourceMetrics
 
-`sync_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.resource_metrics.ResourceMetrics]`
+`sync_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.resource_metrics.ResourceMetrics]`
 :   Get model metrics
     
      Returns metrics for a model by name.

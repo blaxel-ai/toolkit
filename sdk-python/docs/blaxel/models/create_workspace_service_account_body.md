@@ -1,10 +1,10 @@
-Module beamlit.models.create_workspace_service_account_body
-===========================================================
+Module blaxel.models.create_workspace_service_account_body
+==========================================================
 
 Classes
 -------
 
-`CreateWorkspaceServiceAccountBody(name: str, description: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CreateWorkspaceServiceAccountBody(name: str, description: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         name (str): Service account name
         description (Union[Unset, str]): Service account description
@@ -24,7 +24,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
     `name: str`

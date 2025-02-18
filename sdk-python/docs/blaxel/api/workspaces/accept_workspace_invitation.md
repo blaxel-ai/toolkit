@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.accept_workspace_invitation
-=========================================================
+Module blaxel.api.workspaces.accept_workspace_invitation
+========================================================
 
 Functions
 ---------
 
-`asyncio(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.pending_invitation_accept.PendingInvitationAccept | None`
+`asyncio(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.pending_invitation_accept.PendingInvitationAccept | None`
 :   Accept invitation to workspace
     
      Accepts an invitation to a workspace.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Union[Any, PendingInvitationAccept]
 
-`asyncio_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.pending_invitation_accept.PendingInvitationAccept]`
+`asyncio_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.pending_invitation_accept.PendingInvitationAccept]`
 :   Accept invitation to workspace
     
      Accepts an invitation to a workspace.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Union[Any, PendingInvitationAccept]]
 
-`sync(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.pending_invitation_accept.PendingInvitationAccept | None`
+`sync(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.pending_invitation_accept.PendingInvitationAccept | None`
 :   Accept invitation to workspace
     
      Accepts an invitation to a workspace.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Union[Any, PendingInvitationAccept]
 
-`sync_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.pending_invitation_accept.PendingInvitationAccept]`
+`sync_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.pending_invitation_accept.PendingInvitationAccept]`
 :   Accept invitation to workspace
     
      Accepts an invitation to a workspace.

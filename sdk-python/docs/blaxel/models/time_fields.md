@@ -1,10 +1,10 @@
-Module beamlit.models.time_fields
-=================================
+Module blaxel.models.time_fields
+================================
 
 Classes
 -------
 
-`TimeFields(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`TimeFields(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Time fields for Persistance
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods

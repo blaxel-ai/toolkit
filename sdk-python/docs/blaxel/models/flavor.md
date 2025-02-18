@@ -1,10 +1,10 @@
-Module beamlit.models.flavor
-============================
+Module blaxel.models.flavor
+===========================
 
 Classes
 -------
 
-`Flavor(name: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Flavor(name: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   A type of hardware available for deployments
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods

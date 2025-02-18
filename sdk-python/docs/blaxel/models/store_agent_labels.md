@@ -1,5 +1,5 @@
-Module beamlit.models.store_agent_labels
-========================================
+Module blaxel.models.store_agent_labels
+=======================================
 
 Classes
 -------

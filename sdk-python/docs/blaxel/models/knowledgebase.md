@@ -1,10 +1,10 @@
-Module beamlit.models.knowledgebase
-===================================
+Module blaxel.models.knowledgebase
+==================================
 
 Classes
 -------
 
-`Knowledgebase(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('KnowledgebaseSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Knowledgebase(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('KnowledgebaseSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Knowledgebase
     
     Attributes:

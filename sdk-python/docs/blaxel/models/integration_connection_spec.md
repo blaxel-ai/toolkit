@@ -1,10 +1,10 @@
-Module beamlit.models.integration_connection_spec
-=================================================
+Module blaxel.models.integration_connection_spec
+================================================
 
 Classes
 -------
 
-`IntegrationConnectionSpec(config: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpecConfig') = <beamlit.types.Unset object>, integration: beamlit.types.Unset | str = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, secret: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpecSecret') = <beamlit.types.Unset object>)`
+`IntegrationConnectionSpec(config: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpecConfig') = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, secret: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpecSecret') = <blaxel.types.Unset object>)`
 :   Integration connection specification
     
     Attributes:

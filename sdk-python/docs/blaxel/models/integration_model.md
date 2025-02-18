@@ -1,10 +1,10 @@
-Module beamlit.models.integration_model
-=======================================
+Module blaxel.models.integration_model
+======================================
 
 Classes
 -------
 
-`IntegrationModel(author: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, downloads: beamlit.types.Unset | int = <beamlit.types.Unset object>, endpoint: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, library_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, likes: beamlit.types.Unset | int = <beamlit.types.Unset object>, model_private: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, pipeline_tag: beamlit.types.Unset | str = <beamlit.types.Unset object>, tags: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, trending_score: beamlit.types.Unset | int = <beamlit.types.Unset object>)`
+`IntegrationModel(author: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, downloads: blaxel.types.Unset | int = <blaxel.types.Unset object>, endpoint: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, library_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, likes: blaxel.types.Unset | int = <blaxel.types.Unset object>, model_private: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, pipeline_tag: blaxel.types.Unset | str = <blaxel.types.Unset object>, tags: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, trending_score: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   Model obtained from an external authentication provider, such as HuggingFace, OpenAI, etc...
     
     Attributes:
@@ -36,40 +36,40 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `author: beamlit.types.Unset | str`
+    `author: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `downloads: beamlit.types.Unset | int`
+    `downloads: blaxel.types.Unset | int`
     :
 
-    `endpoint: beamlit.types.Unset | str`
+    `endpoint: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `library_name: beamlit.types.Unset | str`
+    `library_name: blaxel.types.Unset | str`
     :
 
-    `likes: beamlit.types.Unset | int`
+    `likes: blaxel.types.Unset | int`
     :
 
-    `model_private: beamlit.types.Unset | str`
+    `model_private: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `pipeline_tag: beamlit.types.Unset | str`
+    `pipeline_tag: blaxel.types.Unset | str`
     :
 
-    `tags: beamlit.types.Unset | list[str]`
+    `tags: blaxel.types.Unset | list[str]`
     :
 
-    `trending_score: beamlit.types.Unset | int`
+    `trending_score: blaxel.types.Unset | int`
     :
 
     ### Methods

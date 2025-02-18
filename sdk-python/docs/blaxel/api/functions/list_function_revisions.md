@@ -1,10 +1,10 @@
-Module beamlit.api.functions.list_function_revisions
-====================================================
+Module blaxel.api.functions.list_function_revisions
+===================================================
 
 Functions
 ---------
 
-`asyncio(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.revision_metadata.RevisionMetadata | None`
+`asyncio(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.revision_metadata.RevisionMetadata | None`
 :   List function revisions
     
      Returns revisions for a function by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         RevisionMetadata
 
-`asyncio_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.revision_metadata.RevisionMetadata]`
+`asyncio_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.revision_metadata.RevisionMetadata]`
 :   List function revisions
     
      Returns revisions for a function by name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[RevisionMetadata]
 
-`sync(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.revision_metadata.RevisionMetadata | None`
+`sync(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.revision_metadata.RevisionMetadata | None`
 :   List function revisions
     
      Returns revisions for a function by name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         RevisionMetadata
 
-`sync_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.revision_metadata.RevisionMetadata]`
+`sync_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.revision_metadata.RevisionMetadata]`
 :   List function revisions
     
      Returns revisions for a function by name.

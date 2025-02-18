@@ -1,5 +1,5 @@
-Module beamlit.models.trace_ids_response
-========================================
+Module blaxel.models.trace_ids_response
+=======================================
 
 Classes
 -------

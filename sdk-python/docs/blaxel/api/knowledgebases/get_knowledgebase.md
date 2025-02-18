@@ -1,10 +1,10 @@
-Module beamlit.api.knowledgebases.get_knowledgebase
-===================================================
+Module blaxel.api.knowledgebases.get_knowledgebase
+==================================================
 
 Functions
 ---------
 
-`asyncio(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.knowledgebase.Knowledgebase | None`
+`asyncio(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.knowledgebase.Knowledgebase | None`
 :   Get knowledgebase
     
      Returns an knowledgebase by Name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Knowledgebase
 
-`asyncio_detailed(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.knowledgebase.Knowledgebase]`
+`asyncio_detailed(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.knowledgebase.Knowledgebase]`
 :   Get knowledgebase
     
      Returns an knowledgebase by Name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Knowledgebase]
 
-`sync(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.knowledgebase.Knowledgebase | None`
+`sync(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.knowledgebase.Knowledgebase | None`
 :   Get knowledgebase
     
      Returns an knowledgebase by Name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Knowledgebase
 
-`sync_detailed(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.knowledgebase.Knowledgebase]`
+`sync_detailed(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.knowledgebase.Knowledgebase]`
 :   Get knowledgebase
     
      Returns an knowledgebase by Name.

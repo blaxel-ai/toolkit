@@ -1,7 +1,7 @@
-Namespace beamlit.serve
-=======================
+Namespace blaxel.serve
+======================
 
 Sub-modules
 -----------
-* beamlit.serve.app
-* beamlit.serve.middlewares
+* blaxel.serve.app
+* blaxel.serve.middlewares

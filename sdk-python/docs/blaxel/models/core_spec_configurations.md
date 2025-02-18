@@ -1,10 +1,10 @@
-Module beamlit.models.core_spec_configurations
-==============================================
+Module blaxel.models.core_spec_configurations
+=============================================
 
 Classes
 -------
 
-`CoreSpecConfigurations(key: beamlit.types.Unset | ForwardRef('SpecConfiguration') = <beamlit.types.Unset object>)`
+`CoreSpecConfigurations(key: blaxel.types.Unset | ForwardRef('SpecConfiguration') = <blaxel.types.Unset object>)`
 :   Optional configurations for the object
     
     Attributes:

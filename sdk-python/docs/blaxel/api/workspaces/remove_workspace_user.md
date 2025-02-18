@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.remove_workspace_user
-===================================================
+Module blaxel.api.workspaces.remove_workspace_user
+==================================================
 
 Functions
 ---------
 
-`asyncio_detailed(sub_or_email: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`asyncio_detailed(sub_or_email: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Remove user from workspace or revoke invitation
     
      Removes a user from the workspace (or revokes an invitation if the user has not accepted the
@@ -20,7 +20,7 @@ Functions
     Returns:
         Response[Any]
 
-`sync_detailed(sub_or_email: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`sync_detailed(sub_or_email: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Remove user from workspace or revoke invitation
     
      Removes a user from the workspace (or revokes an invitation if the user has not accepted the

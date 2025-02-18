@@ -1,5 +1,5 @@
-Module beamlit.models.metadata_labels
-=====================================
+Module blaxel.models.metadata_labels
+====================================
 
 Classes
 -------

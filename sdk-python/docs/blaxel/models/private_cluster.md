@@ -1,10 +1,10 @@
-Module beamlit.models.private_cluster
-=====================================
+Module blaxel.models.private_cluster
+====================================
 
 Classes
 -------
 
-`PrivateCluster(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, continent: beamlit.types.Unset | str = <beamlit.types.Unset object>, country: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, healthy: beamlit.types.Unset | bool = <beamlit.types.Unset object>, last_health_check_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, latitude: beamlit.types.Unset | str = <beamlit.types.Unset object>, longitude: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, owned_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PrivateCluster(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, continent: blaxel.types.Unset | str = <blaxel.types.Unset object>, country: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, healthy: blaxel.types.Unset | bool = <blaxel.types.Unset object>, last_health_check_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, latitude: blaxel.types.Unset | str = <blaxel.types.Unset object>, longitude: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, owned_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   A private cluster where models can be located on.
     
     Attributes:
@@ -43,46 +43,46 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `continent: beamlit.types.Unset | str`
+    `continent: blaxel.types.Unset | str`
     :
 
-    `country: beamlit.types.Unset | str`
+    `country: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `healthy: beamlit.types.Unset | bool`
+    `healthy: blaxel.types.Unset | bool`
     :
 
-    `last_health_check_time: beamlit.types.Unset | str`
+    `last_health_check_time: blaxel.types.Unset | str`
     :
 
-    `latitude: beamlit.types.Unset | str`
+    `latitude: blaxel.types.Unset | str`
     :
 
-    `longitude: beamlit.types.Unset | str`
+    `longitude: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `owned_by: beamlit.types.Unset | str`
+    `owned_by: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods

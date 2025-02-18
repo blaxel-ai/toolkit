@@ -1,14 +1,14 @@
-Module beamlit.serve.middlewares
-================================
+Module blaxel.serve.middlewares
+===============================
 Package: middlewares
 
-This package contains custom middleware classes for the Beamlit server,
+This package contains custom middleware classes for the Blaxel server,
 including access logging and process time header addition.
 
 Sub-modules
 -----------
-* beamlit.serve.middlewares.accesslog
-* beamlit.serve.middlewares.processtime
+* blaxel.serve.middlewares.accesslog
+* blaxel.serve.middlewares.processtime
 
 Classes
 -------

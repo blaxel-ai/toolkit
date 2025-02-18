@@ -15,11 +15,11 @@ from typing import Literal
 
 import yaml
 
+from blaxel.aimon import slugify
+from blaxel.aimon.settings import Settings, get_settings, init
 from blaxel.api.agents import get_agent
 from blaxel.authentication import new_client
 from blaxel.client import AuthenticatedClient
-from blaxel.aimon import slugify
-from blaxel.aimon.settings import Settings, get_settings, init
 from blaxel.models import (
     Agent,
     AgentSpec,

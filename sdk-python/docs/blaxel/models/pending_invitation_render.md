@@ -1,10 +1,10 @@
-Module beamlit.models.pending_invitation_render
-===============================================
+Module blaxel.models.pending_invitation_render
+==============================================
 
 Classes
 -------
 
-`PendingInvitationRender(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_by: beamlit.types.Unset | ForwardRef('PendingInvitationRenderInvitedBy') = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | ForwardRef('PendingInvitationRenderWorkspace') = <beamlit.types.Unset object>, workspace_details: beamlit.types.Unset | ForwardRef('PendingInvitationWorkspaceDetails') = <beamlit.types.Unset object>)`
+`PendingInvitationRender(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_by: blaxel.types.Unset | ForwardRef('PendingInvitationRenderInvitedBy') = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | ForwardRef('PendingInvitationRenderWorkspace') = <blaxel.types.Unset object>, workspace_details: blaxel.types.Unset | ForwardRef('PendingInvitationWorkspaceDetails') = <blaxel.types.Unset object>)`
 :   Pending invitation in workspace
     
     Attributes:

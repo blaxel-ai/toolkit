@@ -1,10 +1,10 @@
-Module beamlit.models.request_total_metric
-==========================================
+Module blaxel.models.request_total_metric
+=========================================
 
 Classes
 -------
 
-`RequestTotalMetric(request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('RequestTotalMetricRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('RequestTotalMetricRpsPerCode') = <beamlit.types.Unset object>)`
+`RequestTotalMetric(request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('RequestTotalMetricRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('RequestTotalMetricRpsPerCode') = <blaxel.types.Unset object>)`
 :   Metrics for request total
     
     Attributes:

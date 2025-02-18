@@ -179,6 +179,10 @@ export type CoreEvent = {
      */
     message?: string;
     /**
+     * RevisionID link to the event
+     */
+    revision?: string;
+    /**
      * Event status
      */
     status?: string;
@@ -219,6 +223,7 @@ export type CoreSpec = {
      * The private clusters where the model deployment is deployed
      */
     privateClusters?: ModelPrivateCluster;
+    revision?: RevisionConfiguration;
     runtime?: Runtime;
     /**
      * Sandbox mode
@@ -554,6 +559,7 @@ export type KnowledgebaseSpec = {
         [key: string]: unknown;
     };
     policies?: PoliciesList;
+    revision?: RevisionConfiguration;
     /**
      * Sandbox mode
      */
@@ -1266,17 +1272,67 @@ export type ResourceMetrics = {
 };
 
 /**
+ * Revision configuration
+ */
+export type RevisionConfiguration = {
+    /**
+     * Active revision id
+     */
+    active?: string;
+    /**
+     * Canary revision id
+     */
+    canary?: string;
+    /**
+     * Canary revision percent
+     */
+    canaryPercent?: number;
+    /**
+     * Previous active revision id
+     */
+    previousActive?: string;
+    /**
+     * Traffic percentage
+     */
+    traffic?: number;
+};
+
+/**
  * Revision metadata
  */
 export type RevisionMetadata = {
+    /**
+     * Is the revision active
+     */
+    active?: boolean;
+    /**
+     * Is the revision canary
+     */
+    canary?: boolean;
     /**
      * Revision created at
      */
     createdAt?: string;
     /**
+     * Revision created by
+     */
+    createdBy?: string;
+    /**
      * Revision ID
      */
     id?: string;
+    /**
+     * Is the revision previous active
+     */
+    previousActive?: boolean;
+    /**
+     * Status of the revision
+     */
+    status?: string;
+    /**
+     * Percent of traffic to the revision
+     */
+    trafficPercent?: number;
 };
 
 /**
@@ -1292,6 +1348,10 @@ export type Runtime = {
      */
     command?: Array<unknown>;
     /**
+     * The CPU for the deployment in cores, only available for private cluster
+     */
+    cpu?: number;
+    /**
      * Endpoint Name of the model. In case of hf_private_endpoint, it is the endpoint name. In case of hf_public_endpoint, it is not used.
      */
     endpointName?: string;
@@ -1303,6 +1363,10 @@ export type Runtime = {
      * The Docker image for the deployment
      */
     image?: string;
+    /**
+     * The memory for the deployment in MB
+     */
+    memory?: number;
     /**
      * The port to serve the metrics on
      */
@@ -1316,21 +1380,15 @@ export type Runtime = {
      */
     organization?: string;
     /**
-     * The readiness probe. Should be a Kubernetes Probe type
-     */
-    readinessProbe?: {
-        [key: string]: unknown;
-    };
-    /**
-     * The resources for the deployment. Should be a Kubernetes ResourceRequirements type
-     */
-    resources?: {
-        [key: string]: unknown;
-    };
-    /**
      * The port to serve the model on
      */
     servingPort?: number;
+    /**
+     * The readiness probe. Should be a Kubernetes Probe type
+     */
+    startupProbe?: {
+        [key: string]: unknown;
+    };
     /**
      * The type of origin for the deployment (hf_private_endpoint, hf_public_endpoint)
      */
@@ -1342,37 +1400,17 @@ export type Runtime = {
  */
 export type ServerlessConfig = {
     /**
-     * The minimum amount of time that the last replica will remain active AFTER a scale-to-zero decision is made
+     * The minimum number of replicas for the deployment. Can be 0 or 1 (in which case the deployment is always running in at least one location).
      */
-    lastPodRetentionPeriod?: string;
+    maxScale?: number;
     /**
      * The maximum number of replicas for the deployment.
      */
-    maxNumReplicas?: number;
+    minScale?: number;
     /**
-     * Metric watched to make scaling decisions. Can be "cpu" or "memory" or "rps" or "concurrency"
+     * The timeout for the deployment in seconds
      */
-    metric?: string;
-    /**
-     * The minimum number of replicas for the deployment. Can be 0 or 1 (in which case the deployment is always running in at least one location).
-     */
-    minNumReplicas?: number;
-    /**
-     * The time window which must pass at reduced concurrency before a scale-down decision is applied. This can be useful, for example, to keep containers around for a configurable duration to avoid a cold start penalty if new requests come in.
-     */
-    scaleDownDelay?: string;
-    /**
-     * The minimum number of replicas that will be created when the deployment scales up from zero.
-     */
-    scaleUpMinimum?: number;
-    /**
-     * The sliding time window over which metrics are averaged to provide the input for scaling decisions
-     */
-    stableWindow?: string;
-    /**
-     * Target value for the watched metric
-     */
-    target?: string;
+    timeout?: number;
 };
 
 /**

@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.update_workspace_service_account
-====================================================================
+Module blaxel.api.service_accounts.update_workspace_service_account
+===================================================================
 
 Functions
 ---------
 
-`asyncio(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> beamlit.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200 | None`
+`asyncio(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> blaxel.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200 | None`
 :   Update workspace service account
     
      Updates a service account.
@@ -20,7 +20,7 @@ Functions
     Returns:
         UpdateWorkspaceServiceAccountResponse200
 
-`asyncio_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> beamlit.types.Response[beamlit.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200]`
+`asyncio_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> blaxel.types.Response[blaxel.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200]`
 :   Update workspace service account
     
      Updates a service account.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[UpdateWorkspaceServiceAccountResponse200]
 
-`sync(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> beamlit.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200 | None`
+`sync(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> blaxel.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200 | None`
 :   Update workspace service account
     
      Updates a service account.
@@ -52,7 +52,7 @@ Functions
     Returns:
         UpdateWorkspaceServiceAccountResponse200
 
-`sync_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> beamlit.types.Response[beamlit.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200]`
+`sync_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.update_workspace_service_account_body.UpdateWorkspaceServiceAccountBody) ‑> blaxel.types.Response[blaxel.models.update_workspace_service_account_response_200.UpdateWorkspaceServiceAccountResponse200]`
 :   Update workspace service account
     
      Updates a service account.

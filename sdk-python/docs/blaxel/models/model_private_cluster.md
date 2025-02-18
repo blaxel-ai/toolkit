@@ -1,10 +1,10 @@
-Module beamlit.models.model_private_cluster
-===========================================
+Module blaxel.models.model_private_cluster
+==========================================
 
 Classes
 -------
 
-`ModelPrivateCluster(base_url: beamlit.types.Unset | str = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ModelPrivateCluster(base_url: blaxel.types.Unset | str = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Private cluster where the model deployment is deployed
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `base_url: beamlit.types.Unset | str`
+    `base_url: blaxel.types.Unset | str`
     :
 
-    `enabled: beamlit.types.Unset | bool`
+    `enabled: blaxel.types.Unset | bool`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods

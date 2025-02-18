@@ -1,10 +1,10 @@
-Module beamlit.api.models.get_model
-===================================
+Module blaxel.api.models.get_model
+==================================
 
 Functions
 ---------
 
-`asyncio(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.model.Model | None`
+`asyncio(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.model.Model | None`
 :   Get model
     
      Returns a model by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Model
 
-`asyncio_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`asyncio_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Get model
     
      Returns a model by name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Model]
 
-`sync(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.model.Model | None`
+`sync(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.model.Model | None`
 :   Get model
     
      Returns a model by name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Model
 
-`sync_detailed(model_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`sync_detailed(model_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Get model
     
      Returns a model by name.

@@ -1,10 +1,10 @@
-Module beamlit.models.latency_metric
-====================================
+Module blaxel.models.latency_metric
+===================================
 
 Classes
 -------
 
-`LatencyMetric(global_histogram: beamlit.types.Unset | ForwardRef('HistogramBucket') = <beamlit.types.Unset object>, global_stats: beamlit.types.Unset | ForwardRef('HistogramStats') = <beamlit.types.Unset object>, histogram_per_code: beamlit.types.Unset | ForwardRef('HistogramBucket') = <beamlit.types.Unset object>, stats_per_code: beamlit.types.Unset | ForwardRef('HistogramStats') = <beamlit.types.Unset object>)`
+`LatencyMetric(global_histogram: blaxel.types.Unset | ForwardRef('HistogramBucket') = <blaxel.types.Unset object>, global_stats: blaxel.types.Unset | ForwardRef('HistogramStats') = <blaxel.types.Unset object>, histogram_per_code: blaxel.types.Unset | ForwardRef('HistogramBucket') = <blaxel.types.Unset object>, stats_per_code: blaxel.types.Unset | ForwardRef('HistogramStats') = <blaxel.types.Unset object>)`
 :   Latency metrics
     
     Attributes:

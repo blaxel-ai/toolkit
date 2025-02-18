@@ -1,5 +1,5 @@
-Module beamlit.models.entrypoint_env
-====================================
+Module blaxel.models.entrypoint_env
+===================================
 
 Classes
 -------

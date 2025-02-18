@@ -1,6 +1,6 @@
-Module beamlit.api.metrics
-==========================
+Module blaxel.api.metrics
+=========================
 
 Sub-modules
 -----------
-* beamlit.api.metrics.get_metrics
+* blaxel.api.metrics.get_metrics

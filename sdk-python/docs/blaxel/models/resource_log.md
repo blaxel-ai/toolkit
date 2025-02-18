@@ -1,10 +1,10 @@
-Module beamlit.models.resource_log
-==================================
+Module blaxel.models.resource_log
+=================================
 
 Classes
 -------
 
-`ResourceLog(message: beamlit.types.Unset | str = <beamlit.types.Unset object>, severity: beamlit.types.Unset | int = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ResourceLog(message: blaxel.types.Unset | str = <blaxel.types.Unset object>, severity: blaxel.types.Unset | int = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Log for a resource deployment (eg. model deployment, function deployment)
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `message: beamlit.types.Unset | str`
+    `message: blaxel.types.Unset | str`
     :
 
-    `severity: beamlit.types.Unset | int`
+    `severity: blaxel.types.Unset | int`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods

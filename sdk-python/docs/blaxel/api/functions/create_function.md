@@ -1,10 +1,10 @@
-Module beamlit.api.functions.create_function
-============================================
+Module blaxel.api.functions.create_function
+===========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.models.function.Function | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.models.function.Function | None`
 :   Create function
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         Function
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Create function
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[Function]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.models.function.Function | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.models.function.Function | None`
 :   Create function
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         Function
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Create function
     
     Args:

@@ -1,21 +1,21 @@
-Module beamlit.api
-==================
+Module blaxel.api
+=================
 Contains methods for accessing the API
 
 Sub-modules
 -----------
-* beamlit.api.agents
-* beamlit.api.configurations
-* beamlit.api.default
-* beamlit.api.functions
-* beamlit.api.integrations
-* beamlit.api.invitations
-* beamlit.api.knowledgebases
-* beamlit.api.locations
-* beamlit.api.metrics
-* beamlit.api.models
-* beamlit.api.policies
-* beamlit.api.privateclusters
-* beamlit.api.service_accounts
-* beamlit.api.store
-* beamlit.api.workspaces
+* blaxel.api.agents
+* blaxel.api.configurations
+* blaxel.api.default
+* blaxel.api.functions
+* blaxel.api.integrations
+* blaxel.api.invitations
+* blaxel.api.knowledgebases
+* blaxel.api.locations
+* blaxel.api.metrics
+* blaxel.api.models
+* blaxel.api.policies
+* blaxel.api.privateclusters
+* blaxel.api.service_accounts
+* blaxel.api.store
+* blaxel.api.workspaces

@@ -1,5 +1,5 @@
-Module beamlit.models.form_oauthomitempty
-=========================================
+Module blaxel.models.form_oauthomitempty
+========================================
 
 Classes
 -------

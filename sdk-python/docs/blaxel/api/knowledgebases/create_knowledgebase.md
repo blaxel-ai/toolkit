@@ -1,10 +1,10 @@
-Module beamlit.api.knowledgebases.create_knowledgebase
-======================================================
+Module blaxel.api.knowledgebases.create_knowledgebase
+=====================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.knowledgebase.Knowledgebase) ‑> beamlit.models.knowledgebase.Knowledgebase | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.knowledgebase.Knowledgebase) ‑> blaxel.models.knowledgebase.Knowledgebase | None`
 :   Create knowledgebase
     
      Creates an knowledgebase.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Knowledgebase
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.knowledgebase.Knowledgebase) ‑> beamlit.types.Response[beamlit.models.knowledgebase.Knowledgebase]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.knowledgebase.Knowledgebase) ‑> blaxel.types.Response[blaxel.models.knowledgebase.Knowledgebase]`
 :   Create knowledgebase
     
      Creates an knowledgebase.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Knowledgebase]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.knowledgebase.Knowledgebase) ‑> beamlit.models.knowledgebase.Knowledgebase | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.knowledgebase.Knowledgebase) ‑> blaxel.models.knowledgebase.Knowledgebase | None`
 :   Create knowledgebase
     
      Creates an knowledgebase.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Knowledgebase
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.knowledgebase.Knowledgebase) ‑> beamlit.types.Response[beamlit.models.knowledgebase.Knowledgebase]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.knowledgebase.Knowledgebase) ‑> blaxel.types.Response[blaxel.models.knowledgebase.Knowledgebase]`
 :   Create knowledgebase
     
      Creates an knowledgebase.

@@ -4,7 +4,7 @@ slug: bl_logout
 ---
 ## bl logout
 
-Logout from Beamlit
+Logout from Blaxel
 
 ```
 bl logout [workspace] [flags]
@@ -27,5 +27,5 @@ bl logout [workspace] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

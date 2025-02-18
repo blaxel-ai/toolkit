@@ -1,10 +1,10 @@
-Module beamlit.models.request_duration_over_time_metrics
-========================================================
+Module blaxel.models.request_duration_over_time_metrics
+=======================================================
 
 Classes
 -------
 
-`RequestDurationOverTimeMetrics(request_duration_over_time: beamlit.types.Unset | ForwardRef('RequestDurationOverTimeMetric') = <beamlit.types.Unset object>)`
+`RequestDurationOverTimeMetrics(request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetric') = <blaxel.types.Unset object>)`
 :   Request duration over time metrics
     
     Attributes:

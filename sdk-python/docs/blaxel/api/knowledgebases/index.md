@@ -1,11 +1,11 @@
-Module beamlit.api.knowledgebases
-=================================
+Module blaxel.api.knowledgebases
+================================
 
 Sub-modules
 -----------
-* beamlit.api.knowledgebases.create_knowledgebase
-* beamlit.api.knowledgebases.delete_knowledgebase
-* beamlit.api.knowledgebases.get_knowledgebase
-* beamlit.api.knowledgebases.list_knowledgebase_revisions
-* beamlit.api.knowledgebases.list_knowledgebases
-* beamlit.api.knowledgebases.update_knowledgebase
+* blaxel.api.knowledgebases.create_knowledgebase
+* blaxel.api.knowledgebases.delete_knowledgebase
+* blaxel.api.knowledgebases.get_knowledgebase
+* blaxel.api.knowledgebases.list_knowledgebase_revisions
+* blaxel.api.knowledgebases.list_knowledgebases
+* blaxel.api.knowledgebases.update_knowledgebase

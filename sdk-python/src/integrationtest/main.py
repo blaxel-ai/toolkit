@@ -1,6 +1,6 @@
+from blaxel.aimon.settings import init
 from blaxel.api.models import list_models
 from blaxel.authentication import new_client
-from blaxel.aimon.settings import init
 from blaxel.deploy import generate_blaxel_deployment
 
 settings = init()

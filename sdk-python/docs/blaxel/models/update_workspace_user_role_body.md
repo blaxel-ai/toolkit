@@ -1,5 +1,5 @@
-Module beamlit.models.update_workspace_user_role_body
-=====================================================
+Module blaxel.models.update_workspace_user_role_body
+====================================================
 
 Classes
 -------

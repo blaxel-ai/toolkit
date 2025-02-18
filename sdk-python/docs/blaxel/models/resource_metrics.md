@@ -1,10 +1,10 @@
-Module beamlit.models.resource_metrics
-======================================
+Module blaxel.models.resource_metrics
+=====================================
 
 Classes
 -------
 
-`ResourceMetrics(inference_global: beamlit.types.Unset | list['Metric'] = <beamlit.types.Unset object>, last_n_requests: beamlit.types.Unset | list['Metric'] = <beamlit.types.Unset object>, latency: beamlit.types.Unset | ForwardRef('LatencyMetric') = <beamlit.types.Unset object>, request_duration_over_time: beamlit.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_by_origin: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <beamlit.types.Unset object>, token_rate: beamlit.types.Unset | ForwardRef('TokenRateMetrics') = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | ForwardRef('TokenTotalMetric') = <beamlit.types.Unset object>)`
+`ResourceMetrics(inference_global: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, last_n_requests: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, latency: blaxel.types.Unset | ForwardRef('LatencyMetric') = <blaxel.types.Unset object>, request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <blaxel.types.Unset object>, token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetrics') = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | ForwardRef('TokenTotalMetric') = <blaxel.types.Unset object>)`
 :   Metrics for a single resource deployment (eg. model deployment, function deployment)
     
     Attributes:

@@ -1,10 +1,10 @@
-Module beamlit.api.privateclusters.get_private_cluster
-======================================================
+Module blaxel.api.privateclusters.get_private_cluster
+=====================================================
 
 Functions
 ---------
 
-`asyncio(private_cluster_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.private_cluster.PrivateCluster | None`
+`asyncio(private_cluster_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.private_cluster.PrivateCluster | None`
 :   Get private cluster by name
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         Union[Any, PrivateCluster]
 
-`asyncio_detailed(private_cluster_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.private_cluster.PrivateCluster]`
+`asyncio_detailed(private_cluster_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.private_cluster.PrivateCluster]`
 :   Get private cluster by name
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[Union[Any, PrivateCluster]]
 
-`sync(private_cluster_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.private_cluster.PrivateCluster | None`
+`sync(private_cluster_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.private_cluster.PrivateCluster | None`
 :   Get private cluster by name
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         Union[Any, PrivateCluster]
 
-`sync_detailed(private_cluster_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.private_cluster.PrivateCluster]`
+`sync_detailed(private_cluster_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.private_cluster.PrivateCluster]`
 :   Get private cluster by name
     
     Args:

@@ -1,10 +1,10 @@
-Module beamlit.models.delete_workspace_service_account_response_200
-===================================================================
+Module blaxel.models.delete_workspace_service_account_response_200
+==================================================================
 
 Classes
 -------
 
-`DeleteWorkspaceServiceAccountResponse200(client_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`DeleteWorkspaceServiceAccountResponse200(client_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         client_id (Union[Unset, str]): Service account client ID
         created_at (Union[Unset, str]): Creation timestamp
@@ -27,19 +27,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `client_id: beamlit.types.Unset | str`
+    `client_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods

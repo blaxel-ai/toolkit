@@ -1,11 +1,11 @@
-Module beamlit.models.api_key
-=============================
+Module blaxel.models.api_key
+============================
 
 Classes
 -------
 
-`ApiKey(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, api_key: beamlit.types.Unset | str = <beamlit.types.Unset object>, expires_in: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub_type: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
-:   Long-lived API key for accessing Beamlit
+`ApiKey(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, api_key: blaxel.types.Unset | str = <blaxel.types.Unset object>, expires_in: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub_type: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
+:   Long-lived API key for accessing Blaxel
     
     Attributes:
         created_at (Union[Unset, str]): The date and time when the resource was created
@@ -34,34 +34,34 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `api_key: beamlit.types.Unset | str`
+    `api_key: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `expires_in: beamlit.types.Unset | str`
+    `expires_in: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
-    `sub_type: beamlit.types.Unset | str`
+    `sub_type: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
     ### Methods

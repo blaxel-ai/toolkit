@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.delete_api_key_for_service_account
-======================================================================
+Module blaxel.api.service_accounts.delete_api_key_for_service_account
+=====================================================================
 
 Functions
 ---------
 
-`asyncio_detailed(client_id: str, api_key_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`asyncio_detailed(client_id: str, api_key_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Delete API key for service account
     
      Deletes an API key for a service account.
@@ -20,7 +20,7 @@ Functions
     Returns:
         Response[Any]
 
-`sync_detailed(client_id: str, api_key_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`sync_detailed(client_id: str, api_key_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   Delete API key for service account
     
      Deletes an API key for a service account.

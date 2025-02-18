@@ -1,10 +1,10 @@
-Module beamlit.api.knowledgebases.list_knowledgebases
-=====================================================
+Module blaxel.api.knowledgebases.list_knowledgebases
+====================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.knowledgebase.Knowledgebase] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.knowledgebase.Knowledgebase] | None`
 :   List knowledgebases
     
      Returns a list of all knowledgebases in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['Knowledgebase']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.knowledgebase.Knowledgebase]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.knowledgebase.Knowledgebase]]`
 :   List knowledgebases
     
      Returns a list of all knowledgebases in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['Knowledgebase']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.knowledgebase.Knowledgebase] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.knowledgebase.Knowledgebase] | None`
 :   List knowledgebases
     
      Returns a list of all knowledgebases in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['Knowledgebase']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.knowledgebase.Knowledgebase]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.knowledgebase.Knowledgebase]]`
 :   List knowledgebases
     
      Returns a list of all knowledgebases in the workspace.

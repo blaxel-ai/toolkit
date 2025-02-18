@@ -1,10 +1,10 @@
-Module beamlit.api.privateclusters.list_private_clusters
-========================================================
+Module blaxel.api.privateclusters.list_private_clusters
+=======================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> Any | list[beamlit.models.private_cluster.PrivateCluster] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> Any | list[blaxel.models.private_cluster.PrivateCluster] | None`
 :   List all private clusters
     
     Raises:
@@ -14,7 +14,7 @@ Functions
     Returns:
         Union[Any, list['PrivateCluster']]
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | list[beamlit.models.private_cluster.PrivateCluster]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | list[blaxel.models.private_cluster.PrivateCluster]]`
 :   List all private clusters
     
     Raises:
@@ -24,7 +24,7 @@ Functions
     Returns:
         Response[Union[Any, list['PrivateCluster']]]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> Any | list[beamlit.models.private_cluster.PrivateCluster] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> Any | list[blaxel.models.private_cluster.PrivateCluster] | None`
 :   List all private clusters
     
     Raises:
@@ -34,7 +34,7 @@ Functions
     Returns:
         Union[Any, list['PrivateCluster']]
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | list[beamlit.models.private_cluster.PrivateCluster]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | list[blaxel.models.private_cluster.PrivateCluster]]`
 :   List all private clusters
     
     Raises:

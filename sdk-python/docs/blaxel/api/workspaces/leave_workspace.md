@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.leave_workspace
-=============================================
+Module blaxel.api.workspaces.leave_workspace
+============================================
 
 Functions
 ---------
 
-`asyncio(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.workspace.Workspace | None`
+`asyncio(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.workspace.Workspace | None`
 :   Leave workspace
     
      Leaves a workspace.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Union[Any, Workspace]
 
-`asyncio_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.workspace.Workspace]`
+`asyncio_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.workspace.Workspace]`
 :   Leave workspace
     
      Leaves a workspace.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Union[Any, Workspace]]
 
-`sync(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> Any | beamlit.models.workspace.Workspace | None`
+`sync(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> Any | blaxel.models.workspace.Workspace | None`
 :   Leave workspace
     
      Leaves a workspace.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Union[Any, Workspace]
 
-`sync_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | beamlit.models.workspace.Workspace]`
+`sync_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | blaxel.models.workspace.Workspace]`
 :   Leave workspace
     
      Leaves a workspace.

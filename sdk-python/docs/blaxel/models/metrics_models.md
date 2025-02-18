@@ -1,5 +1,5 @@
-Module beamlit.models.metrics_models
-====================================
+Module blaxel.models.metrics_models
+===================================
 
 Classes
 -------

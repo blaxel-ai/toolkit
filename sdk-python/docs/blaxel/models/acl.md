@@ -1,10 +1,10 @@
-Module beamlit.models.acl
-=========================
+Module blaxel.models.acl
+========================
 
 Classes
 -------
 
-`ACL(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, resource_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, resource_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, subject_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, subject_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ACL(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, resource_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, resource_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, subject_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, subject_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   ACL
     
     Attributes:
@@ -33,31 +33,31 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `resource_id: beamlit.types.Unset | str`
+    `resource_id: blaxel.types.Unset | str`
     :
 
-    `resource_type: beamlit.types.Unset | str`
+    `resource_type: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `subject_id: beamlit.types.Unset | str`
+    `subject_id: blaxel.types.Unset | str`
     :
 
-    `subject_type: beamlit.types.Unset | str`
+    `subject_type: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods

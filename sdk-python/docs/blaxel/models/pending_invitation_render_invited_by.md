@@ -1,10 +1,10 @@
-Module beamlit.models.pending_invitation_render_invited_by
-==========================================================
+Module blaxel.models.pending_invitation_render_invited_by
+=========================================================
 
 Classes
 -------
 
-`PendingInvitationRenderInvitedBy(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, family_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, given_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PendingInvitationRenderInvitedBy(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, family_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, given_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Invited by
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `family_name: beamlit.types.Unset | str`
+    `family_name: blaxel.types.Unset | str`
     :
 
-    `given_name: beamlit.types.Unset | str`
+    `given_name: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
     ### Methods

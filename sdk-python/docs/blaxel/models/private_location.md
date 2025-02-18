@@ -1,10 +1,10 @@
-Module beamlit.models.private_location
-======================================
+Module blaxel.models.private_location
+=====================================
 
 Classes
 -------
 
-`PrivateLocation(name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PrivateLocation(name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Private location available for policies
     
     Attributes:
@@ -25,7 +25,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods

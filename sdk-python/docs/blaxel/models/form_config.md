@@ -1,5 +1,5 @@
-Module beamlit.models.form_config
-=================================
+Module blaxel.models.form_config
+================================
 
 Classes
 -------

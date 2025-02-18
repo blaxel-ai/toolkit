@@ -1,10 +1,10 @@
-Module beamlit.models.form
-==========================
+Module blaxel.models.form
+=========================
 
 Classes
 -------
 
-`Form(config: beamlit.types.Unset | ForwardRef('FormConfig') = <beamlit.types.Unset object>, oauthomitempty: beamlit.types.Unset | ForwardRef('FormOauthomitempty') = <beamlit.types.Unset object>, secrets: beamlit.types.Unset | ForwardRef('FormSecrets') = <beamlit.types.Unset object>)`
+`Form(config: blaxel.types.Unset | ForwardRef('FormConfig') = <blaxel.types.Unset object>, oauthomitempty: blaxel.types.Unset | ForwardRef('FormOauthomitempty') = <blaxel.types.Unset object>, secrets: blaxel.types.Unset | ForwardRef('FormSecrets') = <blaxel.types.Unset object>)`
 :   Form of the artifact
     
     Attributes:

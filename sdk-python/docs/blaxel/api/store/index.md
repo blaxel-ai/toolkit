@@ -1,9 +1,9 @@
-Module beamlit.api.store
-========================
+Module blaxel.api.store
+=======================
 
 Sub-modules
 -----------
-* beamlit.api.store.get_store_agent
-* beamlit.api.store.get_store_function
-* beamlit.api.store.list_store_agents
-* beamlit.api.store.list_store_functions
+* blaxel.api.store.get_store_agent
+* blaxel.api.store.get_store_function
+* blaxel.api.store.list_store_agents
+* blaxel.api.store.list_store_functions

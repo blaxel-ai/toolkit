@@ -1,10 +1,10 @@
-Module beamlit.api.models.create_model
-======================================
+Module blaxel.api.models.create_model
+=====================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.models.model.Model | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.models.model.Model | None`
 :   Create model
     
      Creates a model.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Model
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Create model
     
      Creates a model.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Model]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.models.model.Model | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.models.model.Model | None`
 :   Create model
     
      Creates a model.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Model
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.model.Model) ‑> beamlit.types.Response[beamlit.models.model.Model]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.model.Model) ‑> blaxel.types.Response[blaxel.models.model.Model]`
 :   Create model
     
      Creates a model.

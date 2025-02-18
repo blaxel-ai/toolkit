@@ -1,10 +1,10 @@
-Module beamlit.api.agents.get_agent_logs
-========================================
+Module blaxel.api.agents.get_agent_logs
+=======================================
 
 Functions
 ---------
 
-`asyncio(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.resource_log.ResourceLog] | None`
+`asyncio(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.resource_log.ResourceLog] | None`
 :   Args:
         agent_name (str):
     
@@ -15,7 +15,7 @@ Functions
     Returns:
         list['ResourceLog']
 
-`asyncio_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.resource_log.ResourceLog]]`
+`asyncio_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.resource_log.ResourceLog]]`
 :   Args:
         agent_name (str):
     
@@ -26,7 +26,7 @@ Functions
     Returns:
         Response[list['ResourceLog']]
 
-`sync(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.resource_log.ResourceLog] | None`
+`sync(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.resource_log.ResourceLog] | None`
 :   Args:
         agent_name (str):
     
@@ -37,7 +37,7 @@ Functions
     Returns:
         list['ResourceLog']
 
-`sync_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.resource_log.ResourceLog]]`
+`sync_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.resource_log.ResourceLog]]`
 :   Args:
         agent_name (str):
     

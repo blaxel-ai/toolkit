@@ -1,5 +1,5 @@
-Module beamlit.models.request_total_by_origin_metric_request_total_by_origin_and_code
-=====================================================================================
+Module blaxel.models.request_total_by_origin_metric_request_total_by_origin_and_code
+====================================================================================
 
 Classes
 -------

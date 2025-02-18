@@ -3,12 +3,12 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="RuntimeResources")
+T = TypeVar("T", bound="RuntimeStartupProbe")
 
 
 @_attrs_define
-class RuntimeResources:
-    """The resources for the deployment. Should be a Kubernetes ResourceRequirements type"""
+class RuntimeStartupProbe:
+    """The readiness probe. Should be a Kubernetes Probe type"""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -23,10 +23,10 @@ class RuntimeResources:
         if not src_dict:
             return None
         d = src_dict.copy()
-        runtime_resources = cls()
+        runtime_startup_probe = cls()
 
-        runtime_resources.additional_properties = d
-        return runtime_resources
+        runtime_startup_probe.additional_properties = d
+        return runtime_startup_probe
 
     @property
     def additional_keys(self) -> list[str]:

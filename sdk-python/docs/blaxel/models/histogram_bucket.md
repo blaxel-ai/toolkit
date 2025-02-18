@@ -1,10 +1,10 @@
-Module beamlit.models.histogram_bucket
-======================================
+Module blaxel.models.histogram_bucket
+=====================================
 
 Classes
 -------
 
-`HistogramBucket(count: beamlit.types.Unset | int = <beamlit.types.Unset object>, end: beamlit.types.Unset | float = <beamlit.types.Unset object>, start: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`HistogramBucket(count: blaxel.types.Unset | int = <blaxel.types.Unset object>, end: blaxel.types.Unset | float = <blaxel.types.Unset object>, start: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Histogram bucket
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `count: beamlit.types.Unset | int`
+    `count: blaxel.types.Unset | int`
     :
 
-    `end: beamlit.types.Unset | float`
+    `end: blaxel.types.Unset | float`
     :
 
-    `start: beamlit.types.Unset | float`
+    `start: blaxel.types.Unset | float`
     :
 
     ### Methods

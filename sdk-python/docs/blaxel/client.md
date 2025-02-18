@@ -1,5 +1,5 @@
-Module beamlit.client
-=====================
+Module blaxel.client
+====================
 
 Classes
 -------
@@ -49,23 +49,23 @@ Classes
     `get_httpx_client(self) ‑> httpx.Client`
     :   Get the underlying httpx.Client, constructing a new one if not previously set
 
-    `set_async_httpx_client(self, async_client: httpx.AsyncClient) ‑> beamlit.client.AuthenticatedClient`
+    `set_async_httpx_client(self, async_client: httpx.AsyncClient) ‑> blaxel.client.AuthenticatedClient`
     :   Manually the underlying httpx.AsyncClient
         
         **NOTE**: This will override any other settings on the client, including cookies, headers, and timeout.
 
-    `set_httpx_client(self, client: httpx.Client) ‑> beamlit.client.AuthenticatedClient`
+    `set_httpx_client(self, client: httpx.Client) ‑> blaxel.client.AuthenticatedClient`
     :   Manually set the underlying httpx.Client
         
         **NOTE**: This will override any other settings on the client, including cookies, headers, and timeout.
 
-    `with_cookies(self, cookies: dict[str, str]) ‑> beamlit.client.AuthenticatedClient`
+    `with_cookies(self, cookies: dict[str, str]) ‑> blaxel.client.AuthenticatedClient`
     :   Get a new client matching this one with additional cookies
 
-    `with_headers(self, headers: dict[str, str]) ‑> beamlit.client.AuthenticatedClient`
+    `with_headers(self, headers: dict[str, str]) ‑> blaxel.client.AuthenticatedClient`
     :   Get a new client matching this one with additional headers
 
-    `with_timeout(self, timeout: httpx.Timeout) ‑> beamlit.client.AuthenticatedClient`
+    `with_timeout(self, timeout: httpx.Timeout) ‑> blaxel.client.AuthenticatedClient`
     :   Get a new client matching this one with a new timeout (in seconds)
 
 `Client(base_url: str = '', provider: httpx.Auth = None, *, raise_on_unexpected_status: bool = True, cookies: dict[str, str] = _Nothing.NOTHING, headers: dict[str, str] = _Nothing.NOTHING, timeout: httpx.Timeout | None = None, verify_ssl: str | bool | ssl.SSLContext = True, follow_redirects: bool = False, httpx_args: dict[str, typing.Any] = _Nothing.NOTHING)`
@@ -112,21 +112,21 @@ Classes
     `get_httpx_client(self) ‑> httpx.Client`
     :   Get the underlying httpx.Client, constructing a new one if not previously set
 
-    `set_async_httpx_client(self, async_client: httpx.AsyncClient) ‑> beamlit.client.Client`
+    `set_async_httpx_client(self, async_client: httpx.AsyncClient) ‑> blaxel.client.Client`
     :   Manually the underlying httpx.AsyncClient
         
         **NOTE**: This will override any other settings on the client, including cookies, headers, and timeout.
 
-    `set_httpx_client(self, client: httpx.Client) ‑> beamlit.client.Client`
+    `set_httpx_client(self, client: httpx.Client) ‑> blaxel.client.Client`
     :   Manually set the underlying httpx.Client
         
         **NOTE**: This will override any other settings on the client, including cookies, headers, and timeout.
 
-    `with_cookies(self, cookies: dict[str, str]) ‑> beamlit.client.Client`
+    `with_cookies(self, cookies: dict[str, str]) ‑> blaxel.client.Client`
     :   Get a new client matching this one with additional cookies
 
-    `with_headers(self, headers: dict[str, str]) ‑> beamlit.client.Client`
+    `with_headers(self, headers: dict[str, str]) ‑> blaxel.client.Client`
     :   Get a new client matching this one with additional headers
 
-    `with_timeout(self, timeout: httpx.Timeout) ‑> beamlit.client.Client`
+    `with_timeout(self, timeout: httpx.Timeout) ‑> blaxel.client.Client`
     :   Get a new client matching this one with a new timeout (in seconds)

@@ -91,10 +91,10 @@ from .resource_log import ResourceLog
 from .resource_metrics import ResourceMetrics
 from .resource_metrics_request_total_per_code import ResourceMetricsRequestTotalPerCode
 from .resource_metrics_rps_per_code import ResourceMetricsRpsPerCode
+from .revision_configuration import RevisionConfiguration
 from .revision_metadata import RevisionMetadata
 from .runtime import Runtime
-from .runtime_readiness_probe import RuntimeReadinessProbe
-from .runtime_resources import RuntimeResources
+from .runtime_startup_probe import RuntimeStartupProbe
 from .serverless_config import ServerlessConfig
 from .spec_configuration import SpecConfiguration
 from .store_agent import StoreAgent
@@ -204,10 +204,10 @@ __all__ = (
     "ResourceMetrics",
     "ResourceMetricsRequestTotalPerCode",
     "ResourceMetricsRpsPerCode",
+    "RevisionConfiguration",
     "RevisionMetadata",
     "Runtime",
-    "RuntimeReadinessProbe",
-    "RuntimeResources",
+    "RuntimeStartupProbe",
     "ServerlessConfig",
     "SpecConfiguration",
     "StoreAgent",

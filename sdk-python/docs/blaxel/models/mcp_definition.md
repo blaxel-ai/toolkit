@@ -1,10 +1,10 @@
-Module beamlit.models.mcp_definition
-====================================
+Module blaxel.models.mcp_definition
+===================================
 
 Classes
 -------
 
-`MCPDefinition(categories: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, coming_soon: beamlit.types.Unset | bool = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, enterprise: beamlit.types.Unset | bool = <beamlit.types.Unset object>, entrypoint: beamlit.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <beamlit.types.Unset object>, form: beamlit.types.Unset | ForwardRef('MCPDefinitionForm') = <beamlit.types.Unset object>, icon: beamlit.types.Unset | str = <beamlit.types.Unset object>, integration: beamlit.types.Unset | str = <beamlit.types.Unset object>, long_description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`MCPDefinition(categories: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, coming_soon: blaxel.types.Unset | bool = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, enterprise: blaxel.types.Unset | bool = <blaxel.types.Unset object>, entrypoint: blaxel.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <blaxel.types.Unset object>, form: blaxel.types.Unset | ForwardRef('MCPDefinitionForm') = <blaxel.types.Unset object>, icon: blaxel.types.Unset | str = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, long_description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Definition of an MCP from the MCP Hub
     
     Attributes:

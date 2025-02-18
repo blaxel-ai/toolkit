@@ -1,10 +1,10 @@
-Module beamlit.models.location_response
-=======================================
+Module blaxel.models.location_response
+======================================
 
 Classes
 -------
 
-`LocationResponse(continent: beamlit.types.Unset | str = <beamlit.types.Unset object>, country: beamlit.types.Unset | str = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, location: beamlit.types.Unset | str = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`LocationResponse(continent: blaxel.types.Unset | str = <blaxel.types.Unset object>, country: blaxel.types.Unset | str = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, location: blaxel.types.Unset | str = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Location availability for policies
     
     Attributes:

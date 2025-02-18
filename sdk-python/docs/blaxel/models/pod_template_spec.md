@@ -1,5 +1,5 @@
-Module beamlit.models.pod_template_spec
-=======================================
+Module blaxel.models.pod_template_spec
+======================================
 
 Classes
 -------

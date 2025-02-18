@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.update_integration_connection
-=============================================================
+Module blaxel.api.integrations.update_integration_connection
+============================================================
 
 Functions
 ---------
 
-`asyncio(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`asyncio(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Update integration connection
     
      Update an integration connection by integration name and connection name.
@@ -20,7 +20,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`asyncio_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`asyncio_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Update integration connection
     
      Update an integration connection by integration name and connection name.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[IntegrationConnection]
 
-`sync(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`sync(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Update integration connection
     
      Update an integration connection by integration name and connection name.
@@ -52,7 +52,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`sync_detailed(connection_name: str, *, client: beamlit.client.AuthenticatedClient | beamlit.client.Client, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`sync_detailed(connection_name: str, *, client: blaxel.client.AuthenticatedClient | blaxel.client.Client, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Update integration connection
     
      Update an integration connection by integration name and connection name.

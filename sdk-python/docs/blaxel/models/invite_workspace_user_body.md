@@ -1,10 +1,10 @@
-Module beamlit.models.invite_workspace_user_body
-================================================
+Module blaxel.models.invite_workspace_user_body
+===============================================
 
 Classes
 -------
 
-`InviteWorkspaceUserBody(email: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`InviteWorkspaceUserBody(email: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         email (Union[Unset, str]):
     
@@ -23,7 +23,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
     ### Methods

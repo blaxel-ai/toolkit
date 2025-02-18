@@ -1,10 +1,10 @@
-Module beamlit.api.metrics.get_metrics
-======================================
+Module blaxel.api.metrics.get_metrics
+=====================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.metrics.Metrics | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.metrics.Metrics | None`
 :   Get metrics for a workspace
     
      Returns metrics for the workspace's deployments.
@@ -16,7 +16,7 @@ Functions
     Returns:
         Metrics
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.metrics.Metrics]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.metrics.Metrics]`
 :   Get metrics for a workspace
     
      Returns metrics for the workspace's deployments.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[Metrics]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.metrics.Metrics | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.metrics.Metrics | None`
 :   Get metrics for a workspace
     
      Returns metrics for the workspace's deployments.
@@ -40,7 +40,7 @@ Functions
     Returns:
         Metrics
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.metrics.Metrics]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.metrics.Metrics]`
 :   Get metrics for a workspace
     
      Returns metrics for the workspace's deployments.

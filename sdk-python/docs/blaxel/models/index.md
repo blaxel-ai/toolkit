@@ -1,125 +1,125 @@
-Module beamlit.models
-=====================
+Module blaxel.models
+====================
 Contains all the data models used in inputs/outputs
 
 Sub-modules
 -----------
-* beamlit.models.acl
-* beamlit.models.agent
-* beamlit.models.agent_chain
-* beamlit.models.agent_spec
-* beamlit.models.api_key
-* beamlit.models.configuration
-* beamlit.models.continent
-* beamlit.models.core_event
-* beamlit.models.core_spec
-* beamlit.models.core_spec_configurations
-* beamlit.models.country
-* beamlit.models.create_api_key_for_service_account_body
-* beamlit.models.create_workspace_service_account_body
-* beamlit.models.create_workspace_service_account_response_200
-* beamlit.models.delete_workspace_service_account_response_200
-* beamlit.models.entrypoint
-* beamlit.models.entrypoint_env
-* beamlit.models.flavor
-* beamlit.models.form
-* beamlit.models.form_config
-* beamlit.models.form_oauthomitempty
-* beamlit.models.form_secrets
-* beamlit.models.function
-* beamlit.models.function_kit
-* beamlit.models.function_spec
-* beamlit.models.get_trace_ids_response_200
-* beamlit.models.get_trace_logs_response_200
-* beamlit.models.get_trace_response_200
-* beamlit.models.get_workspace_service_accounts_response_200_item
-* beamlit.models.histogram_bucket
-* beamlit.models.histogram_stats
-* beamlit.models.integration_connection
-* beamlit.models.integration_connection_spec
-* beamlit.models.integration_connection_spec_config
-* beamlit.models.integration_connection_spec_secret
-* beamlit.models.integration_model
-* beamlit.models.integration_repository
-* beamlit.models.invite_workspace_user_body
-* beamlit.models.knowledgebase
-* beamlit.models.knowledgebase_spec
-* beamlit.models.knowledgebase_spec_options
-* beamlit.models.last_n_requests_metric
-* beamlit.models.latency_metric
-* beamlit.models.location_response
-* beamlit.models.mcp_definition
-* beamlit.models.mcp_definition_entrypoint
-* beamlit.models.mcp_definition_form
-* beamlit.models.metadata
-* beamlit.models.metadata_labels
-* beamlit.models.metric
-* beamlit.models.metrics
-* beamlit.models.metrics_models
-* beamlit.models.metrics_request_total_per_code
-* beamlit.models.metrics_rps_per_code
-* beamlit.models.model
-* beamlit.models.model_private_cluster
-* beamlit.models.model_spec
-* beamlit.models.o_auth
-* beamlit.models.owner_fields
-* beamlit.models.pending_invitation
-* beamlit.models.pending_invitation_accept
-* beamlit.models.pending_invitation_render
-* beamlit.models.pending_invitation_render_invited_by
-* beamlit.models.pending_invitation_render_workspace
-* beamlit.models.pending_invitation_workspace_details
-* beamlit.models.pod_template_spec
-* beamlit.models.policy
-* beamlit.models.policy_location
-* beamlit.models.policy_max_tokens
-* beamlit.models.policy_spec
-* beamlit.models.private_cluster
-* beamlit.models.private_location
-* beamlit.models.repository
-* beamlit.models.request_duration_over_time_metric
-* beamlit.models.request_duration_over_time_metrics
-* beamlit.models.request_total_by_origin_metric
-* beamlit.models.request_total_by_origin_metric_request_total_by_origin
-* beamlit.models.request_total_by_origin_metric_request_total_by_origin_and_code
-* beamlit.models.request_total_metric
-* beamlit.models.request_total_metric_request_total_per_code
-* beamlit.models.request_total_metric_rps_per_code
-* beamlit.models.resource_log
-* beamlit.models.resource_metrics
-* beamlit.models.resource_metrics_request_total_per_code
-* beamlit.models.resource_metrics_rps_per_code
-* beamlit.models.revision_metadata
-* beamlit.models.runtime
-* beamlit.models.runtime_readiness_probe
-* beamlit.models.runtime_resources
-* beamlit.models.serverless_config
-* beamlit.models.spec_configuration
-* beamlit.models.store_agent
-* beamlit.models.store_agent_labels
-* beamlit.models.store_configuration
-* beamlit.models.store_configuration_option
-* beamlit.models.store_function
-* beamlit.models.store_function_kit
-* beamlit.models.store_function_labels
-* beamlit.models.store_function_parameter
-* beamlit.models.time_fields
-* beamlit.models.token_rate_metric
-* beamlit.models.token_rate_metrics
-* beamlit.models.token_total_metric
-* beamlit.models.trace_ids_response
-* beamlit.models.update_workspace_service_account_body
-* beamlit.models.update_workspace_service_account_response_200
-* beamlit.models.update_workspace_user_role_body
-* beamlit.models.websocket_channel
-* beamlit.models.workspace
-* beamlit.models.workspace_labels
-* beamlit.models.workspace_user
+* blaxel.models.acl
+* blaxel.models.agent
+* blaxel.models.agent_chain
+* blaxel.models.agent_spec
+* blaxel.models.api_key
+* blaxel.models.configuration
+* blaxel.models.continent
+* blaxel.models.core_event
+* blaxel.models.core_spec
+* blaxel.models.core_spec_configurations
+* blaxel.models.country
+* blaxel.models.create_api_key_for_service_account_body
+* blaxel.models.create_workspace_service_account_body
+* blaxel.models.create_workspace_service_account_response_200
+* blaxel.models.delete_workspace_service_account_response_200
+* blaxel.models.entrypoint
+* blaxel.models.entrypoint_env
+* blaxel.models.flavor
+* blaxel.models.form
+* blaxel.models.form_config
+* blaxel.models.form_oauthomitempty
+* blaxel.models.form_secrets
+* blaxel.models.function
+* blaxel.models.function_kit
+* blaxel.models.function_spec
+* blaxel.models.get_trace_ids_response_200
+* blaxel.models.get_trace_logs_response_200
+* blaxel.models.get_trace_response_200
+* blaxel.models.get_workspace_service_accounts_response_200_item
+* blaxel.models.histogram_bucket
+* blaxel.models.histogram_stats
+* blaxel.models.integration_connection
+* blaxel.models.integration_connection_spec
+* blaxel.models.integration_connection_spec_config
+* blaxel.models.integration_connection_spec_secret
+* blaxel.models.integration_model
+* blaxel.models.integration_repository
+* blaxel.models.invite_workspace_user_body
+* blaxel.models.knowledgebase
+* blaxel.models.knowledgebase_spec
+* blaxel.models.knowledgebase_spec_options
+* blaxel.models.last_n_requests_metric
+* blaxel.models.latency_metric
+* blaxel.models.location_response
+* blaxel.models.mcp_definition
+* blaxel.models.mcp_definition_entrypoint
+* blaxel.models.mcp_definition_form
+* blaxel.models.metadata
+* blaxel.models.metadata_labels
+* blaxel.models.metric
+* blaxel.models.metrics
+* blaxel.models.metrics_models
+* blaxel.models.metrics_request_total_per_code
+* blaxel.models.metrics_rps_per_code
+* blaxel.models.model
+* blaxel.models.model_private_cluster
+* blaxel.models.model_spec
+* blaxel.models.o_auth
+* blaxel.models.owner_fields
+* blaxel.models.pending_invitation
+* blaxel.models.pending_invitation_accept
+* blaxel.models.pending_invitation_render
+* blaxel.models.pending_invitation_render_invited_by
+* blaxel.models.pending_invitation_render_workspace
+* blaxel.models.pending_invitation_workspace_details
+* blaxel.models.pod_template_spec
+* blaxel.models.policy
+* blaxel.models.policy_location
+* blaxel.models.policy_max_tokens
+* blaxel.models.policy_spec
+* blaxel.models.private_cluster
+* blaxel.models.private_location
+* blaxel.models.repository
+* blaxel.models.request_duration_over_time_metric
+* blaxel.models.request_duration_over_time_metrics
+* blaxel.models.request_total_by_origin_metric
+* blaxel.models.request_total_by_origin_metric_request_total_by_origin
+* blaxel.models.request_total_by_origin_metric_request_total_by_origin_and_code
+* blaxel.models.request_total_metric
+* blaxel.models.request_total_metric_request_total_per_code
+* blaxel.models.request_total_metric_rps_per_code
+* blaxel.models.resource_log
+* blaxel.models.resource_metrics
+* blaxel.models.resource_metrics_request_total_per_code
+* blaxel.models.resource_metrics_rps_per_code
+* blaxel.models.revision_configuration
+* blaxel.models.revision_metadata
+* blaxel.models.runtime
+* blaxel.models.runtime_startup_probe
+* blaxel.models.serverless_config
+* blaxel.models.spec_configuration
+* blaxel.models.store_agent
+* blaxel.models.store_agent_labels
+* blaxel.models.store_configuration
+* blaxel.models.store_configuration_option
+* blaxel.models.store_function
+* blaxel.models.store_function_kit
+* blaxel.models.store_function_labels
+* blaxel.models.store_function_parameter
+* blaxel.models.time_fields
+* blaxel.models.token_rate_metric
+* blaxel.models.token_rate_metrics
+* blaxel.models.token_total_metric
+* blaxel.models.trace_ids_response
+* blaxel.models.update_workspace_service_account_body
+* blaxel.models.update_workspace_service_account_response_200
+* blaxel.models.update_workspace_user_role_body
+* blaxel.models.websocket_channel
+* blaxel.models.workspace
+* blaxel.models.workspace_labels
+* blaxel.models.workspace_user
 
 Classes
 -------
 
-`ACL(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, resource_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, resource_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, subject_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, subject_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ACL(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, resource_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, resource_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, subject_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, subject_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   ACL
     
     Attributes:
@@ -148,31 +148,31 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `resource_id: beamlit.types.Unset | str`
+    `resource_id: blaxel.types.Unset | str`
     :
 
-    `resource_type: beamlit.types.Unset | str`
+    `resource_type: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `subject_id: beamlit.types.Unset | str`
+    `subject_id: blaxel.types.Unset | str`
     :
 
-    `subject_type: beamlit.types.Unset | str`
+    `subject_type: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -180,7 +180,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Agent(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('AgentSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Agent(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('AgentSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Agent
     
     Attributes:
@@ -221,7 +221,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`AgentChain(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, prompt: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`AgentChain(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, prompt: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Agent chain configuration
     
     Attributes:
@@ -245,16 +245,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `enabled: beamlit.types.Unset | bool`
+    `enabled: blaxel.types.Unset | bool`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `prompt: beamlit.types.Unset | str`
+    `prompt: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -262,7 +262,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`AgentSpec(configurations: beamlit.types.Unset | ForwardRef('CoreSpecConfigurations') = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, pod_template: beamlit.types.Unset | ForwardRef('PodTemplateSpec') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, private_clusters: beamlit.types.Unset | ForwardRef('ModelPrivateCluster') = <beamlit.types.Unset object>, runtime: beamlit.types.Unset | ForwardRef('Runtime') = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, serverless_config: beamlit.types.Unset | ForwardRef('ServerlessConfig') = <beamlit.types.Unset object>, agent_chain: beamlit.types.Unset | list['AgentChain'] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, functions: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, knowledgebase: beamlit.types.Unset | str = <beamlit.types.Unset object>, model: beamlit.types.Unset | str = <beamlit.types.Unset object>, prompt: beamlit.types.Unset | str = <beamlit.types.Unset object>, repository: beamlit.types.Unset | ForwardRef('Repository') = <beamlit.types.Unset object>, store_id: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`AgentSpec(configurations: blaxel.types.Unset | ForwardRef('CoreSpecConfigurations') = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, pod_template: blaxel.types.Unset | ForwardRef('PodTemplateSpec') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, private_clusters: blaxel.types.Unset | ForwardRef('ModelPrivateCluster') = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, runtime: blaxel.types.Unset | ForwardRef('Runtime') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, serverless_config: blaxel.types.Unset | ForwardRef('ServerlessConfig') = <blaxel.types.Unset object>, agent_chain: blaxel.types.Unset | list['AgentChain'] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, functions: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, knowledgebase: blaxel.types.Unset | str = <blaxel.types.Unset object>, model: blaxel.types.Unset | str = <blaxel.types.Unset object>, prompt: blaxel.types.Unset | str = <blaxel.types.Unset object>, repository: blaxel.types.Unset | ForwardRef('Repository') = <blaxel.types.Unset object>, store_id: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Agent specification
     
     Attributes:
@@ -273,6 +273,7 @@ Classes
         pod_template (Union[Unset, PodTemplateSpec]): Pod template specification
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
@@ -342,6 +343,9 @@ Classes
     `repository`
     :
 
+    `revision`
+    :
+
     `runtime`
     :
 
@@ -359,8 +363,8 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`ApiKey(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, api_key: beamlit.types.Unset | str = <beamlit.types.Unset object>, expires_in: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub_type: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
-:   Long-lived API key for accessing Beamlit
+`ApiKey(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, api_key: blaxel.types.Unset | str = <blaxel.types.Unset object>, expires_in: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub_type: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
+:   Long-lived API key for accessing Blaxel
     
     Attributes:
         created_at (Union[Unset, str]): The date and time when the resource was created
@@ -389,34 +393,34 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `api_key: beamlit.types.Unset | str`
+    `api_key: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `expires_in: beamlit.types.Unset | str`
+    `expires_in: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
-    `sub_type: beamlit.types.Unset | str`
+    `sub_type: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -424,13 +428,13 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Configuration(continents: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, countries: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, private_locations: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>)`
+`Configuration(continents: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, countries: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, private_locations: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>)`
 :   Configuration
     
     Attributes:
         continents (Union[Unset, list[Any]]): Continents
         countries (Union[Unset, list[Any]]): Countries
-        private_locations (Union[Unset, list[Any]]): Private locations managed with beamlit operator
+        private_locations (Union[Unset, list[Any]]): Private locations managed with blaxel operator
     
     Method generated by attrs for class Configuration.
 
@@ -447,13 +451,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `continents: beamlit.types.Unset | list[typing.Any]`
+    `continents: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `countries: beamlit.types.Unset | list[typing.Any]`
+    `countries: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `private_locations: beamlit.types.Unset | list[typing.Any]`
+    `private_locations: blaxel.types.Unset | list[typing.Any]`
     :
 
     ### Methods
@@ -461,7 +465,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Continent(display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Continent(display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Continent
     
     Attributes:
@@ -483,10 +487,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -494,11 +498,12 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CoreEvent(message: beamlit.types.Unset | str = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>, time: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CoreEvent(message: blaxel.types.Unset | str = <blaxel.types.Unset object>, revision: blaxel.types.Unset | str = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>, time: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Core event
     
     Attributes:
         message (Union[Unset, str]): Event message
+        revision (Union[Unset, str]): RevisionID link to the event
         status (Union[Unset, str]): Event status
         time (Union[Unset, str]): Event time
         type_ (Union[Unset, str]): Event type
@@ -518,16 +523,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `message: beamlit.types.Unset | str`
+    `message: blaxel.types.Unset | str`
     :
 
-    `status: beamlit.types.Unset | str`
+    `revision: blaxel.types.Unset | str`
     :
 
-    `time: beamlit.types.Unset | str`
+    `status: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `time: blaxel.types.Unset | str`
+    :
+
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -535,7 +543,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CoreSpec(configurations: beamlit.types.Unset | ForwardRef('CoreSpecConfigurations') = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, pod_template: beamlit.types.Unset | ForwardRef('PodTemplateSpec') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, private_clusters: beamlit.types.Unset | ForwardRef('ModelPrivateCluster') = <beamlit.types.Unset object>, runtime: beamlit.types.Unset | ForwardRef('Runtime') = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, serverless_config: beamlit.types.Unset | ForwardRef('ServerlessConfig') = <beamlit.types.Unset object>)`
+`CoreSpec(configurations: blaxel.types.Unset | ForwardRef('CoreSpecConfigurations') = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, pod_template: blaxel.types.Unset | ForwardRef('PodTemplateSpec') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, private_clusters: blaxel.types.Unset | ForwardRef('ModelPrivateCluster') = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, runtime: blaxel.types.Unset | ForwardRef('Runtime') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, serverless_config: blaxel.types.Unset | ForwardRef('ServerlessConfig') = <blaxel.types.Unset object>)`
 :   Core specification
     
     Attributes:
@@ -546,6 +554,7 @@ Classes
         pod_template (Union[Unset, PodTemplateSpec]): Pod template specification
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
@@ -586,6 +595,9 @@ Classes
     `private_clusters`
     :
 
+    `revision`
+    :
+
     `runtime`
     :
 
@@ -600,7 +612,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CoreSpecConfigurations(key: beamlit.types.Unset | ForwardRef('SpecConfiguration') = <beamlit.types.Unset object>)`
+`CoreSpecConfigurations(key: blaxel.types.Unset | ForwardRef('SpecConfiguration') = <blaxel.types.Unset object>)`
 :   Optional configurations for the object
     
     Attributes:
@@ -630,7 +642,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Country(display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Country(display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Configuration
     
     Attributes:
@@ -652,10 +664,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -663,7 +675,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CreateApiKeyForServiceAccountBody(expires_in: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CreateApiKeyForServiceAccountBody(expires_in: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         expires_in (Union[Unset, str]): Expiration period for the API key
         name (Union[Unset, str]): Name for the API key
@@ -683,10 +695,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `expires_in: beamlit.types.Unset | str`
+    `expires_in: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -694,7 +706,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CreateWorkspaceServiceAccountBody(name: str, description: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CreateWorkspaceServiceAccountBody(name: str, description: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         name (str): Service account name
         description (Union[Unset, str]): Service account description
@@ -714,7 +726,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
     `name: str`
@@ -725,7 +737,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`CreateWorkspaceServiceAccountResponse200(client_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, client_secret: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CreateWorkspaceServiceAccountResponse200(client_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, client_secret: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         client_id (Union[Unset, str]): Service account client ID
         client_secret (Union[Unset, str]): Service account client secret (only returned on creation)
@@ -749,22 +761,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `client_id: beamlit.types.Unset | str`
+    `client_id: blaxel.types.Unset | str`
     :
 
-    `client_secret: beamlit.types.Unset | str`
+    `client_secret: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -772,7 +784,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`DeleteWorkspaceServiceAccountResponse200(client_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`DeleteWorkspaceServiceAccountResponse200(client_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         client_id (Union[Unset, str]): Service account client ID
         created_at (Union[Unset, str]): Creation timestamp
@@ -795,19 +807,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `client_id: beamlit.types.Unset | str`
+    `client_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -815,7 +827,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Entrypoint(args: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, command: beamlit.types.Unset | str = <beamlit.types.Unset object>, env: beamlit.types.Unset | ForwardRef('EntrypointEnv') = <beamlit.types.Unset object>)`
+`Entrypoint(args: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, command: blaxel.types.Unset | str = <blaxel.types.Unset object>, env: blaxel.types.Unset | ForwardRef('EntrypointEnv') = <blaxel.types.Unset object>)`
 :   Entrypoint of the artifact
     
     Attributes:
@@ -875,7 +887,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Flavor(name: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Flavor(name: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   A type of hardware available for deployments
     
     Attributes:
@@ -897,10 +909,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -908,7 +920,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Form(config: beamlit.types.Unset | ForwardRef('FormConfig') = <beamlit.types.Unset object>, oauthomitempty: beamlit.types.Unset | ForwardRef('FormOauthomitempty') = <beamlit.types.Unset object>, secrets: beamlit.types.Unset | ForwardRef('FormSecrets') = <beamlit.types.Unset object>)`
+`Form(config: blaxel.types.Unset | ForwardRef('FormConfig') = <blaxel.types.Unset object>, oauthomitempty: blaxel.types.Unset | ForwardRef('FormOauthomitempty') = <blaxel.types.Unset object>, secrets: blaxel.types.Unset | ForwardRef('FormSecrets') = <blaxel.types.Unset object>)`
 :   Form of the artifact
     
     Attributes:
@@ -1014,7 +1026,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Function(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('FunctionSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Function(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('FunctionSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Function
     
     Attributes:
@@ -1055,7 +1067,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`FunctionKit(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>)`
+`FunctionKit(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>)`
 :   Function kit
     
     Attributes:
@@ -1094,7 +1106,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`FunctionSpec(configurations: beamlit.types.Unset | ForwardRef('CoreSpecConfigurations') = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, pod_template: beamlit.types.Unset | ForwardRef('PodTemplateSpec') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, private_clusters: beamlit.types.Unset | ForwardRef('ModelPrivateCluster') = <beamlit.types.Unset object>, runtime: beamlit.types.Unset | ForwardRef('Runtime') = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, serverless_config: beamlit.types.Unset | ForwardRef('ServerlessConfig') = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, kit: beamlit.types.Unset | list['FunctionKit'] = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>, store_id: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`FunctionSpec(configurations: blaxel.types.Unset | ForwardRef('CoreSpecConfigurations') = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, pod_template: blaxel.types.Unset | ForwardRef('PodTemplateSpec') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, private_clusters: blaxel.types.Unset | ForwardRef('ModelPrivateCluster') = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, runtime: blaxel.types.Unset | ForwardRef('Runtime') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, serverless_config: blaxel.types.Unset | ForwardRef('ServerlessConfig') = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, kit: blaxel.types.Unset | list['FunctionKit'] = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>, store_id: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Function specification
     
     Attributes:
@@ -1105,6 +1117,7 @@ Classes
         pod_template (Union[Unset, PodTemplateSpec]): Pod template specification
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
@@ -1157,6 +1170,9 @@ Classes
     :
 
     `private_clusters`
+    :
+
+    `revision`
     :
 
     `runtime`
@@ -1239,7 +1255,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`GetWorkspaceServiceAccountsResponse200Item(client_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`GetWorkspaceServiceAccountsResponse200Item(client_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         client_id (Union[Unset, str]): Service account client ID
         created_at (Union[Unset, str]): Creation timestamp
@@ -1262,19 +1278,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `client_id: beamlit.types.Unset | str`
+    `client_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -1282,7 +1298,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`HistogramBucket(count: beamlit.types.Unset | int = <beamlit.types.Unset object>, end: beamlit.types.Unset | float = <beamlit.types.Unset object>, start: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`HistogramBucket(count: blaxel.types.Unset | int = <blaxel.types.Unset object>, end: blaxel.types.Unset | float = <blaxel.types.Unset object>, start: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Histogram bucket
     
     Attributes:
@@ -1305,13 +1321,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `count: beamlit.types.Unset | int`
+    `count: blaxel.types.Unset | int`
     :
 
-    `end: beamlit.types.Unset | float`
+    `end: blaxel.types.Unset | float`
     :
 
-    `start: beamlit.types.Unset | float`
+    `start: blaxel.types.Unset | float`
     :
 
     ### Methods
@@ -1319,7 +1335,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`HistogramStats(average: beamlit.types.Unset | float = <beamlit.types.Unset object>, p50: beamlit.types.Unset | float = <beamlit.types.Unset object>, p90: beamlit.types.Unset | float = <beamlit.types.Unset object>, p99: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`HistogramStats(average: blaxel.types.Unset | float = <blaxel.types.Unset object>, p50: blaxel.types.Unset | float = <blaxel.types.Unset object>, p90: blaxel.types.Unset | float = <blaxel.types.Unset object>, p99: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Histogram stats
     
     Attributes:
@@ -1343,16 +1359,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average: beamlit.types.Unset | float`
+    `average: blaxel.types.Unset | float`
     :
 
-    `p50: beamlit.types.Unset | float`
+    `p50: blaxel.types.Unset | float`
     :
 
-    `p90: beamlit.types.Unset | float`
+    `p90: blaxel.types.Unset | float`
     :
 
-    `p99: beamlit.types.Unset | float`
+    `p99: blaxel.types.Unset | float`
     :
 
     ### Methods
@@ -1360,7 +1376,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`IntegrationConnection(metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpec') = <beamlit.types.Unset object>)`
+`IntegrationConnection(metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpec') = <blaxel.types.Unset object>)`
 :   Integration Connection
     
     Attributes:
@@ -1393,7 +1409,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`IntegrationConnectionSpec(config: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpecConfig') = <beamlit.types.Unset object>, integration: beamlit.types.Unset | str = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, secret: beamlit.types.Unset | ForwardRef('IntegrationConnectionSpecSecret') = <beamlit.types.Unset object>)`
+`IntegrationConnectionSpec(config: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpecConfig') = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, secret: blaxel.types.Unset | ForwardRef('IntegrationConnectionSpecSecret') = <blaxel.types.Unset object>)`
 :   Integration connection specification
     
     Attributes:
@@ -1480,7 +1496,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`IntegrationModel(author: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, downloads: beamlit.types.Unset | int = <beamlit.types.Unset object>, endpoint: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>, library_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, likes: beamlit.types.Unset | int = <beamlit.types.Unset object>, model_private: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, pipeline_tag: beamlit.types.Unset | str = <beamlit.types.Unset object>, tags: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, trending_score: beamlit.types.Unset | int = <beamlit.types.Unset object>)`
+`IntegrationModel(author: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, downloads: blaxel.types.Unset | int = <blaxel.types.Unset object>, endpoint: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, library_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, likes: blaxel.types.Unset | int = <blaxel.types.Unset object>, model_private: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, pipeline_tag: blaxel.types.Unset | str = <blaxel.types.Unset object>, tags: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, trending_score: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   Model obtained from an external authentication provider, such as HuggingFace, OpenAI, etc...
     
     Attributes:
@@ -1512,40 +1528,40 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `author: beamlit.types.Unset | str`
+    `author: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `downloads: beamlit.types.Unset | int`
+    `downloads: blaxel.types.Unset | int`
     :
 
-    `endpoint: beamlit.types.Unset | str`
+    `endpoint: blaxel.types.Unset | str`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `library_name: beamlit.types.Unset | str`
+    `library_name: blaxel.types.Unset | str`
     :
 
-    `likes: beamlit.types.Unset | int`
+    `likes: blaxel.types.Unset | int`
     :
 
-    `model_private: beamlit.types.Unset | str`
+    `model_private: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `pipeline_tag: beamlit.types.Unset | str`
+    `pipeline_tag: blaxel.types.Unset | str`
     :
 
-    `tags: beamlit.types.Unset | list[str]`
+    `tags: blaxel.types.Unset | list[str]`
     :
 
-    `trending_score: beamlit.types.Unset | int`
+    `trending_score: blaxel.types.Unset | int`
     :
 
     ### Methods
@@ -1553,7 +1569,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`IntegrationRepository(id: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, organization: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`IntegrationRepository(id: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, organization: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Integration repository
     
     Attributes:
@@ -1577,16 +1593,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `id: beamlit.types.Unset | str`
+    `id: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `organization: beamlit.types.Unset | str`
+    `organization: blaxel.types.Unset | str`
     :
 
-    `url: beamlit.types.Unset | str`
+    `url: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -1594,7 +1610,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`InviteWorkspaceUserBody(email: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`InviteWorkspaceUserBody(email: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         email (Union[Unset, str]):
     
@@ -1613,7 +1629,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -1621,7 +1637,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Knowledgebase(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('KnowledgebaseSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Knowledgebase(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('KnowledgebaseSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Knowledgebase
     
     Attributes:
@@ -1662,7 +1678,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`KnowledgebaseSpec(collection_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, embedding_model: beamlit.types.Unset | str = <beamlit.types.Unset object>, embedding_model_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, options: beamlit.types.Unset | ForwardRef('KnowledgebaseSpecOptions') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>)`
+`KnowledgebaseSpec(collection_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, embedding_model: blaxel.types.Unset | str = <blaxel.types.Unset object>, embedding_model_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, options: blaxel.types.Unset | ForwardRef('KnowledgebaseSpecOptions') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>)`
 :   Knowledgebase specification
     
     Attributes:
@@ -1673,6 +1689,7 @@ Classes
         integration_connections (Union[Unset, list[str]]):
         options (Union[Unset, KnowledgebaseSpecOptions]): Options specific to the knowledge base
         policies (Union[Unset, list[str]]):
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         sandbox (Union[Unset, bool]): Sandbox mode
     
     Method generated by attrs for class KnowledgebaseSpec.
@@ -1711,6 +1728,9 @@ Classes
     `policies`
     :
 
+    `revision`
+    :
+
     `sandbox`
     :
 
@@ -1742,7 +1762,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`LastNRequestsMetric(date: beamlit.types.Unset | str = <beamlit.types.Unset object>, workload_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`LastNRequestsMetric(date: blaxel.types.Unset | str = <blaxel.types.Unset object>, workload_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Last N requests
     
     Attributes:
@@ -1765,13 +1785,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `date: beamlit.types.Unset | str`
+    `date: blaxel.types.Unset | str`
     :
 
-    `workload_type: beamlit.types.Unset | str`
+    `workload_type: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -1779,7 +1799,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`LatencyMetric(global_histogram: beamlit.types.Unset | ForwardRef('HistogramBucket') = <beamlit.types.Unset object>, global_stats: beamlit.types.Unset | ForwardRef('HistogramStats') = <beamlit.types.Unset object>, histogram_per_code: beamlit.types.Unset | ForwardRef('HistogramBucket') = <beamlit.types.Unset object>, stats_per_code: beamlit.types.Unset | ForwardRef('HistogramStats') = <beamlit.types.Unset object>)`
+`LatencyMetric(global_histogram: blaxel.types.Unset | ForwardRef('HistogramBucket') = <blaxel.types.Unset object>, global_stats: blaxel.types.Unset | ForwardRef('HistogramStats') = <blaxel.types.Unset object>, histogram_per_code: blaxel.types.Unset | ForwardRef('HistogramBucket') = <blaxel.types.Unset object>, stats_per_code: blaxel.types.Unset | ForwardRef('HistogramStats') = <blaxel.types.Unset object>)`
 :   Latency metrics
     
     Attributes:
@@ -1820,7 +1840,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`LocationResponse(continent: beamlit.types.Unset | str = <beamlit.types.Unset object>, country: beamlit.types.Unset | str = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, location: beamlit.types.Unset | str = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`LocationResponse(continent: blaxel.types.Unset | str = <blaxel.types.Unset object>, country: blaxel.types.Unset | str = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, location: blaxel.types.Unset | str = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Location availability for policies
     
     Attributes:
@@ -1865,7 +1885,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`MCPDefinition(categories: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, coming_soon: beamlit.types.Unset | bool = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, enterprise: beamlit.types.Unset | bool = <beamlit.types.Unset object>, entrypoint: beamlit.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <beamlit.types.Unset object>, form: beamlit.types.Unset | ForwardRef('MCPDefinitionForm') = <beamlit.types.Unset object>, icon: beamlit.types.Unset | str = <beamlit.types.Unset object>, integration: beamlit.types.Unset | str = <beamlit.types.Unset object>, long_description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`MCPDefinition(categories: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, coming_soon: blaxel.types.Unset | bool = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, enterprise: blaxel.types.Unset | bool = <blaxel.types.Unset object>, entrypoint: blaxel.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <blaxel.types.Unset object>, form: blaxel.types.Unset | ForwardRef('MCPDefinitionForm') = <blaxel.types.Unset object>, icon: blaxel.types.Unset | str = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, long_description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Definition of an MCP from the MCP Hub
     
     Attributes:
@@ -1984,7 +2004,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Metadata(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('MetadataLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Metadata(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('MetadataLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Metadata
     
     Attributes:
@@ -2064,7 +2084,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Metric(rate: beamlit.types.Unset | int = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | int = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Metric(rate: blaxel.types.Unset | int = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | int = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Metric
     
     Attributes:
@@ -2087,13 +2107,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `rate: beamlit.types.Unset | int`
+    `rate: blaxel.types.Unset | int`
     :
 
-    `request_total: beamlit.types.Unset | int`
+    `request_total: blaxel.types.Unset | int`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2101,7 +2121,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Metrics(agents: beamlit.types.Unset | Any = <beamlit.types.Unset object>, functions: beamlit.types.Unset | Any = <beamlit.types.Unset object>, inference_global: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, models: beamlit.types.Unset | ForwardRef('MetricsModels') = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('MetricsRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('MetricsRpsPerCode') = <beamlit.types.Unset object>)`
+`Metrics(agents: blaxel.types.Unset | Any = <blaxel.types.Unset object>, functions: blaxel.types.Unset | Any = <blaxel.types.Unset object>, inference_global: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, models: blaxel.types.Unset | ForwardRef('MetricsModels') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('MetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('MetricsRpsPerCode') = <blaxel.types.Unset object>)`
 :   Metrics for resources
     
     Attributes:
@@ -2229,7 +2249,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Model(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('ModelSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Model(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('ModelSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Logical object representing a model
     
     Attributes:
@@ -2270,7 +2290,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`ModelPrivateCluster(base_url: beamlit.types.Unset | str = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ModelPrivateCluster(base_url: blaxel.types.Unset | str = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Private cluster where the model deployment is deployed
     
     Attributes:
@@ -2293,13 +2313,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `base_url: beamlit.types.Unset | str`
+    `base_url: blaxel.types.Unset | str`
     :
 
-    `enabled: beamlit.types.Unset | bool`
+    `enabled: blaxel.types.Unset | bool`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2307,7 +2327,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`ModelSpec(configurations: beamlit.types.Unset | ForwardRef('CoreSpecConfigurations') = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, pod_template: beamlit.types.Unset | ForwardRef('PodTemplateSpec') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, private_clusters: beamlit.types.Unset | ForwardRef('ModelPrivateCluster') = <beamlit.types.Unset object>, runtime: beamlit.types.Unset | ForwardRef('Runtime') = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, serverless_config: beamlit.types.Unset | ForwardRef('ServerlessConfig') = <beamlit.types.Unset object>)`
+`ModelSpec(configurations: blaxel.types.Unset | ForwardRef('CoreSpecConfigurations') = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, pod_template: blaxel.types.Unset | ForwardRef('PodTemplateSpec') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, private_clusters: blaxel.types.Unset | ForwardRef('ModelPrivateCluster') = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, runtime: blaxel.types.Unset | ForwardRef('Runtime') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, serverless_config: blaxel.types.Unset | ForwardRef('ServerlessConfig') = <blaxel.types.Unset object>)`
 :   Model specification
     
     Attributes:
@@ -2318,6 +2338,7 @@ Classes
         pod_template (Union[Unset, PodTemplateSpec]): Pod template specification
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
@@ -2358,6 +2379,9 @@ Classes
     `private_clusters`
     :
 
+    `revision`
+    :
+
     `runtime`
     :
 
@@ -2372,7 +2396,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`OAuth(scope: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`OAuth(scope: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   OAuth of the artifact
     
     Attributes:
@@ -2394,10 +2418,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `scope: beamlit.types.Unset | list[typing.Any]`
+    `scope: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2405,7 +2429,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`OwnerFields(created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`OwnerFields(created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Owner fields for Persistance
     
     Attributes:
@@ -2427,10 +2451,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2438,7 +2462,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitation(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, email: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PendingInvitation(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, email: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Pending invitation in workspace
     
     Attributes:
@@ -2466,28 +2490,28 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `invited_by: beamlit.types.Unset | str`
+    `invited_by: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2495,7 +2519,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitationAccept(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | ForwardRef('Workspace') = <beamlit.types.Unset object>)`
+`PendingInvitationAccept(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | ForwardRef('Workspace') = <blaxel.types.Unset object>)`
 :   Pending invitation accept
     
     Attributes:
@@ -2528,7 +2552,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitationRender(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_by: beamlit.types.Unset | ForwardRef('PendingInvitationRenderInvitedBy') = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | ForwardRef('PendingInvitationRenderWorkspace') = <beamlit.types.Unset object>, workspace_details: beamlit.types.Unset | ForwardRef('PendingInvitationWorkspaceDetails') = <beamlit.types.Unset object>)`
+`PendingInvitationRender(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_by: blaxel.types.Unset | ForwardRef('PendingInvitationRenderInvitedBy') = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | ForwardRef('PendingInvitationRenderWorkspace') = <blaxel.types.Unset object>, workspace_details: blaxel.types.Unset | ForwardRef('PendingInvitationWorkspaceDetails') = <blaxel.types.Unset object>)`
 :   Pending invitation in workspace
     
     Attributes:
@@ -2577,7 +2601,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitationRenderInvitedBy(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, family_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, given_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PendingInvitationRenderInvitedBy(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, family_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, given_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Invited by
     
     Attributes:
@@ -2601,16 +2625,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `family_name: beamlit.types.Unset | str`
+    `family_name: blaxel.types.Unset | str`
     :
 
-    `given_name: beamlit.types.Unset | str`
+    `given_name: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2618,7 +2642,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitationRenderWorkspace(display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PendingInvitationRenderWorkspace(display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Workspace
     
     Attributes:
@@ -2640,10 +2664,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2651,7 +2675,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PendingInvitationWorkspaceDetails(emails: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, user_number: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`PendingInvitationWorkspaceDetails(emails: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, user_number: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Workspace details
     
     Attributes:
@@ -2673,10 +2697,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `emails: beamlit.types.Unset | list[typing.Any]`
+    `emails: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `user_number: beamlit.types.Unset | float`
+    `user_number: blaxel.types.Unset | float`
     :
 
     ### Methods
@@ -2707,7 +2731,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Policy(metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('PolicySpec') = <beamlit.types.Unset object>)`
+`Policy(metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('PolicySpec') = <blaxel.types.Unset object>)`
 :   Rule that controls how a deployment is made and served (e.g. location restrictions)
     
     Attributes:
@@ -2740,7 +2764,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PolicyLocation(name: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PolicyLocation(name: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Policy location
     
     Attributes:
@@ -2762,10 +2786,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2773,7 +2797,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PolicyMaxTokens(granularity: beamlit.types.Unset | str = <beamlit.types.Unset object>, input_: beamlit.types.Unset | int = <beamlit.types.Unset object>, output: beamlit.types.Unset | int = <beamlit.types.Unset object>, ratio_input_over_output: beamlit.types.Unset | int = <beamlit.types.Unset object>, step: beamlit.types.Unset | int = <beamlit.types.Unset object>, total: beamlit.types.Unset | int = <beamlit.types.Unset object>)`
+`PolicyMaxTokens(granularity: blaxel.types.Unset | str = <blaxel.types.Unset object>, input_: blaxel.types.Unset | int = <blaxel.types.Unset object>, output: blaxel.types.Unset | int = <blaxel.types.Unset object>, ratio_input_over_output: blaxel.types.Unset | int = <blaxel.types.Unset object>, step: blaxel.types.Unset | int = <blaxel.types.Unset object>, total: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   PolicyMaxTokens is a local type that wraps a slice of PolicyMaxTokens
     
     Attributes:
@@ -2799,22 +2823,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `granularity: beamlit.types.Unset | str`
+    `granularity: blaxel.types.Unset | str`
     :
 
-    `input_: beamlit.types.Unset | int`
+    `input_: blaxel.types.Unset | int`
     :
 
-    `output: beamlit.types.Unset | int`
+    `output: blaxel.types.Unset | int`
     :
 
-    `ratio_input_over_output: beamlit.types.Unset | int`
+    `ratio_input_over_output: blaxel.types.Unset | int`
     :
 
-    `step: beamlit.types.Unset | int`
+    `step: blaxel.types.Unset | int`
     :
 
-    `total: beamlit.types.Unset | int`
+    `total: blaxel.types.Unset | int`
     :
 
     ### Methods
@@ -2822,7 +2846,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PolicySpec(flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, locations: beamlit.types.Unset | list['PolicyLocation'] = <beamlit.types.Unset object>, max_tokens: beamlit.types.Unset | ForwardRef('PolicyMaxTokens') = <beamlit.types.Unset object>, resource_types: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PolicySpec(flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, locations: blaxel.types.Unset | list['PolicyLocation'] = <blaxel.types.Unset object>, max_tokens: blaxel.types.Unset | ForwardRef('PolicyMaxTokens') = <blaxel.types.Unset object>, resource_types: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Policy specification
     
     Attributes:
@@ -2873,7 +2897,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PrivateCluster(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, continent: beamlit.types.Unset | str = <beamlit.types.Unset object>, country: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, healthy: beamlit.types.Unset | bool = <beamlit.types.Unset object>, last_health_check_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, latitude: beamlit.types.Unset | str = <beamlit.types.Unset object>, longitude: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, owned_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PrivateCluster(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, continent: blaxel.types.Unset | str = <blaxel.types.Unset object>, country: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, healthy: blaxel.types.Unset | bool = <blaxel.types.Unset object>, last_health_check_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, latitude: blaxel.types.Unset | str = <blaxel.types.Unset object>, longitude: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, owned_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   A private cluster where models can be located on.
     
     Attributes:
@@ -2912,46 +2936,46 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `continent: beamlit.types.Unset | str`
+    `continent: blaxel.types.Unset | str`
     :
 
-    `country: beamlit.types.Unset | str`
+    `country: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `healthy: beamlit.types.Unset | bool`
+    `healthy: blaxel.types.Unset | bool`
     :
 
-    `last_health_check_time: beamlit.types.Unset | str`
+    `last_health_check_time: blaxel.types.Unset | str`
     :
 
-    `latitude: beamlit.types.Unset | str`
+    `latitude: blaxel.types.Unset | str`
     :
 
-    `longitude: beamlit.types.Unset | str`
+    `longitude: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `owned_by: beamlit.types.Unset | str`
+    `owned_by: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2959,7 +2983,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`PrivateLocation(name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PrivateLocation(name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Private location available for policies
     
     Attributes:
@@ -2980,7 +3004,7 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -2988,7 +3012,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Repository(type_: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Repository(type_: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Repository
     
     Attributes:
@@ -3010,10 +3034,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
-    `url: beamlit.types.Unset | str`
+    `url: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -3021,7 +3045,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RequestDurationOverTimeMetric(average: beamlit.types.Unset | float = <beamlit.types.Unset object>, p50: beamlit.types.Unset | float = <beamlit.types.Unset object>, p90: beamlit.types.Unset | float = <beamlit.types.Unset object>, p99: beamlit.types.Unset | float = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`RequestDurationOverTimeMetric(average: blaxel.types.Unset | float = <blaxel.types.Unset object>, p50: blaxel.types.Unset | float = <blaxel.types.Unset object>, p90: blaxel.types.Unset | float = <blaxel.types.Unset object>, p99: blaxel.types.Unset | float = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Request duration over time metric
     
     Attributes:
@@ -3046,19 +3070,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average: beamlit.types.Unset | float`
+    `average: blaxel.types.Unset | float`
     :
 
-    `p50: beamlit.types.Unset | float`
+    `p50: blaxel.types.Unset | float`
     :
 
-    `p90: beamlit.types.Unset | float`
+    `p90: blaxel.types.Unset | float`
     :
 
-    `p99: beamlit.types.Unset | float`
+    `p99: blaxel.types.Unset | float`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -3066,7 +3090,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RequestDurationOverTimeMetrics(request_duration_over_time: beamlit.types.Unset | ForwardRef('RequestDurationOverTimeMetric') = <beamlit.types.Unset object>)`
+`RequestDurationOverTimeMetrics(request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetric') = <blaxel.types.Unset object>)`
 :   Request duration over time metrics
     
     Attributes:
@@ -3095,7 +3119,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RequestTotalByOriginMetric(request_total_by_origin: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOrigin') = <beamlit.types.Unset object>, request_total_by_origin_and_code: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOriginAndCode') = <beamlit.types.Unset object>)`
+`RequestTotalByOriginMetric(request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOrigin') = <blaxel.types.Unset object>, request_total_by_origin_and_code: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOriginAndCode') = <blaxel.types.Unset object>)`
 :   Request total by origin metric
     
     Attributes:
@@ -3175,7 +3199,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RequestTotalMetric(request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('RequestTotalMetricRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('RequestTotalMetricRpsPerCode') = <beamlit.types.Unset object>)`
+`RequestTotalMetric(request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('RequestTotalMetricRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('RequestTotalMetricRpsPerCode') = <blaxel.types.Unset object>)`
 :   Metrics for request total
     
     Attributes:
@@ -3263,7 +3287,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`ResourceLog(message: beamlit.types.Unset | str = <beamlit.types.Unset object>, severity: beamlit.types.Unset | int = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ResourceLog(message: blaxel.types.Unset | str = <blaxel.types.Unset object>, severity: blaxel.types.Unset | int = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Log for a resource deployment (eg. model deployment, function deployment)
     
     Attributes:
@@ -3286,13 +3310,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `message: beamlit.types.Unset | str`
+    `message: blaxel.types.Unset | str`
     :
 
-    `severity: beamlit.types.Unset | int`
+    `severity: blaxel.types.Unset | int`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -3300,7 +3324,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`ResourceMetrics(inference_global: beamlit.types.Unset | list['Metric'] = <beamlit.types.Unset object>, last_n_requests: beamlit.types.Unset | list['Metric'] = <beamlit.types.Unset object>, latency: beamlit.types.Unset | ForwardRef('LatencyMetric') = <beamlit.types.Unset object>, request_duration_over_time: beamlit.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_by_origin: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <beamlit.types.Unset object>, token_rate: beamlit.types.Unset | ForwardRef('TokenRateMetrics') = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | ForwardRef('TokenTotalMetric') = <beamlit.types.Unset object>)`
+`ResourceMetrics(inference_global: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, last_n_requests: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, latency: blaxel.types.Unset | ForwardRef('LatencyMetric') = <blaxel.types.Unset object>, request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <blaxel.types.Unset object>, token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetrics') = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | ForwardRef('TokenTotalMetric') = <blaxel.types.Unset object>)`
 :   Metrics for a single resource deployment (eg. model deployment, function deployment)
     
     Attributes:
@@ -3417,12 +3441,63 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RevisionMetadata(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, id: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`RevisionConfiguration(active: blaxel.types.Unset | str = <blaxel.types.Unset object>, canary: blaxel.types.Unset | str = <blaxel.types.Unset object>, canary_percent: blaxel.types.Unset | int = <blaxel.types.Unset object>, previous_active: blaxel.types.Unset | str = <blaxel.types.Unset object>, traffic: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
+:   Revision configuration
+    
+    Attributes:
+        active (Union[Unset, str]): Active revision id
+        canary (Union[Unset, str]): Canary revision id
+        canary_percent (Union[Unset, int]): Canary revision percent
+        previous_active (Union[Unset, str]): Previous active revision id
+        traffic (Union[Unset, int]): Traffic percentage
+    
+    Method generated by attrs for class RevisionConfiguration.
+
+    ### Static methods
+
+    `from_dict(src_dict: dict[str, typing.Any]) ‑> ~T`
+    :
+
+    ### Instance variables
+
+    `active: blaxel.types.Unset | str`
+    :
+
+    `additional_keys: list[str]`
+    :
+
+    `additional_properties: dict[str, typing.Any]`
+    :
+
+    `canary: blaxel.types.Unset | str`
+    :
+
+    `canary_percent: blaxel.types.Unset | int`
+    :
+
+    `previous_active: blaxel.types.Unset | str`
+    :
+
+    `traffic: blaxel.types.Unset | int`
+    :
+
+    ### Methods
+
+    `to_dict(self) ‑> dict[str, typing.Any]`
+    :
+
+`RevisionMetadata(active: blaxel.types.Unset | bool = <blaxel.types.Unset object>, canary: blaxel.types.Unset | bool = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, id: blaxel.types.Unset | str = <blaxel.types.Unset object>, previous_active: blaxel.types.Unset | bool = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>, traffic_percent: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   Revision metadata
     
     Attributes:
+        active (Union[Unset, bool]): Is the revision active
+        canary (Union[Unset, bool]): Is the revision canary
         created_at (Union[Unset, str]): Revision created at
+        created_by (Union[Unset, str]): Revision created by
         id (Union[Unset, str]): Revision ID
+        previous_active (Union[Unset, bool]): Is the revision previous active
+        status (Union[Unset, str]): Status of the revision
+        traffic_percent (Union[Unset, int]): Percent of traffic to the revision
     
     Method generated by attrs for class RevisionMetadata.
 
@@ -3433,16 +3508,34 @@ Classes
 
     ### Instance variables
 
+    `active: blaxel.types.Unset | bool`
+    :
+
     `additional_keys: list[str]`
     :
 
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `canary: blaxel.types.Unset | bool`
     :
 
-    `id: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
+    :
+
+    `created_by: blaxel.types.Unset | str`
+    :
+
+    `id: blaxel.types.Unset | str`
+    :
+
+    `previous_active: blaxel.types.Unset | bool`
+    :
+
+    `status: blaxel.types.Unset | str`
+    :
+
+    `traffic_percent: blaxel.types.Unset | int`
     :
 
     ### Methods
@@ -3450,24 +3543,24 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Runtime(args: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, command: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, endpoint_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, envs: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, image: beamlit.types.Unset | str = <beamlit.types.Unset object>, metric_port: beamlit.types.Unset | int = <beamlit.types.Unset object>, model: beamlit.types.Unset | str = <beamlit.types.Unset object>, organization: beamlit.types.Unset | str = <beamlit.types.Unset object>, readiness_probe: beamlit.types.Unset | ForwardRef('RuntimeReadinessProbe') = <beamlit.types.Unset object>, resources: beamlit.types.Unset | ForwardRef('RuntimeResources') = <beamlit.types.Unset object>, serving_port: beamlit.types.Unset | int = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Runtime(args: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, command: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, cpu: blaxel.types.Unset | int = <blaxel.types.Unset object>, endpoint_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, envs: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, image: blaxel.types.Unset | str = <blaxel.types.Unset object>, memory: blaxel.types.Unset | int = <blaxel.types.Unset object>, metric_port: blaxel.types.Unset | int = <blaxel.types.Unset object>, model: blaxel.types.Unset | str = <blaxel.types.Unset object>, organization: blaxel.types.Unset | str = <blaxel.types.Unset object>, serving_port: blaxel.types.Unset | int = <blaxel.types.Unset object>, startup_probe: blaxel.types.Unset | ForwardRef('RuntimeStartupProbe') = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Set of configurations for a deployment
     
     Attributes:
         args (Union[Unset, list[Any]]): The arguments to pass to the deployment runtime
         command (Union[Unset, list[Any]]): The command to run the deployment
+        cpu (Union[Unset, int]): The CPU for the deployment in cores, only available for private cluster
         endpoint_name (Union[Unset, str]): Endpoint Name of the model. In case of hf_private_endpoint, it is the
             endpoint name. In case of hf_public_endpoint, it is not used.
         envs (Union[Unset, list[Any]]): The env variables to set in the deployment. Should be a list of Kubernetes
             EnvVar types
         image (Union[Unset, str]): The Docker image for the deployment
+        memory (Union[Unset, int]): The memory for the deployment in MB
         metric_port (Union[Unset, int]): The port to serve the metrics on
         model (Union[Unset, str]): The slug name of the origin model at HuggingFace.
         organization (Union[Unset, str]): The organization of the model
-        readiness_probe (Union[Unset, RuntimeReadinessProbe]): The readiness probe. Should be a Kubernetes Probe type
-        resources (Union[Unset, RuntimeResources]): The resources for the deployment. Should be a Kubernetes
-            ResourceRequirements type
         serving_port (Union[Unset, int]): The port to serve the model on
+        startup_probe (Union[Unset, RuntimeStartupProbe]): The readiness probe. Should be a Kubernetes Probe type
         type_ (Union[Unset, str]): The type of origin for the deployment (hf_private_endpoint, hf_public_endpoint)
     
     Method generated by attrs for class Runtime.
@@ -3491,6 +3584,9 @@ Classes
     `command`
     :
 
+    `cpu`
+    :
+
     `endpoint_name`
     :
 
@@ -3498,6 +3594,9 @@ Classes
     :
 
     `image`
+    :
+
+    `memory`
     :
 
     `metric_port`
@@ -3509,13 +3608,10 @@ Classes
     `organization`
     :
 
-    `readiness_probe`
-    :
-
-    `resources`
-    :
-
     `serving_port`
+    :
+
+    `startup_probe`
     :
 
     `type_`
@@ -3526,10 +3622,10 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RuntimeReadinessProbe()`
+`RuntimeStartupProbe()`
 :   The readiness probe. Should be a Kubernetes Probe type
     
-    Method generated by attrs for class RuntimeReadinessProbe.
+    Method generated by attrs for class RuntimeStartupProbe.
 
     ### Static methods
 
@@ -3549,48 +3645,14 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`RuntimeResources()`
-:   The resources for the deployment. Should be a Kubernetes ResourceRequirements type
-    
-    Method generated by attrs for class RuntimeResources.
-
-    ### Static methods
-
-    `from_dict(src_dict: dict[str, typing.Any]) ‑> ~T`
-    :
-
-    ### Instance variables
-
-    `additional_keys: list[str]`
-    :
-
-    `additional_properties: dict[str, typing.Any]`
-    :
-
-    ### Methods
-
-    `to_dict(self) ‑> dict[str, typing.Any]`
-    :
-
-`ServerlessConfig(last_pod_retention_period: beamlit.types.Unset | str = <beamlit.types.Unset object>, max_num_replicas: beamlit.types.Unset | int = <beamlit.types.Unset object>, metric: beamlit.types.Unset | str = <beamlit.types.Unset object>, min_num_replicas: beamlit.types.Unset | int = <beamlit.types.Unset object>, scale_down_delay: beamlit.types.Unset | str = <beamlit.types.Unset object>, scale_up_minimum: beamlit.types.Unset | int = <beamlit.types.Unset object>, stable_window: beamlit.types.Unset | str = <beamlit.types.Unset object>, target: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`ServerlessConfig(max_scale: blaxel.types.Unset | int = <blaxel.types.Unset object>, min_scale: blaxel.types.Unset | int = <blaxel.types.Unset object>, timeout: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   Configuration for a serverless deployment
     
     Attributes:
-        last_pod_retention_period (Union[Unset, str]): The minimum amount of time that the last replica will remain
-            active AFTER a scale-to-zero decision is made
-        max_num_replicas (Union[Unset, int]): The maximum number of replicas for the deployment.
-        metric (Union[Unset, str]): Metric watched to make scaling decisions. Can be "cpu" or "memory" or "rps" or
-            "concurrency"
-        min_num_replicas (Union[Unset, int]): The minimum number of replicas for the deployment. Can be 0 or 1 (in which
-            case the deployment is always running in at least one location).
-        scale_down_delay (Union[Unset, str]): The time window which must pass at reduced concurrency before a scale-down
-            decision is applied. This can be useful, for example, to keep containers around for a configurable duration to
-            avoid a cold start penalty if new requests come in.
-        scale_up_minimum (Union[Unset, int]): The minimum number of replicas that will be created when the deployment
-            scales up from zero.
-        stable_window (Union[Unset, str]): The sliding time window over which metrics are averaged to provide the input
-            for scaling decisions
-        target (Union[Unset, str]): Target value for the watched metric
+        max_scale (Union[Unset, int]): The minimum number of replicas for the deployment. Can be 0 or 1 (in which case
+            the deployment is always running in at least one location).
+        min_scale (Union[Unset, int]): The maximum number of replicas for the deployment.
+        timeout (Union[Unset, int]): The timeout for the deployment in seconds
     
     Method generated by attrs for class ServerlessConfig.
 
@@ -3607,28 +3669,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `last_pod_retention_period: beamlit.types.Unset | str`
+    `max_scale: blaxel.types.Unset | int`
     :
 
-    `max_num_replicas: beamlit.types.Unset | int`
+    `min_scale: blaxel.types.Unset | int`
     :
 
-    `metric: beamlit.types.Unset | str`
-    :
-
-    `min_num_replicas: beamlit.types.Unset | int`
-    :
-
-    `scale_down_delay: beamlit.types.Unset | str`
-    :
-
-    `scale_up_minimum: beamlit.types.Unset | int`
-    :
-
-    `stable_window: beamlit.types.Unset | str`
-    :
-
-    `target: beamlit.types.Unset | str`
+    `timeout: blaxel.types.Unset | int`
     :
 
     ### Methods
@@ -3636,7 +3683,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`SpecConfiguration(secret: beamlit.types.Unset | bool = <beamlit.types.Unset object>, value: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`SpecConfiguration(secret: blaxel.types.Unset | bool = <blaxel.types.Unset object>, value: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
     
     Attributes:
@@ -3658,10 +3705,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `secret: beamlit.types.Unset | bool`
+    `secret: blaxel.types.Unset | bool`
     :
 
-    `value: beamlit.types.Unset | str`
+    `value: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -3669,7 +3716,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreAgent(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, configuration: beamlit.types.Unset | list['StoreConfiguration'] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, image: beamlit.types.Unset | str = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('StoreAgentLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, prompt: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreAgent(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, configuration: blaxel.types.Unset | list['StoreConfiguration'] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, image: blaxel.types.Unset | str = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('StoreAgentLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, prompt: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store agent
     
     Attributes:
@@ -3761,7 +3808,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreConfiguration(available_models: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, if_: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, options: beamlit.types.Unset | list['StoreConfigurationOption'] = <beamlit.types.Unset object>, required: beamlit.types.Unset | bool = <beamlit.types.Unset object>, secret: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreConfiguration(available_models: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, if_: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, options: blaxel.types.Unset | list['StoreConfigurationOption'] = <blaxel.types.Unset object>, required: blaxel.types.Unset | bool = <blaxel.types.Unset object>, secret: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store configuration for resources (eg: agent, function, etc)
     
     Attributes:
@@ -3822,7 +3869,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreConfigurationOption(if_: beamlit.types.Unset | str = <beamlit.types.Unset object>, label: beamlit.types.Unset | str = <beamlit.types.Unset object>, value: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreConfigurationOption(if_: blaxel.types.Unset | str = <blaxel.types.Unset object>, label: blaxel.types.Unset | str = <blaxel.types.Unset object>, value: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store configuration options for a select type configuration
     
     Attributes:
@@ -3845,13 +3892,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `if_: beamlit.types.Unset | str`
+    `if_: blaxel.types.Unset | str`
     :
 
-    `label: beamlit.types.Unset | str`
+    `label: blaxel.types.Unset | str`
     :
 
-    `value: beamlit.types.Unset | str`
+    `value: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -3859,7 +3906,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreFunction(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, configuration: beamlit.types.Unset | list['StoreConfiguration'] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, image: beamlit.types.Unset | str = <beamlit.types.Unset object>, kit: beamlit.types.Unset | list['StoreFunctionKit'] = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('StoreFunctionLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>)`
+`StoreFunction(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, configuration: blaxel.types.Unset | list['StoreConfiguration'] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, image: blaxel.types.Unset | str = <blaxel.types.Unset object>, kit: blaxel.types.Unset | list['StoreFunctionKit'] = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('StoreFunctionLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>)`
 :   Store function
     
     Attributes:
@@ -3932,7 +3979,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreFunctionKit(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>)`
+`StoreFunctionKit(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>)`
 :   Store function kit
     
     Attributes:
@@ -3994,7 +4041,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`StoreFunctionParameter(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, required: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreFunctionParameter(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, required: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store function parameter
     
     Attributes:
@@ -4018,16 +4065,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `required: beamlit.types.Unset | bool`
+    `required: blaxel.types.Unset | bool`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -4035,7 +4082,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`TimeFields(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`TimeFields(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Time fields for Persistance
     
     Attributes:
@@ -4057,10 +4104,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -4068,7 +4115,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`TokenRateMetric(model: beamlit.types.Unset | str = <beamlit.types.Unset object>, timestamp: beamlit.types.Unset | str = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, trend: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`TokenRateMetric(model: blaxel.types.Unset | str = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, trend: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Token rate metric
     
     Attributes:
@@ -4092,16 +4139,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `model: beamlit.types.Unset | str`
+    `model: blaxel.types.Unset | str`
     :
 
-    `timestamp: beamlit.types.Unset | str`
+    `timestamp: blaxel.types.Unset | str`
     :
 
-    `token_total: beamlit.types.Unset | float`
+    `token_total: blaxel.types.Unset | float`
     :
 
-    `trend: beamlit.types.Unset | float`
+    `trend: blaxel.types.Unset | float`
     :
 
     ### Methods
@@ -4109,7 +4156,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`TokenRateMetrics(token_rate: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>, token_rate_input: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>, token_rate_output: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>)`
+`TokenRateMetrics(token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>, token_rate_input: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>, token_rate_output: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>)`
 :   Token rate metrics
     
     Attributes:
@@ -4146,7 +4193,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`TokenTotalMetric(average_token_input_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, average_token_output_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, average_token_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_input: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_output: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`TokenTotalMetric(average_token_input_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, average_token_output_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, average_token_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_input: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_output: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Token total metric
     
     Attributes:
@@ -4172,22 +4219,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average_token_input_per_request: beamlit.types.Unset | float`
+    `average_token_input_per_request: blaxel.types.Unset | float`
     :
 
-    `average_token_output_per_request: beamlit.types.Unset | float`
+    `average_token_output_per_request: blaxel.types.Unset | float`
     :
 
-    `average_token_per_request: beamlit.types.Unset | float`
+    `average_token_per_request: blaxel.types.Unset | float`
     :
 
-    `token_input: beamlit.types.Unset | float`
+    `token_input: blaxel.types.Unset | float`
     :
 
-    `token_output: beamlit.types.Unset | float`
+    `token_output: blaxel.types.Unset | float`
     :
 
-    `token_total: beamlit.types.Unset | float`
+    `token_total: blaxel.types.Unset | float`
     :
 
     ### Methods
@@ -4218,7 +4265,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`UpdateWorkspaceServiceAccountBody(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`UpdateWorkspaceServiceAccountBody(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         description (Union[Unset, str]): Service account description
         name (Union[Unset, str]): Service account name
@@ -4238,10 +4285,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -4249,7 +4296,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`UpdateWorkspaceServiceAccountResponse200(client_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`UpdateWorkspaceServiceAccountResponse200(client_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         client_id (Union[Unset, str]): Service account client ID
         created_at (Union[Unset, str]): Creation timestamp
@@ -4272,19 +4319,19 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `client_id: beamlit.types.Unset | str`
+    `client_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -4319,7 +4366,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`WebsocketChannel(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, connection_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`WebsocketChannel(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, connection_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   WebSocket connection details
     
     Attributes:
@@ -4343,16 +4390,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `connection_id: beamlit.types.Unset | str`
+    `connection_id: blaxel.types.Unset | str`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods
@@ -4360,7 +4407,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`Workspace(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, account_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('WorkspaceLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, region: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Workspace(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, account_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('WorkspaceLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, region: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Workspace
     
     Attributes:
@@ -4444,7 +4491,7 @@ Classes
     `to_dict(self) ‑> dict[str, typing.Any]`
     :
 
-`WorkspaceUser(accepted: beamlit.types.Unset | bool = <beamlit.types.Unset object>, email: beamlit.types.Unset | str = <beamlit.types.Unset object>, email_verified: beamlit.types.Unset | bool = <beamlit.types.Unset object>, family_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, given_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`WorkspaceUser(accepted: blaxel.types.Unset | bool = <blaxel.types.Unset object>, email: blaxel.types.Unset | str = <blaxel.types.Unset object>, email_verified: blaxel.types.Unset | bool = <blaxel.types.Unset object>, family_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, given_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Workspace user
     
     Attributes:
@@ -4465,7 +4512,7 @@ Classes
 
     ### Instance variables
 
-    `accepted: beamlit.types.Unset | bool`
+    `accepted: blaxel.types.Unset | bool`
     :
 
     `additional_keys: list[str]`
@@ -4474,22 +4521,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `email_verified: beamlit.types.Unset | bool`
+    `email_verified: blaxel.types.Unset | bool`
     :
 
-    `family_name: beamlit.types.Unset | str`
+    `family_name: blaxel.types.Unset | str`
     :
 
-    `given_name: beamlit.types.Unset | str`
+    `given_name: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
     ### Methods

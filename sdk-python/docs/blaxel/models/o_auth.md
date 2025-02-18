@@ -1,10 +1,10 @@
-Module beamlit.models.o_auth
-============================
+Module blaxel.models.o_auth
+===========================
 
 Classes
 -------
 
-`OAuth(scope: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`OAuth(scope: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   OAuth of the artifact
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `scope: beamlit.types.Unset | list[typing.Any]`
+    `scope: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods

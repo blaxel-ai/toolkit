@@ -4,7 +4,7 @@ slug: bl_run
 ---
 ## bl run
 
-Run a resource on beamlit
+Run a resource on blaxel
 
 ```
 bl run resource-type resource-name [flags]
@@ -43,5 +43,5 @@ bl run function my-function --data '{"query": "4+2"}'
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

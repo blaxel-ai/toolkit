@@ -1,10 +1,10 @@
-Module beamlit.models.store_configuration
-=========================================
+Module blaxel.models.store_configuration
+========================================
 
 Classes
 -------
 
-`StoreConfiguration(available_models: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, if_: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, options: beamlit.types.Unset | list['StoreConfigurationOption'] = <beamlit.types.Unset object>, required: beamlit.types.Unset | bool = <beamlit.types.Unset object>, secret: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreConfiguration(available_models: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, if_: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, options: blaxel.types.Unset | list['StoreConfigurationOption'] = <blaxel.types.Unset object>, required: blaxel.types.Unset | bool = <blaxel.types.Unset object>, secret: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store configuration for resources (eg: agent, function, etc)
     
     Attributes:

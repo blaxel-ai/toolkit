@@ -1,10 +1,10 @@
-Module beamlit.models.model
-===========================
+Module blaxel.models.model
+==========================
 
 Classes
 -------
 
-`Model(events: beamlit.types.Unset | list['CoreEvent'] = <beamlit.types.Unset object>, metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('ModelSpec') = <beamlit.types.Unset object>, status: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Model(events: blaxel.types.Unset | list['CoreEvent'] = <blaxel.types.Unset object>, metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('ModelSpec') = <blaxel.types.Unset object>, status: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Logical object representing a model
     
     Attributes:

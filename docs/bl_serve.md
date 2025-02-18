@@ -4,11 +4,11 @@ slug: bl_serve
 ---
 ## bl serve
 
-Serve a beamlit project
+Serve a blaxel project
 
 ### Synopsis
 
-Serve a beamlit project
+Serve a blaxel project
 
 ```
 bl serve [flags]
@@ -28,7 +28,7 @@ bl serve [flags]
       --hotreload       Watch for changes in the project
   -m, --module string   Module to serve, can be an agent or a function
   -p, --port int        Bind socket to this host (default 1338)
-  -r, --remote          Serve the project remotely. It will use functions deployed on beamlit cloud
+  -r, --remote          Serve the project remotely. It will use functions deployed on blaxel cloud
 ```
 
 ### Options inherited from parent commands
@@ -42,5 +42,5 @@ bl serve [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

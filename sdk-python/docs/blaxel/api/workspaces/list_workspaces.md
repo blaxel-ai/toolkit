@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.list_workspaces
-=============================================
+Module blaxel.api.workspaces.list_workspaces
+============================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.workspace.Workspace] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.workspace.Workspace] | None`
 :   List workspaces
     
      Returns a list of all workspaces.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['Workspace']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.workspace.Workspace]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.workspace.Workspace]]`
 :   List workspaces
     
      Returns a list of all workspaces.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['Workspace']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.workspace.Workspace] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.workspace.Workspace] | None`
 :   List workspaces
     
      Returns a list of all workspaces.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['Workspace']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.workspace.Workspace]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.workspace.Workspace]]`
 :   List workspaces
     
      Returns a list of all workspaces.

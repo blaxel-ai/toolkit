@@ -1,5 +1,5 @@
-Module beamlit.serve.middlewares.processtime
-============================================
+Module blaxel.serve.middlewares.processtime
+===========================================
 Module: processtime
 
 Defines the AddProcessTimeHeader middleware for adding process time information to responses.

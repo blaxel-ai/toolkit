@@ -1,10 +1,10 @@
-Module beamlit.api.agents.list_agents
-=====================================
+Module blaxel.api.agents.list_agents
+====================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.agent.Agent] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.agent.Agent] | None`
 :   List all agents
     
     Raises:
@@ -14,7 +14,7 @@ Functions
     Returns:
         list['Agent']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.agent.Agent]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.agent.Agent]]`
 :   List all agents
     
     Raises:
@@ -24,7 +24,7 @@ Functions
     Returns:
         Response[list['Agent']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.agent.Agent] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.agent.Agent] | None`
 :   List all agents
     
     Raises:
@@ -34,7 +34,7 @@ Functions
     Returns:
         list['Agent']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.agent.Agent]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.agent.Agent]]`
 :   List all agents
     
     Raises:

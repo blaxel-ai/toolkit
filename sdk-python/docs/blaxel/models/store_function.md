@@ -1,10 +1,10 @@
-Module beamlit.models.store_function
-====================================
+Module blaxel.models.store_function
+===================================
 
 Classes
 -------
 
-`StoreFunction(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, configuration: beamlit.types.Unset | list['StoreConfiguration'] = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, image: beamlit.types.Unset | str = <beamlit.types.Unset object>, kit: beamlit.types.Unset | list['StoreFunctionKit'] = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('StoreFunctionLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>)`
+`StoreFunction(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, configuration: blaxel.types.Unset | list['StoreConfiguration'] = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, image: blaxel.types.Unset | str = <blaxel.types.Unset object>, kit: blaxel.types.Unset | list['StoreFunctionKit'] = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('StoreFunctionLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>)`
 :   Store function
     
     Attributes:

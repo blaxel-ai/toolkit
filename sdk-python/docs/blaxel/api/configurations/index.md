@@ -1,6 +1,6 @@
-Module beamlit.api.configurations
-=================================
+Module blaxel.api.configurations
+================================
 
 Sub-modules
 -----------
-* beamlit.api.configurations.get_configuration
+* blaxel.api.configurations.get_configuration

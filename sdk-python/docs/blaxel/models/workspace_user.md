@@ -1,10 +1,10 @@
-Module beamlit.models.workspace_user
-====================================
+Module blaxel.models.workspace_user
+===================================
 
 Classes
 -------
 
-`WorkspaceUser(accepted: beamlit.types.Unset | bool = <beamlit.types.Unset object>, email: beamlit.types.Unset | str = <beamlit.types.Unset object>, email_verified: beamlit.types.Unset | bool = <beamlit.types.Unset object>, family_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, given_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, sub: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`WorkspaceUser(accepted: blaxel.types.Unset | bool = <blaxel.types.Unset object>, email: blaxel.types.Unset | str = <blaxel.types.Unset object>, email_verified: blaxel.types.Unset | bool = <blaxel.types.Unset object>, family_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, given_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, sub: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Workspace user
     
     Attributes:
@@ -25,7 +25,7 @@ Classes
 
     ### Instance variables
 
-    `accepted: beamlit.types.Unset | bool`
+    `accepted: blaxel.types.Unset | bool`
     :
 
     `additional_keys: list[str]`
@@ -34,22 +34,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `email_verified: beamlit.types.Unset | bool`
+    `email_verified: blaxel.types.Unset | bool`
     :
 
-    `family_name: beamlit.types.Unset | str`
+    `family_name: blaxel.types.Unset | str`
     :
 
-    `given_name: beamlit.types.Unset | str`
+    `given_name: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `sub: beamlit.types.Unset | str`
+    `sub: blaxel.types.Unset | str`
     :
 
     ### Methods

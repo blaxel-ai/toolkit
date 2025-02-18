@@ -1,6 +1,6 @@
-Module beamlit.api.locations
-============================
+Module blaxel.api.locations
+===========================
 
 Sub-modules
 -----------
-* beamlit.api.locations.list_locations
+* blaxel.api.locations.list_locations

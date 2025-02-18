@@ -1,10 +1,10 @@
-Module beamlit.models.pending_invitation_accept
-===============================================
+Module blaxel.models.pending_invitation_accept
+==============================================
 
 Classes
 -------
 
-`PendingInvitationAccept(email: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | ForwardRef('Workspace') = <beamlit.types.Unset object>)`
+`PendingInvitationAccept(email: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | ForwardRef('Workspace') = <blaxel.types.Unset object>)`
 :   Pending invitation accept
     
     Attributes:

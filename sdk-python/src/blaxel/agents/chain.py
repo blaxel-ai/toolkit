@@ -8,9 +8,9 @@ import pydantic
 import typing_extensions as t
 from langchain_core.tools.base import BaseTool, ToolException
 
+from blaxel.aimon.settings import get_settings
 from blaxel.api.agents import list_agents
 from blaxel.authentication.authentication import AuthenticatedClient
-from blaxel.aimon.settings import get_settings
 from blaxel.models import Agent, AgentChain
 from blaxel.run import RunClient
 

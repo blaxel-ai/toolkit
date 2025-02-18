@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.delete_workspace_service_account
-====================================================================
+Module blaxel.api.service_accounts.delete_workspace_service_account
+===================================================================
 
 Functions
 ---------
 
-`asyncio(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200 | None`
+`asyncio(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200 | None`
 :   Delete workspace service account
     
      Deletes a service account.
@@ -19,7 +19,7 @@ Functions
     Returns:
         DeleteWorkspaceServiceAccountResponse200
 
-`asyncio_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200]`
+`asyncio_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200]`
 :   Delete workspace service account
     
      Deletes a service account.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[DeleteWorkspaceServiceAccountResponse200]
 
-`sync(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200 | None`
+`sync(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200 | None`
 :   Delete workspace service account
     
      Deletes a service account.
@@ -49,7 +49,7 @@ Functions
     Returns:
         DeleteWorkspaceServiceAccountResponse200
 
-`sync_detailed(client_id: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200]`
+`sync_detailed(client_id: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.delete_workspace_service_account_response_200.DeleteWorkspaceServiceAccountResponse200]`
 :   Delete workspace service account
     
      Deletes a service account.

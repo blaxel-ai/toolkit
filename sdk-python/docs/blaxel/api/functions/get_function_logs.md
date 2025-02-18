@@ -1,10 +1,10 @@
-Module beamlit.api.functions.get_function_logs
-==============================================
+Module blaxel.api.functions.get_function_logs
+=============================================
 
 Functions
 ---------
 
-`asyncio(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.resource_log.ResourceLog] | None`
+`asyncio(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.resource_log.ResourceLog] | None`
 :   Args:
         function_name (str):
     
@@ -15,7 +15,7 @@ Functions
     Returns:
         list['ResourceLog']
 
-`asyncio_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.resource_log.ResourceLog]]`
+`asyncio_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.resource_log.ResourceLog]]`
 :   Args:
         function_name (str):
     
@@ -26,7 +26,7 @@ Functions
     Returns:
         Response[list['ResourceLog']]
 
-`sync(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.resource_log.ResourceLog] | None`
+`sync(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.resource_log.ResourceLog] | None`
 :   Args:
         function_name (str):
     
@@ -37,7 +37,7 @@ Functions
     Returns:
         list['ResourceLog']
 
-`sync_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.resource_log.ResourceLog]]`
+`sync_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.resource_log.ResourceLog]]`
 :   Args:
         function_name (str):
     

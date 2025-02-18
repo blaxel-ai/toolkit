@@ -14,12 +14,14 @@ class CoreEvent:
 
     Attributes:
         message (Union[Unset, str]): Event message
+        revision (Union[Unset, str]): RevisionID link to the event
         status (Union[Unset, str]): Event status
         time (Union[Unset, str]): Event time
         type_ (Union[Unset, str]): Event type
     """
 
     message: Union[Unset, str] = UNSET
+    revision: Union[Unset, str] = UNSET
     status: Union[Unset, str] = UNSET
     time: Union[Unset, str] = UNSET
     type_: Union[Unset, str] = UNSET
@@ -27,6 +29,8 @@ class CoreEvent:
 
     def to_dict(self) -> dict[str, Any]:
         message = self.message
+
+        revision = self.revision
 
         status = self.status
 
@@ -39,6 +43,8 @@ class CoreEvent:
         field_dict.update({})
         if message is not UNSET:
             field_dict["message"] = message
+        if revision is not UNSET:
+            field_dict["revision"] = revision
         if status is not UNSET:
             field_dict["status"] = status
         if time is not UNSET:
@@ -55,6 +61,8 @@ class CoreEvent:
         d = src_dict.copy()
         message = d.pop("message", UNSET)
 
+        revision = d.pop("revision", UNSET)
+
         status = d.pop("status", UNSET)
 
         time = d.pop("time", UNSET)
@@ -63,6 +71,7 @@ class CoreEvent:
 
         core_event = cls(
             message=message,
+            revision=revision,
             status=status,
             time=time,
             type_=type_,

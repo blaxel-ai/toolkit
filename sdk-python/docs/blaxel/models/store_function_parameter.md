@@ -1,10 +1,10 @@
-Module beamlit.models.store_function_parameter
-==============================================
+Module blaxel.models.store_function_parameter
+=============================================
 
 Classes
 -------
 
-`StoreFunctionParameter(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, required: beamlit.types.Unset | bool = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`StoreFunctionParameter(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, required: blaxel.types.Unset | bool = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Store function parameter
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `required: beamlit.types.Unset | bool`
+    `required: blaxel.types.Unset | bool`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods

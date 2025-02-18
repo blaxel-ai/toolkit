@@ -1,10 +1,10 @@
-Module beamlit.models.repository
-================================
+Module blaxel.models.repository
+===============================
 
 Classes
 -------
 
-`Repository(type_: beamlit.types.Unset | str = <beamlit.types.Unset object>, url: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Repository(type_: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Repository
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
-    `url: beamlit.types.Unset | str`
+    `url: blaxel.types.Unset | str`
     :
 
     ### Methods

@@ -1,10 +1,10 @@
-Module beamlit.models.function_kit
-==================================
+Module blaxel.models.function_kit
+=================================
 
 Classes
 -------
 
-`FunctionKit(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>)`
+`FunctionKit(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>)`
 :   Function kit
     
     Attributes:

@@ -1,10 +1,10 @@
-Module beamlit.api.knowledgebases.list_knowledgebase_revisions
-==============================================================
+Module blaxel.api.knowledgebases.list_knowledgebase_revisions
+=============================================================
 
 Functions
 ---------
 
-`asyncio(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.revision_metadata.RevisionMetadata | None`
+`asyncio(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.revision_metadata.RevisionMetadata | None`
 :   List knowledgebase revisions
     
      Returns revisions for a knowledgebase by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         RevisionMetadata
 
-`asyncio_detailed(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.revision_metadata.RevisionMetadata]`
+`asyncio_detailed(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.revision_metadata.RevisionMetadata]`
 :   List knowledgebase revisions
     
      Returns revisions for a knowledgebase by name.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[RevisionMetadata]
 
-`sync(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.revision_metadata.RevisionMetadata | None`
+`sync(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.revision_metadata.RevisionMetadata | None`
 :   List knowledgebase revisions
     
      Returns revisions for a knowledgebase by name.
@@ -49,7 +49,7 @@ Functions
     Returns:
         RevisionMetadata
 
-`sync_detailed(knowledgebase_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.revision_metadata.RevisionMetadata]`
+`sync_detailed(knowledgebase_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.revision_metadata.RevisionMetadata]`
 :   List knowledgebase revisions
     
      Returns revisions for a knowledgebase by name.

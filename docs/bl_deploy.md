@@ -4,11 +4,11 @@ slug: bl_deploy
 ---
 ## bl deploy
 
-Deploy a beamlit agent app
+Deploy a blaxel agent app
 
 ### Synopsis
 
-Deploy a beamlit agent app, you must be in a beamlit agent app directory.
+Deploy a blaxel agent app, you must be in a blaxel agent app directory.
 
 ```
 bl deploy [flags]
@@ -43,5 +43,5 @@ bl deploy
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

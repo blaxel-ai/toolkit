@@ -1,10 +1,10 @@
-Module beamlit.models.continent
-===============================
+Module blaxel.models.continent
+==============================
 
 Classes
 -------
 
-`Continent(display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Continent(display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Continent
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `display_name: beamlit.types.Unset | str`
+    `display_name: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods

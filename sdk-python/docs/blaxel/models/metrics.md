@@ -1,10 +1,10 @@
-Module beamlit.models.metrics
-=============================
+Module blaxel.models.metrics
+============================
 
 Classes
 -------
 
-`Metrics(agents: beamlit.types.Unset | Any = <beamlit.types.Unset object>, functions: beamlit.types.Unset | Any = <beamlit.types.Unset object>, inference_global: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, models: beamlit.types.Unset | ForwardRef('MetricsModels') = <beamlit.types.Unset object>, request_total: beamlit.types.Unset | float = <beamlit.types.Unset object>, request_total_per_code: beamlit.types.Unset | ForwardRef('MetricsRequestTotalPerCode') = <beamlit.types.Unset object>, rps: beamlit.types.Unset | float = <beamlit.types.Unset object>, rps_per_code: beamlit.types.Unset | ForwardRef('MetricsRpsPerCode') = <beamlit.types.Unset object>)`
+`Metrics(agents: blaxel.types.Unset | Any = <blaxel.types.Unset object>, functions: blaxel.types.Unset | Any = <blaxel.types.Unset object>, inference_global: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, models: blaxel.types.Unset | ForwardRef('MetricsModels') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('MetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('MetricsRpsPerCode') = <blaxel.types.Unset object>)`
 :   Metrics for resources
     
     Attributes:

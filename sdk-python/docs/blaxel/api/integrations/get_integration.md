@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.get_integration
-===============================================
+Module blaxel.api.integrations.get_integration
+==============================================
 
 Functions
 ---------
 
-`asyncio_detailed(integration_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`asyncio_detailed(integration_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   List integrations connections
     
      Returns integration information by name.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Response[Any]
 
-`sync_detailed(integration_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[typing.Any]`
+`sync_detailed(integration_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[typing.Any]`
 :   List integrations connections
     
      Returns integration information by name.

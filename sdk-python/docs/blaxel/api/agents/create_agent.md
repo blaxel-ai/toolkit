@@ -1,10 +1,10 @@
-Module beamlit.api.agents.create_agent
-======================================
+Module blaxel.api.agents.create_agent
+=====================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.agent.Agent) ‑> beamlit.models.agent.Agent | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.agent.Agent) ‑> blaxel.models.agent.Agent | None`
 :   Create agent by name
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         Agent
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.agent.Agent) ‑> beamlit.types.Response[beamlit.models.agent.Agent]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.agent.Agent) ‑> blaxel.types.Response[blaxel.models.agent.Agent]`
 :   Create agent by name
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[Agent]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.agent.Agent) ‑> beamlit.models.agent.Agent | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.agent.Agent) ‑> blaxel.models.agent.Agent | None`
 :   Create agent by name
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         Agent
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.agent.Agent) ‑> beamlit.types.Response[beamlit.models.agent.Agent]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.agent.Agent) ‑> blaxel.types.Response[blaxel.models.agent.Agent]`
 :   Create agent by name
     
     Args:

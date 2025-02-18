@@ -1,10 +1,10 @@
-Module beamlit.api.functions.delete_function
-============================================
+Module blaxel.api.functions.delete_function
+===========================================
 
 Functions
 ---------
 
-`asyncio(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.function.Function | None`
+`asyncio(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.function.Function | None`
 :   Delete function by name
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         Function
 
-`asyncio_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`asyncio_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Delete function by name
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[Function]
 
-`sync(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.function.Function | None`
+`sync(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.function.Function | None`
 :   Delete function by name
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         Function
 
-`sync_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`sync_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Delete function by name
     
     Args:

@@ -1,10 +1,10 @@
-Module beamlit.api.integrations.create_integration_connection
-=============================================================
+Module blaxel.api.integrations.create_integration_connection
+============================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Create integration
     
      Create a connection for an integration.
@@ -19,7 +19,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Create integration
     
      Create a connection for an integration.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[IntegrationConnection]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.models.integration_connection.IntegrationConnection | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.models.integration_connection.IntegrationConnection | None`
 :   Create integration
     
      Create a connection for an integration.
@@ -49,7 +49,7 @@ Functions
     Returns:
         IntegrationConnection
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.integration_connection.IntegrationConnection) ‑> beamlit.types.Response[beamlit.models.integration_connection.IntegrationConnection]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.integration_connection.IntegrationConnection) ‑> blaxel.types.Response[blaxel.models.integration_connection.IntegrationConnection]`
 :   Create integration
     
      Create a connection for an integration.

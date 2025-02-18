@@ -1,10 +1,10 @@
-Module beamlit.models.owner_fields
-==================================
+Module blaxel.models.owner_fields
+=================================
 
 Classes
 -------
 
-`OwnerFields(created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`OwnerFields(created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Owner fields for Persistance
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
     ### Methods

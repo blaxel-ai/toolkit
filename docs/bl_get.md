@@ -24,7 +24,7 @@ Get a resource
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl get agents](bl_get_agents.md)	 - Get a Agent
 * [bl get functions](bl_get_functions.md)	 - Get a Function
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - Get a IntegrationConnection

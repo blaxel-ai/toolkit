@@ -1,10 +1,10 @@
-Module beamlit.api.invitations.list_all_pending_invitations
-===========================================================
+Module blaxel.api.invitations.list_all_pending_invitations
+==========================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> Any | list[beamlit.models.pending_invitation_render.PendingInvitationRender] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> Any | list[blaxel.models.pending_invitation_render.PendingInvitationRender] | None`
 :   List pending invitations
     
      Returns a list of all pending invitations in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         Union[Any, list['PendingInvitationRender']]
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | list[beamlit.models.pending_invitation_render.PendingInvitationRender]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | list[blaxel.models.pending_invitation_render.PendingInvitationRender]]`
 :   List pending invitations
     
      Returns a list of all pending invitations in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[Union[Any, list['PendingInvitationRender']]]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> Any | list[beamlit.models.pending_invitation_render.PendingInvitationRender] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> Any | list[blaxel.models.pending_invitation_render.PendingInvitationRender] | None`
 :   List pending invitations
     
      Returns a list of all pending invitations in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         Union[Any, list['PendingInvitationRender']]
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[Any | list[beamlit.models.pending_invitation_render.PendingInvitationRender]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[Any | list[blaxel.models.pending_invitation_render.PendingInvitationRender]]`
 :   List pending invitations
     
      Returns a list of all pending invitations in the workspace.

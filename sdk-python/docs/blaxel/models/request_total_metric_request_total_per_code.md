@@ -1,5 +1,5 @@
-Module beamlit.models.request_total_metric_request_total_per_code
-=================================================================
+Module blaxel.models.request_total_metric_request_total_per_code
+================================================================
 
 Classes
 -------

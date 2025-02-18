@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.create_worspace
-=============================================
+Module blaxel.api.workspaces.create_worspace
+============================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.models.workspace.Workspace | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.models.workspace.Workspace | None`
 :   Create worspace
     
      Creates a workspace.
@@ -19,7 +19,7 @@ Functions
     Returns:
         Workspace
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.types.Response[beamlit.models.workspace.Workspace]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.types.Response[blaxel.models.workspace.Workspace]`
 :   Create worspace
     
      Creates a workspace.
@@ -34,7 +34,7 @@ Functions
     Returns:
         Response[Workspace]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.models.workspace.Workspace | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.models.workspace.Workspace | None`
 :   Create worspace
     
      Creates a workspace.
@@ -49,7 +49,7 @@ Functions
     Returns:
         Workspace
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.types.Response[beamlit.models.workspace.Workspace]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.types.Response[blaxel.models.workspace.Workspace]`
 :   Create worspace
     
      Creates a workspace.

@@ -1,10 +1,10 @@
-Module beamlit.api.service_accounts.get_workspace_service_accounts
-==================================================================
+Module blaxel.api.service_accounts.get_workspace_service_accounts
+=================================================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item] | None`
 :   Get workspace service accounts
     
      Returns a list of all service accounts in the workspace.
@@ -16,7 +16,7 @@ Functions
     Returns:
         list['GetWorkspaceServiceAccountsResponse200Item']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item]]`
 :   Get workspace service accounts
     
      Returns a list of all service accounts in the workspace.
@@ -28,7 +28,7 @@ Functions
     Returns:
         Response[list['GetWorkspaceServiceAccountsResponse200Item']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item] | None`
 :   Get workspace service accounts
     
      Returns a list of all service accounts in the workspace.
@@ -40,7 +40,7 @@ Functions
     Returns:
         list['GetWorkspaceServiceAccountsResponse200Item']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.get_workspace_service_accounts_response_200_item.GetWorkspaceServiceAccountsResponse200Item]]`
 :   Get workspace service accounts
     
      Returns a list of all service accounts in the workspace.

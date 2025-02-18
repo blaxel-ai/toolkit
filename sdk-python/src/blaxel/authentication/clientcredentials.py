@@ -9,8 +9,9 @@ from datetime import datetime, timedelta
 from typing import Generator, Optional
 
 import requests
+from httpx import Auth, Request, Response
+
 from blaxel.aimon.settings import get_settings
-from httpx import Auth, Request, Response, post
 
 
 @dataclass

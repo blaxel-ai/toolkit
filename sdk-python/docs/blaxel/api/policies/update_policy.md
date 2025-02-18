@@ -1,10 +1,10 @@
-Module beamlit.api.policies.update_policy
-=========================================
+Module blaxel.api.policies.update_policy
+========================================
 
 Functions
 ---------
 
-`asyncio(policy_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.models.policy.Policy | None`
+`asyncio(policy_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.models.policy.Policy | None`
 :   Update policy
     
      Updates a policy.
@@ -21,7 +21,7 @@ Functions
     Returns:
         Policy
 
-`asyncio_detailed(policy_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`asyncio_detailed(policy_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Update policy
     
      Updates a policy.
@@ -38,7 +38,7 @@ Functions
     Returns:
         Response[Policy]
 
-`sync(policy_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.models.policy.Policy | None`
+`sync(policy_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.models.policy.Policy | None`
 :   Update policy
     
      Updates a policy.
@@ -55,7 +55,7 @@ Functions
     Returns:
         Policy
 
-`sync_detailed(policy_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`sync_detailed(policy_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Update policy
     
      Updates a policy.

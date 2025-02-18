@@ -1,10 +1,10 @@
-Module beamlit.models.workspace
-===============================
+Module blaxel.models.workspace
+==============================
 
 Classes
 -------
 
-`Workspace(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, account_id: beamlit.types.Unset | str = <beamlit.types.Unset object>, display_name: beamlit.types.Unset | str = <beamlit.types.Unset object>, labels: beamlit.types.Unset | ForwardRef('WorkspaceLabels') = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, region: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`Workspace(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, account_id: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, labels: blaxel.types.Unset | ForwardRef('WorkspaceLabels') = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, region: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Workspace
     
     Attributes:

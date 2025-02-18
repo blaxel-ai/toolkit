@@ -1,10 +1,10 @@
-Module beamlit.models.policy
-============================
+Module blaxel.models.policy
+===========================
 
 Classes
 -------
 
-`Policy(metadata: beamlit.types.Unset | ForwardRef('Metadata') = <beamlit.types.Unset object>, spec: beamlit.types.Unset | ForwardRef('PolicySpec') = <beamlit.types.Unset object>)`
+`Policy(metadata: blaxel.types.Unset | ForwardRef('Metadata') = <blaxel.types.Unset object>, spec: blaxel.types.Unset | ForwardRef('PolicySpec') = <blaxel.types.Unset object>)`
 :   Rule that controls how a deployment is made and served (e.g. location restrictions)
     
     Attributes:

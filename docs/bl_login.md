@@ -4,7 +4,7 @@ slug: bl_login
 ---
 ## bl login
 
-Login to Beamlit
+Login to Blaxel
 
 ```
 bl login [workspace] [flags]
@@ -27,5 +27,5 @@ bl login [workspace] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

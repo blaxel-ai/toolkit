@@ -1,5 +1,5 @@
-Module beamlit.models.get_trace_logs_response_200
-=================================================
+Module blaxel.models.get_trace_logs_response_200
+================================================
 
 Classes
 -------

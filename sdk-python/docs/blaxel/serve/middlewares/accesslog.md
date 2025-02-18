@@ -1,5 +1,5 @@
-Module beamlit.serve.middlewares.accesslog
-==========================================
+Module blaxel.serve.middlewares.accesslog
+=========================================
 Module: accesslog
 
 Defines the AccessLogMiddleware for logging HTTP requests and responses.

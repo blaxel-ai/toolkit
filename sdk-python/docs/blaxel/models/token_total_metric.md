@@ -1,10 +1,10 @@
-Module beamlit.models.token_total_metric
-========================================
+Module blaxel.models.token_total_metric
+=======================================
 
 Classes
 -------
 
-`TokenTotalMetric(average_token_input_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, average_token_output_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, average_token_per_request: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_input: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_output: beamlit.types.Unset | float = <beamlit.types.Unset object>, token_total: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`TokenTotalMetric(average_token_input_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, average_token_output_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, average_token_per_request: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_input: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_output: blaxel.types.Unset | float = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Token total metric
     
     Attributes:
@@ -30,22 +30,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `average_token_input_per_request: beamlit.types.Unset | float`
+    `average_token_input_per_request: blaxel.types.Unset | float`
     :
 
-    `average_token_output_per_request: beamlit.types.Unset | float`
+    `average_token_output_per_request: blaxel.types.Unset | float`
     :
 
-    `average_token_per_request: beamlit.types.Unset | float`
+    `average_token_per_request: blaxel.types.Unset | float`
     :
 
-    `token_input: beamlit.types.Unset | float`
+    `token_input: blaxel.types.Unset | float`
     :
 
-    `token_output: beamlit.types.Unset | float`
+    `token_output: blaxel.types.Unset | float`
     :
 
-    `token_total: beamlit.types.Unset | float`
+    `token_total: blaxel.types.Unset | float`
     :
 
     ### Methods

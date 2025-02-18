@@ -1,14 +1,14 @@
-Module beamlit.api.agents
-=========================
+Module blaxel.api.agents
+========================
 
 Sub-modules
 -----------
-* beamlit.api.agents.create_agent
-* beamlit.api.agents.delete_agent
-* beamlit.api.agents.get_agent
-* beamlit.api.agents.get_agent_logs
-* beamlit.api.agents.get_agent_metrics
-* beamlit.api.agents.get_agent_trace_ids
-* beamlit.api.agents.list_agent_revisions
-* beamlit.api.agents.list_agents
-* beamlit.api.agents.update_agent
+* blaxel.api.agents.create_agent
+* blaxel.api.agents.delete_agent
+* blaxel.api.agents.get_agent
+* blaxel.api.agents.get_agent_logs
+* blaxel.api.agents.get_agent_metrics
+* blaxel.api.agents.get_agent_trace_ids
+* blaxel.api.agents.list_agent_revisions
+* blaxel.api.agents.list_agents
+* blaxel.api.agents.update_agent

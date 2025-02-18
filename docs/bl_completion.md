@@ -29,7 +29,7 @@ See each sub-command's help for details on how to use the generated script.
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl completion bash](bl_completion_bash.md)	 - Generate the autocompletion script for bash
 * [bl completion fish](bl_completion_fish.md)	 - Generate the autocompletion script for fish
 * [bl completion powershell](bl_completion_powershell.md)	 - Generate the autocompletion script for powershell

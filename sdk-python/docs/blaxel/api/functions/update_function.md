@@ -1,10 +1,10 @@
-Module beamlit.api.functions.update_function
-============================================
+Module blaxel.api.functions.update_function
+===========================================
 
 Functions
 ---------
 
-`asyncio(function_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.models.function.Function | None`
+`asyncio(function_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.models.function.Function | None`
 :   Update function by name
     
     Args:
@@ -18,7 +18,7 @@ Functions
     Returns:
         Function
 
-`asyncio_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`asyncio_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Update function by name
     
     Args:
@@ -32,7 +32,7 @@ Functions
     Returns:
         Response[Function]
 
-`sync(function_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.models.function.Function | None`
+`sync(function_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.models.function.Function | None`
 :   Update function by name
     
     Args:
@@ -46,7 +46,7 @@ Functions
     Returns:
         Function
 
-`sync_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.function.Function) ‑> beamlit.types.Response[beamlit.models.function.Function]`
+`sync_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.function.Function) ‑> blaxel.types.Response[blaxel.models.function.Function]`
 :   Update function by name
     
     Args:

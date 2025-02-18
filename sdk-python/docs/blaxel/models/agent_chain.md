@@ -1,10 +1,10 @@
-Module beamlit.models.agent_chain
-=================================
+Module blaxel.models.agent_chain
+================================
 
 Classes
 -------
 
-`AgentChain(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>, prompt: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`AgentChain(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, prompt: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Agent chain configuration
     
     Attributes:
@@ -28,16 +28,16 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `enabled: beamlit.types.Unset | bool`
+    `enabled: blaxel.types.Unset | bool`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `prompt: beamlit.types.Unset | str`
+    `prompt: blaxel.types.Unset | str`
     :
 
     ### Methods

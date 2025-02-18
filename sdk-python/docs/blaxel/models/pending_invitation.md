@@ -1,10 +1,10 @@
-Module beamlit.models.pending_invitation
-========================================
+Module blaxel.models.pending_invitation
+=======================================
 
 Classes
 -------
 
-`PendingInvitation(created_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_at: beamlit.types.Unset | str = <beamlit.types.Unset object>, created_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, updated_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, email: beamlit.types.Unset | str = <beamlit.types.Unset object>, invited_by: beamlit.types.Unset | str = <beamlit.types.Unset object>, role: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PendingInvitation(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, created_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, email: blaxel.types.Unset | str = <blaxel.types.Unset object>, invited_by: blaxel.types.Unset | str = <blaxel.types.Unset object>, role: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Pending invitation in workspace
     
     Attributes:
@@ -32,28 +32,28 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `created_at: beamlit.types.Unset | str`
+    `created_at: blaxel.types.Unset | str`
     :
 
-    `created_by: beamlit.types.Unset | str`
+    `created_by: blaxel.types.Unset | str`
     :
 
-    `email: beamlit.types.Unset | str`
+    `email: blaxel.types.Unset | str`
     :
 
-    `invited_by: beamlit.types.Unset | str`
+    `invited_by: blaxel.types.Unset | str`
     :
 
-    `role: beamlit.types.Unset | str`
+    `role: blaxel.types.Unset | str`
     :
 
-    `updated_at: beamlit.types.Unset | str`
+    `updated_at: blaxel.types.Unset | str`
     :
 
-    `updated_by: beamlit.types.Unset | str`
+    `updated_by: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods

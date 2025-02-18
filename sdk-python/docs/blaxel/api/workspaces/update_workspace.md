@@ -1,10 +1,10 @@
-Module beamlit.api.workspaces.update_workspace
-==============================================
+Module blaxel.api.workspaces.update_workspace
+=============================================
 
 Functions
 ---------
 
-`asyncio(workspace_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.models.workspace.Workspace | None`
+`asyncio(workspace_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.models.workspace.Workspace | None`
 :   Update workspace
     
      Updates a workspace by name.
@@ -20,7 +20,7 @@ Functions
     Returns:
         Workspace
 
-`asyncio_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.types.Response[beamlit.models.workspace.Workspace]`
+`asyncio_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.types.Response[blaxel.models.workspace.Workspace]`
 :   Update workspace
     
      Updates a workspace by name.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[Workspace]
 
-`sync(workspace_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.models.workspace.Workspace | None`
+`sync(workspace_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.models.workspace.Workspace | None`
 :   Update workspace
     
      Updates a workspace by name.
@@ -52,7 +52,7 @@ Functions
     Returns:
         Workspace
 
-`sync_detailed(workspace_name: str, *, client: beamlit.client.AuthenticatedClient, body: beamlit.models.workspace.Workspace) ‑> beamlit.types.Response[beamlit.models.workspace.Workspace]`
+`sync_detailed(workspace_name: str, *, client: blaxel.client.AuthenticatedClient, body: blaxel.models.workspace.Workspace) ‑> blaxel.types.Response[blaxel.models.workspace.Workspace]`
 :   Update workspace
     
      Updates a workspace by name.

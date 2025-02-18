@@ -1,10 +1,10 @@
-Module beamlit.models.pending_invitation_workspace_details
-==========================================================
+Module blaxel.models.pending_invitation_workspace_details
+=========================================================
 
 Classes
 -------
 
-`PendingInvitationWorkspaceDetails(emails: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, user_number: beamlit.types.Unset | float = <beamlit.types.Unset object>)`
+`PendingInvitationWorkspaceDetails(emails: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, user_number: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Workspace details
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `emails: beamlit.types.Unset | list[typing.Any]`
+    `emails: blaxel.types.Unset | list[typing.Any]`
     :
 
-    `user_number: beamlit.types.Unset | float`
+    `user_number: blaxel.types.Unset | float`
     :
 
     ### Methods

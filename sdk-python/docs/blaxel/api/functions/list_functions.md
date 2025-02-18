@@ -1,10 +1,10 @@
-Module beamlit.api.functions.list_functions
-===========================================
+Module blaxel.api.functions.list_functions
+==========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.function.Function] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.function.Function] | None`
 :   List all functions
     
     Raises:
@@ -14,7 +14,7 @@ Functions
     Returns:
         list['Function']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.function.Function]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.function.Function]]`
 :   List all functions
     
     Raises:
@@ -24,7 +24,7 @@ Functions
     Returns:
         Response[list['Function']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient) ‑> list[beamlit.models.function.Function] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient) ‑> list[blaxel.models.function.Function] | None`
 :   List all functions
     
     Raises:
@@ -34,7 +34,7 @@ Functions
     Returns:
         list['Function']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[list[beamlit.models.function.Function]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[list[blaxel.models.function.Function]]`
 :   List all functions
     
     Raises:

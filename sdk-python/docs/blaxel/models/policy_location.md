@@ -1,10 +1,10 @@
-Module beamlit.models.policy_location
-=====================================
+Module blaxel.models.policy_location
+====================================
 
 Classes
 -------
 
-`PolicyLocation(name: beamlit.types.Unset | str = <beamlit.types.Unset object>, type_: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`PolicyLocation(name: blaxel.types.Unset | str = <blaxel.types.Unset object>, type_: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Policy location
     
     Attributes:
@@ -26,10 +26,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
-    `type_: beamlit.types.Unset | str`
+    `type_: blaxel.types.Unset | str`
     :
 
     ### Methods

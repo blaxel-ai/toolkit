@@ -1,5 +1,5 @@
-Module beamlit.models.integration_connection_spec_config
-========================================================
+Module blaxel.models.integration_connection_spec_config
+=======================================================
 
 Classes
 -------

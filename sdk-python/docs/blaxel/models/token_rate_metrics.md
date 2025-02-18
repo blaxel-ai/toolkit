@@ -1,10 +1,10 @@
-Module beamlit.models.token_rate_metrics
-========================================
+Module blaxel.models.token_rate_metrics
+=======================================
 
 Classes
 -------
 
-`TokenRateMetrics(token_rate: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>, token_rate_input: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>, token_rate_output: beamlit.types.Unset | ForwardRef('TokenRateMetric') = <beamlit.types.Unset object>)`
+`TokenRateMetrics(token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>, token_rate_input: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>, token_rate_output: blaxel.types.Unset | ForwardRef('TokenRateMetric') = <blaxel.types.Unset object>)`
 :   Token rate metrics
     
     Attributes:

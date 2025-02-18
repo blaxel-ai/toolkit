@@ -1,10 +1,10 @@
-Module beamlit.models.create_api_key_for_service_account_body
-=============================================================
+Module blaxel.models.create_api_key_for_service_account_body
+============================================================
 
 Classes
 -------
 
-`CreateApiKeyForServiceAccountBody(expires_in: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`CreateApiKeyForServiceAccountBody(expires_in: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         expires_in (Union[Unset, str]): Expiration period for the API key
         name (Union[Unset, str]): Name for the API key
@@ -24,10 +24,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `expires_in: beamlit.types.Unset | str`
+    `expires_in: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods

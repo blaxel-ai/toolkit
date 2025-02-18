@@ -1,10 +1,10 @@
-Module beamlit.api.policies.create_policy
-=========================================
+Module blaxel.api.policies.create_policy
+========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.models.policy.Policy | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.models.policy.Policy | None`
 :   Create policy
     
      Creates a policy.
@@ -20,7 +20,7 @@ Functions
     Returns:
         Policy
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Create policy
     
      Creates a policy.
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[Policy]
 
-`sync(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.models.policy.Policy | None`
+`sync(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.models.policy.Policy | None`
 :   Create policy
     
      Creates a policy.
@@ -52,7 +52,7 @@ Functions
     Returns:
         Policy
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient, body: beamlit.models.policy.Policy) ‑> beamlit.types.Response[beamlit.models.policy.Policy]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient, body: blaxel.models.policy.Policy) ‑> blaxel.types.Response[blaxel.models.policy.Policy]`
 :   Create policy
     
      Creates a policy.

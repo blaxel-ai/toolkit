@@ -1,5 +1,5 @@
-Module beamlit.types
-====================
+Module blaxel.types
+===================
 Contains some shared types for properties
 
 Classes

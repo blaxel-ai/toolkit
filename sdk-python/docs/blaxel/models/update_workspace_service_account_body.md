@@ -1,10 +1,10 @@
-Module beamlit.models.update_workspace_service_account_body
-===========================================================
+Module blaxel.models.update_workspace_service_account_body
+==========================================================
 
 Classes
 -------
 
-`UpdateWorkspaceServiceAccountBody(description: beamlit.types.Unset | str = <beamlit.types.Unset object>, name: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`UpdateWorkspaceServiceAccountBody(description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Attributes:
         description (Union[Unset, str]): Service account description
         name (Union[Unset, str]): Service account name
@@ -24,10 +24,10 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `description: beamlit.types.Unset | str`
+    `description: blaxel.types.Unset | str`
     :
 
-    `name: beamlit.types.Unset | str`
+    `name: blaxel.types.Unset | str`
     :
 
     ### Methods

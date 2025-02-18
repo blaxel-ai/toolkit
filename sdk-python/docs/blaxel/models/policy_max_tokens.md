@@ -1,10 +1,10 @@
-Module beamlit.models.policy_max_tokens
-=======================================
+Module blaxel.models.policy_max_tokens
+======================================
 
 Classes
 -------
 
-`PolicyMaxTokens(granularity: beamlit.types.Unset | str = <beamlit.types.Unset object>, input_: beamlit.types.Unset | int = <beamlit.types.Unset object>, output: beamlit.types.Unset | int = <beamlit.types.Unset object>, ratio_input_over_output: beamlit.types.Unset | int = <beamlit.types.Unset object>, step: beamlit.types.Unset | int = <beamlit.types.Unset object>, total: beamlit.types.Unset | int = <beamlit.types.Unset object>)`
+`PolicyMaxTokens(granularity: blaxel.types.Unset | str = <blaxel.types.Unset object>, input_: blaxel.types.Unset | int = <blaxel.types.Unset object>, output: blaxel.types.Unset | int = <blaxel.types.Unset object>, ratio_input_over_output: blaxel.types.Unset | int = <blaxel.types.Unset object>, step: blaxel.types.Unset | int = <blaxel.types.Unset object>, total: blaxel.types.Unset | int = <blaxel.types.Unset object>)`
 :   PolicyMaxTokens is a local type that wraps a slice of PolicyMaxTokens
     
     Attributes:
@@ -30,22 +30,22 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `granularity: beamlit.types.Unset | str`
+    `granularity: blaxel.types.Unset | str`
     :
 
-    `input_: beamlit.types.Unset | int`
+    `input_: blaxel.types.Unset | int`
     :
 
-    `output: beamlit.types.Unset | int`
+    `output: blaxel.types.Unset | int`
     :
 
-    `ratio_input_over_output: beamlit.types.Unset | int`
+    `ratio_input_over_output: blaxel.types.Unset | int`
     :
 
-    `step: beamlit.types.Unset | int`
+    `step: blaxel.types.Unset | int`
     :
 
-    `total: beamlit.types.Unset | int`
+    `total: blaxel.types.Unset | int`
     :
 
     ### Methods

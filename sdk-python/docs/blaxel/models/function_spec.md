@@ -1,10 +1,10 @@
-Module beamlit.models.function_spec
-===================================
+Module blaxel.models.function_spec
+==================================
 
 Classes
 -------
 
-`FunctionSpec(configurations: beamlit.types.Unset | ForwardRef('CoreSpecConfigurations') = <beamlit.types.Unset object>, enabled: beamlit.types.Unset | bool = <beamlit.types.Unset object>, flavors: beamlit.types.Unset | list['Flavor'] = <beamlit.types.Unset object>, integration_connections: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, pod_template: beamlit.types.Unset | ForwardRef('PodTemplateSpec') = <beamlit.types.Unset object>, policies: beamlit.types.Unset | list[str] = <beamlit.types.Unset object>, private_clusters: beamlit.types.Unset | ForwardRef('ModelPrivateCluster') = <beamlit.types.Unset object>, runtime: beamlit.types.Unset | ForwardRef('Runtime') = <beamlit.types.Unset object>, sandbox: beamlit.types.Unset | bool = <beamlit.types.Unset object>, serverless_config: beamlit.types.Unset | ForwardRef('ServerlessConfig') = <beamlit.types.Unset object>, description: beamlit.types.Unset | str = <beamlit.types.Unset object>, kit: beamlit.types.Unset | list['FunctionKit'] = <beamlit.types.Unset object>, parameters: beamlit.types.Unset | list['StoreFunctionParameter'] = <beamlit.types.Unset object>, store_id: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`FunctionSpec(configurations: blaxel.types.Unset | ForwardRef('CoreSpecConfigurations') = <blaxel.types.Unset object>, enabled: blaxel.types.Unset | bool = <blaxel.types.Unset object>, flavors: blaxel.types.Unset | list['Flavor'] = <blaxel.types.Unset object>, integration_connections: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, pod_template: blaxel.types.Unset | ForwardRef('PodTemplateSpec') = <blaxel.types.Unset object>, policies: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, private_clusters: blaxel.types.Unset | ForwardRef('ModelPrivateCluster') = <blaxel.types.Unset object>, revision: blaxel.types.Unset | ForwardRef('RevisionConfiguration') = <blaxel.types.Unset object>, runtime: blaxel.types.Unset | ForwardRef('Runtime') = <blaxel.types.Unset object>, sandbox: blaxel.types.Unset | bool = <blaxel.types.Unset object>, serverless_config: blaxel.types.Unset | ForwardRef('ServerlessConfig') = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, kit: blaxel.types.Unset | list['FunctionKit'] = <blaxel.types.Unset object>, parameters: blaxel.types.Unset | list['StoreFunctionParameter'] = <blaxel.types.Unset object>, store_id: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Function specification
     
     Attributes:
@@ -15,6 +15,7 @@ Classes
         pod_template (Union[Unset, PodTemplateSpec]): Pod template specification
         policies (Union[Unset, list[str]]):
         private_clusters (Union[Unset, ModelPrivateCluster]): Private cluster where the model deployment is deployed
+        revision (Union[Unset, RevisionConfiguration]): Revision configuration
         runtime (Union[Unset, Runtime]): Set of configurations for a deployment
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
@@ -67,6 +68,9 @@ Classes
     :
 
     `private_clusters`
+    :
+
+    `revision`
     :
 
     `runtime`

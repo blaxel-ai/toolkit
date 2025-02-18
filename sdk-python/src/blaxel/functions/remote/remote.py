@@ -13,9 +13,9 @@ import pydantic
 import typing_extensions as t
 from langchain_core.tools.base import BaseTool, ToolException
 
+from blaxel.aimon.settings import get_settings
 from blaxel.api.functions import get_function, list_functions
 from blaxel.authentication.authentication import AuthenticatedClient
-from blaxel.aimon.settings import get_settings
 from blaxel.errors import UnexpectedStatus
 from blaxel.functions.mcp.mcp import MCPClient, MCPToolkit
 from blaxel.models import Function, StoreFunctionParameter

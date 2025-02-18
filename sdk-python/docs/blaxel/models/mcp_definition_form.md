@@ -1,5 +1,5 @@
-Module beamlit.models.mcp_definition_form
-=========================================
+Module blaxel.models.mcp_definition_form
+========================================
 
 Classes
 -------

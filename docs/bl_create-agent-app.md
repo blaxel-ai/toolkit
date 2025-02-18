@@ -4,11 +4,11 @@ slug: bl_create-agent-app
 ---
 ## bl create-agent-app
 
-Create a new beamlit agent app
+Create a new blaxel agent app
 
 ### Synopsis
 
-Create a new beamlit agent app
+Create a new blaxel agent app
 
 ```
 bl create-agent-app directory [flags]
@@ -37,5 +37,5 @@ bl create-agent-app my-agent-app
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Beamlit CLI is a command line tool to interact with Beamlit APIs.
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 

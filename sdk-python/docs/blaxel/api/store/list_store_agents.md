@@ -1,10 +1,10 @@
-Module beamlit.api.store.list_store_agents
-==========================================
+Module blaxel.api.store.list_store_agents
+=========================================
 
 Functions
 ---------
 
-`asyncio(*, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> list[beamlit.models.store_agent.StoreAgent] | None`
+`asyncio(*, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> list[blaxel.models.store_agent.StoreAgent] | None`
 :   List all store agent
     
     Raises:
@@ -14,7 +14,7 @@ Functions
     Returns:
         list['StoreAgent']
 
-`asyncio_detailed(*, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.types.Response[list[beamlit.models.store_agent.StoreAgent]]`
+`asyncio_detailed(*, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.types.Response[list[blaxel.models.store_agent.StoreAgent]]`
 :   List all store agent
     
     Raises:
@@ -24,7 +24,7 @@ Functions
     Returns:
         Response[list['StoreAgent']]
 
-`sync(*, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> list[beamlit.models.store_agent.StoreAgent] | None`
+`sync(*, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> list[blaxel.models.store_agent.StoreAgent] | None`
 :   List all store agent
     
     Raises:
@@ -34,7 +34,7 @@ Functions
     Returns:
         list['StoreAgent']
 
-`sync_detailed(*, client: beamlit.client.AuthenticatedClient | beamlit.client.Client) ‑> beamlit.types.Response[list[beamlit.models.store_agent.StoreAgent]]`
+`sync_detailed(*, client: blaxel.client.AuthenticatedClient | blaxel.client.Client) ‑> blaxel.types.Response[list[blaxel.models.store_agent.StoreAgent]]`
 :   List all store agent
     
     Raises:

@@ -1,10 +1,10 @@
-Module beamlit.api.functions.get_function_trace_ids
-===================================================
+Module blaxel.api.functions.get_function_trace_ids
+==================================================
 
 Functions
 ---------
 
-`asyncio(function_name: str, *, client: beamlit.client.AuthenticatedClient, limit: beamlit.types.Unset | str = <beamlit.types.Unset object>, start_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, end_time: beamlit.types.Unset | str = <beamlit.types.Unset object>) ‑> beamlit.models.trace_ids_response.TraceIdsResponse | None`
+`asyncio(function_name: str, *, client: blaxel.client.AuthenticatedClient, limit: blaxel.types.Unset | str = <blaxel.types.Unset object>, start_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, end_time: blaxel.types.Unset | str = <blaxel.types.Unset object>) ‑> blaxel.models.trace_ids_response.TraceIdsResponse | None`
 :   Get function trace IDs
     
     Args:
@@ -20,7 +20,7 @@ Functions
     Returns:
         TraceIdsResponse
 
-`asyncio_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient, limit: beamlit.types.Unset | str = <beamlit.types.Unset object>, start_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, end_time: beamlit.types.Unset | str = <beamlit.types.Unset object>) ‑> beamlit.types.Response[beamlit.models.trace_ids_response.TraceIdsResponse]`
+`asyncio_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient, limit: blaxel.types.Unset | str = <blaxel.types.Unset object>, start_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, end_time: blaxel.types.Unset | str = <blaxel.types.Unset object>) ‑> blaxel.types.Response[blaxel.models.trace_ids_response.TraceIdsResponse]`
 :   Get function trace IDs
     
     Args:
@@ -36,7 +36,7 @@ Functions
     Returns:
         Response[TraceIdsResponse]
 
-`sync(function_name: str, *, client: beamlit.client.AuthenticatedClient, limit: beamlit.types.Unset | str = <beamlit.types.Unset object>, start_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, end_time: beamlit.types.Unset | str = <beamlit.types.Unset object>) ‑> beamlit.models.trace_ids_response.TraceIdsResponse | None`
+`sync(function_name: str, *, client: blaxel.client.AuthenticatedClient, limit: blaxel.types.Unset | str = <blaxel.types.Unset object>, start_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, end_time: blaxel.types.Unset | str = <blaxel.types.Unset object>) ‑> blaxel.models.trace_ids_response.TraceIdsResponse | None`
 :   Get function trace IDs
     
     Args:
@@ -52,7 +52,7 @@ Functions
     Returns:
         TraceIdsResponse
 
-`sync_detailed(function_name: str, *, client: beamlit.client.AuthenticatedClient, limit: beamlit.types.Unset | str = <beamlit.types.Unset object>, start_time: beamlit.types.Unset | str = <beamlit.types.Unset object>, end_time: beamlit.types.Unset | str = <beamlit.types.Unset object>) ‑> beamlit.types.Response[beamlit.models.trace_ids_response.TraceIdsResponse]`
+`sync_detailed(function_name: str, *, client: blaxel.client.AuthenticatedClient, limit: blaxel.types.Unset | str = <blaxel.types.Unset object>, start_time: blaxel.types.Unset | str = <blaxel.types.Unset object>, end_time: blaxel.types.Unset | str = <blaxel.types.Unset object>) ‑> blaxel.types.Response[blaxel.models.trace_ids_response.TraceIdsResponse]`
 :   Get function trace IDs
     
     Args:

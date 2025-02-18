@@ -1,10 +1,10 @@
-Module beamlit.api.agents.get_agent_metrics
-===========================================
+Module blaxel.api.agents.get_agent_metrics
+==========================================
 
 Functions
 ---------
 
-`asyncio(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.resource_metrics.ResourceMetrics | None`
+`asyncio(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.resource_metrics.ResourceMetrics | None`
 :   Get agent metrics
     
     Args:
@@ -17,7 +17,7 @@ Functions
     Returns:
         ResourceMetrics
 
-`asyncio_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.resource_metrics.ResourceMetrics]`
+`asyncio_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.resource_metrics.ResourceMetrics]`
 :   Get agent metrics
     
     Args:
@@ -30,7 +30,7 @@ Functions
     Returns:
         Response[ResourceMetrics]
 
-`sync(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.models.resource_metrics.ResourceMetrics | None`
+`sync(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.models.resource_metrics.ResourceMetrics | None`
 :   Get agent metrics
     
     Args:
@@ -43,7 +43,7 @@ Functions
     Returns:
         ResourceMetrics
 
-`sync_detailed(agent_name: str, *, client: beamlit.client.AuthenticatedClient) ‑> beamlit.types.Response[beamlit.models.resource_metrics.ResourceMetrics]`
+`sync_detailed(agent_name: str, *, client: blaxel.client.AuthenticatedClient) ‑> blaxel.types.Response[blaxel.models.resource_metrics.ResourceMetrics]`
 :   Get agent metrics
     
     Args:

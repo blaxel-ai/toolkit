@@ -1,5 +1,5 @@
-Module beamlit.models.knowledgebase_spec_options
-================================================
+Module blaxel.models.knowledgebase_spec_options
+===============================================
 
 Classes
 -------

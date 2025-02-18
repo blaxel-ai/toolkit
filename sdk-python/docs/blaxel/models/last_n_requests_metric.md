@@ -1,10 +1,10 @@
-Module beamlit.models.last_n_requests_metric
-============================================
+Module blaxel.models.last_n_requests_metric
+===========================================
 
 Classes
 -------
 
-`LastNRequestsMetric(date: beamlit.types.Unset | str = <beamlit.types.Unset object>, workload_type: beamlit.types.Unset | str = <beamlit.types.Unset object>, workspace: beamlit.types.Unset | str = <beamlit.types.Unset object>)`
+`LastNRequestsMetric(date: blaxel.types.Unset | str = <blaxel.types.Unset object>, workload_type: blaxel.types.Unset | str = <blaxel.types.Unset object>, workspace: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Last N requests
     
     Attributes:
@@ -27,13 +27,13 @@ Classes
     `additional_properties: dict[str, typing.Any]`
     :
 
-    `date: beamlit.types.Unset | str`
+    `date: blaxel.types.Unset | str`
     :
 
-    `workload_type: beamlit.types.Unset | str`
+    `workload_type: blaxel.types.Unset | str`
     :
 
-    `workspace: beamlit.types.Unset | str`
+    `workspace: blaxel.types.Unset | str`
     :
 
     ### Methods

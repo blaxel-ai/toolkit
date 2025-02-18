@@ -1,10 +1,10 @@
-Module beamlit.models.request_total_by_origin_metric
-====================================================
+Module blaxel.models.request_total_by_origin_metric
+===================================================
 
 Classes
 -------
 
-`RequestTotalByOriginMetric(request_total_by_origin: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOrigin') = <beamlit.types.Unset object>, request_total_by_origin_and_code: beamlit.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOriginAndCode') = <beamlit.types.Unset object>)`
+`RequestTotalByOriginMetric(request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOrigin') = <blaxel.types.Unset object>, request_total_by_origin_and_code: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetricRequestTotalByOriginAndCode') = <blaxel.types.Unset object>)`
 :   Request total by origin metric
     
     Attributes:

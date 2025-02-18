@@ -1,10 +1,10 @@
-Module beamlit.models.entrypoint
-================================
+Module blaxel.models.entrypoint
+===============================
 
 Classes
 -------
 
-`Entrypoint(args: beamlit.types.Unset | list[typing.Any] = <beamlit.types.Unset object>, command: beamlit.types.Unset | str = <beamlit.types.Unset object>, env: beamlit.types.Unset | ForwardRef('EntrypointEnv') = <beamlit.types.Unset object>)`
+`Entrypoint(args: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, command: blaxel.types.Unset | str = <blaxel.types.Unset object>, env: blaxel.types.Unset | ForwardRef('EntrypointEnv') = <blaxel.types.Unset object>)`
 :   Entrypoint of the artifact
     
     Attributes:
