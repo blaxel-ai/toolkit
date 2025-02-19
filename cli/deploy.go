@@ -244,7 +244,11 @@ func (r *Operations) handleDeploymentFile(deployDir string, agents *[]string, ap
 	if err != nil {
 		return fmt.Errorf("failed to get relative path: %w", err)
 	}
-	name := strings.Split(relPath, "/")[1]
+	tmpSplit := strings.Split(relPath, "/")
+	if len(tmpSplit) < 2 {
+		return nil
+	}
+	name := tmpSplit[1]
 	if isAgent {
 		if !slices.Contains(*agents, name) {
 			*agents = append(*agents, name)
