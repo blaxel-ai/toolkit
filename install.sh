@@ -191,7 +191,7 @@ EOF
 
 OWNER=beamlit
 REPO=toolkit
-BINARY=blaxel
+BINARY=beamlit # to REEDIT FOR RELEASE
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-./bin}
 PREFIX="$OWNER/$REPO"
