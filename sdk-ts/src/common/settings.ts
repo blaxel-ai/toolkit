@@ -3,6 +3,7 @@ import * as path from "path";
 import * as yaml from "yaml";
 import { z } from "zod";
 import { currentContext } from "../authentication/credentials.js";
+import { logger } from "./logger.js";
 
 declare global {
   var SETTINGS: Settings | null; // eslint-disable-line
@@ -204,13 +205,16 @@ function init(options: Partial<Settings> = {}): Settings {
   }
 
   // Special handling for dev environment
+  logger.info(process.env.BL_ENV);
   if (process.env.BL_ENV === "dev") {
+    logger.info(process.env.BL_BASE_URL);
     envData.baseUrl = process.env.BL_BASE_URL || "https://api.blaxel.dev/v0";
     envData.runUrl = process.env.BL_RUN_URL || "https://run.blaxel.dev";
     envData.registryUrl =
       process.env.BL_REGISTRY_URL || "https://eu.registry.blaxel.dev";
     envData.appUrl = process.env.BL_APP_URL || "https://app.blaxel.dev";
   }
+  logger.info(envData.baseUrl);
   const context = currentContext();
 
   // Merge configurations with precedence: options > env > yaml
