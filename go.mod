@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/fatih/color v1.18.0
 	github.com/getkin/kin-openapi v0.128.0
+	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/qeesung/image2ascii v1.0.1
 	github.com/spf13/cobra v1.8.1

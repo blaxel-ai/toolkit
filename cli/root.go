@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/beamlit/toolkit/sdk"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +17,10 @@ var RUN_URL = "https://run.blaxel.ai"
 var REGISTRY_URL = "https://us.registry.blaxel.ai"
 
 func init() {
+	err := godotenv.Load()
+	// nolint:staticcheck
+	if err != nil {
+	}
 	env := os.Getenv("BL_ENV")
 	if env == "dev" {
 		BASE_URL = "https://api.blaxel.dev/v0"
