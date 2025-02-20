@@ -7,7 +7,7 @@ import {
 } from "../client/types.gen.js";
 import { getSettings } from "../common/settings.js";
 import { slugify } from "../common/slugify.js";
-import { newClient } from "../index.js";
+import { logger, newClient } from "../index.js";
 import { parametersToZodSchema } from "./common.js";
 import { RemoteToolkit } from "./remote.js";
 
@@ -132,11 +132,18 @@ export const wrapFunction: WrapFunctionType = async (
   }
   return {
     async run(request: FastifyRequest): Promise<any> {
-      const body = await request.body;
-      if (func.constructor.name === "AsyncFunction") {
-        return await func(body);
+      try {
+        const body = await request.body;
+        if (func.constructor.name === "AsyncFunction") {
+          return await func(body);
+        }
+        return func(body);
+      } catch (error) {
+        logger.error(
+          `Error running function ${functionBlaxel.metadata?.name}: ${error}`
+        );
+        throw error;
       }
-      return func(body);
     },
     function: functionBlaxel,
     tools: toolBlaxel,

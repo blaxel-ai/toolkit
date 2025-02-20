@@ -55,10 +55,14 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
 
         @functools.wraps(func)
         async def wrapped(*args, **kwargs):
-            if len(args) > 0 and isinstance(args[0], Request):
-                body = await args[0].json()
-                args = [body.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]
-            return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            try:
+                if len(args) > 0 and isinstance(args[0], Request):
+                    body = await args[0].json()
+                    args = [body.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]
+                return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error calling function {func.__name__}: {e}")
+                raise e
         return wrapped
 
     return wrapper
