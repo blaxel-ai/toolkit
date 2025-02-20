@@ -92,12 +92,16 @@ func printJson(resource Resource, slices []interface{}) {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
+			status := "-"
+			if statusVal, ok := sliceMap["status"]; ok {
+				status = statusVal.(string)
+			}
 			formatted = append(formatted, Result{
 				ApiVersion: "blaxel.ai/v1alpha1",
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],
-				Status:     sliceMap["status"].(string),
+				Status:     status,
 			})
 		}
 	}
@@ -114,12 +118,16 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
+			status := "-"
+			if statusVal, ok := sliceMap["status"]; ok {
+				status = statusVal.(string)
+			}
 			formatted = append(formatted, Result{
 				ApiVersion: "blaxel.ai/v1alpha1",
 				Kind:       resource.Kind,
 				Metadata:   sliceMap["metadata"],
 				Spec:       sliceMap["spec"],
-				Status:     sliceMap["status"].(string),
+				Status:     status,
 			})
 		}
 	}
