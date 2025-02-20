@@ -69,8 +69,12 @@ export class QdrantKnowledgebase implements KnowledgebaseClass {
   async getOrCreateCollection(embeddings: {
     size: number;
     distance: string;
+    retry?: boolean;
   }): Promise<void> {
     try {
+      if (embeddings.retry === undefined) {
+        embeddings.retry = true;
+      }
       const response = await this.client.getCollections();
       if (
         !response.collections.find(
@@ -87,11 +91,12 @@ export class QdrantKnowledgebase implements KnowledgebaseClass {
         });
       }
     } catch (error: any) {
+      const message = error.toString().toLowerCase();
       if (
-        error instanceof Error &&
-        error.message.includes("Error creating collection ApiError: Conflict")
+        !embeddings.retry &&
+        (message.includes("conflict") || message.includes("already exists"))
       ) {
-        return this.getOrCreateCollection(embeddings);
+        return this.getOrCreateCollection({ ...embeddings, retry: false });
       }
       throw this.handleError("creating collection", error as Error);
     }
