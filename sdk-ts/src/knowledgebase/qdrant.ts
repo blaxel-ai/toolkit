@@ -69,11 +69,11 @@ export class QdrantKnowledgebase implements KnowledgebaseClass {
   async getOrCreateCollection(embeddings: {
     size: number;
     distance: string;
-    retry?: boolean;
+    retry?: number;
   }): Promise<void> {
     try {
       if (embeddings.retry === undefined) {
-        embeddings.retry = true;
+        embeddings.retry = 0;
       }
       const response = await this.client.getCollections();
       if (
@@ -93,10 +93,13 @@ export class QdrantKnowledgebase implements KnowledgebaseClass {
     } catch (error: any) {
       const message = error.toString().toLowerCase();
       if (
-        !embeddings.retry &&
+        (embeddings.retry || 0) < 3 &&
         (message.includes("conflict") || message.includes("already exists"))
       ) {
-        return this.getOrCreateCollection({ ...embeddings, retry: false });
+        return this.getOrCreateCollection({
+          ...embeddings,
+          retry: (embeddings.retry || 0) + 1,
+        });
       }
       throw this.handleError("creating collection", error as Error);
     }
