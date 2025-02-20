@@ -44,10 +44,10 @@ const generateDockerfile = (
   }
   const cmdStr = cmd.map((c) => `"${c}"`).join(",");
 
-  let CLI_INSTALL_URL = "https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh";
-  if (process.env.BL_ENV === "dev") {
-    CLI_INSTALL_URL = "https://raw.githubusercontent.com/cploujoux/toolkit/main/install.sh";
-  }
+  const CLI_INSTALL_URL = "https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh";
+  // if (process.env.BL_ENV === "dev") {
+  //   CLI_INSTALL_URL = "https://raw.githubusercontent.com/cploujoux/toolkit/main/install.sh";
+  // }
 
   return `
 FROM node:20-slim

@@ -191,8 +191,8 @@ def dockerfile(
     """
 
     cliInstallUrl = "https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh"
-    if os.getenv("BL_ENV") == "dev":
-        cliInstallUrl = "https://raw.githubusercontent.com/cploujoux/toolkit/main/install.sh"
+    # if os.getenv("BL_ENV") == "dev":
+    #     cliInstallUrl = "https://raw.githubusercontent.com/cploujoux/toolkit/main/install.sh"
 
     settings = get_settings()
     if type == "agent":
