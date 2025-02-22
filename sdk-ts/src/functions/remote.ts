@@ -135,6 +135,9 @@ export class RemoteToolkit {
         const mcpToolkit = new MCPToolkit(mcpClient);
         this._mcpToolkit = mcpToolkit;
         await mcpToolkit.initialize();
+        if (this.settings.deploy) {
+          this.modelContextProtocolClient.close();
+        }
       } catch (error) {
         if (this.fallbackUrl) {
           transport = new WebSocketClientTransport(new URL(this.fallbackUrl), {
