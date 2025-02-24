@@ -19,8 +19,8 @@ import { Agent } from "../client/types.gen.js";
 import { logger } from "../common/logger.js";
 import { getSettings, Settings } from "../common/settings.js";
 import { getFunctions } from "../functions/common.js";
-import { KnowledgebaseFactory } from "../knowledgebase/factory.js";
-import { KnowledgebaseClass } from "../knowledgebase/types.js";
+import { KnowledgebaseFactory } from "../knowledgebases/factory.js";
+import { KnowledgebaseClass } from "../knowledgebases/types.js";
 import { getChatModelFull } from "./chat.js";
 import { OpenAIVoiceReactAgent } from "./voice/openai.js";
 
