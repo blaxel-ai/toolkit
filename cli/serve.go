@@ -45,17 +45,25 @@ func (r *Operations) ServeCmd() *cobra.Command {
 			go func() {
 				<-c
 				fmt.Println("\nShutting down server...")
-				if err := activeProc.Process.Kill(); err != nil {
-					fmt.Printf("Error killing process: %v\n", err)
+				// Send SIGTERM instead of Kill to allow graceful shutdown
+				if err := activeProc.Process.Signal(os.Interrupt); err != nil {
+					fmt.Printf("Error sending interrupt signal: %v\n", err)
+					// Fall back to Kill if Interrupt fails
+					if err := activeProc.Process.Kill(); err != nil {
+						fmt.Printf("Error killing process: %v\n", err)
+					}
 				}
-				os.Exit(0)
+				// Don't exit immediately - let the main Wait() handle the exit
 			}()
 
 			// Wait for process to exit
 			if err := activeProc.Wait(); err != nil {
-				fmt.Printf("Server error: %v\n", err)
-				os.Exit(1)
+				// Only treat as error if we didn't interrupt it ourselves
+				if err.Error() != "signal: interrupt" {
+					os.Exit(1)
+				}
 			}
+			os.Exit(0)
 		},
 	}
 

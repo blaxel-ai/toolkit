@@ -61,24 +61,6 @@ export class MCPClient {
   constructor(client: Client, transport: Transport) {
     this.client = client;
     this.transport = transport;
-
-    // Add cleanup handlers for process termination
-    process.on("SIGINT", () => this.cleanup());
-    process.on("SIGTERM", () => this.cleanup());
-    process.on("exit", () => this.cleanup());
-  }
-
-  /**
-   * Cleans up resources by closing the transport connection.
-   */
-  private cleanup(): void {
-    if (this.client.transport) {
-      try {
-        this.transport.close();
-      } catch (error) {
-        console.error("Failed to close transport:", error);
-      }
-    }
   }
 
   /**
