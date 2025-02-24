@@ -169,8 +169,8 @@ async def get_functions(
                                         func = getattr(module, func_name)
                                         if settings.remote:
                                             toolkit = RemoteToolkit(client, slugify(func.__name__))
-                                            await toolkit.initialize()
-                                            functions.extend(await toolkit.get_tools())
+                                            tools = await initialize_with_retry(toolkit, func.__name__, MAX_RETRIES)
+                                            functions.extend(tools)
                                         else:
                                             if asyncio.iscoroutinefunction(func):
                                                 functions.append(
@@ -194,7 +194,7 @@ async def get_functions(
                                                 )
                         except Exception as e:
                             logger.warning(f"Error processing {file_path}: {e!s}")
-    if remote_functions:
+    if remote_functions and not settings.deploy:
         for function in remote_functions:
             try:
                 toolkit = RemoteToolkit(client, function)
@@ -207,7 +207,7 @@ async def get_functions(
                         f"Traceback:\n{traceback.format_exc()}"
                     )
                     logger.warn(f"Failed to initialize remote function {function}: {e!s}")
-    if local_functions:
+    if local_functions and not settings.deploy:
         for function in local_functions:
             try:
                 toolkit = LocalToolKit(client, function)

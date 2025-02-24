@@ -83,7 +83,6 @@ const initializeWithRetry = async (
           await toolkit.initialize(name);
           return await toolkit.getTools();
         } catch (error) {
-          console.log(error);
           if (attempt === maxRetries) {
             logger.warn(
               `Failed to initialize remote function ${name} after ${maxRetries} attempts: ${error}`
@@ -192,7 +191,7 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
     });
   }
 
-  if (remoteFunctions) {
+  if (remoteFunctions && !settings.deploy) {
     await Promise.all(
       remoteFunctions.map(async (name) => {
         try {
@@ -205,13 +204,13 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
       })
     );
   }
-  if (chain) {
+  if (chain && !settings.deploy) {
     const runClient = new RunClient(client);
     const toolkit = new ChainToolkit(runClient, chain);
     await toolkit.initialize();
     functions.push(...toolkit.getTools());
   }
-  if (localFunctions) {
+  if (localFunctions && !settings.deploy) {
     await Promise.all(
       localFunctions.map(async (func) => {
         try {

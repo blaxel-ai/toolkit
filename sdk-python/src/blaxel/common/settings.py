@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     agent: SettingsAgent = SettingsAgent()
     server: SettingsServer = SettingsServer()
     authentication: SettingsAuthentication = SettingsAuthentication()
+    deploy: bool = Field(default=False)
 
     def __init__(self, **data):
         super().__init__(**data)
