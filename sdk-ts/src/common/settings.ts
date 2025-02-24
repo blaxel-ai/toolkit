@@ -37,7 +37,7 @@ type SettingsAuthenticationType = z.infer<typeof SettingsAuthentication>;
  * Schema for server settings.
  */
 const SettingsServer = z.object({
-  module: z.string().default("agent.agent"),
+  module: z.string().default("src.agent.agent"),
   port: z.number().default(80),
   host: z.string().default("0.0.0.0"),
   directory: z.string().default("src"),
@@ -249,6 +249,5 @@ export {
   type SettingsAgentType,
   type SettingsAuthenticationType,
   type SettingsServerType,
-  type Settings as SettingsType
+  type Settings as SettingsType,
 };
-

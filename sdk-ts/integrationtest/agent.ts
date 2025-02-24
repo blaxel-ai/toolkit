@@ -48,6 +48,7 @@ export const agent = async () => {
           "You are a helpful assistant. Always do a small joke to make everyone happy",
       },
     },
+    remoteFunctions: ["aws-s3"],
   });
 };
 

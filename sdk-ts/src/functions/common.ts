@@ -83,10 +83,11 @@ const initializeWithRetry = async (
           await toolkit.initialize(name);
           return await toolkit.getTools();
         } catch (error) {
-          if (attempt === maxRetries) {
-            logger.warn(
-              `Failed to initialize remote function ${name} after ${maxRetries} attempts: ${error}`
-            );
+          if (
+            (error as Error).message.includes("404") ||
+            (error as Error).message.includes("403") ||
+            attempt === maxRetries
+          ) {
             throw error;
           }
           logger.info(`Attempt ${attempt} failed for ${name}, retrying...`);

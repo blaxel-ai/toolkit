@@ -62,7 +62,7 @@ class SettingsAuthentication(BaseSettings):
 
 
 class SettingsServer(BaseSettings):
-    module: str = Field(default="main.main")
+    module: str = Field(default="agent.main")
     port: int = Field(default=80)
     host: str = Field(default="0.0.0.0")
     directory: str = Field(default="src")
