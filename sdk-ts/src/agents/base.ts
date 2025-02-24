@@ -1,5 +1,6 @@
 import { Client } from "@hey-api/client-fetch";
 import { BaseMessage, SystemMessage } from "@langchain/core/messages";
+import { StructuredTool } from "@langchain/core/tools";
 import {
   LangGraphRunnableConfig,
   MemorySaver,
@@ -192,6 +193,8 @@ export const wrapAgent: WrapAgentType = async (
   options: AgentOptions | null = null
 ): Promise<AgentBase> => {
   const settings = getSettings();
+  let functions: StructuredTool[] = [];
+
   if (settings.deploy) {
     return {
       async run(request: FastifyRequest): Promise<any> {
@@ -221,13 +224,15 @@ export const wrapAgent: WrapAgentType = async (
       settings.agent.model = data;
     }
   }
-  const functions = await getFunctions({
-    client,
-    dir: settings.agent.functionsDirectory,
-    remoteFunctions,
-    chain: agent?.spec?.agentChain,
-    warning: settings.agent.model !== null,
-  });
+  if (!overrideAgent) {
+    functions = await getFunctions({
+      client,
+      dir: settings.agent.functionsDirectory,
+      remoteFunctions,
+      chain: agent?.spec?.agentChain,
+      warning: settings.agent.model !== null,
+    });
+  }
   settings.agent.functions = functions;
   if (!settings.agent.agent) {
     if (!settings.agent.model) {
