@@ -70,7 +70,7 @@ install:
 	uv pip install openapi-python-client
 
 tag:
-	git tag v$(ARGS)
+	git tag -a v$(ARGS) -m "Release v$(ARGS)"
 	git push origin v$(ARGS)
 
 %:
