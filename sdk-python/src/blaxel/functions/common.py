@@ -165,13 +165,13 @@ async def get_functions(
                                         functions.extend(kit_functions)
 
                                     # Get the decorated function
-                                    if not is_kit and hasattr(module, func_name):
+                                    if hasattr(module, func_name):
                                         func = getattr(module, func_name)
                                         if settings.remote:
                                             toolkit = RemoteToolkit(client, slugify(func.__name__))
                                             tools = await initialize_with_retry(toolkit, func.__name__, MAX_RETRIES)
                                             functions.extend(tools)
-                                        else:
+                                        elif not is_kit:
                                             if asyncio.iscoroutinefunction(func):
                                                 functions.append(
                                                     StructuredTool(
@@ -183,7 +183,6 @@ async def get_functions(
                                                     )
                                                 )
                                             else:
-
                                                 functions.append(
                                                     StructuredTool(
                                                         name=func.__name__,

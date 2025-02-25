@@ -11,8 +11,6 @@ from typing import Callable
 
 import pydantic
 import typing_extensions as t
-from langchain_core.tools.base import BaseTool, ToolException
-
 from blaxel.api.functions import get_function, list_functions
 from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
@@ -20,6 +18,7 @@ from blaxel.errors import UnexpectedStatus
 from blaxel.functions.mcp.mcp import MCPClient, MCPToolkit
 from blaxel.models import Function, StoreFunctionParameter
 from blaxel.run import RunClient
+from langchain_core.tools.base import BaseTool, ToolException
 
 
 def create_dynamic_schema(name: str, parameters: list[StoreFunctionParameter]) -> type[pydantic.BaseModel]:
@@ -80,7 +79,7 @@ class RemoteTool(BaseTool):
 
     @t.override
     async def _arun(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
-        body = {**kwargs}
+        body = {"arguments": {**kwargs}}
         if self.kit:
             body["name"] = self.name
         result = self.client.run(
