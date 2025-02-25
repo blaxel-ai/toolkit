@@ -4,7 +4,6 @@ import functools
 from collections.abc import Callable
 from logging import getLogger
 
-from blaxel.common.settings import get_settings
 from blaxel.models import Function, FunctionKit
 from fastapi import Request
 
@@ -42,7 +41,6 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
     Returns:
         Callable: The decorated function.
     """
-    settings = get_settings()
     if function is not None and not isinstance(function, dict):
         raise Exception(
             'function must be a dictionary, example: @function(function={"metadata": {"name": "my_function"}})'
@@ -57,7 +55,7 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
         @functools.wraps(func)
         async def wrapped(*args, **kwargs):
             try:
-                if kit is True and settings.remote:
+                if kit is True:
                     return await func(*args, **kwargs)
                 if len(args) > 0 and isinstance(args[0], Request):
                     body = await args[0].json()
