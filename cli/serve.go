@@ -44,8 +44,6 @@ func (r *Operations) ServeCmd() *cobra.Command {
 			signal.Notify(c, os.Interrupt)
 			go func() {
 				<-c
-				fmt.Println("\nShutting down server...")
-				// Send SIGTERM instead of Kill to allow graceful shutdown
 				if err := activeProc.Process.Signal(os.Interrupt); err != nil {
 					fmt.Printf("Error sending interrupt signal: %v\n", err)
 					// Fall back to Kill if Interrupt fails
@@ -53,7 +51,6 @@ func (r *Operations) ServeCmd() *cobra.Command {
 						fmt.Printf("Error killing process: %v\n", err)
 					}
 				}
-				// Don't exit immediately - let the main Wait() handle the exit
 			}()
 
 			// Wait for process to exit
