@@ -25,6 +25,7 @@ from blaxel.models import (
     AgentSpec,
     Flavor,
     Function,
+    FunctionKit,
     FunctionSpec,
     Metadata,
     MetadataLabels,
@@ -35,6 +36,21 @@ from .parser import Resource, get_description, get_parameters, get_resources
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "src"))
+
+def handle_function_kit(deployment: Function):
+    """
+    Handles the function kit for a deployment.
+    """
+    settings = get_settings()
+    deployment.spec.kit = []
+    functions_kits = get_resources("kit", settings.server.directory)
+    for function_kit in functions_kits:
+        for arg in function_kit.decorator.keywords:
+            if arg.arg == "parent" and isinstance(arg.value, ast.Constant) and slugify(arg.value.value) == deployment.metadata.name:
+                kit = get_blaxel_deployment_from_resource(settings, function_kit)
+                deployment.spec.kit.append(kit)
+    return deployment
+
 
 def set_default_values(resource: Resource, deployment: Agent | Function):
     """
@@ -55,6 +71,10 @@ def set_default_values(resource: Resource, deployment: Agent | Function):
         deployment.metadata.display_name = deployment.metadata.name
     if not deployment.spec.description:
         deployment.spec.description = get_description(None, resource)
+    if isinstance(deployment, Function):
+        for arg in resource.decorator.keywords:
+            if arg.arg == "kit" and isinstance(arg.value, ast.Constant) and arg.value.value == True:
+                deployment = handle_function_kit(deployment)
     if isinstance(deployment, Agent):
         deployment.spec.functions = []
         for arg in resource.decorator.keywords:
@@ -68,7 +88,7 @@ def set_default_values(resource: Resource, deployment: Agent | Function):
 def get_blaxel_deployment_from_resource(
     settings: Settings,
     resource: Resource,
-) -> Agent | Function:
+) -> Agent | Function | FunctionKit:
     """
     Creates a deployment configuration from a given resource.
 
@@ -97,6 +117,16 @@ def get_blaxel_deployment_from_resource(
                 if not func.spec.parameters:
                     func.spec.parameters = get_parameters(resource)
                 return set_default_values(resource, func)
+        if arg.arg == "kit":
+            if isinstance(arg.value, ast.Dict):
+                value = arg_to_dict(arg.value)
+                kit = FunctionKit(**value)
+                if not kit.description:
+                    kit.description = get_description(None, resource)
+                if not kit.parameters:
+                    kit.parameters = get_parameters(resource)
+                return kit
+
     if resource.type == "agent":
         agent = Agent(metadata=Metadata(), spec=AgentSpec())
         return set_default_values(resource, agent)
@@ -104,6 +134,13 @@ def get_blaxel_deployment_from_resource(
         func = Function(metadata=Metadata(), spec=FunctionSpec())
         func.spec.parameters = get_parameters(resource)
         return set_default_values(resource, func)
+    if resource.type == "kit":
+        kit = FunctionKit(
+            name=slugify(resource.name),
+            description=get_description(None, resource),
+            parameters=get_parameters(resource)
+        )
+        return kit
     return None
 
 def get_flavors(flavors: list[Flavor]) -> str:

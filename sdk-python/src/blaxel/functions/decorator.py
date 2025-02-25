@@ -4,18 +4,18 @@ import functools
 from collections.abc import Callable
 from logging import getLogger
 
-from fastapi import Request
-
+from blaxel.common.settings import get_settings
 from blaxel.models import Function, FunctionKit
+from fastapi import Request
 
 logger = getLogger(__name__)
 
-def kit(bl_kit: FunctionKit = None, **kwargs: dict) -> Callable:
+def kit(parent: str, kit: FunctionKit = None, **kwargs: dict) -> Callable:
     """
     Decorator to create function tools with Blaxel and LangChain integration.
 
     Args:
-        bl_kit (FunctionKit | None): Optional FunctionKit to associate with the function.
+        kit (FunctionKit | None): Optional FunctionKit to associate with the function.
         **kwargs (dict): Additional keyword arguments for function configuration.
 
     Returns:
@@ -23,8 +23,8 @@ def kit(bl_kit: FunctionKit = None, **kwargs: dict) -> Callable:
     """
 
     def wrapper(func: Callable) -> Callable:
-        if bl_kit and not func.__doc__ and bl_kit.description:
-            func.__doc__ = bl_kit.description
+        if kit and not func.__doc__ and kit.description:
+            func.__doc__ = kit.description
         return func
 
     return wrapper
@@ -42,6 +42,7 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
     Returns:
         Callable: The decorated function.
     """
+    settings = get_settings()
     if function is not None and not isinstance(function, dict):
         raise Exception(
             'function must be a dictionary, example: @function(function={"metadata": {"name": "my_function"}})'
@@ -56,6 +57,8 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
         @functools.wraps(func)
         async def wrapped(*args, **kwargs):
             try:
+                if kit is True and settings.remote:
+                    return await func(*args, **kwargs)
                 if len(args) > 0 and isinstance(args[0], Request):
                     body = await args[0].json()
                     args = [body.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]

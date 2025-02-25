@@ -107,6 +107,7 @@ class QdrantKnowledgebase(KnowledgebaseClass):
             results = await self.client.search(
                 collection_name=self.collection_name,
                 query_vector=embedding,
+                query_filter=filters,
                 with_payload=True,
                 score_threshold=score_threshold or self.score_threshold,
                 limit=limit or self.limit

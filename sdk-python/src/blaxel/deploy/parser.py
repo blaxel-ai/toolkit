@@ -26,7 +26,7 @@ class Resource:
         decorator (ast.Call): The decorator AST node used on the deployment function.
         func (Callable): The deployment function.
     """
-    type: Literal["agent", "function"]
+    type: Literal["agent", "function", "kit"]
     module: Callable
     name: str
     decorator: ast.Call
