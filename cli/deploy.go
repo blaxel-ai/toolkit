@@ -15,12 +15,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func executeInstallDependencies() error {
-	cmd := exec.Command("uv", "sync", "--refresh", "--force-reinstall", "--prerelease", "allow")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s", os.Getenv("PATH")))
-	return cmd.Run()
+func executeInstallDependencies(language string) error {
+	if language == "python" {
+		cmd := exec.Command("uv", "sync", "--refresh", "--force-reinstall", "--prerelease", "allow")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s", os.Getenv("PATH")))
+		return cmd.Run()
+	}
+	if language == "typescript" {
+		cmd := exec.Command("npm", "install", "--force")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+	return nil
 }
 
 func executePythonGenerateBlaxelDeployment(deployDir string, module string, directory string, name string) error {
@@ -295,14 +304,16 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Create a temporary directory for deployment files
 			deployDir := ".blaxel"
 
+			language := moduleLanguage()
+
 			if dependencies {
-				err := executeInstallDependencies()
+				err := executeInstallDependencies(language)
 				if err != nil {
 					fmt.Printf("Error installing dependencies: %v\n", err)
 					os.Exit(1)
 				}
 			}
-			language := moduleLanguage()
+
 			switch language {
 			case "python":
 				err := executePythonGenerateBlaxelDeployment(deployDir, module, directory, name)
