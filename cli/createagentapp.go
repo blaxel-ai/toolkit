@@ -421,7 +421,8 @@ func createAgentApp(opts CreateAgentAppOptions) error {
 
 	// Clone templates repository
 	cloneDir := filepath.Join(opts.Directory, "templates")
-	cloneDirCmd := exec.Command("git", "clone", "https://github.com/beamlit/templates.git", cloneDir)
+	branch := getBranch()
+	cloneDirCmd := exec.Command("git", "clone", "https://github.com/beamlit/templates.git", cloneDir, "--branch", branch)
 	if err := cloneDirCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone templates repository: %w", err)
 	}
