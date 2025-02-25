@@ -34,15 +34,15 @@ type IgnoreDir struct {
 
 // CreateAgentAppOptions contains all the configuration options needed to create a new agent app.
 type CreateAgentAppOptions struct {
-	Directory          string             // Target directory for the new agent app
-	ProjectName        string             // Name of the project
-	ProjectDescription string             // Description of the project
-	Language           string             // Language to use for the project
-	Template           string             // Template to use for the project
-	Author             string             // Author of the project
-	TemplateOptions    map[string]*string // Options for the template
-	IgnoreFiles        map[string]IgnoreFile
-	IgnoreDirs         map[string]IgnoreDir
+	Directory       string             // Target directory for the new agent app
+	ProjectName     string             // Name of the project
+	ProjectPrompt   string             // Description of the project
+	Language        string             // Language to use for the project
+	Template        string             // Template to use for the project
+	Author          string             // Author of the project
+	TemplateOptions map[string]*string // Options for the template
+	IgnoreFiles     map[string]IgnoreFile
+	IgnoreDirs      map[string]IgnoreDir
 }
 
 type TemplateConfig struct {
@@ -427,10 +427,10 @@ func createAgentApp(opts CreateAgentAppOptions) error {
 	}
 
 	templateOptions := map[string]string{
-		"ProjectName":        opts.ProjectName,
-		"ProjectDescription": opts.ProjectDescription,
-		"Author":             opts.Author,
-		"Workspace":          workspace,
+		"ProjectName":   opts.ProjectName,
+		"ProjectPrompt": opts.ProjectPrompt,
+		"Author":        opts.Author,
+		"Workspace":     workspace,
 	}
 	for key, value := range opts.TemplateOptions {
 		templateOptions[key] = *value
