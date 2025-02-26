@@ -50,17 +50,18 @@ const generateDockerfile = (
   // }
 
   return `
-FROM node:20-slim
+FROM node:22-slim
 
 RUN apt update && apt install -y curl build-essential
-
 RUN curl -fsSL ${CLI_INSTALL_URL} | BINDIR=/bin sh
+RUN npm install -g pnpm
+
 WORKDIR /blaxel
 
 # Install dependencies
 COPY package.json /blaxel/package.json
-COPY package-lock.json /blaxel/package-lock.json
-RUN npm i
+COPY pnpm-lock.yaml /blaxel/pnpm-lock.yaml
+RUN pnpm i
 
 # Copy source code and utils files
 COPY README.m[d] /blaxel/README.md
@@ -69,7 +70,7 @@ COPY tsconfig.jso[n] /blaxel/tsconfig.json
 COPY ${settings.server.directory} /blaxel/src
 COPY index.t[s] /blaxel/index.ts
 
-RUN npm run build
+RUN pnpm run build
 RUN cp -r dist/* /blaxel
 
 ENV COMMAND="node index.js"

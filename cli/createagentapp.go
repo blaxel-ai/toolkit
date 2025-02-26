@@ -395,13 +395,13 @@ func installPythonDependencies(directory string) error {
 }
 
 func installTypescriptDependencies(directory string) error {
-	npmInstallCmd := exec.Command("npm", "install")
+	npmInstallCmd := exec.Command("pnpm", "install")
 	npmInstallCmd.Dir = directory
 
 	// Capture both stdout and stderr
 	output, err := npmInstallCmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to run npm install: %w\nOutput: %s", err, string(output))
+		return fmt.Errorf("failed to run pnpm install: %w\nOutput: %s", err, string(output))
 	}
 	return nil
 }
