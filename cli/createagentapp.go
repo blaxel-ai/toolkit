@@ -395,7 +395,7 @@ func installPythonDependencies(directory string) error {
 }
 
 func installTypescriptDependencies(directory string) error {
-	npmInstallCmd := exec.Command("pnpm", "install")
+	npmInstallCmd := exec.Command("npx", "pnpm", "install")
 	npmInstallCmd.Dir = directory
 
 	// Capture both stdout and stderr
