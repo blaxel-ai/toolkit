@@ -39,12 +39,12 @@ class ChromaKnowledgebase(KnowledgebaseClass):
             options["auth"] = auth
         self.options = options
         self.client: Optional[chromadb.AsyncClientAPI] = None
-        self.collection_name = self.config.get("collection_name", settings.name)
-        self.score_threshold = self.config.get("score_threshold", 0.25)
+        self.collection_name = self.config.get("collectionName", settings.name)
+        self.score_threshold = self.config.get("scoreThreshold", 0.25)
         self.limit = self.config.get("limit", 5)
         self.embedding_model = EmbeddingModel(
-            model=knowledge_base.get("spec", {}).get("embedding_model", ""),
-            model_type=knowledge_base.get("spec", {}).get("embedding_model_type", ""),
+            model=knowledge_base.get("spec", {}).get("embeddingModel", ""),
+            model_type=knowledge_base.get("spec", {}).get("embeddingModelType", ""),
             client=new_client()
         )
 

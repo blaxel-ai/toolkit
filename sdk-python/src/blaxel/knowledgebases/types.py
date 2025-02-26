@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class KnowledgebaseSearchResult:
     key: str
-    value: str
+    value: Any
     similarity: float
 
 

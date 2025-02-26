@@ -19,7 +19,7 @@ class EmbeddingModel:
         return await self.openai_embed(query)  # Default to OpenAI
 
     def handle_error(self, error: HTTPError) -> HTTPError:
-        model = self.config["model"]
+        model = self.model
         message = f"Error embedding request with model {model} -> {error.status_code} {error.message}"
         return HTTPError(error.status_code, message)
 

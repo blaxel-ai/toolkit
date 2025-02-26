@@ -15,14 +15,14 @@ async def sample_usage():
         type="chroma",
         knowledge_base={
             "spec": {
-                "embedding_model": "text-embedding-3-large",
-                "embedding_model_type": "openai"
+                "embeddingModel": "text-embedding-3-large",
+                "embeddingModelType": "openai"
             }
         },
         connection={
             "config": {
                 "url": "http://localhost:8000",
-                "collection_name": "my_collection",
+                "collectionName": "my_collection",
             }
         }
     )
@@ -32,17 +32,17 @@ async def sample_usage():
         type="pinecone",
         knowledge_base={
             "spec": {
-                "embedding_model": "text-embedding-3-large",
-                "embedding_model_type": "openai"
+                "embeddingModel": "text-embedding-3-large",
+                "embeddingModelType": "openai"
             }
         },
         connection={
             "config": {
-                "index_name": "beamlit-test-3072",
-                "index_host": "https://beamlit-test-3072-sll9m6p.svc.aped-4627-b74a.pinecone.io"
+                "indexName": "beamlit-test-3072",
+                "indexHost": "https://beamlit-test-3072-sll9m6p.svc.aped-4627-b74a.pinecone.io"
             },
             "secrets": {
-                "api_key": os.getenv("PINECONE_API_KEY")
+                "apiKey": os.getenv("PINECONE_API_KEY")
             }
         }
     )
@@ -52,23 +52,23 @@ async def sample_usage():
         type="qdrant",
         knowledge_base={
             "spec": {
-                "embedding_model": "text-embedding-3-large",
-                "embedding_model_type": "openai"
+                "embeddingModel": "text-embedding-3-large",
+                "embeddingModelType": "openai"
             }
         },
         connection={
             "config": {
                 "url": os.getenv("QDRANT_URL"),
-                "collection_name": "my_collection"
+                "collectionName": "my_collection"
             },
             "secrets": {
-                "api_key": os.getenv("QDRANT_API_KEY")
+                "apiKey": os.getenv("QDRANT_API_KEY")
             }
         }
     )
 
     # Create knowledgebase instances
-    chroma_kb = await KnowledgebaseFactory.create(chroma_config)
+    # chroma_kb = await KnowledgebaseFactory.create(chroma_config)
     pinecone_kb = await KnowledgebaseFactory.create(pinecone_config)
     qdrant_kb = await KnowledgebaseFactory.create(qdrant_config)
 
@@ -110,8 +110,8 @@ async def sample_usage():
         await kb.close()
 
     # Try with different implementations
-    print("Testing with Chroma:")
-    await demonstrate_kb_operations(chroma_kb)
+    # print("Testing with Chroma:")
+    # await demonstrate_kb_operations(chroma_kb)
 
     print("\nTesting with Pinecone:")
     await demonstrate_kb_operations(pinecone_kb)

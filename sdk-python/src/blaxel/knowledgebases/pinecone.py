@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Optional
 
 from ..authentication.authentication import new_client
@@ -15,16 +16,16 @@ class PineconeKnowledgebase(KnowledgebaseClass):
         self.secrets = connection.get("secrets", {})
 
         self.client = PineconeAsyncio(api_key=self.secrets.get("api_key"))
-        self.collection_name = self.config.get("collection_name", settings.name)
-        self.score_threshold = self.config.get("score_threshold", 0.25)
+        self.collection_name = self.config.get("collectionName", settings.name)
+        self.score_threshold = self.config.get("scoreThreshold", 0.25)
         self.limit = self.config.get("limit", 5)
         self.embedding_model = EmbeddingModel(
-            model=knowledge_base.get("spec", {}).get("embedding_model", ""),
-            model_type=knowledge_base.get("spec", {}).get("embedding_model_type", ""),
+            model=knowledge_base.get("spec", {}).get("embeddingModel", ""),
+            model_type=knowledge_base.get("spec", {}).get("embeddingModelType", ""),
             client=new_client()
         )
         self.index = self.client.IndexAsyncio(
-            host=self.config.get("index_host")
+            host=self.config.get("indexHost")
         )
 
     async def close(self):
@@ -64,7 +65,7 @@ class PineconeKnowledgebase(KnowledgebaseClass):
         for match in result.matches:
             results.append(KnowledgebaseSearchResult(
                 key=match.id,
-                value=match.metadata["value"],
+                value=match.metadata,
                 similarity=match.score
             ))
         return results
