@@ -50,28 +50,32 @@ const generateDockerfile = (
   // }
 
   return `
+
 FROM node:22-slim
 
-RUN apt update && apt install -y curl build-essential
-RUN curl -fsSL ${CLI_INSTALL_URL} | BINDIR=/bin sh
-RUN npm install -g pnpm
+# Install necessary dependencies, toolkit, then clean up
+RUN apt update && apt install -y curl \
+    && curl -fsSL ${CLI_INSTALL_URL} | BINDIR=/bin sh \
+    && apt-get remove -y curl \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /blaxel
 
-# Install dependencies
-COPY package.json /blaxel/package.json
-COPY pnpm-lock.yaml /blaxel/pnpm-lock.yaml
-RUN pnpm i
+# Copy dependency files first to leverage Docker cache
+COPY package.json pnpm-lock.yam[l] ./
+RUN npx pnpm install
 
-# Copy source code and utils files
-COPY README.m[d] /blaxel/README.md
-COPY LICENS[E] /blaxel/LICENSE
-COPY tsconfig.jso[n] /blaxel/tsconfig.json
-COPY ${settings.server.directory} /blaxel/src
-COPY index.t[s] /blaxel/index.ts
+# Copy source files (conditional and required)
+COPY README.m[d] LICENS[E] tsconfig.jso[n] ./
+COPY ${settings.server.directory} ./src
+COPY index.t[s] ./
 
-RUN pnpm run build
-RUN cp -r dist/* /blaxel
+# Build the application and clean up afterwards
+RUN npx pnpm run build \
+    && cp -r dist/* /blaxel \
+    && npx pnpm prune --prod
 
 ENV COMMAND="node index.js"
 
