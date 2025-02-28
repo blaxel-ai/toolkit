@@ -103,10 +103,9 @@ func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string
 	_, err = CheckWorkspaceAccess(workspace, creds)
 	if err != nil {
 		fmt.Printf("Error accessing workspace %s : %s\n", workspace, err)
-		os.Exit(1)
+	} else {
+		sdk.SaveCredentials(workspace, creds)
+		sdk.SetCurrentWorkspace(workspace)
+		fmt.Println("Successfully logged in")
 	}
-
-	sdk.SaveCredentials(workspace, creds)
-	sdk.SetCurrentWorkspace(workspace)
-	fmt.Println("Successfully logged in")
 }
