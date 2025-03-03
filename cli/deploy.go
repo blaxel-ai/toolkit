@@ -24,7 +24,7 @@ func executeInstallDependencies(language string) error {
 		return cmd.Run()
 	}
 	if language == "typescript" {
-		cmd := exec.Command("npm", "install", "--force")
+		cmd := exec.Command("npx", "pnpm", "install", "--force")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
