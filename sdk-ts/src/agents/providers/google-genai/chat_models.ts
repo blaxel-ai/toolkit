@@ -205,7 +205,7 @@ export interface GoogleGenerativeAIChatInput
  * Install `@langchain/google-genai` and set an environment variable named `GOOGLE_API_KEY`.
  *
  * ```bash
- * npm install @langchain/google-genai
+ * pnpm install @langchain/google-genai
  * export GOOGLE_API_KEY="your-api-key"
  * ```
  *

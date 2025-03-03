@@ -32,7 +32,7 @@ async function getOpenAIChatModel() {
     return ChatOpenAI;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/openai. Please install it with: pnpm install @langchain/openai"
     );
     throw e;
   }
@@ -44,7 +44,7 @@ async function getDeepSeekChatModel() {
     return ChatDeepSeek;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/deepseek. Please install it with: npm install @langchain/deepseek"
+      "Could not import @langchain/deepseek. Please install it with: pnpm install @langchain/deepseek"
     );
     throw e;
   }
@@ -56,7 +56,7 @@ async function getMistralChatModel() {
     return ChatMistralAI;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/mistralai. Please install it with: npm install @langchain/mistralai"
+      "Could not import @langchain/mistralai. Please install it with: pnpm install @langchain/mistralai"
     );
     throw e;
   }
@@ -68,7 +68,7 @@ async function getAnthropicChatModel() {
     return ChatAnthropic;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/anthropic. Please install it with: npm install @langchain/anthropic"
+      "Could not import @langchain/anthropic. Please install it with: pnpm install @langchain/anthropic"
     );
     throw e;
   }
@@ -81,7 +81,7 @@ async function getXAIChatModel() {
     return ChatXAI;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/openai. Please install it with: pnpm install @langchain/openai"
     );
     throw e;
   }
@@ -93,7 +93,7 @@ async function getCohereModel() {
     return ChatCohere;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/openai. Please install it with: pnpm install @langchain/openai"
     );
     throw e;
   }
@@ -105,7 +105,7 @@ async function getAzurAIInferenceModel() {
     return ChatOpenAI;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/openai. Please install it with: pnpm install @langchain/openai"
     );
     throw e;
   }
@@ -117,7 +117,7 @@ async function getAzureMarketplaceModel() {
     return OpenAI;
   } catch (e) {
     logger.warn(
-      "Could not import @langchain/openai. Please install it with: npm install @langchain/openai"
+      "Could not import @langchain/openai. Please install it with: pnpm install @langchain/openai"
     );
     throw e;
   }
@@ -131,7 +131,7 @@ async function getGeminiChatModel() {
     return ChatGoogleGenerativeAI;
   } catch (e) {
     logger.warn(
-      "Could not import @google/generative-ai. Please install it with: npm install @google/generative-ai"
+      "Could not import @google/generative-ai. Please install it with: pnpm install @google/generative-ai"
     );
     throw e;
   }
@@ -294,7 +294,7 @@ export async function getChatModelFull(
         chat = chatCohere;
       } catch (e) {
         logger.warn(
-          "Could not import cohere-ai. Please install it with: npm install cohere-ai"
+          "Could not import cohere-ai. Please install it with: pnpm install cohere-ai"
         );
         throw e;
       }
