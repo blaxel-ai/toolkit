@@ -237,5 +237,10 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
       })
     );
   }
+  logger.info(
+    `Functions available to your agent: ${functions
+      .map((f) => f.name)
+      .join(", ")}`
+  );
   return functions;
 };

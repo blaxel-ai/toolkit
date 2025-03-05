@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getAuthenticationHeaders } from "../authentication/authentication.js";
 import { getFunction, listFunctions } from "../client/sdk.gen.js";
 import { Function } from "../client/types.gen.js";
+import { logger } from "../common/logger.js";
 import { getSettings, Settings } from "../common/settings.js";
 import { RunClient } from "../run.js";
 import { schemaToZodSchema } from "./common.js";
@@ -29,6 +30,9 @@ export function getRemoteTool(
 ) {
   return tool(
     async (args: Record<string, any>) => {
+      logger.info(
+        `Remote tool call ${name} with arguments: ${JSON.stringify(args)}`
+      );
       const data = await client.run({
         resourceType: "function",
         resourceName: name,

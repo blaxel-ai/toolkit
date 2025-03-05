@@ -119,11 +119,21 @@ export const wrapFunction: WrapFunctionType = async (
     toolBlaxel = await toolkit.getTools();
   } else {
     toolBlaxel = [
-      tool(func, {
-        name: functionBlaxel.metadata?.name || "",
-        description: functionBlaxel.spec?.description || "",
-        schema: zodSchema,
-      }),
+      tool(
+        (options) => {
+          logger.info(
+            `Tool call ${
+              functionBlaxel.metadata?.name
+            } with arguments: ${JSON.stringify(options)}`
+          );
+          return func(options);
+        },
+        {
+          name: functionBlaxel.metadata?.name || "",
+          description: functionBlaxel.spec?.description || "",
+          schema: zodSchema,
+        }
+      ),
     ];
   }
   return {

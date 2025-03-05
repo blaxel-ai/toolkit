@@ -21,9 +21,6 @@ import traceback
 from logging import getLogger
 from typing import Union
 
-from langchain_core.tools import StructuredTool
-from langchain_core.tools.base import create_schema_from_function
-
 from blaxel.authentication import new_client
 from blaxel.client import AuthenticatedClient
 from blaxel.common import slugify
@@ -31,13 +28,15 @@ from blaxel.common.settings import get_settings
 from blaxel.functions.local.local import LocalToolKit
 from blaxel.functions.remote.remote import RemoteToolkit
 from blaxel.models import AgentChain
+from langchain_core.tools import StructuredTool
+from langchain_core.tools.base import BaseTool, create_schema_from_function
 
 logger = getLogger(__name__)
 
 MAX_RETRIES = 1
 RETRY_DELAY = 1  # 1 second delay between retries
 
-async def initialize_with_retry(toolkit, function_name: str, max_retries: int):
+async def initialize_with_retry(toolkit, function_name: str, max_retries: int) -> list[BaseTool]:
     for attempt in range(1, max_retries + 1):
         try:
             await toolkit.initialize()
@@ -60,7 +59,7 @@ async def get_functions(
     local_functions_empty: bool = True,
     from_decorator: str = "function",
     warning: bool = True,
-):
+) -> list[BaseTool]:
     """Discovers and loads function tools from Python files and remote sources.
 
     This function walks through Python files in a specified directory, looking for
@@ -104,7 +103,7 @@ async def get_functions(
     if dir is None:
         dir = settings.agent.functions_directory
 
-    functions = []
+    functions: list[BaseTool] = []
     logger = getLogger(__name__)
     settings = get_settings()
 
@@ -223,5 +222,6 @@ async def get_functions(
         toolkit = ChainToolkit(client, chain)
         await toolkit.initialize()
         functions.extend(await toolkit.get_tools())
+    logger.info(f"Functions available to your agent: {', '.join([f.name for f in functions])}")
     return functions
 

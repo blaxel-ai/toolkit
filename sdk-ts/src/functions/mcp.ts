@@ -4,6 +4,7 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { FunctionSchema } from "../client";
+import { logger } from "../common";
 import { schemaToZodSchema } from "./common";
 
 /**
@@ -23,6 +24,9 @@ export function getMCPTool(
 ) {
   return tool(
     async (args: any) => {
+      logger.info(
+        `MCP tool call ${name} with arguments: ${JSON.stringify(args)}`
+      );
       const result = await client.callTool(name, args);
       if (result.isError) {
         throw new Error(JSON.stringify(result.content));

@@ -7,12 +7,11 @@ import asyncio
 import os
 import warnings
 from dataclasses import dataclass
+from logging import getLogger
 from typing import Callable
 
 import pydantic
 import typing_extensions as t
-from langchain_core.tools.base import BaseTool, ToolException
-
 from blaxel.api.functions import get_function, list_functions
 from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
@@ -21,7 +20,9 @@ from blaxel.functions.mcp.mcp import MCPClient, MCPToolkit
 from blaxel.functions.utils import create_dynamic_schema
 from blaxel.models.function import Function
 from blaxel.run import RunClient
+from langchain_core.tools.base import BaseTool, ToolException
 
+logger = getLogger(__name__)
 
 class RemoteTool(BaseTool):
     """
@@ -50,6 +51,7 @@ class RemoteTool(BaseTool):
 
     @t.override
     async def _arun(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+        logger.info(f"Remote tool call {self.name} with arguments: {kwargs}")
         body = {"arguments": {**kwargs}}
         if self.kit:
             body["name"] = self.name

@@ -12,16 +12,15 @@ import pydantic
 import pydantic_core
 import requests
 import typing_extensions as t
-from langchain_core.tools.base import BaseTool, BaseToolkit, ToolException
-from mcp import ClientSession
-from mcp.types import CallToolResult, ListToolsResult
-
 from blaxel.authentication import get_authentication_headers
 from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
 from blaxel.functions.mcp.client import websocket_client
 from blaxel.functions.utils import create_dynamic_schema
 from blaxel.models import FunctionSchema, FunctionSchemaProperties
+from langchain_core.tools.base import BaseTool, BaseToolkit, ToolException
+from mcp import ClientSession
+from mcp.types import CallToolResult, ListToolsResult
 
 settings = get_settings()
 
@@ -79,6 +78,7 @@ class MCPClient:
         else:
             url = self.url
         try:
+            logger.info(f"MCP tool call {tool_name} with arguments: {arguments}")
             async with websocket_client(url, headers=get_authentication_headers(settings)) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()

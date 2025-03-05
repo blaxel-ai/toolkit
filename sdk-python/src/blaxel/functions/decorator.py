@@ -4,9 +4,8 @@ import functools
 from collections.abc import Callable
 from logging import getLogger
 
-from fastapi import Request
-
 from blaxel.models import Function, FunctionKit
+from fastapi import Request
 
 logger = getLogger(__name__)
 
@@ -23,6 +22,8 @@ def kit(parent: str, kit: FunctionKit = None, **kwargs: dict) -> Callable:
     """
 
     def wrapper(func: Callable) -> Callable:
+        name = kit.name if kit and kit.name else func.__name__
+        logger.info(f"Toolkit call {name} with arguments: {kwargs}")
         if kit and not func.__doc__ and kit.description:
             func.__doc__ = kit.description
         return func
@@ -56,11 +57,13 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
         @functools.wraps(func)
         async def wrapped(*args, **kwargs):
             try:
+                name = function.metadata.name if function and function.metadata and function.metadata.name else func.__name__
                 if kit is True:
                     return await func(*args, **kwargs)
                 if len(args) > 0 and isinstance(args[0], Request):
                     body = await args[0].json()
                     args = [body.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]
+                logger.info(f"Tool call {name} with arguments: {args}")
                 return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
             except Exception as e:
                 logger.error(f"Error calling function {func.__name__}: {e}")
