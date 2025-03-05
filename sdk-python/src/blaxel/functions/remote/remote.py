@@ -130,7 +130,7 @@ class RemoteToolkit:
                     resource_name=self._function.metadata.name,
                     kit=True,
                     description=func.description or "",
-                    args_schema=create_dynamic_schema(func.name, func.parameters),
+                    args_schema=create_dynamic_schema(func.name, func.schema),
                     cloud=settings.cloud,
                     service_name=self._service_name,
                 )
@@ -145,7 +145,7 @@ class RemoteToolkit:
                 description=self._function.spec.description or "",
                 args_schema=create_dynamic_schema(
                     self._function.metadata.name,
-                    self._function.spec.parameters
+                    self._function.spec.schema
                 ),
                 cloud=settings.cloud,
                 service_name=self._service_name,
