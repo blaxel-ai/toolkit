@@ -1,6 +1,6 @@
 """
 This module provides functionalities to integrate remote functions into Blaxel.
-It includes classes for creating dynamic schemas based on function parameters and managing remote toolkits.
+It includes classes for creating dynamic schemas based on function schema and managing remote toolkits.
 """
 
 import asyncio
@@ -11,45 +11,16 @@ from typing import Callable
 
 import pydantic
 import typing_extensions as t
+from langchain_core.tools.base import BaseTool, ToolException
+
 from blaxel.api.functions import get_function, list_functions
 from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
 from blaxel.errors import UnexpectedStatus
 from blaxel.functions.mcp.mcp import MCPClient, MCPToolkit
-from blaxel.models import Function, StoreFunctionParameter
+from blaxel.functions.utils import create_dynamic_schema
+from blaxel.models.function import Function
 from blaxel.run import RunClient
-from langchain_core.tools.base import BaseTool, ToolException
-
-
-def create_dynamic_schema(name: str, parameters: list[StoreFunctionParameter]) -> type[pydantic.BaseModel]:
-    """
-    Creates a dynamic Pydantic schema based on function parameters.
-
-    Args:
-        name (str): The name of the schema.
-        parameters (list[StoreFunctionParameter]): List of parameter objects.
-
-    Returns:
-        type[pydantic.BaseModel]: The dynamically created Pydantic model.
-    """
-    field_definitions = {}
-    for param in parameters:
-        field_type = str
-        if param.type_ == "number":
-            field_type = float
-        elif param.type_ == "integer":
-            field_type = int
-        elif param.type_ == "boolean":
-            field_type = bool
-
-        field_definitions[param.name] = (
-            field_type,
-            pydantic.Field(description=param.description or "")
-        )
-    return pydantic.create_model(
-        f"{name}Schema",
-        **field_definitions
-    )
 
 
 class RemoteTool(BaseTool):

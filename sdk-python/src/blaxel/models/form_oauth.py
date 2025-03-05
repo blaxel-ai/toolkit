@@ -3,14 +3,14 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="IntegrationConnectionSpecConfig")
+T = TypeVar("T", bound="FormOauth")
 
 
 @_attrs_define
-class IntegrationConnectionSpecConfig:
-    """Additional configuration for the integration"""
+class FormOauth:
+    """OAuth of the artifact"""
 
-    additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         field_dict: dict[str, Any] = {}
@@ -23,19 +23,19 @@ class IntegrationConnectionSpecConfig:
         if not src_dict:
             return None
         d = src_dict.copy()
-        integration_connection_spec_config = cls()
+        form_oauth = cls()
 
-        integration_connection_spec_config.additional_properties = d
-        return integration_connection_spec_config
+        form_oauth.additional_properties = d
+        return form_oauth
 
     @property
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> str:
+    def __getitem__(self, key: str) -> Any:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

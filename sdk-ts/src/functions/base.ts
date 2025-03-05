@@ -1,14 +1,10 @@
 import { StructuredTool, tool } from "@langchain/core/tools";
 import { FastifyRequest } from "fastify";
-import {
-  Function,
-  FunctionSpec,
-  StoreFunctionParameter,
-} from "../client/types.gen.js";
+import { Function, FunctionSchema, FunctionSpec } from "../client/types.gen.js";
 import { getSettings } from "../common/settings.js";
 import { slugify } from "../common/slugify.js";
 import { logger, newClient } from "../index.js";
-import { parametersToZodSchema } from "./common.js";
+import { schemaToZodSchema } from "./common.js";
 import { RemoteToolkit } from "./remote.js";
 
 /**
@@ -71,9 +67,9 @@ export type FunctionOptions = {
   description?: string;
 
   /**
-   * Parameters for the function.
+   * Schema for the function.
    */
-  parameters?: StoreFunctionParameter[];
+  schema?: FunctionSchema;
 };
 
 /**
@@ -92,12 +88,12 @@ export const wrapFunction: WrapFunctionType = async (
   const description =
     options?.function?.spec?.description ?? options?.description ?? "";
 
-  const parameters: StoreFunctionParameter[] =
-    options?.parameters ?? options?.function?.spec?.parameters ?? [];
+  const schema: FunctionSchema =
+    options?.schema ?? options?.function?.spec?.schema ?? {};
 
   const functionSpec: FunctionSpec = {
     description,
-    parameters,
+    schema,
     ...(options?.function?.spec ? { ...options.function.spec } : {}),
   };
   const name = slugify(
@@ -112,7 +108,7 @@ export const wrapFunction: WrapFunctionType = async (
     spec: functionSpec,
   };
 
-  const zodSchema = parametersToZodSchema(parameters);
+  const zodSchema = schemaToZodSchema(schema.properties || {});
   let toolBlaxel: StructuredTool[];
   if (settings.remote) {
     const toolkit = new RemoteToolkit(

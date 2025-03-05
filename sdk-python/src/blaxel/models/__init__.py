@@ -20,10 +20,14 @@ from .entrypoint_env import EntrypointEnv
 from .flavor import Flavor
 from .form import Form
 from .form_config import FormConfig
-from .form_oauthomitempty import FormOauthomitempty
+from .form_oauth import FormOauth
 from .form_secrets import FormSecrets
 from .function import Function
 from .function_kit import FunctionKit
+from .function_schema import FunctionSchema
+from .function_schema_not import FunctionSchemaNot
+from .function_schema_or_bool import FunctionSchemaOrBool
+from .function_schema_properties import FunctionSchemaProperties
 from .function_spec import FunctionSpec
 from .get_workspace_service_accounts_response_200_item import (
     GetWorkspaceServiceAccountsResponse200Item,
@@ -99,11 +103,10 @@ from .store_agent import StoreAgent
 from .store_agent_labels import StoreAgentLabels
 from .store_configuration import StoreConfiguration
 from .store_configuration_option import StoreConfigurationOption
-from .store_function import StoreFunction
-from .store_function_kit import StoreFunctionKit
-from .store_function_labels import StoreFunctionLabels
-from .store_function_parameter import StoreFunctionParameter
+from .template import Template
+from .template_variable import TemplateVariable
 from .time_fields import TimeFields
+from .time_to_first_token_over_time_metrics import TimeToFirstTokenOverTimeMetrics
 from .token_rate_metric import TokenRateMetric
 from .token_rate_metrics import TokenRateMetrics
 from .token_total_metric import TokenTotalMetric
@@ -137,10 +140,14 @@ __all__ = (
     "Flavor",
     "Form",
     "FormConfig",
-    "FormOauthomitempty",
+    "FormOauth",
     "FormSecrets",
     "Function",
     "FunctionKit",
+    "FunctionSchema",
+    "FunctionSchemaNot",
+    "FunctionSchemaOrBool",
+    "FunctionSchemaProperties",
     "FunctionSpec",
     "GetWorkspaceServiceAccountsResponse200Item",
     "HistogramBucket",
@@ -210,11 +217,10 @@ __all__ = (
     "StoreAgentLabels",
     "StoreConfiguration",
     "StoreConfigurationOption",
-    "StoreFunction",
-    "StoreFunctionKit",
-    "StoreFunctionLabels",
-    "StoreFunctionParameter",
+    "Template",
+    "TemplateVariable",
     "TimeFields",
+    "TimeToFirstTokenOverTimeMetrics",
     "TokenRateMetric",
     "TokenRateMetrics",
     "TokenTotalMetric",

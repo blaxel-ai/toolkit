@@ -5,24 +5,24 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
-T = TypeVar("T", bound="StoreFunctionParameter")
+T = TypeVar("T", bound="TemplateVariable")
 
 
 @_attrs_define
-class StoreFunctionParameter:
-    """Store function parameter
+class TemplateVariable:
+    """Blaxel template variable
 
     Attributes:
-        description (Union[Unset, str]): Store function parameter description
-        name (Union[Unset, str]): Store function parameter name
-        required (Union[Unset, bool]): Store function parameter required
-        type_ (Union[Unset, str]): Store function parameter type
+        description (Union[Unset, str]): Description of the variable
+        name (Union[Unset, str]): Name of the variable
+        path (Union[Unset, str]): Path of the variable
+        secret (Union[Unset, bool]): Whether the variable is secret
     """
 
     description: Union[Unset, str] = UNSET
     name: Union[Unset, str] = UNSET
-    required: Union[Unset, bool] = UNSET
-    type_: Union[Unset, str] = UNSET
+    path: Union[Unset, str] = UNSET
+    secret: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -30,9 +30,9 @@ class StoreFunctionParameter:
 
         name = self.name
 
-        required = self.required
+        path = self.path
 
-        type_ = self.type_
+        secret = self.secret
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -41,10 +41,10 @@ class StoreFunctionParameter:
             field_dict["description"] = description
         if name is not UNSET:
             field_dict["name"] = name
-        if required is not UNSET:
-            field_dict["required"] = required
-        if type_ is not UNSET:
-            field_dict["type"] = type_
+        if path is not UNSET:
+            field_dict["path"] = path
+        if secret is not UNSET:
+            field_dict["secret"] = secret
 
         return field_dict
 
@@ -57,19 +57,19 @@ class StoreFunctionParameter:
 
         name = d.pop("name", UNSET)
 
-        required = d.pop("required", UNSET)
+        path = d.pop("path", UNSET)
 
-        type_ = d.pop("type", UNSET)
+        secret = d.pop("secret", UNSET)
 
-        store_function_parameter = cls(
+        template_variable = cls(
             description=description,
             name=name,
-            required=required,
-            type_=type_,
+            path=path,
+            secret=secret,
         )
 
-        store_function_parameter.additional_properties = d
-        return store_function_parameter
+        template_variable.additional_properties = d
+        return template_variable
 
     @property
     def additional_keys(self) -> list[str]:

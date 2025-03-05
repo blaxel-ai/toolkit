@@ -5,7 +5,7 @@ import path from "path";
 import z from "zod";
 import { ChainToolkit } from "../agents/chain.js";
 import { newClient } from "../authentication/authentication.js";
-import { AgentChain, StoreFunctionParameter } from "../client/types.gen.js";
+import { AgentChain, FunctionSchema } from "../client/types.gen.js";
 import { logger } from "../common/logger.js";
 import { getSettings } from "../common/settings.js";
 import { RunClient } from "../run.js";
@@ -14,19 +14,16 @@ import { LocalFunction, LocalToolkit } from "./local.js";
 import { RemoteToolkit } from "./remote.js";
 
 /**
- * Converts an array of `StoreFunctionParameter` objects into a Zod schema for validation.
+ * Converts an array of `FunctionSchema` objects into a Zod schema for validation.
  *
- * @param {StoreFunctionParameter[]} parameters - The parameters to convert.
+ * @param {FunctionSchema} parameters - The parameters to convert.
  * @returns {z.ZodObject<any>} A Zod object schema representing the parameters.
  */
-export const parametersToZodSchema = (
-  parameters: StoreFunctionParameter[]
-): z.ZodObject<any> => {
+export const schemaToZodSchema = (schema: FunctionSchema): z.ZodObject<any> => {
   const shape: { [key: string]: z.ZodType } = {};
 
-  parameters
-    .filter((param) => param.name)
-    .forEach((param) => {
+  if (schema.properties) {
+    Object.entries(schema.properties).forEach(([key, param]) => {
       let zodType: z.ZodType;
 
       switch (param.type) {
@@ -36,15 +33,24 @@ export const parametersToZodSchema = (
         case "number":
           zodType = z.number();
           break;
+        case "array":
+          zodType = z.array(schemaToZodSchema(param.items?.properties || {}));
+          break;
+        case "object":
+          zodType = schemaToZodSchema(param.properties || {});
+          break;
         default:
           zodType = z.string();
       }
-
       if (param.description) {
         zodType = zodType.describe(param.description);
       }
-      shape[param?.name || ""] = param.required ? zodType : zodType.optional();
+      shape[key] =
+        param.required || schema.required?.includes(key)
+          ? zodType
+          : zodType.optional();
     });
+  }
   return z.object(shape);
 };
 

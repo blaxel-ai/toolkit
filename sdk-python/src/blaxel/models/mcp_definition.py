@@ -18,6 +18,8 @@ class MCPDefinition:
     """Definition of an MCP from the MCP Hub
 
     Attributes:
+        created_at (Union[Unset, str]): The date and time when the resource was created
+        updated_at (Union[Unset, str]): The date and time when the resource was updated
         categories (Union[Unset, list[Any]]): Categories of the artifact
         coming_soon (Union[Unset, bool]): If the artifact is coming soon
         description (Union[Unset, str]): Description of the artifact
@@ -25,6 +27,7 @@ class MCPDefinition:
         enterprise (Union[Unset, bool]): If the artifact is enterprise
         entrypoint (Union[Unset, MCPDefinitionEntrypoint]): Entrypoint of the artifact
         form (Union[Unset, MCPDefinitionForm]): Form of the artifact
+        hidden_secrets (Union[Unset, list[str]]): Hidden secrets of the artifact
         icon (Union[Unset, str]): Icon of the artifact
         integration (Union[Unset, str]): Integration of the artifact
         long_description (Union[Unset, str]): Long description of the artifact
@@ -32,6 +35,8 @@ class MCPDefinition:
         url (Union[Unset, str]): URL of the artifact
     """
 
+    created_at: Union[Unset, str] = UNSET
+    updated_at: Union[Unset, str] = UNSET
     categories: Union[Unset, list[Any]] = UNSET
     coming_soon: Union[Unset, bool] = UNSET
     description: Union[Unset, str] = UNSET
@@ -39,6 +44,7 @@ class MCPDefinition:
     enterprise: Union[Unset, bool] = UNSET
     entrypoint: Union[Unset, "MCPDefinitionEntrypoint"] = UNSET
     form: Union[Unset, "MCPDefinitionForm"] = UNSET
+    hidden_secrets: Union[Unset, list[str]] = UNSET
     icon: Union[Unset, str] = UNSET
     integration: Union[Unset, str] = UNSET
     long_description: Union[Unset, str] = UNSET
@@ -47,6 +53,10 @@ class MCPDefinition:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        created_at = self.created_at
+
+        updated_at = self.updated_at
+
         categories: Union[Unset, list[Any]] = UNSET
         if not isinstance(self.categories, Unset):
             categories = self.categories
@@ -71,6 +81,10 @@ class MCPDefinition:
         elif self.form and isinstance(self.form, dict):
             form = self.form
 
+        hidden_secrets: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.hidden_secrets, Unset):
+            hidden_secrets = self.hidden_secrets
+
         icon = self.icon
 
         integration = self.integration
@@ -84,6 +98,10 @@ class MCPDefinition:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
+        if created_at is not UNSET:
+            field_dict["createdAt"] = created_at
+        if updated_at is not UNSET:
+            field_dict["updatedAt"] = updated_at
         if categories is not UNSET:
             field_dict["categories"] = categories
         if coming_soon is not UNSET:
@@ -98,6 +116,8 @@ class MCPDefinition:
             field_dict["entrypoint"] = entrypoint
         if form is not UNSET:
             field_dict["form"] = form
+        if hidden_secrets is not UNSET:
+            field_dict["hiddenSecrets"] = hidden_secrets
         if icon is not UNSET:
             field_dict["icon"] = icon
         if integration is not UNSET:
@@ -119,6 +139,10 @@ class MCPDefinition:
         if not src_dict:
             return None
         d = src_dict.copy()
+        created_at = d.pop("createdAt", UNSET)
+
+        updated_at = d.pop("updatedAt", UNSET)
+
         categories = cast(list[Any], d.pop("categories", UNSET))
 
         coming_soon = d.pop("coming_soon", UNSET)
@@ -143,6 +167,8 @@ class MCPDefinition:
         else:
             form = MCPDefinitionForm.from_dict(_form)
 
+        hidden_secrets = cast(list[str], d.pop("hiddenSecrets", UNSET))
+
         icon = d.pop("icon", UNSET)
 
         integration = d.pop("integration", UNSET)
@@ -154,6 +180,8 @@ class MCPDefinition:
         url = d.pop("url", UNSET)
 
         mcp_definition = cls(
+            created_at=created_at,
+            updated_at=updated_at,
             categories=categories,
             coming_soon=coming_soon,
             description=description,
@@ -161,6 +189,7 @@ class MCPDefinition:
             enterprise=enterprise,
             entrypoint=entrypoint,
             form=form,
+            hidden_secrets=hidden_secrets,
             icon=icon,
             integration=integration,
             long_description=long_description,

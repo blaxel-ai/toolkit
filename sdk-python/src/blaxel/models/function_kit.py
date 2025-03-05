@@ -6,7 +6,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.store_function_parameter import StoreFunctionParameter
+    from ..models.function_schema import FunctionSchema
 
 
 T = TypeVar("T", bound="FunctionKit")
@@ -20,13 +20,12 @@ class FunctionKit:
         description (Union[Unset, str]): Description of the function kit, very important for the agent to work with your
             kit
         name (Union[Unset, str]): The kit name, very important for the agent to work with your kit
-        parameters (Union[Unset, list['StoreFunctionParameter']]): Kit parameters, for your kit to be callable with an
-            Agent
+        schema (Union[Unset, FunctionSchema]): Function schema
     """
 
     description: Union[Unset, str] = UNSET
     name: Union[Unset, str] = UNSET
-    parameters: Union[Unset, list["StoreFunctionParameter"]] = UNSET
+    schema: Union[Unset, "FunctionSchema"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -34,12 +33,11 @@ class FunctionKit:
 
         name = self.name
 
-        parameters: Union[Unset, list[dict[str, Any]]] = UNSET
-        if not isinstance(self.parameters, Unset):
-            parameters = []
-            for parameters_item_data in self.parameters:
-                parameters_item = parameters_item_data.to_dict()
-                parameters.append(parameters_item)
+        schema: Union[Unset, dict[str, Any]] = UNSET
+        if self.schema and not isinstance(self.schema, Unset) and not isinstance(self.schema, dict):
+            schema = self.schema.to_dict()
+        elif self.schema and isinstance(self.schema, dict):
+            schema = self.schema
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -48,14 +46,14 @@ class FunctionKit:
             field_dict["description"] = description
         if name is not UNSET:
             field_dict["name"] = name
-        if parameters is not UNSET:
-            field_dict["parameters"] = parameters
+        if schema is not UNSET:
+            field_dict["schema"] = schema
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
-        from ..models.store_function_parameter import StoreFunctionParameter
+        from ..models.function_schema import FunctionSchema
 
         if not src_dict:
             return None
@@ -64,17 +62,17 @@ class FunctionKit:
 
         name = d.pop("name", UNSET)
 
-        parameters = []
-        _parameters = d.pop("parameters", UNSET)
-        for parameters_item_data in _parameters or []:
-            parameters_item = StoreFunctionParameter.from_dict(parameters_item_data)
-
-            parameters.append(parameters_item)
+        _schema = d.pop("schema", UNSET)
+        schema: Union[Unset, FunctionSchema]
+        if isinstance(_schema, Unset):
+            schema = UNSET
+        else:
+            schema = FunctionSchema.from_dict(_schema)
 
         function_kit = cls(
             description=description,
             name=name,
-            parameters=parameters,
+            schema=schema,
         )
 
         function_kit.additional_properties = d

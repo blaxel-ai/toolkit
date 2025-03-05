@@ -16,14 +16,12 @@ class RevisionConfiguration:
         active (Union[Unset, str]): Active revision id
         canary (Union[Unset, str]): Canary revision id
         canary_percent (Union[Unset, int]): Canary revision percent
-        previous_active (Union[Unset, str]): Previous active revision id
         traffic (Union[Unset, int]): Traffic percentage
     """
 
     active: Union[Unset, str] = UNSET
     canary: Union[Unset, str] = UNSET
     canary_percent: Union[Unset, int] = UNSET
-    previous_active: Union[Unset, str] = UNSET
     traffic: Union[Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -33,8 +31,6 @@ class RevisionConfiguration:
         canary = self.canary
 
         canary_percent = self.canary_percent
-
-        previous_active = self.previous_active
 
         traffic = self.traffic
 
@@ -47,8 +43,6 @@ class RevisionConfiguration:
             field_dict["canary"] = canary
         if canary_percent is not UNSET:
             field_dict["canaryPercent"] = canary_percent
-        if previous_active is not UNSET:
-            field_dict["previousActive"] = previous_active
         if traffic is not UNSET:
             field_dict["traffic"] = traffic
 
@@ -65,15 +59,12 @@ class RevisionConfiguration:
 
         canary_percent = d.pop("canaryPercent", UNSET)
 
-        previous_active = d.pop("previousActive", UNSET)
-
         traffic = d.pop("traffic", UNSET)
 
         revision_configuration = cls(
             active=active,
             canary=canary,
             canary_percent=canary_percent,
-            previous_active=previous_active,
             traffic=traffic,
         )
 

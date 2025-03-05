@@ -14,12 +14,14 @@ class IntegrationRepository:
 
     Attributes:
         id (Union[Unset, str]): Repository ID
+        is_bl (Union[Unset, bool]): Whether the repository has Blaxel imports
         name (Union[Unset, str]): Repository name
         organization (Union[Unset, str]): Repository owner
         url (Union[Unset, str]): Repository URL
     """
 
     id: Union[Unset, str] = UNSET
+    is_bl: Union[Unset, bool] = UNSET
     name: Union[Unset, str] = UNSET
     organization: Union[Unset, str] = UNSET
     url: Union[Unset, str] = UNSET
@@ -27,6 +29,8 @@ class IntegrationRepository:
 
     def to_dict(self) -> dict[str, Any]:
         id = self.id
+
+        is_bl = self.is_bl
 
         name = self.name
 
@@ -39,6 +43,8 @@ class IntegrationRepository:
         field_dict.update({})
         if id is not UNSET:
             field_dict["id"] = id
+        if is_bl is not UNSET:
+            field_dict["isBl"] = is_bl
         if name is not UNSET:
             field_dict["name"] = name
         if organization is not UNSET:
@@ -55,6 +61,8 @@ class IntegrationRepository:
         d = src_dict.copy()
         id = d.pop("id", UNSET)
 
+        is_bl = d.pop("isBl", UNSET)
+
         name = d.pop("name", UNSET)
 
         organization = d.pop("organization", UNSET)
@@ -63,6 +71,7 @@ class IntegrationRepository:
 
         integration_repository = cls(
             id=id,
+            is_bl=is_bl,
             name=name,
             organization=organization,
             url=url,

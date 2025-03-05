@@ -3,12 +3,12 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="FormOauthomitempty")
+T = TypeVar("T", bound="FunctionSchemaNot")
 
 
 @_attrs_define
-class FormOauthomitempty:
-    """OAuth of the artifact"""
+class FunctionSchemaNot:
+    """Schema that this schema must not be"""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -23,10 +23,10 @@ class FormOauthomitempty:
         if not src_dict:
             return None
         d = src_dict.copy()
-        form_oauthomitempty = cls()
+        function_schema_not = cls()
 
-        form_oauthomitempty.additional_properties = d
-        return form_oauthomitempty
+        function_schema_not.additional_properties = d
+        return function_schema_not
 
     @property
     def additional_keys(self) -> list[str]:

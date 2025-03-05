@@ -9,12 +9,12 @@ if TYPE_CHECKING:
     from ..models.core_spec_configurations import CoreSpecConfigurations
     from ..models.flavor import Flavor
     from ..models.function_kit import FunctionKit
+    from ..models.function_schema import FunctionSchema
     from ..models.model_private_cluster import ModelPrivateCluster
     from ..models.pod_template_spec import PodTemplateSpec
     from ..models.revision_configuration import RevisionConfiguration
     from ..models.runtime import Runtime
     from ..models.serverless_config import ServerlessConfig
-    from ..models.store_function_parameter import StoreFunctionParameter
 
 
 T = TypeVar("T", bound="FunctionSpec")
@@ -37,10 +37,8 @@ class FunctionSpec:
         sandbox (Union[Unset, bool]): Sandbox mode
         serverless_config (Union[Unset, ServerlessConfig]): Configuration for a serverless deployment
         description (Union[Unset, str]): Function description, very important for the agent function to work with an LLM
-        kit (Union[Unset, list['FunctionKit']]): The kit of the function deployment
-        parameters (Union[Unset, list['StoreFunctionParameter']]): Function parameters, for your function to be callable
-            with Agent
-        store_id (Union[Unset, str]): Store id
+        kit (Union[Unset, list['FunctionKit']]): Function kits
+        schema (Union[Unset, FunctionSchema]): Function schema
     """
 
     configurations: Union[Unset, "CoreSpecConfigurations"] = UNSET
@@ -56,8 +54,7 @@ class FunctionSpec:
     serverless_config: Union[Unset, "ServerlessConfig"] = UNSET
     description: Union[Unset, str] = UNSET
     kit: Union[Unset, list["FunctionKit"]] = UNSET
-    parameters: Union[Unset, list["StoreFunctionParameter"]] = UNSET
-    store_id: Union[Unset, str] = UNSET
+    schema: Union[Unset, "FunctionSchema"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -137,14 +134,11 @@ class FunctionSpec:
                 kit_item = kit_item_data.to_dict()
                 kit.append(kit_item)
 
-        parameters: Union[Unset, list[dict[str, Any]]] = UNSET
-        if not isinstance(self.parameters, Unset):
-            parameters = []
-            for parameters_item_data in self.parameters:
-                parameters_item = parameters_item_data.to_dict()
-                parameters.append(parameters_item)
-
-        store_id = self.store_id
+        schema: Union[Unset, dict[str, Any]] = UNSET
+        if self.schema and not isinstance(self.schema, Unset) and not isinstance(self.schema, dict):
+            schema = self.schema.to_dict()
+        elif self.schema and isinstance(self.schema, dict):
+            schema = self.schema
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -175,10 +169,8 @@ class FunctionSpec:
             field_dict["description"] = description
         if kit is not UNSET:
             field_dict["kit"] = kit
-        if parameters is not UNSET:
-            field_dict["parameters"] = parameters
-        if store_id is not UNSET:
-            field_dict["storeId"] = store_id
+        if schema is not UNSET:
+            field_dict["schema"] = schema
 
         return field_dict
 
@@ -187,12 +179,12 @@ class FunctionSpec:
         from ..models.core_spec_configurations import CoreSpecConfigurations
         from ..models.flavor import Flavor
         from ..models.function_kit import FunctionKit
+        from ..models.function_schema import FunctionSchema
         from ..models.model_private_cluster import ModelPrivateCluster
         from ..models.pod_template_spec import PodTemplateSpec
         from ..models.revision_configuration import RevisionConfiguration
         from ..models.runtime import Runtime
         from ..models.serverless_config import ServerlessConfig
-        from ..models.store_function_parameter import StoreFunctionParameter
 
         if not src_dict:
             return None
@@ -263,14 +255,12 @@ class FunctionSpec:
 
             kit.append(kit_item)
 
-        parameters = []
-        _parameters = d.pop("parameters", UNSET)
-        for parameters_item_data in _parameters or []:
-            parameters_item = StoreFunctionParameter.from_dict(parameters_item_data)
-
-            parameters.append(parameters_item)
-
-        store_id = d.pop("storeId", UNSET)
+        _schema = d.pop("schema", UNSET)
+        schema: Union[Unset, FunctionSchema]
+        if isinstance(_schema, Unset):
+            schema = UNSET
+        else:
+            schema = FunctionSchema.from_dict(_schema)
 
         function_spec = cls(
             configurations=configurations,
@@ -286,8 +276,7 @@ class FunctionSpec:
             serverless_config=serverless_config,
             description=description,
             kit=kit,
-            parameters=parameters,
-            store_id=store_id,
+            schema=schema,
         )
 
         function_spec.additional_properties = d

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Callable, Literal
 
-from blaxel.models import StoreFunctionParameter
+from blaxel.models import FunctionSchema, FunctionSchemaProperties
 
 
 @dataclass
@@ -100,7 +100,7 @@ def get_resources(from_decorator, dir) -> list[Resource]:
     return resources
 
 
-def get_parameters(resource: Resource) -> list[StoreFunctionParameter]:
+def get_schema(resource: Resource) -> FunctionSchema:
     """
     Extracts parameter information from a function's signature and docstring.
 
@@ -108,9 +108,8 @@ def get_parameters(resource: Resource) -> list[StoreFunctionParameter]:
         resource (Resource): The resource object containing the function to analyze
 
     Returns:
-        list[StoreFunctionParameter]: List of parameter objects with name, type, required status, and description
+        FunctionSchema: OpenAPI schema for the function parameters
     """
-    parameters = []
     # Get function signature
     import inspect
 
@@ -130,21 +129,36 @@ def get_parameters(resource: Resource) -> list[StoreFunctionParameter]:
                     param_name = param_line[0].strip()
                     param_desc = param_line[1].strip()
                     param_descriptions[param_name] = param_desc
+
+    # Initialize the schema
+    schema = FunctionSchema(
+        type_="object"
+    )
+
+    # Create properties object
+    properties = FunctionSchemaProperties()
+
+    # Track required parameters
+    required_params: list[str] = []
+
+    # Map Python types to OpenAPI types
+    type_mapping = {
+        "str": "string",
+        "int": "integer",
+        "float": "number",
+        "bool": "boolean",
+        "list": "array",
+        "dict": "object",
+        "none": "null",
+    }
+
+    # Process each parameter
     for name, param in sig.parameters.items():
         # Skip *args and **kwargs parameters
         if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
             continue
 
         param_type = "string"  # Default type
-        type_mapping = {
-            "str": "string",
-            "int": "integer",
-            "float": "number",
-            "bool": "boolean",
-            "list": "array",
-            "dict": "object",
-            "none": "null",
-        }
         if param.annotation != inspect.Parameter.empty:
             # Map Python types to OpenAPI types
             if hasattr(param.annotation, "__name__"):
@@ -152,15 +166,26 @@ def get_parameters(resource: Resource) -> list[StoreFunctionParameter]:
             else:
                 # Handle special types like Union, Optional etc
                 param_type = str(param.annotation).lower()
-        parameter = StoreFunctionParameter(
-            name=name,
-            type_=type_mapping.get(param_type, "string"),
-            required=param.default == inspect.Parameter.empty,
-            description=param_descriptions.get(name, f"Parameter {name}"),
-        )
-        parameters.append(parameter)
 
-    return parameters
+        # Convert to OpenAPI type
+        openapi_type = type_mapping.get(param_type, "string")
+
+        # Add parameter to properties
+        properties[name] = {
+            "type": openapi_type,
+            "description": param_descriptions.get(name, f"Parameter {name}")
+        }
+
+        # If parameter is required, add to required list
+        if param.default == inspect.Parameter.empty:
+            required_params.append(name)
+
+    # Set properties and required fields in schema
+    schema.properties = properties
+    if required_params:
+        schema.required = required_params
+
+    return schema
 
 
 def get_description(description: str | None, resource: Resource) -> str:

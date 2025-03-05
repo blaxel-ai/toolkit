@@ -1,8 +1,10 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from .chroma import ChromaKnowledgebase
 from .pinecone import PineconeKnowledgebase
 from .qdrant import QdrantKnowledgebase
 from .types import KnowledgebaseClass
+
 
 class KnowledgebaseConfig:
     def __init__(
