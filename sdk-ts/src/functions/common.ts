@@ -34,10 +34,10 @@ export const schemaToZodSchema = (schema: FunctionSchema): z.ZodObject<any> => {
           zodType = z.number();
           break;
         case "array":
-          zodType = z.array(schemaToZodSchema(param.items?.properties || {}));
+          zodType = z.array(schemaToZodSchema(param.items || {}));
           break;
         case "object":
-          zodType = schemaToZodSchema(param.properties || {});
+          zodType = schemaToZodSchema(param);
           break;
         default:
           zodType = z.string();

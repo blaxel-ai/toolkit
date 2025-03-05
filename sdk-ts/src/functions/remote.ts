@@ -181,7 +181,7 @@ export class RemoteToolkit {
         this.runClient,
         this._function.metadata?.name || "",
         this._function.spec?.description || "",
-        schemaToZodSchema(this._function.spec?.schema?.properties || {})
+        schemaToZodSchema(this._function.spec?.schema || {})
       ),
     ];
   }

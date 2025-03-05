@@ -108,7 +108,7 @@ export const wrapFunction: WrapFunctionType = async (
     spec: functionSpec,
   };
 
-  const zodSchema = schemaToZodSchema(schema.properties || {});
+  const zodSchema = schemaToZodSchema(schema);
   let toolBlaxel: StructuredTool[];
   if (settings.remote) {
     const toolkit = new RemoteToolkit(
