@@ -4,8 +4,9 @@ import functools
 from collections.abc import Callable
 from logging import getLogger
 
-from blaxel.models import Function, FunctionKit
 from fastapi import Request
+
+from blaxel.models import Function, FunctionKit
 
 logger = getLogger(__name__)
 

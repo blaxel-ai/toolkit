@@ -3,9 +3,12 @@ import uuid
 from typing import List
 
 from blaxel.common import init
-from blaxel.knowledgebases import (KnowledgebaseClass, KnowledgebaseConfig,
-                                   KnowledgebaseFactory,
-                                   KnowledgebaseSearchResult)
+from blaxel.knowledgebases import (
+    KnowledgebaseClass,
+    KnowledgebaseConfig,
+    KnowledgebaseFactory,
+    KnowledgebaseSearchResult,
+)
 
 settings = init()
 
@@ -68,7 +71,7 @@ async def sample_usage():
     )
 
     # Create knowledgebase instances
-    # chroma_kb = await KnowledgebaseFactory.create(chroma_config)
+    chroma_kb = await KnowledgebaseFactory.create(chroma_config)
     pinecone_kb = await KnowledgebaseFactory.create(pinecone_config)
     qdrant_kb = await KnowledgebaseFactory.create(qdrant_config)
 
@@ -110,8 +113,8 @@ async def sample_usage():
         await kb.close()
 
     # Try with different implementations
-    # print("Testing with Chroma:")
-    # await demonstrate_kb_operations(chroma_kb)
+    print("Testing with Chroma:")
+    await demonstrate_kb_operations(chroma_kb)
 
     print("\nTesting with Pinecone:")
     await demonstrate_kb_operations(pinecone_kb)

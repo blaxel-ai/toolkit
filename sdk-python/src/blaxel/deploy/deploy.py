@@ -32,7 +32,7 @@ from blaxel.models import (
 )
 
 from .format import arg_to_dict
-from .parser import Resource, get_description, get_parameters, get_resources
+from .parser import Resource, get_description, get_resources, get_schema
 
 sys.path.insert(0, os.getcwd())
 sys.path.insert(0, os.path.join(os.getcwd(), "src"))
@@ -114,8 +114,8 @@ def get_blaxel_deployment_from_resource(
                 metadata = Metadata(**value.get("metadata", {}))
                 spec = FunctionSpec(**value.get("spec", {}))
                 func = Function(metadata=metadata, spec=spec)
-                if not func.spec.parameters:
-                    func.spec.parameters = get_parameters(resource)
+                if not func.spec.schema:
+                    func.spec.schema = get_schema(resource)
                 return set_default_values(resource, func)
         if arg.arg == "kit":
             if isinstance(arg.value, ast.Dict):
@@ -123,8 +123,8 @@ def get_blaxel_deployment_from_resource(
                 kit = FunctionKit(**value)
                 if not kit.description:
                     kit.description = get_description(None, resource)
-                if not kit.parameters:
-                    kit.parameters = get_parameters(resource)
+                if not kit.schema:
+                    kit.schema = get_schema(resource)
                 return kit
 
     if resource.type == "agent":
@@ -132,13 +132,13 @@ def get_blaxel_deployment_from_resource(
         return set_default_values(resource, agent)
     if resource.type == "function":
         func = Function(metadata=Metadata(), spec=FunctionSpec())
-        func.spec.parameters = get_parameters(resource)
+        func.spec.schema = get_schema(resource)
         return set_default_values(resource, func)
     if resource.type == "kit":
         kit = FunctionKit(
             name=slugify(resource.name),
             description=get_description(None, resource),
-            parameters=get_parameters(resource)
+            schema=get_schema(resource)
         )
         return kit
     return None

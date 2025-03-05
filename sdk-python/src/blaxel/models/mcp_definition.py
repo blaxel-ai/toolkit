@@ -18,6 +18,8 @@ class MCPDefinition:
     """Definition of an MCP from the MCP Hub
 
     Attributes:
+        created_at (Union[Unset, str]): The date and time when the resource was created
+        updated_at (Union[Unset, str]): The date and time when the resource was updated
         categories (Union[Unset, list[Any]]): Categories of the artifact
         coming_soon (Union[Unset, bool]): If the artifact is coming soon
         description (Union[Unset, str]): Description of the artifact
@@ -32,6 +34,8 @@ class MCPDefinition:
         url (Union[Unset, str]): URL of the artifact
     """
 
+    created_at: Union[Unset, str] = UNSET
+    updated_at: Union[Unset, str] = UNSET
     categories: Union[Unset, list[Any]] = UNSET
     coming_soon: Union[Unset, bool] = UNSET
     description: Union[Unset, str] = UNSET
@@ -47,6 +51,10 @@ class MCPDefinition:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        created_at = self.created_at
+
+        updated_at = self.updated_at
+
         categories: Union[Unset, list[Any]] = UNSET
         if not isinstance(self.categories, Unset):
             categories = self.categories
@@ -84,6 +92,10 @@ class MCPDefinition:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
+        if created_at is not UNSET:
+            field_dict["createdAt"] = created_at
+        if updated_at is not UNSET:
+            field_dict["updatedAt"] = updated_at
         if categories is not UNSET:
             field_dict["categories"] = categories
         if coming_soon is not UNSET:
@@ -119,6 +131,10 @@ class MCPDefinition:
         if not src_dict:
             return None
         d = src_dict.copy()
+        created_at = d.pop("createdAt", UNSET)
+
+        updated_at = d.pop("updatedAt", UNSET)
+
         categories = cast(list[Any], d.pop("categories", UNSET))
 
         coming_soon = d.pop("coming_soon", UNSET)
@@ -154,6 +170,8 @@ class MCPDefinition:
         url = d.pop("url", UNSET)
 
         mcp_definition = cls(
+            created_at=created_at,
+            updated_at=updated_at,
             categories=categories,
             coming_soon=coming_soon,
             description=description,

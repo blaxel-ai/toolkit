@@ -7,7 +7,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.form_config import FormConfig
-    from ..models.form_oauthomitempty import FormOauthomitempty
+    from ..models.form_oauth import FormOauth
     from ..models.form_secrets import FormSecrets
 
 
@@ -20,12 +20,12 @@ class Form:
 
     Attributes:
         config (Union[Unset, FormConfig]): Config of the artifact
-        oauthomitempty (Union[Unset, FormOauthomitempty]): OAuth of the artifact
+        oauth (Union[Unset, FormOauth]): OAuth of the artifact
         secrets (Union[Unset, FormSecrets]): Secrets of the artifact
     """
 
     config: Union[Unset, "FormConfig"] = UNSET
-    oauthomitempty: Union[Unset, "FormOauthomitempty"] = UNSET
+    oauth: Union[Unset, "FormOauth"] = UNSET
     secrets: Union[Unset, "FormSecrets"] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -36,15 +36,11 @@ class Form:
         elif self.config and isinstance(self.config, dict):
             config = self.config
 
-        oauthomitempty: Union[Unset, dict[str, Any]] = UNSET
-        if (
-            self.oauthomitempty
-            and not isinstance(self.oauthomitempty, Unset)
-            and not isinstance(self.oauthomitempty, dict)
-        ):
-            oauthomitempty = self.oauthomitempty.to_dict()
-        elif self.oauthomitempty and isinstance(self.oauthomitempty, dict):
-            oauthomitempty = self.oauthomitempty
+        oauth: Union[Unset, dict[str, Any]] = UNSET
+        if self.oauth and not isinstance(self.oauth, Unset) and not isinstance(self.oauth, dict):
+            oauth = self.oauth.to_dict()
+        elif self.oauth and isinstance(self.oauth, dict):
+            oauth = self.oauth
 
         secrets: Union[Unset, dict[str, Any]] = UNSET
         if self.secrets and not isinstance(self.secrets, Unset) and not isinstance(self.secrets, dict):
@@ -57,8 +53,8 @@ class Form:
         field_dict.update({})
         if config is not UNSET:
             field_dict["config"] = config
-        if oauthomitempty is not UNSET:
-            field_dict["oauth,omitempty"] = oauthomitempty
+        if oauth is not UNSET:
+            field_dict["oauth"] = oauth
         if secrets is not UNSET:
             field_dict["secrets"] = secrets
 
@@ -67,7 +63,7 @@ class Form:
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T:
         from ..models.form_config import FormConfig
-        from ..models.form_oauthomitempty import FormOauthomitempty
+        from ..models.form_oauth import FormOauth
         from ..models.form_secrets import FormSecrets
 
         if not src_dict:
@@ -80,12 +76,12 @@ class Form:
         else:
             config = FormConfig.from_dict(_config)
 
-        _oauthomitempty = d.pop("oauth,omitempty", UNSET)
-        oauthomitempty: Union[Unset, FormOauthomitempty]
-        if isinstance(_oauthomitempty, Unset):
-            oauthomitempty = UNSET
+        _oauth = d.pop("oauth", UNSET)
+        oauth: Union[Unset, FormOauth]
+        if isinstance(_oauth, Unset):
+            oauth = UNSET
         else:
-            oauthomitempty = FormOauthomitempty.from_dict(_oauthomitempty)
+            oauth = FormOauth.from_dict(_oauth)
 
         _secrets = d.pop("secrets", UNSET)
         secrets: Union[Unset, FormSecrets]
@@ -96,7 +92,7 @@ class Form:
 
         form = cls(
             config=config,
-            oauthomitempty=oauthomitempty,
+            oauth=oauth,
             secrets=secrets,
         )
 

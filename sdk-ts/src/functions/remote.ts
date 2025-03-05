@@ -8,7 +8,7 @@ import { getFunction, listFunctions } from "../client/sdk.gen.js";
 import { Function } from "../client/types.gen.js";
 import { getSettings, Settings } from "../common/settings.js";
 import { RunClient } from "../run.js";
-import { parametersToZodSchema } from "./common.js";
+import { schemaToZodSchema } from "./common.js";
 import { MCPClient, MCPToolkit } from "./mcp.js";
 import { WebSocketClientTransport } from "./transport/websocket.js";
 
@@ -181,7 +181,7 @@ export class RemoteToolkit {
         this.runClient,
         this._function.metadata?.name || "",
         this._function.spec?.description || "",
-        parametersToZodSchema(this._function.spec?.parameters || [])
+        schemaToZodSchema(this._function.spec?.schema?.properties || {})
       ),
     ];
   }

@@ -1,7 +1,6 @@
 from .embeddings import EmbeddingModel
 from .factory import KnowledgebaseConfig, KnowledgebaseFactory
-from .types import (KnowledgebaseClass, KnowledgebaseConfig,
-                    KnowledgebaseSearchResult)
+from .types import KnowledgebaseClass, KnowledgebaseSearchResult
 
 __all__ = [
     "EmbeddingModel",

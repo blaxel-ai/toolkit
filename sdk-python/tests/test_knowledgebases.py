@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from blaxel.knowledgebases import KnowledgebaseConfig, KnowledgebaseFactory
 from blaxel.knowledgebases.types import KnowledgebaseSearchResult
 
@@ -35,7 +36,6 @@ async def test_knowledgebase_operations():
 
     # Setup mocks
     with patch("chromadb.HttpClient") as mock_chroma, \
-         patch("hey.client.Client") as mock_client, \
          patch("blaxel.knowledgebases.embeddings.EmbeddingModel") as mock_embedding:
 
         # Configure embedding mock

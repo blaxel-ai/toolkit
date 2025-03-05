@@ -3,22 +3,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-
-/**
- * Represents a property expected by MCP tools.
- *
- * @typedef {Object} MCPProperty
- * @property {string} type - The type of the property.
- * @property {boolean} [required] - Whether the property is required.
- * @property {string} [description] - A description of the property.
- * @property {*} [default] - The default value of the property.
- */
-type MCPProperty = {
-  type: string;
-  required?: boolean;
-  description?: string;
-  default?: any;
-};
+import { FunctionSchema } from "../client";
+import { schemaToZodSchema } from "./common";
 
 /**
  * Creates a StructuredTool for MCP tools based on their specifications.
@@ -146,38 +132,8 @@ export class MCPToolkit {
     }
 
     return this._tools.tools.map((tool) => {
-      const shape: { [key: string]: z.ZodType } = {};
-      if (tool.inputSchema?.properties) {
-        if (tool.inputSchema.type === "object") {
-          for (const key in tool.inputSchema.properties) {
-            const property = tool.inputSchema.properties[key] as MCPProperty;
-            let zodType: z.ZodType;
-            switch (property.type) {
-              case "boolean":
-                zodType = z.boolean();
-                break;
-              case "number":
-                zodType = z.number();
-                break;
-              default:
-                zodType = z.string();
-            }
-            if (property.description) {
-              zodType = zodType.describe(property.description);
-            }
-            if (property.default) {
-              zodType = zodType.default(property.default);
-            }
-            shape[key] = property.required ? zodType : zodType.optional();
-          }
-        }
-      }
-      return getMCPTool(
-        this.client,
-        tool.name,
-        tool.description || "",
-        z.object(shape)
-      );
+      const schema = schemaToZodSchema(tool.inputSchema as FunctionSchema);
+      return getMCPTool(this.client, tool.name, tool.description || "", schema);
     });
   }
 }

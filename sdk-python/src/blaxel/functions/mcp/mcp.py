@@ -12,16 +12,15 @@ import pydantic
 import pydantic_core
 import requests
 import typing_extensions as t
-from langchain_core.tools.base import BaseTool, BaseToolkit, ToolException
-from mcp import ClientSession
-from mcp.types import CallToolResult, ListToolsResult
-
 from blaxel.authentication import get_authentication_headers
 from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
 from blaxel.functions.mcp.client import websocket_client
-
-from .utils import create_schema_model
+from blaxel.functions.utils import create_dynamic_schema
+from blaxel.models.function_schema import FunctionSchema
+from langchain_core.tools.base import BaseTool, BaseToolkit, ToolException
+from mcp import ClientSession
+from mcp.types import CallToolResult, ListToolsResult
 
 settings = get_settings()
 
@@ -161,7 +160,7 @@ class MCPToolkit(BaseToolkit):
                 client=self.client,
                 name=tool.name,
                 description=tool.description or "",
-                args_schema=create_schema_model(tool.name, tool.inputSchema),
+                args_schema=create_dynamic_schema(tool.name, FunctionSchema(**tool.inputSchema)),
             )
             # list_tools returns a PaginatedResult, but I don't see a way to pass the cursor to retrieve more tools
             for tool in self._tools.tools

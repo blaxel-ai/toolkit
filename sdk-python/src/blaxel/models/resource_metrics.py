@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..models.request_total_by_origin_metric import RequestTotalByOriginMetric
     from ..models.resource_metrics_request_total_per_code import ResourceMetricsRequestTotalPerCode
     from ..models.resource_metrics_rps_per_code import ResourceMetricsRpsPerCode
+    from ..models.time_to_first_token_over_time_metrics import TimeToFirstTokenOverTimeMetrics
     from ..models.token_rate_metrics import TokenRateMetrics
     from ..models.token_total_metric import TokenTotalMetric
 
@@ -29,6 +30,8 @@ class ResourceMetrics:
         last_n_requests (Union[Unset, list['Metric']]): Array of metrics
         latency (Union[Unset, LatencyMetric]): Latency metrics
         memory_allocation (Union[Unset, MemoryAllocationMetric]): Metrics for memory allocation
+        model_ttft (Union[Unset, LatencyMetric]): Latency metrics
+        model_ttft_over_time (Union[Unset, TimeToFirstTokenOverTimeMetrics]): Time to first token over time metrics
         request_duration_over_time (Union[Unset, RequestDurationOverTimeMetrics]): Request duration over time metrics
         request_total (Union[Unset, float]): Number of requests for the resource globally
         request_total_by_origin (Union[Unset, RequestTotalByOriginMetric]): Request total by origin metric
@@ -45,6 +48,8 @@ class ResourceMetrics:
     last_n_requests: Union[Unset, list["Metric"]] = UNSET
     latency: Union[Unset, "LatencyMetric"] = UNSET
     memory_allocation: Union[Unset, "MemoryAllocationMetric"] = UNSET
+    model_ttft: Union[Unset, "LatencyMetric"] = UNSET
+    model_ttft_over_time: Union[Unset, "TimeToFirstTokenOverTimeMetrics"] = UNSET
     request_duration_over_time: Union[Unset, "RequestDurationOverTimeMetrics"] = UNSET
     request_total: Union[Unset, float] = UNSET
     request_total_by_origin: Union[Unset, "RequestTotalByOriginMetric"] = UNSET
@@ -85,6 +90,22 @@ class ResourceMetrics:
             memory_allocation = self.memory_allocation.to_dict()
         elif self.memory_allocation and isinstance(self.memory_allocation, dict):
             memory_allocation = self.memory_allocation
+
+        model_ttft: Union[Unset, dict[str, Any]] = UNSET
+        if self.model_ttft and not isinstance(self.model_ttft, Unset) and not isinstance(self.model_ttft, dict):
+            model_ttft = self.model_ttft.to_dict()
+        elif self.model_ttft and isinstance(self.model_ttft, dict):
+            model_ttft = self.model_ttft
+
+        model_ttft_over_time: Union[Unset, dict[str, Any]] = UNSET
+        if (
+            self.model_ttft_over_time
+            and not isinstance(self.model_ttft_over_time, Unset)
+            and not isinstance(self.model_ttft_over_time, dict)
+        ):
+            model_ttft_over_time = self.model_ttft_over_time.to_dict()
+        elif self.model_ttft_over_time and isinstance(self.model_ttft_over_time, dict):
+            model_ttft_over_time = self.model_ttft_over_time
 
         request_duration_over_time: Union[Unset, dict[str, Any]] = UNSET
         if (
@@ -149,6 +170,10 @@ class ResourceMetrics:
             field_dict["latency"] = latency
         if memory_allocation is not UNSET:
             field_dict["memoryAllocation"] = memory_allocation
+        if model_ttft is not UNSET:
+            field_dict["modelTtft"] = model_ttft
+        if model_ttft_over_time is not UNSET:
+            field_dict["modelTtftOverTime"] = model_ttft_over_time
         if request_duration_over_time is not UNSET:
             field_dict["requestDurationOverTime"] = request_duration_over_time
         if request_total is not UNSET:
@@ -179,6 +204,7 @@ class ResourceMetrics:
             ResourceMetricsRequestTotalPerCode,
         )
         from ..models.resource_metrics_rps_per_code import ResourceMetricsRpsPerCode
+        from ..models.time_to_first_token_over_time_metrics import TimeToFirstTokenOverTimeMetrics
         from ..models.token_rate_metrics import TokenRateMetrics
         from ..models.token_total_metric import TokenTotalMetric
 
@@ -212,6 +238,20 @@ class ResourceMetrics:
             memory_allocation = UNSET
         else:
             memory_allocation = MemoryAllocationMetric.from_dict(_memory_allocation)
+
+        _model_ttft = d.pop("modelTtft", UNSET)
+        model_ttft: Union[Unset, LatencyMetric]
+        if isinstance(_model_ttft, Unset):
+            model_ttft = UNSET
+        else:
+            model_ttft = LatencyMetric.from_dict(_model_ttft)
+
+        _model_ttft_over_time = d.pop("modelTtftOverTime", UNSET)
+        model_ttft_over_time: Union[Unset, TimeToFirstTokenOverTimeMetrics]
+        if isinstance(_model_ttft_over_time, Unset):
+            model_ttft_over_time = UNSET
+        else:
+            model_ttft_over_time = TimeToFirstTokenOverTimeMetrics.from_dict(_model_ttft_over_time)
 
         _request_duration_over_time = d.pop("requestDurationOverTime", UNSET)
         request_duration_over_time: Union[Unset, RequestDurationOverTimeMetrics]
@@ -264,6 +304,8 @@ class ResourceMetrics:
             last_n_requests=last_n_requests,
             latency=latency,
             memory_allocation=memory_allocation,
+            model_ttft=model_ttft,
+            model_ttft_over_time=model_ttft_over_time,
             request_duration_over_time=request_duration_over_time,
             request_total=request_total,
             request_total_by_origin=request_total_by_origin,

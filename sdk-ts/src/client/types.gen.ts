@@ -298,7 +298,7 @@ export type Form = {
     /**
      * OAuth of the artifact
      */
-    'oauth,omitempty'?: {
+    oauth?: {
         [key: string]: unknown;
     };
     /**
@@ -334,10 +334,89 @@ export type FunctionKit = {
      * The kit name, very important for the agent to work with your kit
      */
     name?: string;
+    schema?: FunctionSchema;
+};
+
+/**
+ * Function schema
+ */
+export type FunctionSchema = {
     /**
-     * Kit parameters, for your kit to be callable with an Agent
+     * List of schemas that this schema extends
      */
-    parameters?: Array<StoreFunctionParameter>;
+    allOf?: Array<unknown>;
+    /**
+     * List of possible schemas, any of which this schema could be
+     */
+    anyOf?: Array<unknown>;
+    /**
+     * Description of the schema
+     */
+    description?: string;
+    /**
+     * Enum values
+     */
+    enum?: Array<(string)>;
+    /**
+     * Format of the schema
+     */
+    format?: string;
+    items?: FunctionSchema;
+    /**
+     * Maximum length for string types
+     */
+    maxLength?: number;
+    /**
+     * Maximum value for number types
+     */
+    maximum?: number;
+    /**
+     * Minimum length for string types
+     */
+    minLength?: number;
+    /**
+     * Minimum value for number types
+     */
+    minimum?: number;
+    /**
+     * Schema that this schema must not be
+     */
+    not?: {
+        [key: string]: unknown;
+    };
+    /**
+     * List of schemas, one of which this schema must be
+     */
+    oneOf?: Array<unknown>;
+    /**
+     * Pattern for string types
+     */
+    pattern?: string;
+    /**
+     * Properties of the schema
+     */
+    properties?: {
+        [key: string]: FunctionSchema;
+    };
+    /**
+     * Required properties of the schema
+     */
+    required?: Array<(string)>;
+    /**
+     * Title of the schema
+     */
+    title?: string;
+    /**
+     * Type of the schema
+     */
+    type?: string;
+};
+
+/**
+ * Helper type for AdditionalProperties which can be either a boolean or a schema
+ */
+export type FunctionSchemaOrBool = {
+    [key: string]: unknown;
 };
 
 export type FunctionsList = Array<(string)>;
@@ -351,17 +430,10 @@ export type FunctionSpec = CoreSpec & {
      */
     description?: string;
     /**
-     * The kit of the function deployment
+     * Function kits
      */
     kit?: Array<FunctionKit>;
-    /**
-     * Function parameters, for your function to be callable with Agent
-     */
-    parameters?: Array<StoreFunctionParameter>;
-    /**
-     * Store id
-     */
-    storeId?: string;
+    schema?: FunctionSchema;
 };
 
 /**
@@ -422,7 +494,7 @@ export type IntegrationConnectionSpec = {
      * Additional configuration for the integration
      */
     config?: {
-        [key: string]: unknown;
+        [key: string]: (string);
     };
     /**
      * Integration type
@@ -436,7 +508,7 @@ export type IntegrationConnectionSpec = {
      * Integration secret
      */
     secret?: {
-        [key: string]: unknown;
+        [key: string]: (string);
     };
 };
 
@@ -503,6 +575,10 @@ export type IntegrationRepository = {
      */
     id?: string;
     /**
+     * Whether the repository has Blaxel imports
+     */
+    isBl?: boolean;
+    /**
      * Repository name
      */
     name?: string;
@@ -556,7 +632,7 @@ export type KnowledgebaseSpec = {
      * Options specific to the knowledge base
      */
     options?: {
-        [key: string]: unknown;
+        [key: string]: (string);
     };
     policies?: PoliciesList;
     revision?: RevisionConfiguration;
@@ -635,7 +711,7 @@ export type LocationResponse = {
 /**
  * Definition of an MCP from the MCP Hub
  */
-export type MCPDefinition = {
+export type MCPDefinition = TimeFields & {
     /**
      * Categories of the artifact
      */
@@ -1248,6 +1324,14 @@ export type ResourceMetrics = {
      */
     memoryAllocation?: MemoryAllocationMetric;
     /**
+     * Time to first token metrics for model deployments
+     */
+    modelTtft?: LatencyMetric;
+    /**
+     * Time to first token metrics over time for model deployments
+     */
+    modelTtftOverTime?: TimeToFirstTokenOverTimeMetrics;
+    /**
      * Historical requests (in last 24 hours) for the model deployment globally
      */
     requestDurationOverTime?: RequestDurationOverTimeMetrics;
@@ -1535,83 +1619,59 @@ export type StoreConfigurationOption = {
 };
 
 /**
- * Store function
+ * Blaxel template
  */
-export type StoreFunction = TimeFields & OwnerFields & {
+export type Template = {
     /**
-     * Store function configuration
+     * Default branch of the template
      */
-    configuration?: Array<StoreConfiguration>;
+    defaultBranch?: string;
     /**
-     * Store function description
+     * Description of the template
      */
     description?: string;
     /**
-     * Store function display name
-     */
-    displayName?: string;
-    /**
-     * Store function image
-     */
-    image?: string;
-    /**
-     * Store function kit
-     */
-    kit?: Array<StoreFunctionKit>;
-    /**
-     * Store function labels
-     */
-    labels?: {
-        [key: string]: unknown;
-    };
-    /**
-     * Store function name
+     * Name of the template
      */
     name?: string;
     /**
-     * Store function parameters
+     * SHA of the variable
      */
-    parameters?: Array<StoreFunctionParameter>;
+    sha?: string;
+    /**
+     * Topic of the template
+     */
+    topics?: Array<(string)>;
+    /**
+     * URL of the template
+     */
+    url?: string;
+    /**
+     * Variables of the template
+     */
+    variables?: Array<TemplateVariable>;
 };
 
 /**
- * Store function kit
+ * Blaxel template variable
  */
-export type StoreFunctionKit = {
+export type TemplateVariable = {
     /**
-     * Description of the function kit, very important for the agent to work with your kit
+     * Description of the variable
      */
     description?: string;
     /**
-     * The kit name, very important for the agent to work with your kit
+     * Name of the variable
      */
     name?: string;
     /**
-     * Kit parameters, for your kit to be callable with an Agent
+     * Path of the variable
      */
-    parameters?: Array<StoreFunctionParameter>;
-};
-
-/**
- * Store function parameter
- */
-export type StoreFunctionParameter = {
+    path?: string;
     /**
-     * Store function parameter description
+     * Whether the variable is secret
      */
-    description?: string;
-    /**
-     * Store function parameter name
-     */
-    name?: string;
-    /**
-     * Store function parameter required
-     */
-    required?: boolean;
-    /**
-     * Store function parameter type
-     */
-    type?: string;
+    secret?: boolean;
 };
 
 /**
@@ -1629,6 +1689,13 @@ export type TimeFields = {
 };
 
 /**
+ * Time to first token over time metrics
+ */
+export type TimeToFirstTokenOverTimeMetrics = {
+    timeToFirstTokenOverTime?: RequestDurationOverTimeMetric;
+};
+
+/**
  * Token rate metric
  */
 export type TokenRateMetric = {
@@ -1636,6 +1703,14 @@ export type TokenRateMetric = {
      * Model ID
      */
     model?: string;
+    /**
+     * Provider name
+     */
+    provider?: string;
+    /**
+     * Provider integration name
+     */
+    providerName?: string;
     /**
      * Timestamp
      */
@@ -2488,39 +2563,43 @@ export type DeleteApiKeyForServiceAccountResponse = (unknown);
 
 export type DeleteApiKeyForServiceAccountError = unknown;
 
-export type ListStoreAgentsResponse = (Array<StoreAgent>);
+export type ListTemplatesResponse = (Template);
 
-export type ListStoreAgentsError = unknown;
+export type ListTemplatesError = unknown;
 
-export type GetStoreAgentData = {
+export type GetTemplateData = {
     path: {
         /**
-         * Name of the agent
+         * Name of the template
          */
-        agentName: string;
+        templateName: string;
     };
 };
 
-export type GetStoreAgentResponse = (StoreAgent);
+export type GetTemplateResponse = (Template);
 
-export type GetStoreAgentError = unknown;
+export type GetTemplateError = unknown;
 
-export type ListStoreFunctionsResponse = (Array<StoreFunction>);
-
-export type ListStoreFunctionsError = unknown;
-
-export type GetStoreFunctionData = {
+export type GetTemplateContentsData = {
     path: {
-        /**
-         * Name of the function
-         */
-        functionName: string;
+        templateName: string;
     };
 };
 
-export type GetStoreFunctionResponse = (StoreFunction);
+export type GetTemplateContentsResponse = (Array<(string)>);
 
-export type GetStoreFunctionError = unknown;
+export type GetTemplateContentsError = unknown;
+
+export type GetTemplateFileContentsData = {
+    path: {
+        fileName: string;
+        templateName: string;
+    };
+};
+
+export type GetTemplateFileContentsResponse = (string);
+
+export type GetTemplateFileContentsError = unknown;
 
 export type ListWorkspaceUsersResponse = (Array<WorkspaceUser>);
 

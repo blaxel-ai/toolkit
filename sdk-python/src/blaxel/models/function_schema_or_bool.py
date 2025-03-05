@@ -3,12 +3,12 @@ from typing import Any, TypeVar
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-T = TypeVar("T", bound="StoreFunctionLabels")
+T = TypeVar("T", bound="FunctionSchemaOrBool")
 
 
 @_attrs_define
-class StoreFunctionLabels:
-    """Store function labels"""
+class FunctionSchemaOrBool:
+    """Helper type for AdditionalProperties which can be either a boolean or a schema"""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -23,10 +23,10 @@ class StoreFunctionLabels:
         if not src_dict:
             return None
         d = src_dict.copy()
-        store_function_labels = cls()
+        function_schema_or_bool = cls()
 
-        store_function_labels.additional_properties = d
-        return store_function_labels
+        function_schema_or_bool.additional_properties = d
+        return function_schema_or_bool
 
     @property
     def additional_keys(self) -> list[str]:

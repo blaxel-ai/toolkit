@@ -5,24 +5,22 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.store_agent import StoreAgent
+from ...models.template import Template
 from ...types import Response
 
 
-def _get_kwargs(
-    agent_name: str,
-) -> dict[str, Any]:
+def _get_kwargs() -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": f"/store/agents/{agent_name}",
+        "url": "/templates",
     }
 
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[StoreAgent]:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Template]:
     if response.status_code == 200:
-        response_200 = StoreAgent.from_dict(response.json())
+        response_200 = Template.from_dict(response.json())
 
         return response_200
     if client.raise_on_unexpected_status:
@@ -31,7 +29,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[StoreAgent]:
+def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Template]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -41,26 +39,22 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 
 def sync_detailed(
-    agent_name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[StoreAgent]:
-    """Get store agent by name
+    client: AuthenticatedClient,
+) -> Response[Template]:
+    """List templates
 
-    Args:
-        agent_name (str):
+     Returns a list of all templates.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[StoreAgent]
+        Response[Template]
     """
 
-    kwargs = _get_kwargs(
-        agent_name=agent_name,
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -70,50 +64,43 @@ def sync_detailed(
 
 
 def sync(
-    agent_name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[StoreAgent]:
-    """Get store agent by name
+    client: AuthenticatedClient,
+) -> Optional[Template]:
+    """List templates
 
-    Args:
-        agent_name (str):
+     Returns a list of all templates.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        StoreAgent
+        Template
     """
 
     return sync_detailed(
-        agent_name=agent_name,
         client=client,
     ).parsed
 
 
 async def asyncio_detailed(
-    agent_name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[StoreAgent]:
-    """Get store agent by name
+    client: AuthenticatedClient,
+) -> Response[Template]:
+    """List templates
 
-    Args:
-        agent_name (str):
+     Returns a list of all templates.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[StoreAgent]
+        Response[Template]
     """
 
-    kwargs = _get_kwargs(
-        agent_name=agent_name,
-    )
+    kwargs = _get_kwargs()
 
     response = await client.get_async_httpx_client().request(**kwargs)
 
@@ -121,26 +108,23 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    agent_name: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[StoreAgent]:
-    """Get store agent by name
+    client: AuthenticatedClient,
+) -> Optional[Template]:
+    """List templates
 
-    Args:
-        agent_name (str):
+     Returns a list of all templates.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        StoreAgent
+        Template
     """
 
     return (
         await asyncio_detailed(
-            agent_name=agent_name,
             client=client,
         )
     ).parsed

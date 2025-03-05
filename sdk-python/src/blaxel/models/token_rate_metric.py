@@ -14,12 +14,16 @@ class TokenRateMetric:
 
     Attributes:
         model (Union[Unset, str]): Model ID
+        provider (Union[Unset, str]): Provider name
+        provider_name (Union[Unset, str]): Provider integration name
         timestamp (Union[Unset, str]): Timestamp
         token_total (Union[Unset, float]): Total tokens
         trend (Union[Unset, float]): Trend
     """
 
     model: Union[Unset, str] = UNSET
+    provider: Union[Unset, str] = UNSET
+    provider_name: Union[Unset, str] = UNSET
     timestamp: Union[Unset, str] = UNSET
     token_total: Union[Unset, float] = UNSET
     trend: Union[Unset, float] = UNSET
@@ -27,6 +31,10 @@ class TokenRateMetric:
 
     def to_dict(self) -> dict[str, Any]:
         model = self.model
+
+        provider = self.provider
+
+        provider_name = self.provider_name
 
         timestamp = self.timestamp
 
@@ -39,6 +47,10 @@ class TokenRateMetric:
         field_dict.update({})
         if model is not UNSET:
             field_dict["model"] = model
+        if provider is not UNSET:
+            field_dict["provider"] = provider
+        if provider_name is not UNSET:
+            field_dict["providerName"] = provider_name
         if timestamp is not UNSET:
             field_dict["timestamp"] = timestamp
         if token_total is not UNSET:
@@ -55,6 +67,10 @@ class TokenRateMetric:
         d = src_dict.copy()
         model = d.pop("model", UNSET)
 
+        provider = d.pop("provider", UNSET)
+
+        provider_name = d.pop("providerName", UNSET)
+
         timestamp = d.pop("timestamp", UNSET)
 
         token_total = d.pop("tokenTotal", UNSET)
@@ -63,6 +79,8 @@ class TokenRateMetric:
 
         token_rate_metric = cls(
             model=model,
+            provider=provider,
+            provider_name=provider_name,
             timestamp=timestamp,
             token_total=token_total,
             trend=trend,
