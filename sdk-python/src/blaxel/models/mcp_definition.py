@@ -27,6 +27,7 @@ class MCPDefinition:
         enterprise (Union[Unset, bool]): If the artifact is enterprise
         entrypoint (Union[Unset, MCPDefinitionEntrypoint]): Entrypoint of the artifact
         form (Union[Unset, MCPDefinitionForm]): Form of the artifact
+        hidden_secrets (Union[Unset, list[str]]): Hidden secrets of the artifact
         icon (Union[Unset, str]): Icon of the artifact
         integration (Union[Unset, str]): Integration of the artifact
         long_description (Union[Unset, str]): Long description of the artifact
@@ -43,6 +44,7 @@ class MCPDefinition:
     enterprise: Union[Unset, bool] = UNSET
     entrypoint: Union[Unset, "MCPDefinitionEntrypoint"] = UNSET
     form: Union[Unset, "MCPDefinitionForm"] = UNSET
+    hidden_secrets: Union[Unset, list[str]] = UNSET
     icon: Union[Unset, str] = UNSET
     integration: Union[Unset, str] = UNSET
     long_description: Union[Unset, str] = UNSET
@@ -79,6 +81,10 @@ class MCPDefinition:
         elif self.form and isinstance(self.form, dict):
             form = self.form
 
+        hidden_secrets: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.hidden_secrets, Unset):
+            hidden_secrets = self.hidden_secrets
+
         icon = self.icon
 
         integration = self.integration
@@ -110,6 +116,8 @@ class MCPDefinition:
             field_dict["entrypoint"] = entrypoint
         if form is not UNSET:
             field_dict["form"] = form
+        if hidden_secrets is not UNSET:
+            field_dict["hiddenSecrets"] = hidden_secrets
         if icon is not UNSET:
             field_dict["icon"] = icon
         if integration is not UNSET:
@@ -159,6 +167,8 @@ class MCPDefinition:
         else:
             form = MCPDefinitionForm.from_dict(_form)
 
+        hidden_secrets = cast(list[str], d.pop("hiddenSecrets", UNSET))
+
         icon = d.pop("icon", UNSET)
 
         integration = d.pop("integration", UNSET)
@@ -179,6 +189,7 @@ class MCPDefinition:
             enterprise=enterprise,
             entrypoint=entrypoint,
             form=form,
+            hidden_secrets=hidden_secrets,
             icon=icon,
             integration=integration,
             long_description=long_description,

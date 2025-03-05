@@ -745,6 +745,10 @@ export type MCPDefinition = TimeFields & {
         [key: string]: unknown;
     };
     /**
+     * Hidden secrets of the artifact
+     */
+    hiddenSecrets?: Array<(string)>;
+    /**
      * Icon of the artifact
      */
     icon?: string;
@@ -1385,10 +1389,6 @@ export type RevisionConfiguration = {
      * Canary revision percent
      */
     canaryPercent?: number;
-    /**
-     * Previous active revision id
-     */
-    previousActive?: string;
     /**
      * Traffic percentage
      */

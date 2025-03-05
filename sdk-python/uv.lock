@@ -177,7 +177,6 @@ dependencies = [
 
 [package.dependency-groups]
 dev = [
-    { name = "anyio" },
     { name = "pdoc3" },
     { name = "ruff" },
 ]
@@ -228,7 +227,6 @@ requires-dist = [
 
 [package.metadata.dependency-groups]
 dev = [
-    { name = "anyio", specifier = ">=4.8.0" },
     { name = "pdoc3", specifier = ">=0.11.5" },
     { name = "ruff", specifier = ">=0.8.2" },
 ]
