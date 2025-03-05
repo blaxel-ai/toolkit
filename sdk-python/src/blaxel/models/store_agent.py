@@ -57,7 +57,10 @@ class StoreAgent:
         if not isinstance(self.configuration, Unset):
             configuration = []
             for configuration_item_data in self.configuration:
-                configuration_item = configuration_item_data.to_dict()
+                if type(configuration_item_data) == dict:
+                    configuration_item = configuration_item_data
+                else:
+                    configuration_item = configuration_item_data.to_dict()
                 configuration.append(configuration_item)
 
         description = self.description

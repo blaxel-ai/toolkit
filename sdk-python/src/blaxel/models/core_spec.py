@@ -66,7 +66,10 @@ class CoreSpec:
         if not isinstance(self.flavors, Unset):
             flavors = []
             for componentsschemas_flavors_item_data in self.flavors:
-                componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
+                if type(componentsschemas_flavors_item_data) == dict:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data
+                else:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
                 flavors.append(componentsschemas_flavors_item)
 
         integration_connections: Union[Unset, list[str]] = UNSET

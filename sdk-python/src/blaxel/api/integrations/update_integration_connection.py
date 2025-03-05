@@ -21,7 +21,10 @@ def _get_kwargs(
         "url": f"/integrations/connections/{connection_name}",
     }
 
-    _body = body.to_dict()
+    if type(body) == dict:
+        _body = body
+    else:
+        _body = body.to_dict()
 
     _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"

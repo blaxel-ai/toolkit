@@ -19,7 +19,10 @@ class FunctionSchemaProperties:
     def to_dict(self) -> dict[str, Any]:
         field_dict: dict[str, Any] = {}
         for prop_name, prop in self.additional_properties.items():
-            field_dict[prop_name] = prop.to_dict()
+            if type(prop) == dict:
+                field_dict[prop_name] = prop
+            else:
+                field_dict[prop_name] = prop.to_dict()
 
         return field_dict
 

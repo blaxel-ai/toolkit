@@ -36,7 +36,10 @@ class Knowledgebase:
         if not isinstance(self.events, Unset):
             events = []
             for componentsschemas_core_events_item_data in self.events:
-                componentsschemas_core_events_item = componentsschemas_core_events_item_data.to_dict()
+                if type(componentsschemas_core_events_item_data) == dict:
+                    componentsschemas_core_events_item = componentsschemas_core_events_item_data
+                else:
+                    componentsschemas_core_events_item = componentsschemas_core_events_item_data.to_dict()
                 events.append(componentsschemas_core_events_item)
 
         metadata: Union[Unset, dict[str, Any]] = UNSET

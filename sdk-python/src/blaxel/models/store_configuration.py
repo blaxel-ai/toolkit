@@ -56,7 +56,10 @@ class StoreConfiguration:
         if not isinstance(self.options, Unset):
             options = []
             for options_item_data in self.options:
-                options_item = options_item_data.to_dict()
+                if type(options_item_data) == dict:
+                    options_item = options_item_data
+                else:
+                    options_item = options_item_data.to_dict()
                 options.append(options_item)
 
         required = self.required

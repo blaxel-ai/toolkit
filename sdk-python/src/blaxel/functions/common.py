@@ -34,7 +34,7 @@ from blaxel.models import AgentChain
 
 logger = getLogger(__name__)
 
-MAX_RETRIES = 10
+MAX_RETRIES = 1
 RETRY_DELAY = 1  # 1 second delay between retries
 
 async def initialize_with_retry(toolkit, function_name: str, max_retries: int):

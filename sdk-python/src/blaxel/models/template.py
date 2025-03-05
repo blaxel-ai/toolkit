@@ -54,7 +54,10 @@ class Template:
         if not isinstance(self.variables, Unset):
             variables = []
             for variables_item_data in self.variables:
-                variables_item = variables_item_data.to_dict()
+                if type(variables_item_data) == dict:
+                    variables_item = variables_item_data
+                else:
+                    variables_item = variables_item_data.to_dict()
                 variables.append(variables_item)
 
         field_dict: dict[str, Any] = {}

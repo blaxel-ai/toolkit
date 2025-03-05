@@ -40,7 +40,10 @@ class LocationResponse:
         if not isinstance(self.flavors, Unset):
             flavors = []
             for flavors_item_data in self.flavors:
-                flavors_item = flavors_item_data.to_dict()
+                if type(flavors_item_data) == dict:
+                    flavors_item = flavors_item_data
+                else:
+                    flavors_item = flavors_item_data.to_dict()
                 flavors.append(flavors_item)
 
         location = self.location

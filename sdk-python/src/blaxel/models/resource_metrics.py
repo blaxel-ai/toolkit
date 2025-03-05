@@ -65,14 +65,20 @@ class ResourceMetrics:
         if not isinstance(self.inference_global, Unset):
             inference_global = []
             for componentsschemas_array_metric_item_data in self.inference_global:
-                componentsschemas_array_metric_item = componentsschemas_array_metric_item_data.to_dict()
+                if type(componentsschemas_array_metric_item_data) == dict:
+                    componentsschemas_array_metric_item = componentsschemas_array_metric_item_data
+                else:
+                    componentsschemas_array_metric_item = componentsschemas_array_metric_item_data.to_dict()
                 inference_global.append(componentsschemas_array_metric_item)
 
         last_n_requests: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.last_n_requests, Unset):
             last_n_requests = []
             for componentsschemas_array_metric_item_data in self.last_n_requests:
-                componentsschemas_array_metric_item = componentsschemas_array_metric_item_data.to_dict()
+                if type(componentsschemas_array_metric_item_data) == dict:
+                    componentsschemas_array_metric_item = componentsschemas_array_metric_item_data
+                else:
+                    componentsschemas_array_metric_item = componentsschemas_array_metric_item_data.to_dict()
                 last_n_requests.append(componentsschemas_array_metric_item)
 
         latency: Union[Unset, dict[str, Any]] = UNSET

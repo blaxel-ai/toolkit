@@ -115,7 +115,6 @@ def _create_field_definitions(schema: FunctionSchema) -> dict:
                     pydantic.Field(description=description)
                 )
             else:
-                print(key, _get_field_default(param))
                 field_definitions[key] = (
                     t.Optional[field_type],
                     pydantic.Field(default=_get_field_default(param), description=description)

@@ -84,7 +84,10 @@ class AgentSpec:
         if not isinstance(self.flavors, Unset):
             flavors = []
             for componentsschemas_flavors_item_data in self.flavors:
-                componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
+                if type(componentsschemas_flavors_item_data) == dict:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data
+                else:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
                 flavors.append(componentsschemas_flavors_item)
 
         integration_connections: Union[Unset, list[str]] = UNSET
@@ -139,7 +142,10 @@ class AgentSpec:
         if not isinstance(self.agent_chain, Unset):
             agent_chain = []
             for componentsschemas_agent_chains_item_data in self.agent_chain:
-                componentsschemas_agent_chains_item = componentsschemas_agent_chains_item_data.to_dict()
+                if type(componentsschemas_agent_chains_item_data) == dict:
+                    componentsschemas_agent_chains_item = componentsschemas_agent_chains_item_data
+                else:
+                    componentsschemas_agent_chains_item = componentsschemas_agent_chains_item_data.to_dict()
                 agent_chain.append(componentsschemas_agent_chains_item)
 
         description = self.description

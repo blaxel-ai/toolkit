@@ -21,7 +21,7 @@ from blaxel.authentication.authentication import AuthenticatedClient
 from blaxel.common.settings import get_settings
 from blaxel.functions.mcp.client import websocket_client
 from blaxel.functions.utils import create_dynamic_schema
-from blaxel.models.function_schema import FunctionSchema
+from blaxel.models import FunctionSchema, FunctionSchemaProperties
 
 settings = get_settings()
 
@@ -161,7 +161,13 @@ class MCPToolkit(BaseToolkit):
                 client=self.client,
                 name=tool.name,
                 description=tool.description or "",
-                args_schema=create_dynamic_schema(tool.name, FunctionSchema(**tool.inputSchema)),
+                args_schema=create_dynamic_schema(
+                    tool.name,
+                    FunctionSchema(
+                        properties=FunctionSchemaProperties.from_dict(tool.inputSchema.get("properties", {})),
+                        required=tool.inputSchema.get("required", []),
+                    ),
+                ),
             )
             # list_tools returns a PaginatedResult, but I don't see a way to pass the cursor to retrieve more tools
             for tool in self._tools.tools

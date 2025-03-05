@@ -42,14 +42,20 @@ class PolicySpec:
         if not isinstance(self.flavors, Unset):
             flavors = []
             for componentsschemas_flavors_item_data in self.flavors:
-                componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
+                if type(componentsschemas_flavors_item_data) == dict:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data
+                else:
+                    componentsschemas_flavors_item = componentsschemas_flavors_item_data.to_dict()
                 flavors.append(componentsschemas_flavors_item)
 
         locations: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.locations, Unset):
             locations = []
             for componentsschemas_policy_locations_item_data in self.locations:
-                componentsschemas_policy_locations_item = componentsschemas_policy_locations_item_data.to_dict()
+                if type(componentsschemas_policy_locations_item_data) == dict:
+                    componentsschemas_policy_locations_item = componentsschemas_policy_locations_item_data
+                else:
+                    componentsschemas_policy_locations_item = componentsschemas_policy_locations_item_data.to_dict()
                 locations.append(componentsschemas_policy_locations_item)
 
         max_tokens: Union[Unset, dict[str, Any]] = UNSET

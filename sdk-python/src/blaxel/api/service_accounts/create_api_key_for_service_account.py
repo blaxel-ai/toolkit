@@ -22,7 +22,10 @@ def _get_kwargs(
         "url": f"/service_accounts/{client_id}/api_keys",
     }
 
-    _body = body.to_dict()
+    if type(body) == dict:
+        _body = body
+    else:
+        _body = body.to_dict()
 
     _kwargs["json"] = _body
     headers["Content-Type"] = "application/json"
