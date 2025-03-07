@@ -18,7 +18,7 @@ import {
 import { Agent } from "../client/types.gen.js";
 import { logger } from "../common/logger.js";
 import { getSettings, Settings } from "../common/settings.js";
-import { getFunctions } from "../functions/common.js";
+import { getFunctions, reloadFunctions } from "../functions/common.js";
 import { KnowledgebaseFactory } from "../knowledgebases/factory.js";
 import { KnowledgebaseClass } from "../knowledgebases/types.js";
 import { getChatModelFull } from "./chat.js";
@@ -312,6 +312,15 @@ export const wrapAgent: WrapAgentType = async (
   }
   return {
     run: async (request: FastifyRequest) => {
+      if (!overrideAgent) {
+        functions = functions.concat(await reloadFunctions({
+          client,
+          dir: settings.agent.functionsDirectory,
+          remoteFunctions,
+          chain: agent?.spec?.agentChain,
+          warning: settings.agent.model !== null,
+        }));
+      }
       const args = {
         agent: settings.agent.agent,
         model: settings.agent.model,
