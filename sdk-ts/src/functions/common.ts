@@ -168,6 +168,51 @@ export const retrieveWrapperFunction = async (
   return functions;
 };
 
+const functionsInError: string[] = []
+
+/**
+ * Reloads functions that failed to initialize.
+ * Currently only supports remote functions.
+ * @param options - Options for retrieving functions.
+ * @returns An array of repaired functions.
+ */
+export const reloadFunctions = async (options: GetFunctionsOptions = {}) => {
+  const functions: StructuredTool[] = [];
+  if (functionsInError.length === 0) {
+    return functions
+  }
+
+  const settings = getSettings();
+  let { client, dir } = options;
+  const { remoteFunctions } = options;
+  if (!client) {
+    client = newClient();
+  }
+  if (!dir) {
+    dir = settings.agent.functionsDirectory;
+  }
+
+  if (remoteFunctions && !settings.deploy) {
+    await Promise.all(
+      remoteFunctions.map(async (name) => {
+        if (!functionsInError.includes(name)) {
+          return
+        }
+        try {
+          const toolkit = new RemoteToolkit(client, name);
+          const tools = await initializeWithRetry(toolkit, name, MAX_RETRIES);
+          functions.push(...(tools || []));
+          functionsInError.splice(functionsInError.indexOf(name), 1)
+        } catch (error) {
+          logger.warn(`Failed to initialize remote function ${name}: ${error}`);
+        }
+      })
+    );
+  }
+
+  return functions
+}
+
 /**
  * Aggregates available functions based on provided options, including remote functions and agent chains.
  *
@@ -207,6 +252,7 @@ export const getFunctions = async (options: GetFunctionsOptions = {}) => {
           functions.push(...(tools || []));
         } catch (error) {
           logger.warn(`Failed to initialize remote function ${name}: ${error}`);
+          functionsInError.push(name)
         }
       })
     );
