@@ -1,13 +1,28 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { logs } from "@opentelemetry/api-logs";
-import { logger } from "..";
+import { instrumentApp } from "./instrumentation.js";
 
+let isInstrumentationInitialized = false;
+const initializeInstrumentation = async () => {
+  if (!isInstrumentationInitialized) {
+    try {
+      await instrumentApp();
+      isInstrumentationInitialized = true;
+    } catch (error) {
+      console.error("Failed to initialize instrumentation:", error);
+    }
+  }
+};
 
 /**
  * Lazy-initialized singleton logger instance.
  */
-export default new Proxy({} as any, {
+export const logger = new Proxy({} as any, {
   get: (target, property) => {
+    // Initialize instrumentation if needed
+    if (!isInstrumentationInitialized) {
+      initializeInstrumentation().catch(console.error);
+    }
 
     const pino = require("pino");
 

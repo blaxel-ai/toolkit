@@ -753,10 +753,6 @@ export type MCPDefinition = TimeFields & {
      */
     icon?: string;
     /**
-     * Image of the artifact
-     */
-    image?: string;
-    /**
      * Integration of the artifact
      */
     integration?: string;
@@ -1635,22 +1631,6 @@ export type Template = {
      */
     description?: string;
     /**
-     * Number of downloads/clones of the repository
-     */
-    downloadCount?: number;
-    /**
-     * Number of forks the repository has
-     */
-    forksCount?: number;
-    /**
-     * URL to the template's icon
-     */
-    icon?: string;
-    /**
-     * URL to the template's icon in dark mode
-     */
-    iconDark?: string;
-    /**
      * Name of the template
      */
     name?: string;
@@ -1658,10 +1638,6 @@ export type Template = {
      * SHA of the variable
      */
     sha?: string;
-    /**
-     * Number of stars the repository has
-     */
-    starCount?: number;
     /**
      * Topic of the template
      */
@@ -1684,10 +1660,6 @@ export type TemplateVariable = {
      * Description of the variable
      */
     description?: string;
-    /**
-     * Integration of the variable
-     */
-    integration?: string;
     /**
      * Name of the variable
      */

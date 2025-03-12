@@ -19,7 +19,7 @@ importers:
         version: 0.5.7
       '@langchain/community':
         specifier: ^0.3.30
-        version: 0.3.30(62nowcl2dsqfqqqzfu3q5tubtu)
+        version: 0.3.30(ee5764e718c6c281d876086d9ab3a96c)
       '@langchain/core':
         specifier: ^0.3.40
         version: 0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
@@ -122,6 +122,9 @@ importers:
       jwt-decode:
         specifier: ^4.0.0
         version: 4.0.0
+      langchain:
+        specifier: ^0.3.19
+        version: 0.3.19(@langchain/anthropic@0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/cohere@0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(@langchain/deepseek@0.0.1(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0))(@langchain/google-genai@0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1))(@langchain/mistralai@0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(axios@1.7.9)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(ws@8.18.0)
       pino:
         specifier: ^9.6.0
         version: 9.6.0
@@ -3256,8 +3259,8 @@ packages:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
 
-  langchain@0.3.12:
-    resolution: {integrity: sha512-BjdQ/f/66W05L8nRgX74bf5QvJIphpg+K5ZTmQwGE8Gk3umtzHp8T4YIRFYjvTxU4XQrGXOgWk1Y9rk5uBbjKA==}
+  langchain@0.3.19:
+    resolution: {integrity: sha512-aGhoTvTBS5ulatA67RHbJ4bcV5zcYRYdm5IH+hpX99RYSFXG24XF3ghSjhYi6sxW+SUnEQ99fJhA5kroVpKNhw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@langchain/anthropic': '*'
@@ -3265,12 +3268,14 @@ packages:
       '@langchain/cerebras': '*'
       '@langchain/cohere': '*'
       '@langchain/core': '>=0.2.21 <0.4.0'
+      '@langchain/deepseek': '*'
       '@langchain/google-genai': '*'
       '@langchain/google-vertexai': '*'
       '@langchain/google-vertexai-web': '*'
       '@langchain/groq': '*'
       '@langchain/mistralai': '*'
       '@langchain/ollama': '*'
+      '@langchain/xai': '*'
       axios: '*'
       cheerio: '*'
       handlebars: ^4.7.8
@@ -3285,6 +3290,8 @@ packages:
         optional: true
       '@langchain/cohere':
         optional: true
+      '@langchain/deepseek':
+        optional: true
       '@langchain/google-genai':
         optional: true
       '@langchain/google-vertexai':
@@ -3296,6 +3303,8 @@ packages:
       '@langchain/mistralai':
         optional: true
       '@langchain/ollama':
+        optional: true
+      '@langchain/xai':
         optional: true
       axios:
         optional: true
@@ -5479,7 +5488,7 @@ snapshots:
       - encoding
     optional: true
 
-  '@langchain/community@0.3.30(62nowcl2dsqfqqqzfu3q5tubtu)':
+  '@langchain/community@0.3.30(ee5764e718c6c281d876086d9ab3a96c)':
     dependencies:
       '@browserbasehq/stagehand': 1.10.1(@playwright/test@1.50.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)
       '@ibm-cloud/watsonx-ai': 1.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))
@@ -5490,7 +5499,7 @@ snapshots:
       flat: 5.0.2
       ibm-cloud-sdk-core: 5.1.1
       js-yaml: 4.1.0
-      langchain: 0.3.12(@langchain/anthropic@0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/cohere@0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(@langchain/google-genai@0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1))(@langchain/mistralai@0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(axios@1.7.9)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(ws@8.18.0)
+      langchain: 0.3.19(@langchain/anthropic@0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/cohere@0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(@langchain/deepseek@0.0.1(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0))(@langchain/google-genai@0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1))(@langchain/mistralai@0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(axios@1.7.9)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(ws@8.18.0)
       langsmith: 0.3.2(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
       openai: 4.80.0(ws@8.18.0)(zod@3.24.1)
       uuid: 10.0.0
@@ -5516,12 +5525,14 @@ snapshots:
       - '@langchain/aws'
       - '@langchain/cerebras'
       - '@langchain/cohere'
+      - '@langchain/deepseek'
       - '@langchain/google-genai'
       - '@langchain/google-vertexai'
       - '@langchain/google-vertexai-web'
       - '@langchain/groq'
       - '@langchain/mistralai'
       - '@langchain/ollama'
+      - '@langchain/xai'
       - axios
       - encoding
       - handlebars
@@ -7962,7 +7973,7 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  langchain@0.3.12(@langchain/anthropic@0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/cohere@0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(@langchain/google-genai@0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1))(@langchain/mistralai@0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(axios@1.7.9)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(ws@8.18.0):
+  langchain@0.3.19(@langchain/anthropic@0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/cohere@0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(@langchain/deepseek@0.0.1(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0))(@langchain/google-genai@0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1))(@langchain/mistralai@0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))))(axios@1.7.9)(openai@4.80.0(ws@8.18.0)(zod@3.24.1))(ws@8.18.0):
     dependencies:
       '@langchain/core': 0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1))
       '@langchain/openai': 0.3.17(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)
@@ -7980,6 +7991,7 @@ snapshots:
     optionalDependencies:
       '@langchain/anthropic': 0.3.12(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))
       '@langchain/cohere': 0.3.2(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))
+      '@langchain/deepseek': 0.0.1(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(ws@8.18.0)
       '@langchain/google-genai': 0.1.8(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))(zod@3.24.1)
       '@langchain/mistralai': 0.2.0(@langchain/core@0.3.40(openai@4.80.0(ws@8.18.0)(zod@3.24.1)))
       axios: 1.7.9

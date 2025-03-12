@@ -1,7 +1,6 @@
-export * from "./common/index.js";
-export * from "./agents/index.js";
-export * from "./authentication/index.js";
-export * from "./client/index.js";
-export * from "./deploy/deploy.js";
-export * from "./functions/index.js";
-export * from "./serve/app.js";
+import './common/autoload';
+import logger from './common/logger';
+import settings from './common/settings';
+export * from "./client";
+export * from "./common/autoload";
+export { logger, settings };
