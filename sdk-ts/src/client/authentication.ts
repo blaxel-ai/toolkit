@@ -1,5 +1,5 @@
 import { OptionsLegacyParser } from "@hey-api/client-fetch";
-import { client } from "./index";
+import { client } from "./index.js";
 
 type OauthTokenData = {
   body: {
@@ -9,7 +9,7 @@ type OauthTokenData = {
     device_code?: string;
     refresh_token?: string;
   },
-  _bypassDelay?: boolean;
+  authenticated?: boolean;
 }
 
 type OauthTokenResponse = {
@@ -27,7 +27,7 @@ type OauthTokenError = {
  * Get a new oauth token
  */
 export const oauthToken = <ThrowOnError extends boolean = false>(options: OptionsLegacyParser<OauthTokenData, ThrowOnError>) => {
-  options._bypassDelay = true
+  options.authenticated = false
   return (options?.client ?? client).post<OauthTokenResponse, OauthTokenError, ThrowOnError>({
     ...options,
     url: '/oauth/token',

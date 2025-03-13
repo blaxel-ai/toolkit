@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { logs } from "@opentelemetry/api-logs";
-import { logger } from "..";
+import { logger } from "../index.js";
 
 
 /**

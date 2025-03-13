@@ -14,7 +14,7 @@ import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { AlwaysOnSampler, BatchSpanProcessor, NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { LangChainInstrumentation } from "@traceloop/instrumentation-langchain";
-import { instrumentationMap } from "./instrumentationMap";
+import { instrumentationMap } from "./instrumentationMap.js";
 
 export type TelemetryOptions = {
   workspace: string | null;
@@ -31,7 +31,7 @@ class TelemetryManager {
   private authorization: string | null;
   private name: string | null;
   private initialized: boolean;
-  
+
   constructor() {
     this.nodeTracerProvider = null;
     this.meterProvider = null;
@@ -181,7 +181,7 @@ class TelemetryManager {
     registerInstrumentations({
       instrumentations: instrumentations,
     });
-    
+
   }
 
   async loadInstrumentation(): Promise<Instrumentation[]> {
@@ -199,13 +199,13 @@ class TelemetryManager {
             instrumentations.push(instrumentor);
             if (name === "langchain") {
               const langchain = instrumentor as LangChainInstrumentation;
-  
+
               const RunnableModule = require("@langchain/core/runnables");
               const ToolsModule = require("@langchain/core/tools");
               const ChainsModule = require("langchain/chains");
               const AgentsModule = require("langchain/agents");
               const VectorStoresModule = require("@langchain/core/vectorstores");
-  
+
               langchain.manuallyInstrument({
                 runnablesModule: RunnableModule,
                 toolsModule: ToolsModule,

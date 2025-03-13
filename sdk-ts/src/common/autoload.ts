@@ -1,27 +1,23 @@
-import { client } from "../client";
-import { telemetryManager } from "../instrumentation/telemetryManager";
+import { client } from "../client/index.js";
+import { telemetryManager } from "../instrumentation/telemetryManager.js";
 
-import settings from "./settings";
-
-async function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+import settings from "./settings.js";
 
 async function autoload() {
   client.setConfig({
     baseUrl: settings.baseUrl,
   })
-  client.interceptors.request.use(async (request) => {
-    console.log('beforeRequest',request)
-    await delay(1000);
+  client.interceptors.request.use(async (request,options: any) => {
+    if (options.authenticated === false) {
+      return request;
+    }
+    await onLoad()
+    for(const header in settings.headers) {
+      request.headers.set(header, settings.headers[header])
+    }
     return request;
   })
   await settings.authenticate();
-  client.setConfig({
-    headers: {
-      Authorization: settings.authorization,
-    },
-  });
   telemetryManager.initialize(settings);
 }
 

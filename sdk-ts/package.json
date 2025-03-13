@@ -106,6 +106,7 @@
     "js-yaml": "^4.1.0",
     "jwt-decode": "^4.0.0",
     "langchain": "^0.3.19",
+    "llamaindex": "^0.9.11",
     "pino": "^9.6.0",
     "pino-opentelemetry-transport": "^1.0.1",
     "pino-pretty": "^13.0.0",
