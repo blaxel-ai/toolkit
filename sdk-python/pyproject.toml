@@ -59,9 +59,6 @@ dev = [
     "ruff>=0.8.2",
 ]
 
-[project.scripts]
-blaxel-docs = "pdoc.cli:main ['src/blaxel', '-o', 'docs', '--html', '--force', '--skip-errors']"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
