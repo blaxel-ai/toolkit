@@ -1,1 +1,1 @@
-uv run blaxel-docs src/blaxel -o docs --force --skip-errors
+uv run pdoc blaxel-docs src/blaxel -o docs --force --skip-errors
