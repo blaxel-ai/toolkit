@@ -25,6 +25,7 @@ export class HttpTool {
   }
 
   async call(args: any) {
+    console.debug("TOOLCALLING: http", this.name, args)
     const response = await fetch(this.url+"/", {
       method: 'POST',
       headers: {

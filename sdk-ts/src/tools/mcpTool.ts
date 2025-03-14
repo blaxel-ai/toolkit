@@ -47,6 +47,7 @@ class McpTool {
   }
 
   async call(toolName: string, args: any) {
+    console.debug("TOOLCALLING: mcp", toolName, args)
     return this.client.callTool({
       name: toolName,
       arguments: args,
