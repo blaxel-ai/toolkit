@@ -53,7 +53,6 @@ func (d *Deployment) Generate() error {
 	// Generate the dockerfile
 	d.dockerfile = fmt.Sprintf(`
 FROM node:22-alpine
-RUN npm i -g pnpm
 WORKDIR /blaxel
 COPY package.json /blaxel/package.json
 RUN %s
