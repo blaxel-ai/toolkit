@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -68,52 +68,28 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	return cmd
 }
 
-func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
-	uvicornCmd := "uvicorn"
-	if _, err := os.Stat(".venv"); !os.IsNotExist(err) {
-		uvicornCmd = ".venv/bin/uvicorn"
-	}
+func getServerEnvironment(port int, host string) CommandEnv {
+	env := CommandEnv{}
+	// Add all current env variables if not already set
+	env.AddClientEnv()
+	env.Set("BL_SERVER_PORT", fmt.Sprintf("%d", port))
+	env.Set("BL_SERVER_HOST", host)
+	env.Set("PATH", getServerPath())
 
-	uvicorn := exec.Command(
-		uvicornCmd,
-		"blaxel.serve.app:app",
-		"--port",
-		fmt.Sprintf("%d", port),
-		"--host",
-		host,
-	)
-	if hotreload {
-		uvicorn.Args = append(uvicorn.Args, "--reload")
-	}
-	if os.Getenv("COMMAND") != "" {
-		command := strings.Split(os.Getenv("COMMAND"), " ")
-		if len(command) > 1 {
-			uvicorn = exec.Command(command[0], command[1:]...)
-		} else {
-			uvicorn = exec.Command(command[0])
-		}
-	}
-
-	uvicorn.Stdout = os.Stdout
-	uvicorn.Stderr = os.Stderr
-
-	uvicorn.Env = getServerEnvironment(port, host)
-
-	err := uvicorn.Start()
-	if err != nil {
-		fmt.Printf("Error starting uvicorn server: %v\n", err)
-		os.Exit(1)
-	}
-
-	return uvicorn
+	return env
 }
 
-func getServerEnvironment(port int, host string) []string {
-	env := []string{}
-	env = append(env, fmt.Sprintf("BL_SERVER_PORT=%d", port))
-	env = append(env, fmt.Sprintf("BL_SERVER_HOST=%s", host))
-
-	// Add all current env variables if not already set
-	env = AddClientEnv(env)
-	return env
+func getServerPath() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory:", err)
+		os.Exit(1)
+	}
+	language := moduleLanguage()
+	switch language {
+	case "typescript":
+		path := filepath.Join(pwd, "node_modules", ".bin")
+		return fmt.Sprintf("%s:%s", path, os.Getenv("PATH"))
+	}
+	return os.Getenv("PATH")
 }

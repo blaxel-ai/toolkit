@@ -42,24 +42,12 @@ func (d *Deployment) Generate() error {
 			},
 		},
 	}
-	rootCommand, err := findTSRootCmdAsString(false)
-	if err != nil {
-		return fmt.Errorf("failed to find root command: %w", err)
-	}
-	packageManagerCommand, err := findTSPackageManagerCommandAsString(true)
-	if err != nil {
-		return fmt.Errorf("failed to find package manager command: %w", err)
-	}
 	// Generate the dockerfile
-	d.dockerfile = fmt.Sprintf(`
-FROM node:22-alpine
-WORKDIR /blaxel
-COPY package.json /blaxel/package.json
-RUN %s
-COPY . .
-
-ENTRYPOINT ["%s"]	
-`, strings.Join(packageManagerCommand, " "), strings.Join(rootCommand, "\",\""))
+	dockerfile, err := getDockerfile()
+	if err != nil {
+		return fmt.Errorf("failed to get dockerfile: %w", err)
+	}
+	d.dockerfile = dockerfile
 
 	// Zip the directory
 	err = d.Zip()
@@ -235,9 +223,9 @@ func (d *Deployment) Zip() error {
 
 func (d *Deployment) Print() error {
 	for _, deployment := range d.blaxelDeployments {
-		fmt.Println(deployment)
+		fmt.Print(deployment.ToString())
+		fmt.Println("---")
 	}
-	fmt.Println("---")
 	fmt.Println(d.dockerfile)
 	fmt.Println("---")
 	d.PrintZip()
