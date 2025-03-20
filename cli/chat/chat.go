@@ -18,15 +18,16 @@ type ChatModel struct {
 	viewport viewport.Model
 	spinner  spinner.Model
 
-	Messages    []Message
-	Err         error
-	Workspace   string
-	ResType     string
-	ResName     string
-	Loading     bool
-	Debug       bool
-	Local       bool
-	SendMessage func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool) (string, error)
+	Messages        []Message
+	Err             error
+	Workspace       string
+	ResType         string
+	ResName         string
+	Loading         bool
+	Debug           bool
+	Local           bool
+	SendMessage     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool) (string, error)
+	lastUserMessage string
 }
 
 type responseMsg struct {
@@ -67,6 +68,11 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyUp:
+			if m.lastUserMessage != "" {
+				m.textarea.SetValue(m.lastUserMessage)
+			}
+			return m, nil
 		case tea.KeyEnter:
 			if msg.Alt {
 				m.textarea.InsertString("\n")
@@ -76,6 +82,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if userInput == "" {
 				return m, nil
 			}
+
+			// Store the last user message
+			m.lastUserMessage = userInput
 
 			now := time.Now()
 			m.Messages = append(m.Messages, Message{
