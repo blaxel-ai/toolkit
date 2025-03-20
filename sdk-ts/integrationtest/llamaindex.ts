@@ -1,6 +1,6 @@
 import { agent, AgentStream, tool } from "llamaindex";
 import { z } from "zod";
-import { blModel, blTools } from "../src/index.js";
+import { blModel, blTools, logger } from "../src/index.js";
 import { prompt } from "./prompt";
 
 async function main() {
@@ -14,7 +14,7 @@ async function main() {
           city: z.string(),
         }),
         execute: async (input) => {
-          console.debug("TOOLCALLING: local weather", input)
+          logger.debug("TOOLCALLING: local weather", input)
           return `The weather in ${input.city} is sunny`;
         },
       })

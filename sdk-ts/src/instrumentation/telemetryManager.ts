@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable no-console */
-import { metrics } from "@opentelemetry/api";
+import { diag, DiagConsoleLogger, DiagLogLevel, metrics } from "@opentelemetry/api";
 import { Logger, logs } from "@opentelemetry/api-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
@@ -47,7 +47,9 @@ class TelemetryManager {
     this.workspace = options.workspace;
     this.authorization = options.authorization;
     this.name = options.name;
-
+    if (process.env.BL_DEBUG_TELEMETRY) {
+      diag.setLogger(new DiagConsoleLogger(), {logLevel: DiagLogLevel.DEBUG})
+    }
     if (!this.enabled || this.initialized) {
       return;
     }
@@ -59,6 +61,7 @@ class TelemetryManager {
       console.error("Error instrumenting app:", error);
     });
     this.setupSignalHandler();
+    this.otelLogger = logs.getLogger("blaxel");
     this.initialized = true;
   }
 
@@ -69,17 +72,22 @@ class TelemetryManager {
   get authHeaders() {
     const headers: Record<string, string> = {};
     if (this.authorization) {
-      headers["X-Blaxel-Authorization"] = this.authorization;
+      headers["x-blaxel-authorization"] = this.authorization;
     }
     if (this.workspace) {
-      headers["X-Blaxel-Workspace"] = this.workspace;
+      headers["x-blaxel-workspace"] = this.workspace;
     }
     return headers;
   }
 
-  get logger(): Logger {
+  async sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async getLogger(): Promise<Logger> {
     if (!this.otelLogger) {
-      throw new Error("Logger is not initialized");
+      await this.sleep(100)
+      return this.getLogger()
     }
     return this.otelLogger;
   }

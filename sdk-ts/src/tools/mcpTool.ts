@@ -4,6 +4,7 @@ import settings from "../common/settings.js";
 import { WebSocketClientTransport } from "./transport/websocket.js";
 import { Tool } from "./types.js";
 import { schemaToZodSchema } from './zodSchema.js';
+import { logger } from "../common/logger.js";
 
 const McpToolCache = new Map<string, McpTool>()
 
@@ -47,7 +48,7 @@ class McpTool {
   }
 
   async call(toolName: string, args: any) {
-    console.debug("TOOLCALLING: mcp", toolName, args)
+    logger.debug("TOOLCALLING: mcp", toolName, args)
     return this.client.callTool({
       name: toolName,
       arguments: args,

@@ -2,7 +2,7 @@ import { HumanMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { z } from "zod";
-import { blModel, blTools } from "../src/index.js";
+import { blModel, blTools, logger } from "../src/index.js";
 import { prompt } from "./prompt";
 
 async function main() {
@@ -12,7 +12,7 @@ async function main() {
     tools: [
       ...await blTools(['blaxel-search','webcrawl']).ToLangChain(),
       tool(async (input: any) => {
-        console.debug("TOOLCALLING: local weather", input)
+        logger.debug("TOOLCALLING: local weather", input)
         return `The weather in ${input.city} is sunny`;
       },{
         name: "weather",

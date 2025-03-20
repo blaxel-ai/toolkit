@@ -1,73 +1,53 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-import { logs } from "@opentelemetry/api-logs";
-import { logger } from "../index.js";
+/* eslint-disable no-console */
+import { Logger, SeverityNumber } from "@opentelemetry/api-logs";
+import localLogger from "../instrumentation/localLogger.js";
+import { telemetryManager } from "../instrumentation/telemetryManager.js";
 
-
-/**
- * Lazy-initialized singleton logger instance.
- */
-export default new Proxy({} as any, {
-  get: (target, property) => {
-
-    const pino = require("pino");
-
-    const loggerConfiguration = {
-      level: process.env.BL_LOG_LEVEL || "info",
-      transport: {
-        target: "pino-pretty",
-        options: {
-          colorizeObjects: false,
-          translateTime: false,
-          hideObject: true,
-          messageFormat: "\x1B[37m{msg}",
-          ignore: "pid,hostname,time",
-        },
-      },
-    };
-
-    // Only create instance if it doesn't exist
-    if (!(target as any).__instance) {
-      const instance = pino(loggerConfiguration);
-      (target as any).__instance = instance;
-
-      // Get OpenTelemetry logger
-      try {
-        const otelLogger = logs.getLogger("blaxel");
-        if (otelLogger) {
-          (target as any).__otelLogger = otelLogger;
-        }
-      } catch {
-        // OpenTelemetry logger not available
-      }
-    }
-
-    // Try to use OpenTelemetry logger if available
-    if (
-      (target as any).__otelLogger &&
-      property in (target as any).__otelLogger
-    ) {
-      return (target as any).__otelLogger[property];
-    }
-
-    return (target as any).__instance[property];
+export const logger = {
+  async getLogger(): Promise<Logger> {
+    return await telemetryManager.getLogger();
   },
-});
-
-export const log = {
+  emit: async (severityNumber: SeverityNumber, msg: string, ...args: any[]) => {
+    // originalConsole.info(msg, ...args);
+    const loggerInstance = await logger.getLogger();
+    loggerInstance.emit({ severityNumber: severityNumber, body: msg, attributes: { args } });
+  },
   info: async (msg: string, ...args: any[]) => {
-    const loggerInstance = await (logger as any).info;
-    loggerInstance(msg, ...args);
+    // originalConsole.info(msg, ...args);
+    logger.emit(SeverityNumber.INFO, msg, ...args);
   },
   error: async (msg: string, ...args: any[]) => {
-    const loggerInstance = await (logger as any).error;
-    loggerInstance(msg, ...args);
+    // originalConsole.error(msg, ...args);
+    logger.emit(SeverityNumber.ERROR, msg, ...args);
   },
   warn: async (msg: string, ...args: any[]) => {
-    const loggerInstance = await (logger as any).warn;
-    loggerInstance(msg, ...args);
+    // originalConsole.warn(msg, ...args);
+    logger.emit(SeverityNumber.WARN, msg, ...args);
   },
   debug: async (msg: string, ...args: any[]) => {
-    const loggerInstance = await (logger as any).debug;
-    loggerInstance(msg, ...args);
+    // originalConsole.debug(msg, ...args);
+    logger.emit(SeverityNumber.DEBUG, msg, ...args);
   },
 };
+
+
+console.info = (...args) => {
+  localLogger.info(...args)
+  logger.info(args[0], ...args.slice(1));
+}
+console.log = (...args) => {
+  localLogger.info(...args)
+  logger.info(args[0], ...args.slice(1));
+}
+console.error = (...args) => {
+  localLogger.error(...args)
+  logger.error(args[0], ...args.slice(1));
+}
+console.warn = (...args) => {
+  localLogger.warn(...args)
+  logger.warn(args[0], ...args.slice(1));
+}
+console.debug = (...args) => {
+  localLogger.debug(...args)
+  logger.debug(args[0], ...args.slice(1));
+}

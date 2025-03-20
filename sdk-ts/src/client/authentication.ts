@@ -31,6 +31,5 @@ export const oauthToken = <ThrowOnError extends boolean = false>(options: Option
   return (options?.client ?? client).post<OauthTokenResponse, OauthTokenError, ThrowOnError>({
     ...options,
     url: '/oauth/token',
-
   });
 };

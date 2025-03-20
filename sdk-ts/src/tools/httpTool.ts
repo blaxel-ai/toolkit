@@ -1,4 +1,5 @@
 import { Function, FunctionSpec } from "../client/index.js"
+import { logger } from "../common/logger.js"
 import settings from "../common/settings.js"
 import { Tool } from "./types.js"
 import { schemaToZodSchema } from "./zodSchema.js"
@@ -25,7 +26,7 @@ export class HttpTool {
   }
 
   async call(args: any) {
-    console.debug("TOOLCALLING: http", this.name, args)
+    logger.debug("TOOLCALLING: http", this.name, args)
     const response = await fetch(this.url+"/", {
       method: 'POST',
       headers: {

@@ -4,7 +4,7 @@ import {
   JSONRPCMessageSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import WebSocket from "ws";
-import logger from "../../common/logger.js";
+import { logger } from "../../common/logger.js";
 //const SUBPROTOCOL = "mcp";
 
 const MAX_RETRIES = 3;
