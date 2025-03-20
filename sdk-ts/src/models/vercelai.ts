@@ -1,16 +1,16 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
-import { getModel } from "../client";
 import settings from "../common/settings";
+import { getModelMetadata } from './index';
 
 export const getVercelAIModel = async (model: string, options?: any) => {
   const url = `${settings.runUrl}/${settings.workspace}/models/${model}`
-  const {data:modelData} = await getModel({
-    path: {
-      modelName: model,
-    },
-  });
+  const modelData = await getModelMetadata(model)
+  if(!modelData) {
+    throw new Error(`Model ${model} not found`)
+  }
+
   const type = modelData?.spec?.runtime?.type || 'openai'
   const modelId = modelData?.spec?.runtime?.model || 'gpt-4o'
   switch(type) {

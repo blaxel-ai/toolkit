@@ -8,7 +8,7 @@ async function autoload() {
     baseUrl: settings.baseUrl,
   })
   for(const interceptor of interceptors) {
-    client.interceptors.request.use(interceptor)
+    client.interceptors.request.use(interceptor as any)
   }
   await settings.authenticate();
   telemetryManager.initialize(settings);

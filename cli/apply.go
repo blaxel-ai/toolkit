@@ -240,7 +240,8 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 	}
 
 	if response.StatusCode >= 400 {
-		ErrorHandler(response.Request, resourceName, name, buf.String())
+		fmt.Println(ErrorHandler(response.Request, resourceName, name, buf.String()))
+		os.Exit(1)
 		return &failedResponse
 	}
 
@@ -281,7 +282,8 @@ func (resource Resource) PostFn(resourceName string, name string, resourceObject
 	}
 
 	if response.StatusCode >= 400 {
-		ErrorHandler(response.Request, resourceName, name, buf.String())
+		fmt.Println(ErrorHandler(response.Request, resourceName, name, buf.String()))
+		os.Exit(1)
 		return &failedResponse
 	}
 

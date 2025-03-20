@@ -1,7 +1,10 @@
 import { onLoad } from "../common/autoload";
 import settings from "../common/settings";
 
-export const interceptors = [
+type Interceptor = (request: Request, options: any) => Promise<Request | Response>;
+
+export const interceptors: Interceptor[] = [
+  // Authentication interceptor
   async (request: Request, options: any) => {
     if (options.authenticated === false) {
       return request;
@@ -11,5 +14,5 @@ export const interceptors = [
       request.headers.set(header, settings.headers[header])
     }
     return request;
-  }
+  },
 ]

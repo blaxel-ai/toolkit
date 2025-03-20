@@ -115,6 +115,16 @@ func printJson(resource Resource, slices []interface{}) {
 }
 
 func printYaml(resource Resource, slices []interface{}, pretty bool) {
+	yamlData := renderYaml(resource, slices, pretty)
+	// Print the YAML with colored keys and values
+	if pretty {
+		printColoredYAML(yamlData)
+	} else {
+		fmt.Println(string(yamlData))
+	}
+}
+
+func renderYaml(resource Resource, slices []interface{}, pretty bool) []byte {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
@@ -131,7 +141,6 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 			})
 		}
 	}
-
 	// Convert each object to YAML and add separators
 	var yamlData []byte
 	for _, result := range formatted {
@@ -144,13 +153,7 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 		yamlData = append(yamlData, data...)
 		yamlData = append(yamlData, []byte("\n")...)
 	}
-
-	// Print the YAML with colored keys and values
-	if pretty {
-		printColoredYAML(yamlData)
-	} else {
-		fmt.Println(string(yamlData))
-	}
+	return yamlData
 }
 
 func printColoredYAML(yamlData []byte) {

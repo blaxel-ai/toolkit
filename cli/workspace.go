@@ -58,7 +58,7 @@ func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sd
 		return sdk.Workspace{}, err
 	}
 	if response.StatusCode() >= 400 {
-		ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body))
+		fmt.Println(ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body)))
 		os.Exit(1)
 	}
 	return *response.JSON200, nil

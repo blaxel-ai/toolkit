@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -14,37 +13,37 @@ type ErrorModel struct {
 	Stack []string `json:"stack"`
 }
 
-func ErrorHandler(request *http.Request, kind string, name string, body string) {
-	var error ErrorModel
-	if err := json.Unmarshal([]byte(body), &error); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func ErrorHandler(request *http.Request, kind string, name string, body string) error {
+	var errorModel ErrorModel
+	if err := json.Unmarshal([]byte(body), &errorModel); err != nil {
+		return fmt.Errorf("failed to unmarshal error: %w", err)
 	}
 
-	// Afficher l'erreur et le code
+	var err error
 
 	workspace := request.Header.Get("X-Blaxel-Workspace")
 	workspace = strings.ReplaceAll(workspace, "\n", "")
 	workspace = strings.ReplaceAll(workspace, "\r", "")
 	if workspace != "" {
-		if error.Code == 401 {
+		if errorModel.Code == 401 {
 			resourceFullName := fmt.Sprintf("%s:%s", kind, name)
 			if name == "" {
 				resourceFullName = kind
 			}
-			fmt.Printf("You are not authorized to access the resource %s on workspace %s. Please login again.\n", resourceFullName, workspace)
+			err = fmt.Errorf("You are not authorized to access the resource %s on workspace %s. Please login again.", resourceFullName, workspace)
 		} else {
-			fmt.Printf("Resource %s:%s:%s: %s (Code: %d)\n", kind, workspace, name, error.Error, error.Code)
+			err = fmt.Errorf("Resource %s:%s:%s: %s (Code: %d)", kind, workspace, name, errorModel.Error, errorModel.Code)
 		}
 	} else {
-		fmt.Printf("Resource %s:%s: %s (Code: %d)\n", kind, name, error.Error, error.Code)
+		err = fmt.Errorf("Resource %s:%s: %s (Code: %d)", kind, name, errorModel.Error, errorModel.Code)
 	}
 
-	// Afficher le stack trace seulement s'il existe
-	if verbose && len(error.Stack) > 0 {
-		fmt.Println("Stack trace:")
-		for _, line := range error.Stack {
-			fmt.Printf("  %s\n", line)
+	if verbose && len(errorModel.Stack) > 0 {
+		errMsg := err.Error() + "\nStack trace:"
+		for _, line := range errorModel.Stack {
+			errMsg += fmt.Sprintf("\n  %s", line)
 		}
+		err = fmt.Errorf("%s", errMsg)
 	}
+	return err
 }

@@ -25,6 +25,17 @@ func (r *Operations) ServeCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			var activeProc *exec.Cmd
 
+			cwd, err := os.Getwd()
+			if err != nil {
+				fmt.Printf("Error getting current working directory: %v\n", err)
+				os.Exit(1)
+			}
+			err = r.SeedCache(cwd)
+			if err != nil {
+				fmt.Println("Error seeding cache:", err)
+				os.Exit(1)
+			}
+
 			// Check for pyproject.toml or package.json
 			language := moduleLanguage()
 			switch language {

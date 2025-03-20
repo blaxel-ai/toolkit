@@ -2,14 +2,6 @@
 import pino from "pino";
 import { Writable } from "stream";
 
-const originalConsole = {
-  info: console.info,
-  log: console.log,
-  error: console.error,
-  warn: console.warn,
-  debug: console.debug
-} as const;
-
 const formatLog = (level: number, message: string) => {
   const colors: Record<number, string> = {
     10: '\x1b[35m', // trace (magenta)
@@ -44,23 +36,23 @@ const customStream = new Writable({
       switch (logMessage.level) {
         case 10: // trace
         case 20: // debug
-          originalConsole.debug(formattedMessage);
+          console.debug(formattedMessage);
           break;
         case 30: // info
-          originalConsole.info(formattedMessage);
+          console.info(formattedMessage);
           break;
         case 40: // warn
-          originalConsole.warn(formattedMessage);
+          console.warn(formattedMessage);
           break;
         case 50: // error
         case 60: // fatal
-          originalConsole.error(formattedMessage);
+          console.error(formattedMessage);
           break;
         default:
-          originalConsole.log(formattedMessage);
+          console.log(formattedMessage);
       }
     } catch (err) {
-      originalConsole.error('Erreur de parsing des logs :', err);
+      console.error('Erreur de parsing des logs :', err);
     }
     callback();
   },

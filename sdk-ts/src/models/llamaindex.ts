@@ -2,16 +2,15 @@
 
 import { anthropic, AnthropicSession } from "@llamaindex/anthropic";
 import { openai } from "@llamaindex/openai";
-import { getModel } from "../client";
 import settings from "../common/settings";
+import { getModelMetadata } from './index';
 
 export const getLlamaIndexModel = async (model: string, options?: any) => {
   const url = `${settings.runUrl}/${settings.workspace}/models/${model}`
-  const {data:modelData} = await getModel({
-    path: {
-      modelName: model,
-    },
-  });
+  const modelData = await getModelMetadata(model)
+  if(!modelData) {
+    throw new Error(`Model ${model} not found`)
+  }
   const type = modelData?.spec?.runtime?.type || 'openai'
   switch(type) {
     // case 'mistral':

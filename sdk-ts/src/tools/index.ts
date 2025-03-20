@@ -1,4 +1,5 @@
-import { getFunction } from "../client/index.js";
+import { findFromCache } from "../cache/index.js";
+import { Function, getFunction } from "../client/index.js";
 import { getHttpTool } from "./httpTool.js";
 import { getLangchainTools } from "./langchain.js";
 import getLlamaIndexTools from "./llamaindex.js";
@@ -11,7 +12,7 @@ export * from "./llamaindex.js";
 export * from "./vertcelai.js";
 
 export const getTool = async (name: string): Promise<Tool[]> => {
-  const {data:functionData} = await getFunction({path: {functionName: name}})
+  const functionData = await getToolMetadata(name)
   if(!functionData) {
     throw new Error(`Function ${name} not found`)
   }
@@ -46,4 +47,17 @@ export const blTools = (names: string[]) => {
 
 export const blTool = (name: string) => {
   return new BLTools([name])
+}
+
+export const getToolMetadata = async (tool: string) : Promise<Function | null> => {
+  const cacheData = findFromCache('Function', tool)
+  if(cacheData) {
+    return cacheData as Function
+  }
+  const {data} = await getFunction({
+    path: {
+      functionName: tool,
+    },
+  });
+  return data || null
 }

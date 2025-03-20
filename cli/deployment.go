@@ -26,6 +26,11 @@ func (d *Deployment) Generate() error {
 		d.name = split[len(split)-1]
 	}
 
+	err := d.r.SeedCache(d.cwd)
+	if err != nil {
+		return fmt.Errorf("failed to seed cache: %w", err)
+	}
+
 	// Generate the blaxel deployment yaml
 	d.blaxelDeployments = []Result{
 		{

@@ -3,16 +3,15 @@ import { ChatCohere } from "@langchain/cohere";
 import { ChatDeepSeek } from "@langchain/deepseek";
 import { ChatOpenAI } from "@langchain/openai";
 import { CohereClient } from "cohere-ai";
-import { getModel } from "../client";
 import settings from "../common/settings";
+import { getModelMetadata } from './index';
 
 export const getLangchainModel = async (model: string, options?: any) : Promise<any> => {
   const url = `${settings.runUrl}/${settings.workspace}/models/${model}`
-  const {data:modelData} = await getModel({
-    path: {
-      modelName: model,
-    },
-  });
+  const modelData = await getModelMetadata(model)
+  if(!modelData) {
+    throw new Error(`Model ${model} not found`)
+  }
   const type = modelData?.spec?.runtime?.type || 'openai'
   switch(type) {
     case 'mistral':

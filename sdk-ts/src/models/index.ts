@@ -1,3 +1,6 @@
+import { findFromCache } from "../cache/index.js";
+import { getModel } from "../client/sdk.gen.js";
+import { Model } from "../client/types.gen.js";
 import { getLangchainModel } from "./langchain.js";
 import { getLlamaIndexModel } from "./llamaindex.js";
 import { getVercelAIModel } from "./vercelai.js";
@@ -30,4 +33,17 @@ class BLModel {
 
 export const blModel = (modelName: string, options?: any) => {
   return new BLModel(modelName, options);
+}
+
+export const getModelMetadata = async (model: string) : Promise<Model | null> => {
+  const cacheData = findFromCache('Model', model)
+  if(cacheData) {
+    return cacheData as Model
+  }
+  const {data} = await getModel({
+    path: {
+      modelName: model,
+    },
+  });
+  return data || null
 }
