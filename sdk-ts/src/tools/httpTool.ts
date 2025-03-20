@@ -13,8 +13,23 @@ export class HttpTool {
     this.spec = spec
   }
 
-  get url() {
+  get externalUrl() {
     return new URL(`${settings.runUrl}/${settings.workspace}/functions/${this.name}`)
+  }
+
+  get fallbackUrl() {
+    if (this.externalUrl != this.url) {
+      return this.externalUrl
+    }
+    return null
+  }
+
+  get url() {
+    const envVar = this.name.replace(/-/g, "_").toUpperCase();
+    if (process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]) {
+      return new URL(`https://${process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]}.${settings.runInternalHostname}`);
+    }
+    return this.externalUrl
   }
 
   async listTools(): Promise<Tool[]> {
@@ -29,7 +44,23 @@ export class HttpTool {
   async call(args: any) {
     await onLoad()
     logger.debug("TOOLCALLING: http", this.name, args)
-    const response = await fetch(this.url+"/", {
+    try {
+      const response = await fetch(this.url+"/", {
+        method: 'POST',
+        headers: {
+          ...settings.headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(args),
+      })
+      return await response.text()
+    } catch (err: any) {
+      logger.error(err.stack)
+      if (!this.fallbackUrl) {
+        throw err
+      }
+    }
+    const response = await fetch(this.fallbackUrl+"/", {
       method: 'POST',
       headers: {
         ...settings.headers,

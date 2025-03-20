@@ -27,14 +27,39 @@ class McpTool {
     );
   }
 
-  get url() {
+  get fallbackUrl() {
+    if (this.externalUrl != this.url) {
+      return this.externalUrl
+    }
+    return null
+  }
+
+
+  get externalUrl() {
     return new URL(`${settings.runUrl}/${settings.workspace}/functions/${this.name}`)
+  }
+
+  get url() {
+    const envVar = this.name.replace(/-/g, "_").toUpperCase();
+    if (process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]) {
+      return new URL(`https://${process.env[`BL_FUNCTION_${envVar}_SERVICE_NAME`]}.${settings.runInternalHostname}`);
+    }
+    return this.externalUrl
   }
 
   async refresh() {
     await onLoad()
-    const transport = new WebSocketClientTransport(this.url, settings.headers);
-    await this.client.connect(transport);
+    try {
+      const transport = new WebSocketClientTransport(this.url, settings.headers);
+      await this.client.connect(transport);
+    } catch (err: any) {
+      logger.error(err.stack)
+      if (!this.fallbackUrl) {
+        throw err
+      }
+      const transport = new WebSocketClientTransport(this.fallbackUrl, settings.headers);
+      await this.client.connect(transport);
+    }
   }
 
   async listTools(): Promise<Tool[]> {
