@@ -332,7 +332,6 @@ export class OpenAIVoiceReactAgent {
         } else if (type === "error") {
           console.error("error:", data);
         } else if (type === "response.function_call_arguments.done") {
-          logger.info("tool call", data);
           toolExecutor.addToolCall(data);
         } else if (type === "response.audio_transcript.done") {
           logger.info("model:", data.transcript);
