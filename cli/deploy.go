@@ -30,6 +30,10 @@ func (r *Operations) DeployAgentAppCmd() *cobra.Command {
 			// Create a temporary directory for deployment files
 			deployDir := ".blaxel"
 
+			if config.Name != "" {
+				name = config.Name
+			}
+
 			deployment := Deployment{
 				dir:  deployDir,
 				name: name,

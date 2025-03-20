@@ -3,6 +3,7 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 import settings from "../common/settings";
 import { getModelMetadata } from './index';
+import { onLoad } from '../common/autoload';
 
 export const getVercelAIModel = async (model: string, options?: any) => {
   const url = `${settings.runUrl}/${settings.workspace}/models/${model}`
@@ -10,7 +11,7 @@ export const getVercelAIModel = async (model: string, options?: any) => {
   if(!modelData) {
     throw new Error(`Model ${model} not found`)
   }
-
+  await onLoad()
   const type = modelData?.spec?.runtime?.type || 'openai'
   const modelId = modelData?.spec?.runtime?.model || 'gpt-4o'
   switch(type) {

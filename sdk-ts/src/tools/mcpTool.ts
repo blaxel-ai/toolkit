@@ -1,10 +1,11 @@
 import { Client as ModelContextProtocolClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { Function } from "../client/index.js";
+import { onLoad } from "../common/autoload.js";
+import { logger } from "../common/logger.js";
 import settings from "../common/settings.js";
 import { WebSocketClientTransport } from "./transport/websocket.js";
 import { Tool } from "./types.js";
 import { schemaToZodSchema } from './zodSchema.js';
-import { logger } from "../common/logger.js";
 
 const McpToolCache = new Map<string, McpTool>()
 
@@ -31,6 +32,7 @@ class McpTool {
   }
 
   async refresh() {
+    await onLoad()
     const transport = new WebSocketClientTransport(this.url, settings.headers);
     await this.client.connect(transport);
   }

@@ -5,6 +5,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { CohereClient } from "cohere-ai";
 import settings from "../common/settings";
 import { getModelMetadata } from './index';
+import { onLoad } from "../common/autoload";
 
 export const getLangchainModel = async (model: string, options?: any) : Promise<any> => {
   const url = `${settings.runUrl}/${settings.workspace}/models/${model}`
@@ -12,6 +13,7 @@ export const getLangchainModel = async (model: string, options?: any) : Promise<
   if(!modelData) {
     throw new Error(`Model ${model} not found`)
   }
+  await onLoad()
   const type = modelData?.spec?.runtime?.type || 'openai'
   switch(type) {
     case 'mistral':

@@ -1,4 +1,5 @@
 import { Function, FunctionSpec } from "../client/index.js"
+import { onLoad } from "../common/autoload.js"
 import { logger } from "../common/logger.js"
 import settings from "../common/settings.js"
 import { Tool } from "./types.js"
@@ -26,6 +27,7 @@ export class HttpTool {
   }
 
   async call(args: any) {
+    await onLoad()
     logger.debug("TOOLCALLING: http", this.name, args)
     const response = await fetch(this.url+"/", {
       method: 'POST',

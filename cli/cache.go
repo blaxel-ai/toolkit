@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 func (r *Operations) SeedCache(cwd string) error {
@@ -13,9 +15,23 @@ func (r *Operations) SeedCache(cwd string) error {
 
 	var results string
 	for _, resource := range resources {
-		res, err := resource.ListExec()
-		if err == nil {
-			results += string(renderYaml(*resource, res, false))
+		switch resource.Kind {
+		case "Function":
+			if len(config.Functions) == 0 {
+				continue
+			}
+			res, err := resource.ListExec()
+			if err == nil {
+				results += string(filterCache(*resource, res, config.Functions))
+			}
+		case "Model":
+			if len(config.Functions) == 0 {
+				continue
+			}
+			res, err := resource.ListExec()
+			if err == nil {
+				results += string(filterCache(*resource, res, config.Models))
+			}
 		}
 	}
 
@@ -26,4 +42,32 @@ func (r *Operations) SeedCache(cwd string) error {
 	}
 	file.WriteString(results)
 	return nil
+}
+
+type NameRetriever struct {
+	Metadata struct {
+		Name string `yaml:"name"`
+	} `yaml:"metadata"`
+}
+
+func filterCache(resource Resource, res []interface{}, names []string) string {
+	if slices.Contains(names, "all") {
+		return string(renderYaml(resource, res, false))
+	}
+	content := ""
+	for _, r := range res {
+		var nameRetriever NameRetriever
+		jsonBytes, err := json.Marshal(r)
+		if err != nil {
+			continue
+		}
+		err = json.Unmarshal(jsonBytes, &nameRetriever)
+		if err != nil {
+			continue
+		}
+		if slices.Contains(names, nameRetriever.Metadata.Name) {
+			content += string(renderYaml(resource, []interface{}{r}, false))
+		}
+	}
+	return content
 }

@@ -35,6 +35,7 @@ func init() {
 	}
 }
 
+var config Config
 var workspace string
 var outputFormat string
 var client *sdk.ClientWithResponses
@@ -49,6 +50,8 @@ var rootCmd = &cobra.Command{
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		setEnvs()
+
+		readConfigToml()
 
 		reg = &Operations{
 			BaseURL:     BASE_URL,

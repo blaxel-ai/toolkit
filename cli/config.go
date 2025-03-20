@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 
+	"github.com/BurntSushi/toml"
 	"github.com/beamlit/toolkit/sdk"
 )
 
@@ -59,4 +63,39 @@ var resources = []*Resource{
 		Singular: "integrationconnection",
 		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
 	},
+}
+
+// readConfigToml reads the config.toml file and upgrade config according to content
+
+type Config struct {
+	Name      string   `toml:"name"`
+	Workspace string   `toml:"workspace"`
+	Functions []string `toml:"functions"`
+	Models    []string `toml:"models"`
+}
+
+func readConfigToml() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	content, err := os.ReadFile(filepath.Join(cwd, "blaxel.toml"))
+	if err != nil {
+		config.Functions = []string{"all"}
+		config.Models = []string{"all"}
+		return
+	}
+
+	err = toml.Unmarshal(content, &config)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if config.Workspace != "" {
+		fmt.Printf("Using workspace %s from blaxel.toml\n", config.Workspace)
+		workspace = config.Workspace
+	}
 }
