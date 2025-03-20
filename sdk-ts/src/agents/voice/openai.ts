@@ -140,7 +140,7 @@ class VoiceToolExecutor {
         this.triggerPromise = null;
         this.triggerResolve = null;
       } else {
-        throw new Error("Tool call adding already in progress");
+        logger.error("Tool call adding already in progress");
       }
     })();
 
@@ -173,6 +173,7 @@ class VoiceToolExecutor {
       );
     }
 
+    logger.info(`Calling tool ${toolCall.name}`);
     const result = await tool.call(args);
     const resultStr =
       typeof result === "string" ? result : JSON.stringify(result);
@@ -239,7 +240,11 @@ export class OpenAIVoiceReactAgent {
       headers: params.headers,
       model: params.model,
     });
-    this.instructions = params.instructions;
+    this.instructions = `
+      You are a voice agent. Even if you are using a tool, you should still respond to the user before you get response from the tool.
+      This is to ensure that the user knows that you are working on their request.
+      Be brief and concise on your responses. If the user asked you to stop just stop talking without saying anything and cancel everything you were doing.
+    `;
     this.tools = params.tools ?? [];
   }
 
@@ -249,6 +254,10 @@ export class OpenAIVoiceReactAgent {
    */
   bindTools(tools: StructuredTool[]) {
     this.tools = tools;
+  }
+
+  bindPrompt(prompt: string) {
+    this.instructions = prompt;
   }
 
   /**
