@@ -12,10 +12,9 @@ Sub-modules
 * blaxel.api.invitations
 * blaxel.api.knowledgebases
 * blaxel.api.locations
-* blaxel.api.metrics
 * blaxel.api.models
 * blaxel.api.policies
 * blaxel.api.privateclusters
 * blaxel.api.service_accounts
-* blaxel.api.store
+* blaxel.api.templates
 * blaxel.api.workspaces

@@ -4,13 +4,16 @@ Module blaxel.models.resource_metrics
 Classes
 -------
 
-`ResourceMetrics(inference_global: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, last_n_requests: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, latency: blaxel.types.Unset | ForwardRef('LatencyMetric') = <blaxel.types.Unset object>, request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <blaxel.types.Unset object>, token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetrics') = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | ForwardRef('TokenTotalMetric') = <blaxel.types.Unset object>)`
+`ResourceMetrics(inference_global: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, last_n_requests: blaxel.types.Unset | list['Metric'] = <blaxel.types.Unset object>, latency: blaxel.types.Unset | ForwardRef('LatencyMetric') = <blaxel.types.Unset object>, memory_allocation: blaxel.types.Unset | ForwardRef('MemoryAllocationMetric') = <blaxel.types.Unset object>, model_ttft: blaxel.types.Unset | ForwardRef('LatencyMetric') = <blaxel.types.Unset object>, model_ttft_over_time: blaxel.types.Unset | ForwardRef('TimeToFirstTokenOverTimeMetrics') = <blaxel.types.Unset object>, request_duration_over_time: blaxel.types.Unset | ForwardRef('RequestDurationOverTimeMetrics') = <blaxel.types.Unset object>, request_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, request_total_by_origin: blaxel.types.Unset | ForwardRef('RequestTotalByOriginMetric') = <blaxel.types.Unset object>, request_total_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRequestTotalPerCode') = <blaxel.types.Unset object>, rps: blaxel.types.Unset | float = <blaxel.types.Unset object>, rps_per_code: blaxel.types.Unset | ForwardRef('ResourceMetricsRpsPerCode') = <blaxel.types.Unset object>, token_rate: blaxel.types.Unset | ForwardRef('TokenRateMetrics') = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | ForwardRef('TokenTotalMetric') = <blaxel.types.Unset object>)`
 :   Metrics for a single resource deployment (eg. model deployment, function deployment)
     
     Attributes:
         inference_global (Union[Unset, list['Metric']]): Array of metrics
         last_n_requests (Union[Unset, list['Metric']]): Array of metrics
         latency (Union[Unset, LatencyMetric]): Latency metrics
+        memory_allocation (Union[Unset, MemoryAllocationMetric]): Metrics for memory allocation
+        model_ttft (Union[Unset, LatencyMetric]): Latency metrics
+        model_ttft_over_time (Union[Unset, TimeToFirstTokenOverTimeMetrics]): Time to first token over time metrics
         request_duration_over_time (Union[Unset, RequestDurationOverTimeMetrics]): Request duration over time metrics
         request_total (Union[Unset, float]): Number of requests for the resource globally
         request_total_by_origin (Union[Unset, RequestTotalByOriginMetric]): Request total by origin metric
@@ -44,6 +47,15 @@ Classes
     :
 
     `latency`
+    :
+
+    `memory_allocation`
+    :
+
+    `model_ttft`
+    :
+
+    `model_ttft_over_time`
     :
 
     `request_duration_over_time`

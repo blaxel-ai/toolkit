@@ -19,7 +19,7 @@ Classes
     `additional_keys: list[str]`
     :
 
-    `additional_properties: dict[str, typing.Any]`
+    `additional_properties: dict[str, str]`
     :
 
     ### Methods

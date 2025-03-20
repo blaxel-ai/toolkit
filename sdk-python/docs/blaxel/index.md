@@ -7,11 +7,13 @@ Sub-modules
 * blaxel.agents
 * blaxel.api
 * blaxel.authentication
+* blaxel.cli
 * blaxel.client
 * blaxel.common
 * blaxel.deploy
 * blaxel.errors
 * blaxel.functions
+* blaxel.knowledgebases
 * blaxel.models
 * blaxel.run
 * blaxel.serve

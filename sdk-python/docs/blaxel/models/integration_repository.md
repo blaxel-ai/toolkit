@@ -4,11 +4,12 @@ Module blaxel.models.integration_repository
 Classes
 -------
 
-`IntegrationRepository(id: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, organization: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
+`IntegrationRepository(id: blaxel.types.Unset | str = <blaxel.types.Unset object>, is_bl: blaxel.types.Unset | bool = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, organization: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Integration repository
     
     Attributes:
         id (Union[Unset, str]): Repository ID
+        is_bl (Union[Unset, bool]): Whether the repository has Blaxel imports
         name (Union[Unset, str]): Repository name
         organization (Union[Unset, str]): Repository owner
         url (Union[Unset, str]): Repository URL
@@ -29,6 +30,9 @@ Classes
     :
 
     `id: blaxel.types.Unset | str`
+    :
+
+    `is_bl: blaxel.types.Unset | bool`
     :
 
     `name: blaxel.types.Unset | str`

@@ -4,11 +4,13 @@ Module blaxel.models.token_rate_metric
 Classes
 -------
 
-`TokenRateMetric(model: blaxel.types.Unset | str = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, trend: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
+`TokenRateMetric(model: blaxel.types.Unset | str = <blaxel.types.Unset object>, provider: blaxel.types.Unset | str = <blaxel.types.Unset object>, provider_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, timestamp: blaxel.types.Unset | str = <blaxel.types.Unset object>, token_total: blaxel.types.Unset | float = <blaxel.types.Unset object>, trend: blaxel.types.Unset | float = <blaxel.types.Unset object>)`
 :   Token rate metric
     
     Attributes:
         model (Union[Unset, str]): Model ID
+        provider (Union[Unset, str]): Provider name
+        provider_name (Union[Unset, str]): Provider integration name
         timestamp (Union[Unset, str]): Timestamp
         token_total (Union[Unset, float]): Total tokens
         trend (Union[Unset, float]): Trend
@@ -29,6 +31,12 @@ Classes
     :
 
     `model: blaxel.types.Unset | str`
+    :
+
+    `provider: blaxel.types.Unset | str`
+    :
+
+    `provider_name: blaxel.types.Unset | str`
     :
 
     `timestamp: blaxel.types.Unset | str`

@@ -4,10 +4,12 @@ Module blaxel.models.mcp_definition
 Classes
 -------
 
-`MCPDefinition(categories: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, coming_soon: blaxel.types.Unset | bool = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, enterprise: blaxel.types.Unset | bool = <blaxel.types.Unset object>, entrypoint: blaxel.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <blaxel.types.Unset object>, form: blaxel.types.Unset | ForwardRef('MCPDefinitionForm') = <blaxel.types.Unset object>, icon: blaxel.types.Unset | str = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, long_description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
+`MCPDefinition(created_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, updated_at: blaxel.types.Unset | str = <blaxel.types.Unset object>, categories: blaxel.types.Unset | list[typing.Any] = <blaxel.types.Unset object>, coming_soon: blaxel.types.Unset | bool = <blaxel.types.Unset object>, description: blaxel.types.Unset | str = <blaxel.types.Unset object>, display_name: blaxel.types.Unset | str = <blaxel.types.Unset object>, enterprise: blaxel.types.Unset | bool = <blaxel.types.Unset object>, entrypoint: blaxel.types.Unset | ForwardRef('MCPDefinitionEntrypoint') = <blaxel.types.Unset object>, form: blaxel.types.Unset | ForwardRef('MCPDefinitionForm') = <blaxel.types.Unset object>, hidden_secrets: blaxel.types.Unset | list[str] = <blaxel.types.Unset object>, icon: blaxel.types.Unset | str = <blaxel.types.Unset object>, integration: blaxel.types.Unset | str = <blaxel.types.Unset object>, long_description: blaxel.types.Unset | str = <blaxel.types.Unset object>, name: blaxel.types.Unset | str = <blaxel.types.Unset object>, url: blaxel.types.Unset | str = <blaxel.types.Unset object>)`
 :   Definition of an MCP from the MCP Hub
     
     Attributes:
+        created_at (Union[Unset, str]): The date and time when the resource was created
+        updated_at (Union[Unset, str]): The date and time when the resource was updated
         categories (Union[Unset, list[Any]]): Categories of the artifact
         coming_soon (Union[Unset, bool]): If the artifact is coming soon
         description (Union[Unset, str]): Description of the artifact
@@ -15,6 +17,7 @@ Classes
         enterprise (Union[Unset, bool]): If the artifact is enterprise
         entrypoint (Union[Unset, MCPDefinitionEntrypoint]): Entrypoint of the artifact
         form (Union[Unset, MCPDefinitionForm]): Form of the artifact
+        hidden_secrets (Union[Unset, list[str]]): Hidden secrets of the artifact
         icon (Union[Unset, str]): Icon of the artifact
         integration (Union[Unset, str]): Integration of the artifact
         long_description (Union[Unset, str]): Long description of the artifact
@@ -42,6 +45,9 @@ Classes
     `coming_soon`
     :
 
+    `created_at`
+    :
+
     `description`
     :
 
@@ -57,6 +63,9 @@ Classes
     `form`
     :
 
+    `hidden_secrets`
+    :
+
     `icon`
     :
 
@@ -67,6 +76,9 @@ Classes
     :
 
     `name`
+    :
+
+    `updated_at`
     :
 
     `url`
