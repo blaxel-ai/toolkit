@@ -13,6 +13,36 @@ type PackageJson struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
+func getTSDockerfile() (string, error) {
+	rootCommand, err := findRootCmdAsString(false)
+	if err != nil {
+		return "", fmt.Errorf("failed to find root command: %w", err)
+	}
+	packageManagerCommand := findTSPackageManagerCommandAsString(true)
+	buildCommandArgs := getTSBuildCommand()
+	buildCommand := ""
+	if len(buildCommandArgs) > 0 {
+		buildCommand = "RUN " + strings.Join(buildCommandArgs, " ")
+	}
+	lockFile := findTSPackageManagerLockFile()
+	if lockFile != "" {
+		lockFile = "COPY " + lockFile + " /blaxel/" + lockFile
+	}
+	return fmt.Sprintf(`FROM node:22-alpine
+WORKDIR /blaxel
+COPY package.json /blaxel/package.json
+%s
+RUN %s
+COPY . .
+%s
+ENTRYPOINT ["%s"]`,
+			lockFile,
+			strings.Join(packageManagerCommand, " "),
+			buildCommand,
+			strings.Join(rootCommand, "\",\"")),
+		nil
+}
+
 func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
 	ts, err := findRootCmd(hotreload)
 	fmt.Printf("Starting server : %s\n", strings.Join(ts.Args, " "))
@@ -102,42 +132,19 @@ func getTSBuildCommand() []string {
 	if err != nil {
 		return nil
 	}
-	if packageJson.Scripts["build"] != "" {
+	if packageJson.Scripts["build"] == "" {
+		return nil
+	}
+	packageManager := findTSPackageManager()
+	switch packageManager {
+	case "pnpm":
+		return []string{"pnpm", "build"}
+	case "yarn":
+		return []string{"yarn", "build"}
+	default:
 		return strings.Split(packageJson.Scripts["build"], " ")
 	}
-	return nil
 }
-
-func getTSDockerfile() (string, error) {
-	rootCommand, err := findRootCmdAsString(false)
-	if err != nil {
-		return "", fmt.Errorf("failed to find root command: %w", err)
-	}
-	packageManagerCommand := findTSPackageManagerCommandAsString(true)
-	buildCommandArgs := getTSBuildCommand()
-	buildCommand := ""
-	if len(buildCommandArgs) > 0 {
-		buildCommand = "RUN " + strings.Join(buildCommandArgs, " ")
-	}
-	lockFile := findTSPackageManagerLockFile()
-	if lockFile != "" {
-		lockFile = "COPY " + lockFile + " /blaxel/" + lockFile
-	}
-	return fmt.Sprintf(`FROM node:22-alpine
-WORKDIR /blaxel
-COPY package.json /blaxel/package.json
-%s
-RUN %s
-%s
-COPY . .
-ENTRYPOINT ["%s"]`,
-			lockFile,
-			strings.Join(packageManagerCommand, " "),
-			buildCommand,
-			strings.Join(rootCommand, "\",\"")),
-		nil
-}
-
 func findTSPackageManager() string {
 	lockFile := findTSPackageManagerLockFile()
 	switch lockFile {
@@ -168,22 +175,23 @@ func findTSPackageManagerLockFile() string {
 }
 
 func findTSPackageManagerCommandAsString(production bool) []string {
+	// Production mode is not supported for now cause we build in onestage
 	packageManager := findTSPackageManager()
 	if packageManager == "pnpm" {
 		baseCmd := []string{"npm", "install", "-g", "pnpm", "&&", "pnpm", "install"}
-		if production {
-			return append(baseCmd, "--production")
-		}
+		// if production {
+		// 	return append(baseCmd, "--production")
+		// }
 		return baseCmd
 	}
 	if packageManager == "yarn" {
-		if production {
-			return []string{"yarn", "--production"}
-		}
+		// if production {
+		// 	return []string{"yarn", "--production"}
+		// }
 		return []string{"yarn"}
 	}
-	if production {
-		return []string{"npm", "install", "--production"}
-	}
+	// if production {
+	// 	return []string{"npm", "install", "--production"}
+	// }
 	return []string{"npm", "install"}
 }

@@ -50,7 +50,7 @@ export const blTool = (name: string) => {
 }
 
 export const getToolMetadata = async (tool: string) : Promise<Function | null> => {
-  const cacheData = findFromCache('Function', tool)
+  const cacheData = await findFromCache('Function', tool)
   if(cacheData) {
     return cacheData as Function
   }
@@ -61,3 +61,4 @@ export const getToolMetadata = async (tool: string) : Promise<Function | null> =
   });
   return data || null
 }
+

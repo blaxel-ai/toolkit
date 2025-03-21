@@ -36,7 +36,7 @@ export const blModel = (modelName: string, options?: any) => {
 }
 
 export const getModelMetadata = async (model: string) : Promise<Model | null> => {
-  const cacheData = findFromCache('Model', model)
+  const cacheData = await findFromCache('Model', model)
   if(cacheData) {
     return cacheData as Model
   }

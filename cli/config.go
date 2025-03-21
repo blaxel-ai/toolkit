@@ -70,6 +70,8 @@ var resources = []*Resource{
 type Config struct {
 	Name      string   `toml:"name"`
 	Workspace string   `toml:"workspace"`
+	Type      string   `toml:"type"`
+	Protocol  string   `toml:"protocol"`
 	Functions []string `toml:"functions"`
 	Models    []string `toml:"models"`
 }
