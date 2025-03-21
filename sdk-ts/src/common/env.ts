@@ -2,12 +2,14 @@ import fs from 'fs';
 import toml from 'toml';
 
 const secretEnv: any = {};
-let configEnv: any = {};
+const configEnv: any = {};
 
 try {
   const configFile = fs.readFileSync('blaxel.toml', 'utf8');
   const configInfos = toml.parse(configFile);
-  configEnv = configInfos.env;
+  for (const key in configInfos.env) {
+    configEnv[key] = configInfos.env[key];
+  }
 /* eslint-disable */
 } catch (error) {
 }
