@@ -85,6 +85,7 @@ func getServerEnvironment(port int, host string) CommandEnv {
 	env.AddClientEnv()
 	env.Set("BL_SERVER_PORT", fmt.Sprintf("%d", port))
 	env.Set("BL_SERVER_HOST", host)
+	env.Set("BL_WORKSPACE", config.Workspace)
 	env.Set("PATH", getServerPath())
 
 	return env
