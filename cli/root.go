@@ -51,6 +51,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		setEnvs()
 
+		readSecrets()
 		readConfigToml()
 
 		reg = &Operations{

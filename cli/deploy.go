@@ -125,11 +125,14 @@ func (d *Deployment) GenerateDeployment() Result {
 		Spec = map[string]interface{}{
 			"runtime": map[string]interface{}{
 				"type": "mcp",
+				"envs": GetEnvs(),
 			},
 		}
 	case "agent":
 		Kind = "Agent"
-		Spec = map[string]interface{}{}
+		Spec = map[string]interface{}{
+			"envs": GetEnvs(),
+		}
 	}
 	return Result{
 		ApiVersion: "blaxel.ai/v1alpha1",

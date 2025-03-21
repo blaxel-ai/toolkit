@@ -7,6 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/beamlit/toolkit/cli/dockerfiles"
+	"github.com/cbroglie/mustache"
 )
 
 type PackageJson struct {
@@ -14,36 +17,28 @@ type PackageJson struct {
 }
 
 func getTSDockerfile() (string, error) {
-	rootCommand, err := findRootCmdAsString(RootCmdConfig{
+	entrypoint, err := findRootCmdAsString(RootCmdConfig{
 		Hotreload:  false,
 		Production: true,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to find root command: %w", err)
 	}
-	packageManagerCommand := findTSPackageManagerCommandAsString(true)
-	buildCommandArgs := getTSBuildCommand()
-	buildCommand := ""
-	if len(buildCommandArgs) > 0 {
-		buildCommand = "RUN " + strings.Join(buildCommandArgs, " ")
+	data := map[string]interface{}{
+		"BaseImage":      "node:22-alpine",
+		"LockFile":       findTSPackageManagerLockFile(),
+		"InstallCommand": strings.Join(findTSPackageManagerCommandAsString(true), " "),
+		"BuildCommand":   strings.Join(getTSBuildCommand(), " "),
+		"Entrypoint":     strings.Join(entrypoint, "\", \""),
 	}
-	lockFile := findTSPackageManagerLockFile()
-	if lockFile != "" {
-		lockFile = "COPY " + lockFile + " /blaxel/" + lockFile
+
+	result, err := mustache.Render(dockerfiles.TSTemplate, data)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to render dockerfile template: %w", err)
 	}
-	return fmt.Sprintf(`FROM node:22-alpine
-WORKDIR /blaxel
-COPY package.json /blaxel/package.json
-%s
-RUN %s
-COPY . .
-%s
-ENTRYPOINT ["%s"]`,
-			lockFile,
-			strings.Join(packageManagerCommand, " "),
-			buildCommand,
-			strings.Join(rootCommand, "\",\"")),
-		nil
+
+	return result, nil
 }
 
 func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
