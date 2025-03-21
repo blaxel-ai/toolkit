@@ -16,7 +16,7 @@ RUN pip install -r requirements.txt
 `, nil
 }
 
-func findPythonRootCmdAsString(hotreload bool) ([]string, error) {
+func findPythonRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	return []string{"uvicorn", "blaxel.serve.app:app"}, nil
 }
 

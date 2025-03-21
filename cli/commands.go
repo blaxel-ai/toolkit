@@ -18,20 +18,28 @@ type RegisterImpl struct {
 }
 
 func findRootCmd(hotreload bool) (*exec.Cmd, error) {
-	rootCmd, err := findRootCmdAsString(hotreload)
+	rootCmd, err := findRootCmdAsString(RootCmdConfig{
+		Hotreload:  hotreload,
+		Production: false,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error finding root cmd: %v", err)
 	}
 	return exec.Command("sh", "-c", strings.Join(rootCmd, " ")), nil
 }
 
-func findRootCmdAsString(hotreload bool) ([]string, error) {
+type RootCmdConfig struct {
+	Hotreload  bool
+	Production bool
+}
+
+func findRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	language := moduleLanguage()
 	switch language {
 	case "python":
-		return findPythonRootCmdAsString(hotreload)
+		return findPythonRootCmdAsString(config)
 	case "typescript":
-		return findTSRootCmdAsString(hotreload)
+		return findTSRootCmdAsString(config)
 	}
 	return nil, fmt.Errorf("language not supported")
 }

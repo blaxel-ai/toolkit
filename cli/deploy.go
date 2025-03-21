@@ -117,23 +117,19 @@ func (d *Deployment) Generate() error {
 }
 
 func (d *Deployment) GenerateDeployment() Result {
-	Kind := "Agent"
-	if config.Type == "function" {
-		Kind = "Function"
-	}
-
-	// TODO: Fix better handler for this
 	var Spec map[string]interface{}
-	if config.Protocol == "mcp" {
+	var Kind string
+	switch config.Type {
+	case "function":
+		Kind = "Function"
 		Spec = map[string]interface{}{
 			"runtime": map[string]interface{}{
 				"type": "mcp",
 			},
 		}
-	} else {
-		Spec = map[string]interface{}{
-			"model": d.name,
-		}
+	case "agent":
+		Kind = "Agent"
+		Spec = map[string]interface{}{}
 	}
 	return Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
@@ -217,12 +213,23 @@ func (d *Deployment) Upload(url string) error {
 	return nil
 }
 
-func (d *Deployment) Zip() error {
-	ignoredPaths := []string{
-		".blaxel",
-		".git",
-		"node_modules",
+func (d *Deployment) IgnoredPaths() []string {
+	content, err := os.ReadFile(filepath.Join(d.cwd, ".blaxelignore"))
+	if err != nil {
+		return []string{
+			".blaxel",
+			".git",
+			"dist",
+			".venv",
+			"venv",
+			"node_modules",
+		}
 	}
+	return strings.Split(string(content), "\n")
+}
+
+func (d *Deployment) Zip() error {
+	ignoredPaths := d.IgnoredPaths()
 	zipFile, err := os.CreateTemp("", ".blaxel.zip")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)

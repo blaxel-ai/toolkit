@@ -14,7 +14,10 @@ type PackageJson struct {
 }
 
 func getTSDockerfile() (string, error) {
-	rootCommand, err := findRootCmdAsString(false)
+	rootCommand, err := findRootCmdAsString(RootCmdConfig{
+		Hotreload:  false,
+		Production: true,
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to find root command: %w", err)
 	}
@@ -95,14 +98,17 @@ func getPackageJson() (PackageJson, error) {
 	return PackageJson{}, fmt.Errorf("package.json not found in current directory")
 }
 
-func findTSRootCmdAsString(hotreload bool) ([]string, error) {
+func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	packageJson, err := getPackageJson()
 	if err == nil {
-		if hotreload {
+		if config.Hotreload {
 			if packageJson.Scripts["dev"] != "" {
 				return strings.Split(packageJson.Scripts["dev"], " "), nil
 			}
 			fmt.Println("Warning: dev script not found in package.json, hotreload will not work")
+		}
+		if config.Production && packageJson.Scripts["prod"] != "" {
+			return strings.Split(packageJson.Scripts["prod"], " "), nil
 		}
 		if packageJson.Scripts["start"] != "" {
 			return strings.Split(packageJson.Scripts["start"], " "), nil
