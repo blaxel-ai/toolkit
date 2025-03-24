@@ -409,7 +409,7 @@ func createMCPServer(opts CreateMCPServerOptions) error {
 func (r *Operations) CreateMCPServerCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:     "create-mcpserver directory",
+		Use:     "create-mcp-server directory",
 		Args:    cobra.MaximumNArgs(2),
 		Aliases: []string{"cm", "cms"},
 		Short:   "Create a new blaxel mcp server",
