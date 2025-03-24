@@ -125,7 +125,8 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.AddCommand(reg.DocCmd())
 	rootCmd.AddCommand(reg.ServeCmd())
 	rootCmd.AddCommand(reg.CreateAgentAppCmd())
-	rootCmd.AddCommand(reg.DeployAgentAppCmd())
+	rootCmd.AddCommand(reg.CreateMCPServerCmd())
+	rootCmd.AddCommand(reg.DeployCmd())
 	rootCmd.AddCommand(reg.ChatCmd())
 	rootCmd.AddCommand(reg.VersionCmd())
 

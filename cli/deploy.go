@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) DeployAgentAppCmd() *cobra.Command {
+func (r *Operations) DeployCmd() *cobra.Command {
 	var directory string
 	var name string
 	var dryRun bool

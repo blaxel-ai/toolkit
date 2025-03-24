@@ -22,19 +22,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type IgnoreFile struct {
-	File string
-	Skip string
-}
-
-type IgnoreDir struct {
-	Folder string
-	Skip   string
-}
-
-// CreateAgentAppOptions contains all the configuration options needed to create a new agent app.
-type CreateAgentAppOptions struct {
-	Directory       string             // Target directory for the new agent app
+// CreateMCPServerOptions contains all the configuration options needed to create a new mcp server.
+type CreateMCPServerOptions struct {
+	Directory       string             // Target directory for the new mcp server
 	ProjectName     string             // Name of the project
 	ProjectPrompt   string             // Description of the project
 	Language        string             // Language to use for the project
@@ -45,89 +35,10 @@ type CreateAgentAppOptions struct {
 	IgnoreDirs      map[string]IgnoreDir
 }
 
-type TemplateConfig struct {
-	Variables []struct {
-		Name        string  `yaml:"name"`
-		Label       *string `yaml:"label"`
-		Type        string  `yaml:"type"`
-		Description string  `yaml:"description"`
-		File        string  `yaml:"file"`
-		Skip        string  `yaml:"skip"`
-		Folder      string  `yaml:"folder"`
-		Options     []struct {
-			Label  string `yaml:"label"`
-			Value  string `yaml:"value"`
-			Name   string `yaml:"name"`
-			File   string `yaml:"file"`
-			Skip   string `yaml:"skip"`
-			Folder string `yaml:"folder"`
-		} `yaml:"options"`
-	} `yaml:"variables"`
-}
-
-type GithubTreeResponse struct {
-	Tree []struct {
-		Path string `json:"path"`
-	} `json:"tree"`
-}
-
-type GithubContentResponse struct {
-	Content string `json:"content"`
-}
-
-// retrieveModels fetches and returns a list of available model deployments from the API.
-// It filters the models to only include supported runtime types (openai, anthropic, mistral, etc.).
-// Returns an error if the API calls fail or if there are parsing issues.
-func retrieveModels(modelType string) ([]sdk.Model, error) {
-	var modelDeployments []sdk.Model
-	ctx := context.Background()
-	res, err := client.ListModels(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var models []sdk.Model
-	err = json.Unmarshal(body, &models)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, model := range models {
-		if model.Spec.Runtime != nil {
-			runtimeType := *model.Spec.Runtime.Type
-			modelName := *model.Spec.Runtime.Model
-			if modelType == "model" {
-				supportedRuntimes := []string{"openai", "anthropic", "mistral", "cohere", "xai", "vertex", "bedrock", "azure-ai-inference", "azure-marketplace", "gemini"}
-				if slices.Contains(supportedRuntimes, runtimeType) && !strings.Contains(modelName, "realtime") {
-					modelDeployments = append(modelDeployments, model)
-				}
-			} else if modelType == "realtime-model" {
-				supportedRuntimes := []string{"openai", "azure-ai-inference", "azure-marketplace"}
-				if slices.Contains(supportedRuntimes, runtimeType) && strings.Contains(modelName, "realtime") {
-					modelDeployments = append(modelDeployments, model)
-				}
-			}
-		}
-	}
-	return modelDeployments, nil
-}
-
-func getBranch() string {
-	// if os.Getenv("BL_ENV") == "dev" {
-	// 	return "develop"
-	// }
-	return "preview"
-}
-
 // retrieveTemplates retrieves the list of available templates from the templates repository.
 // It fetches the repository's tree structure and extracts the paths of all directories.
 // Returns a list of template names or an error if the retrieval fails.
-func retrieveTemplates() ([]string, map[string][]string, error) {
+func retrieveMCPServerTemplates() ([]string, map[string][]string, error) {
 	var scriptErr error
 	languages := []string{}
 	templates := map[string][]string{}
@@ -160,7 +71,7 @@ func retrieveTemplates() ([]string, map[string][]string, error) {
 				return
 			}
 			for _, tree := range treeResponse.Tree {
-				if strings.HasPrefix(tree.Path, "agents/") && len(strings.Split(tree.Path, "/")) == 3 {
+				if strings.HasPrefix(tree.Path, "mcps/") && len(strings.Split(tree.Path, "/")) == 3 {
 					language := strings.Split(tree.Path, "/")[1]
 					if !slices.Contains(languages, language) {
 						languages = append(languages, language)
@@ -182,8 +93,8 @@ func retrieveTemplates() ([]string, map[string][]string, error) {
 	return languages, templates, nil
 }
 
-func retrieveTemplateConfig(language string, template string) (*TemplateConfig, error) {
-	url := fmt.Sprintf("https://raw.githubusercontent.com/beamlit/templates/refs/heads/%s/agents/%s/%s/template.yaml", getBranch(), language, template)
+func retrieveMCPServerTemplateConfig(language string, template string) (*TemplateConfig, error) {
+	url := fmt.Sprintf("https://raw.githubusercontent.com/beamlit/templates/refs/heads/%s/mcps/%s/%s/template.yaml", getBranch(), language, template)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -207,8 +118,8 @@ func retrieveTemplateConfig(language string, template string) (*TemplateConfig, 
 	return &templateConfig, nil
 }
 
-func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
-	templateConfig, err := retrieveTemplateConfig(agentAppOptions.Language, agentAppOptions.Template)
+func promptMCPServerTemplateConfig(mcpserverOptions *CreateMCPServerOptions) {
+	templateConfig, err := retrieveMCPServerTemplateConfig(mcpserverOptions.Language, mcpserverOptions.Template)
 	if err != nil {
 		fmt.Println("Could not retrieve template configuration")
 		os.Exit(0)
@@ -229,10 +140,10 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 			values[variable.Name] = &value
 			options := []huh.Option[string]{}
 			if variable.File != "" {
-				agentAppOptions.IgnoreFiles[variable.Name] = IgnoreFile{File: variable.File, Skip: variable.Skip}
+				mcpserverOptions.IgnoreFiles[variable.Name] = IgnoreFile{File: variable.File, Skip: variable.Skip}
 			}
 			if variable.Folder != "" {
-				agentAppOptions.IgnoreDirs[variable.Name] = IgnoreDir{Folder: variable.Folder, Skip: variable.Skip}
+				mcpserverOptions.IgnoreDirs[variable.Name] = IgnoreDir{Folder: variable.Folder, Skip: variable.Skip}
 			}
 			for _, option := range variable.Options {
 				options = append(options, huh.NewOption(option.Label, option.Value))
@@ -256,10 +167,10 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 			for _, option := range variable.Options {
 				mapped_values[option.Value] = option.Name
 				if option.File != "" {
-					agentAppOptions.IgnoreFiles[option.Name] = IgnoreFile{File: option.File, Skip: option.Skip}
+					mcpserverOptions.IgnoreFiles[option.Name] = IgnoreFile{File: option.File, Skip: option.Skip}
 				}
 				if option.Folder != "" {
-					agentAppOptions.IgnoreDirs[option.Name] = IgnoreDir{Folder: option.Folder, Skip: option.Skip}
+					mcpserverOptions.IgnoreDirs[option.Name] = IgnoreDir{Folder: option.Folder, Skip: option.Skip}
 				}
 				options = append(options, huh.NewOption(option.Label, option.Value))
 			}
@@ -269,29 +180,6 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 				Options(options...).
 				Value(&array_value)
 			fields = append(fields, input)
-		} else if variable.Type == "model" || variable.Type == "realtime-model" {
-			values[variable.Name] = &value
-			models, err := retrieveModels(variable.Type)
-			if err == nil {
-				if len(models) == 0 {
-					value = "None"
-				} else if len(models) == 1 {
-					value = *models[0].Metadata.Name
-				} else {
-					options := []huh.Option[string]{}
-					for _, model := range models {
-						options = append(options, huh.NewOption(*model.Metadata.Name, *model.Metadata.Name))
-					}
-					options = append(options, huh.NewOption("None", ""))
-					input := huh.NewSelect[string]().
-						Title(title).
-						Description(variable.Description).
-						Height(5).
-						Options(options...).
-						Value(&value)
-					fields = append(fields, input)
-				}
-			}
 		}
 	}
 
@@ -302,24 +190,24 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 		formTemplates.WithTheme(GetHuhTheme())
 		err = formTemplates.Run()
 		if err != nil {
-			fmt.Println("Cancel create blaxel agent app")
+			fmt.Println("Cancel create blaxel mcp server")
 			os.Exit(0)
 		}
 	}
-	agentAppOptions.TemplateOptions = values
+	mcpserverOptions.TemplateOptions = values
 	for _, array_value := range array_values {
 		for _, value := range *array_value {
 			k := mapped_values[value]
-			agentAppOptions.TemplateOptions[k] = &value
+			mcpserverOptions.TemplateOptions[k] = &value
 		}
 	}
 }
 
-// promptCreateAgentApp displays an interactive form to collect user input for creating a new agent app.
-// It prompts for project name, model selection, template, author, license, and additional features.
-// Takes a directory string parameter and returns a CreateAgentAppOptions struct with the user's selections.
-func promptCreateAgentApp(directory string) CreateAgentAppOptions {
-	agentAppOptions := CreateAgentAppOptions{
+// promptCreateMCPServer displays an interactive form to collect user input for creating a new mcp server.
+// It prompts for project name, language selection, template, author, license, and additional features.
+// Takes a directory string parameter and returns a CreateMCPServerOptions struct with the user's selections.
+func promptCreateMCPServer(directory string) CreateMCPServerOptions {
+	mcpserverOptions := CreateMCPServerOptions{
 		ProjectName: directory,
 		Directory:   directory,
 		IgnoreFiles: map[string]IgnoreFile{},
@@ -327,11 +215,11 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 	}
 	currentUser, err := user.Current()
 	if err == nil {
-		agentAppOptions.Author = currentUser.Username
+		mcpserverOptions.Author = currentUser.Username
 	} else {
-		agentAppOptions.Author = "blaxel"
+		mcpserverOptions.Author = "blaxel"
 	}
-	languages, templates, err := retrieveTemplates()
+	languages, templates, err := retrieveMCPServerTemplates()
 	if err != nil {
 		fmt.Println("Could not retrieve templates")
 		os.Exit(0)
@@ -344,20 +232,20 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Project Name").
-				Description("Name of your agent app").
-				Value(&agentAppOptions.ProjectName),
+				Description("Name of your mcp server").
+				Value(&mcpserverOptions.ProjectName),
 			huh.NewSelect[string]().
 				Title("Language").
-				Description("Language to use for your agent app").
+				Description("Language to use for your mcp server").
 				Height(5).
 				Options(languagesOptions...).
-				Value(&agentAppOptions.Language),
+				Value(&mcpserverOptions.Language),
 			huh.NewSelect[string]().
 				Title("Template").
-				Description("Template to use for your agent app").
+				Description("Template to use for your mcp server").
 				Height(5).
 				OptionsFunc(func() []huh.Option[string] {
-					templates := templates[agentAppOptions.Language]
+					templates := templates[mcpserverOptions.Language]
 					if len(templates) == 0 {
 						return []huh.Option[string]{}
 					}
@@ -367,53 +255,29 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 						options = append(options, huh.NewOption(key, template))
 					}
 					return options
-				}, &agentAppOptions).
-				Value(&agentAppOptions.Template),
+				}, &mcpserverOptions).
+				Value(&mcpserverOptions.Template),
 		),
 	)
 	form.WithTheme(GetHuhTheme())
 	err = form.Run()
 	if err != nil {
-		fmt.Println("Cancel create blaxel agent app")
+		fmt.Println("Cancel create blaxel mcp server")
 		os.Exit(0)
 	}
-	promptTemplateConfig(&agentAppOptions)
+	promptMCPServerTemplateConfig(&mcpserverOptions)
 
-	return agentAppOptions
+	return mcpserverOptions
 }
 
-func installPythonDependencies(directory string) error {
-	uvSyncCmd := exec.Command("uv", "sync", "--refresh")
-	uvSyncCmd.Dir = directory
-
-	// Capture both stdout and stderr
-	output, err := uvSyncCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run uv sync: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-func installTypescriptDependencies(directory string) error {
-	npmInstallCmd := exec.Command("npx", "pnpm", "install")
-	npmInstallCmd.Dir = directory
-
-	// Capture both stdout and stderr
-	output, err := npmInstallCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run pnpm install: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-// createAgentApp handles the actual creation of the agent app based on the provided options.
+// createMCPServer handles the actual creation of the mcp server based on the provided options.
 // It performs the following steps:
 // 1. Creates the project directory
 // 2. Clones the templates repository
 // 3. Processes template files
 // 4. Installs dependencies using uv sync
 // Returns an error if any step fails.
-func createAgentApp(opts CreateAgentAppOptions) error {
+func createMCPServer(opts CreateMCPServerOptions) error {
 	// Create project directory
 	if err := os.MkdirAll(opts.Directory, 0755); err != nil {
 		return err
@@ -464,7 +328,7 @@ func createAgentApp(opts CreateAgentAppOptions) error {
 			}
 		}
 	}
-	templateDir := filepath.Join(cloneDir, "agents", opts.Language, opts.Template)
+	templateDir := filepath.Join(cloneDir, "mcps", opts.Language, opts.Template)
 	err := filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -538,19 +402,19 @@ func createAgentApp(opts CreateAgentAppOptions) error {
 	return nil
 }
 
-// CreateAgentAppCmd returns a cobra.Command that implements the 'create-agent-app' CLI command.
-// The command creates a new Blaxel agent app in the specified directory after collecting
+// CreateMCPServerCmd returns a cobra.Command that implements the 'create-mcpserver' CLI command.
+// The command creates a new Blaxel mcp server in the specified directory after collecting
 // necessary configuration through an interactive prompt.
-// Usage: bl create-agent-app directory
-func (r *Operations) CreateAgentAppCmd() *cobra.Command {
+// Usage: bl create-mcpserver directory
+func (r *Operations) CreateMCPServerCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:     "create-agent-app directory",
+		Use:     "create-mcpserver directory",
 		Args:    cobra.MaximumNArgs(2),
-		Aliases: []string{"ca", "caa"},
-		Short:   "Create a new blaxel agent app",
-		Long:    "Create a new blaxel agent app",
-		Example: `bl create-agent-app my-agent-app`,
+		Aliases: []string{"cm", "cms"},
+		Short:   "Create a new blaxel mcp server",
+		Long:    "Create a new blaxel mcp server",
+		Example: `bl create-mcpserver my-mcp-server`,
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if len(args) < 1 {
@@ -562,21 +426,21 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 				fmt.Printf("Error: %s already exists\n", args[0])
 				return
 			}
-			opts := promptCreateAgentApp(args[0])
+			opts := promptCreateMCPServer(args[0])
 
 			var err error
 			spinnerErr := spinner.New().
-				Title("Creating your blaxel agent app...").
+				Title("Creating your blaxel mcp server...").
 				Action(func() {
-					err = createAgentApp(opts)
+					err = createMCPServer(opts)
 				}).
 				Run()
 			if spinnerErr != nil {
-				fmt.Println("Error creating agent app", spinnerErr)
+				fmt.Println("Error creating mcp server", spinnerErr)
 				return
 			}
 			if err != nil {
-				fmt.Println("Error creating agent app", err)
+				fmt.Println("Error creating mcp server", err)
 				os.RemoveAll(opts.Directory)
 				return
 			}
@@ -595,7 +459,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			fmt.Printf(`Your blaxel agent app has been created. Start working on it:
+			fmt.Printf(`Your blaxel mcp server has been created. Start working on it:
 cd %s;
 bl serve --hotreload;
 `, opts.Directory)
