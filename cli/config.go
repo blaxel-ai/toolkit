@@ -73,6 +73,7 @@ type Config struct {
 	Protocol  string   `toml:"protocol"`
 	Functions []string `toml:"functions"`
 	Models    []string `toml:"models"`
+	Agents    []string `toml:"agents"`
 	Env       Envs     `toml:"env"`
 }
 

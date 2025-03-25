@@ -32,6 +32,14 @@ func (r *Operations) SeedCache(cwd string) error {
 			if err == nil {
 				results += string(filterCache(*resource, res, config.Models))
 			}
+		case "Agent":
+			if len(config.Agents) == 0 {
+				continue
+			}
+			res, err := resource.ListExec()
+			if err == nil {
+				results += string(filterCache(*resource, res, config.Agents))
+			}
 		}
 	}
 
