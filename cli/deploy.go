@@ -131,7 +131,9 @@ func (d *Deployment) GenerateDeployment() Result {
 	case "agent":
 		Kind = "Agent"
 		Spec = map[string]interface{}{
-			"envs": GetEnvs(),
+			"runtime": map[string]interface{}{
+				"envs": GetEnvs(),
+			},
 		}
 	}
 	return Result{
@@ -226,6 +228,7 @@ func (d *Deployment) IgnoredPaths() []string {
 			".venv",
 			"venv",
 			"node_modules",
+			".env",
 		}
 	}
 	return strings.Split(string(content), "\n")
