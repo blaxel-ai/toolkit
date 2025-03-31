@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/beamlit/toolkit/cli/dockerfiles"
-	"github.com/cbroglie/mustache"
 )
 
 type PackageJson struct {
@@ -32,13 +32,17 @@ func getTSDockerfile() (string, error) {
 		"Entrypoint":     strings.Join(entrypoint, "\", \""),
 	}
 
-	result, err := mustache.Render(dockerfiles.TSTemplate, data)
-
+	tmpl, err := template.New("dockerfile").Parse(dockerfiles.TSTemplate)
 	if err != nil {
-		return "", fmt.Errorf("failed to render dockerfile template: %w", err)
+		return "", fmt.Errorf("failed to parse dockerfile template: %w", err)
 	}
 
-	return result, nil
+	var result strings.Builder
+	if err := tmpl.Execute(&result, data); err != nil {
+		return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
+	}
+
+	return result.String(), nil
 }
 
 func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
