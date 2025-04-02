@@ -4,8 +4,9 @@ import functools
 from collections.abc import Callable
 from logging import getLogger
 
-from blaxel.models import Function, FunctionKit
 from fastapi import Request
+
+from blaxel.models import Function, FunctionKit
 
 logger = getLogger(__name__)
 
@@ -62,7 +63,8 @@ def function(*args, function: Function | dict = None, kit=False, **kwargs: dict)
                     return await func(*args, **kwargs)
                 if len(args) > 0 and isinstance(args[0], Request):
                     body = await args[0].json()
-                    args = [body.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]
+                    arguments = body.get("arguments", {})
+                    args = [arguments.get(param) for param in func.__code__.co_varnames[:func.__code__.co_argcount]]
                 logger.info(f"Tool call {name} with arguments: {args}")
                 return await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
             except Exception as e:

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,6 +31,21 @@ func getResults(action string, filePath string, recursive bool) ([]Result, error
 }
 
 func handleSecret(filePath string, content string) (string, error) {
+	// Check if content contains IntegrationConnection, this is to find if the resource already exists
+	// If it exists then we skip the secrets handling
+	if strings.Contains(content, "kind: IntegrationConnection") {
+		// Find name in metadata
+		nameRegex := regexp.MustCompile(`metadata:\n.*name:\s*([^\n]+)`)
+		nameMatch := nameRegex.FindStringSubmatch(content)
+		if len(nameMatch) > 1 {
+			name := strings.TrimSpace(nameMatch[1])
+			response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
+			if err == nil && response.StatusCode() == 200 {
+				return content, nil
+			}
+		}
+	}
+
 	fileName := strings.Split(filePath, "/")[len(strings.Split(filePath, "/"))-1]
 	re := regexp.MustCompile(`\$secrets.([A-Za-z0-9_]+)|\${\s?secrets.([A-Za-z0-9_]+)\s?}`)
 	matches := re.FindAllStringSubmatch(content, -1)

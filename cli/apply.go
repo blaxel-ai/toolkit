@@ -217,6 +217,15 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 	failedResponse := ResourceOperationResult{
 		Status: "failed",
 	}
+	if resource.Kind == "IntegrationConnection" {
+		response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
+		if err == nil && response.StatusCode() == 200 {
+			fmt.Printf("Resource %s:%s already exists, skipping update\n", resourceName, name)
+			return &ResourceOperationResult{
+				Status: "skipped",
+			}
+		}
+	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := resource.handleResourceOperation(name, resourceObject, "put")
 	if err != nil {
