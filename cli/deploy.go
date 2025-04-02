@@ -229,6 +229,7 @@ func (d *Deployment) IgnoredPaths() []string {
 			"venv",
 			"node_modules",
 			".env",
+			"__pycache__",
 		}
 	}
 	return strings.Split(string(content), "\n")
@@ -266,6 +267,12 @@ func (d *Deployment) Zip() error {
 
 		for _, ignoredPath := range ignoredPaths {
 			if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
+				return nil
+			}
+			if strings.Contains(path, "/"+ignoredPath+"/") {
+				return nil
+			}
+			if strings.HasSuffix(path, "/"+ignoredPath) {
 				return nil
 			}
 		}
