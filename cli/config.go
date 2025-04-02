@@ -67,14 +67,15 @@ var resources = []*Resource{
 
 // readConfigToml reads the config.toml file and upgrade config according to content
 type Config struct {
-	Name      string   `toml:"name"`
-	Workspace string   `toml:"workspace"`
-	Type      string   `toml:"type"`
-	Protocol  string   `toml:"protocol"`
-	Functions []string `toml:"functions"`
-	Models    []string `toml:"models"`
-	Agents    []string `toml:"agents"`
-	Env       Envs     `toml:"env"`
+	Name       string      `toml:"name"`
+	Workspace  string      `toml:"workspace"`
+	Type       string      `toml:"type"`
+	Protocol   string      `toml:"protocol"`
+	Functions  []string    `toml:"functions"`
+	Models     []string    `toml:"models"`
+	Agents     []string    `toml:"agents"`
+	Entrypoint Entrypoints `toml:"entrypoint"`
+	Env        Envs        `toml:"env"`
 }
 
 func readConfigToml() {

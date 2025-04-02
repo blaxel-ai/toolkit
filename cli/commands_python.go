@@ -19,11 +19,23 @@ func getPythonDockerfile() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to find root command: %w", err)
 	}
+	packageManager := findPythonPackageManager()
+	requirementFile := "requirements.txt"
+	if packageManager == "uv" {
+		requirementFile = "pyproject.toml"
+	}
+	// Check if the requirement file exists
+	if _, err := os.Stat(requirementFile); os.IsNotExist(err) {
+		return "", fmt.Errorf("requirement file %s does not exist", requirementFile)
+	}
+
 	data := map[string]interface{}{
-		"BaseImage":      "python:3.12-alpine",
-		"LockFile":       findPythonPackageManagerLockFile(),
-		"InstallCommand": strings.Join(findPythonPackageManagerCommandAsString(true), " "),
-		"Entrypoint":     strings.Join(entrypoint, "\", \""),
+		"BaseImage":       "python:3.12-slim",
+		"LockFile":        findPythonPackageManagerLockFile(),
+		"PreInstall":      "apt update && apt install -y build-essential",
+		"InstallCommand":  strings.Join(findPythonPackageManagerCommandAsString(true), " "),
+		"Entrypoint":      strings.Join(entrypoint, "\", \""),
+		"RequirementFile": requirementFile,
 	}
 
 	tmpl, err := template.New("dockerfile").Parse(dockerfiles.PythonTemplate)
@@ -40,7 +52,7 @@ func getPythonDockerfile() (string, error) {
 }
 
 func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
-	py, err := findRootCmd(hotreload)
+	py, err := findRootCmd(port, host, hotreload)
 	fmt.Printf("Starting server : %s\n", strings.Join(py.Args, " "))
 	if err != nil {
 		fmt.Println(err)
@@ -71,11 +83,28 @@ func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 }
 
 func findPythonRootCmdAsString(config RootCmdConfig) ([]string, error) {
-	if _, err := os.Stat("app.py"); err == nil {
-		return []string{"python", "app.py"}, nil
+	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
+		if config.Hotreload && config.Entrypoint.Development != "" {
+			return strings.Split(config.Entrypoint.Development, " "), nil
+		}
+		return strings.Split(config.Entrypoint.Production, " "), nil
 	}
-	if _, err := os.Stat("main.py"); err == nil {
-		return []string{"python", "main.py"}, nil
+	fmt.Println("Entrypoint not found in config, using auto-detection")
+	files := []string{
+		"app.py",
+		"main.py",
+		"api.py",
+		"app/main.py",
+		"app/app.py",
+		"app/api.py",
+		"src/main.py",
+		"src/app.py",
+		"src/api.py",
+	}
+	for _, file := range files {
+		if _, err := os.Stat(file); err == nil {
+			return []string{"python", file}, nil
+		}
 	}
 	return nil, fmt.Errorf("app.py or main.py not found in current directory")
 }

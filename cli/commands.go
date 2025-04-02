@@ -17,10 +17,12 @@ func init() {
 type RegisterImpl struct {
 }
 
-func findRootCmd(hotreload bool) (*exec.Cmd, error) {
+func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 	rootCmd, err := findRootCmdAsString(RootCmdConfig{
 		Hotreload:  hotreload,
 		Production: false,
+		Entrypoint: config.Entrypoint,
+		Envs:       getServerEnvironment(port, host),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error finding root cmd: %v", err)
@@ -31,6 +33,8 @@ func findRootCmd(hotreload bool) (*exec.Cmd, error) {
 type RootCmdConfig struct {
 	Hotreload  bool
 	Production bool
+	Entrypoint Entrypoints
+	Envs       CommandEnv
 }
 
 func findRootCmdAsString(config RootCmdConfig) ([]string, error) {

@@ -46,7 +46,7 @@ func getTSDockerfile() (string, error) {
 }
 
 func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
-	ts, err := findRootCmd(hotreload)
+	ts, err := findRootCmd(port, host, hotreload)
 	fmt.Printf("Starting server : %s\n", strings.Join(ts.Args, " "))
 	if err != nil {
 		fmt.Println(err)
@@ -98,6 +98,14 @@ func getPackageJson() (PackageJson, error) {
 }
 
 func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
+	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
+		cmd := config.Entrypoint.Production
+		if config.Hotreload && config.Entrypoint.Development != "" {
+			cmd = config.Entrypoint.Development
+		}
+		return strings.Split(cmd, " "), nil
+	}
+
 	packageJson, err := getPackageJson()
 	if err == nil {
 		if config.Hotreload {
