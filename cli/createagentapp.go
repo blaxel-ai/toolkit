@@ -5,75 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"os/exec"
 	"os/user"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
-	"text/template"
 
 	"github.com/beamlit/toolkit/sdk"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
-
-type IgnoreFile struct {
-	File string
-	Skip string
-}
-
-type IgnoreDir struct {
-	Folder string
-	Skip   string
-}
-
-// CreateAgentAppOptions contains all the configuration options needed to create a new agent app.
-type CreateAgentAppOptions struct {
-	Directory       string             // Target directory for the new agent app
-	ProjectName     string             // Name of the project
-	ProjectPrompt   string             // Description of the project
-	Language        string             // Language to use for the project
-	Template        string             // Template to use for the project
-	Author          string             // Author of the project
-	TemplateOptions map[string]*string // Options for the template
-	IgnoreFiles     map[string]IgnoreFile
-	IgnoreDirs      map[string]IgnoreDir
-}
-
-type TemplateConfig struct {
-	Variables []struct {
-		Name        string  `yaml:"name"`
-		Label       *string `yaml:"label"`
-		Type        string  `yaml:"type"`
-		Description string  `yaml:"description"`
-		File        string  `yaml:"file"`
-		Skip        string  `yaml:"skip"`
-		Folder      string  `yaml:"folder"`
-		Options     []struct {
-			Label  string `yaml:"label"`
-			Value  string `yaml:"value"`
-			Name   string `yaml:"name"`
-			File   string `yaml:"file"`
-			Skip   string `yaml:"skip"`
-			Folder string `yaml:"folder"`
-		} `yaml:"options"`
-	} `yaml:"variables"`
-}
-
-type GithubTreeResponse struct {
-	Tree []struct {
-		Path string `json:"path"`
-	} `json:"tree"`
-}
-
-type GithubContentResponse struct {
-	Content string `json:"content"`
-}
 
 // retrieveModels fetches and returns a list of available model deployments from the API.
 // It filters the models to only include supported runtime types (openai, anthropic, mistral, etc.).
@@ -117,98 +59,8 @@ func retrieveModels(modelType string) ([]sdk.Model, error) {
 	return modelDeployments, nil
 }
 
-func getBranch() string {
-	// if os.Getenv("BL_ENV") == "dev" {
-	// 	return "develop"
-	// }
-	return "preview"
-}
-
-// retrieveTemplates retrieves the list of available templates from the templates repository.
-// It fetches the repository's tree structure and extracts the paths of all directories.
-// Returns a list of template names or an error if the retrieval fails.
-func retrieveTemplates() ([]string, map[string][]string, error) {
-	var scriptErr error
-	languages := []string{}
-	templates := map[string][]string{}
-	spinnerErr := spinner.New().
-		Title("Retrieving templates...").
-		Action(func() {
-			url := fmt.Sprintf("https://api.github.com/repos/beamlit/templates/git/trees/%s?recursive=1", getBranch())
-			req, err := http.NewRequest("GET", url, nil)
-			if err != nil {
-				scriptErr = err
-				return
-			}
-
-			res, err := http.DefaultClient.Do(req)
-			if err != nil {
-				scriptErr = err
-				return
-			}
-
-			defer res.Body.Close()
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				scriptErr = err
-				return
-			}
-			var treeResponse GithubTreeResponse
-			err = json.Unmarshal(body, &treeResponse)
-			if err != nil {
-				scriptErr = err
-				return
-			}
-			for _, tree := range treeResponse.Tree {
-				if strings.HasPrefix(tree.Path, "agents/") && len(strings.Split(tree.Path, "/")) == 3 {
-					language := strings.Split(tree.Path, "/")[1]
-					if !slices.Contains(languages, language) {
-						languages = append(languages, language)
-					}
-					if _, ok := templates[language]; !ok {
-						templates[language] = []string{}
-					}
-					templates[language] = append(templates[language], strings.Split(tree.Path, "/")[2])
-				}
-			}
-		}).
-		Run()
-	if spinnerErr != nil {
-		return nil, nil, spinnerErr
-	}
-	if scriptErr != nil {
-		return nil, nil, scriptErr
-	}
-	return languages, templates, nil
-}
-
-func retrieveTemplateConfig(language string, template string) (*TemplateConfig, error) {
-	url := fmt.Sprintf("https://raw.githubusercontent.com/beamlit/templates/refs/heads/%s/agents/%s/%s/template.yaml", getBranch(), language, template)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	var templateConfig TemplateConfig
-	err = yaml.Unmarshal(body, &templateConfig)
-	if err != nil {
-		return nil, err
-	}
-	return &templateConfig, nil
-}
-
-func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
-	templateConfig, err := retrieveTemplateConfig(agentAppOptions.Language, agentAppOptions.Template)
+func promptAgentAppTemplateConfig(templates Templates, agentAppOptions *TemplateOptions) {
+	templateConfig, err := templates.find(agentAppOptions.Language, agentAppOptions.Template.Name).getConfig()
 	if err != nil {
 		fmt.Println("Could not retrieve template configuration")
 		os.Exit(0)
@@ -318,8 +170,8 @@ func promptTemplateConfig(agentAppOptions *CreateAgentAppOptions) {
 // promptCreateAgentApp displays an interactive form to collect user input for creating a new agent app.
 // It prompts for project name, model selection, template, author, license, and additional features.
 // Takes a directory string parameter and returns a CreateAgentAppOptions struct with the user's selections.
-func promptCreateAgentApp(directory string) CreateAgentAppOptions {
-	agentAppOptions := CreateAgentAppOptions{
+func promptCreateAgentApp(directory string) TemplateOptions {
+	agentAppOptions := TemplateOptions{
 		ProjectName: directory,
 		Directory:   directory,
 		IgnoreFiles: map[string]IgnoreFile{},
@@ -331,13 +183,13 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 	} else {
 		agentAppOptions.Author = "blaxel"
 	}
-	languages, templates, err := retrieveTemplates()
+	templates, err := RetrieveTemplates("agent")
 	if err != nil {
 		fmt.Println("Could not retrieve templates")
 		os.Exit(0)
 	}
 	languagesOptions := []huh.Option[string]{}
-	for _, language := range languages {
+	for _, language := range templates.getLanguages() {
 		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
 	}
 	form := huh.NewForm(
@@ -357,18 +209,18 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 				Description("Template to use for your agent app").
 				Height(5).
 				OptionsFunc(func() []huh.Option[string] {
-					templates := templates[agentAppOptions.Language]
+					templates := templates.filterByLanguage(agentAppOptions.Language)
 					if len(templates) == 0 {
 						return []huh.Option[string]{}
 					}
 					options := []huh.Option[string]{}
 					for _, template := range templates {
-						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(template, "")
-						options = append(options, huh.NewOption(key, template))
+						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(template.Name, "")
+						options = append(options, huh.NewOption(key, template.Name))
 					}
 					return options
 				}, &agentAppOptions).
-				Value(&agentAppOptions.Template),
+				Value(&agentAppOptions.Template.Name),
 		),
 	)
 	form.WithTheme(GetHuhTheme())
@@ -377,165 +229,9 @@ func promptCreateAgentApp(directory string) CreateAgentAppOptions {
 		fmt.Println("Cancel create blaxel agent app")
 		os.Exit(0)
 	}
-	promptTemplateConfig(&agentAppOptions)
+	promptAgentAppTemplateConfig(templates, &agentAppOptions)
 
 	return agentAppOptions
-}
-
-func installPythonDependencies(directory string) error {
-	uvSyncCmd := exec.Command("uv", "sync", "--refresh")
-	uvSyncCmd.Dir = directory
-
-	// Capture both stdout and stderr
-	output, err := uvSyncCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run uv sync: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-func installTypescriptDependencies(directory string) error {
-	npmInstallCmd := exec.Command("npx", "pnpm", "install")
-	npmInstallCmd.Dir = directory
-
-	// Capture both stdout and stderr
-	output, err := npmInstallCmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run pnpm install: %w\nOutput: %s", err, string(output))
-	}
-	return nil
-}
-
-// createAgentApp handles the actual creation of the agent app based on the provided options.
-// It performs the following steps:
-// 1. Creates the project directory
-// 2. Clones the templates repository
-// 3. Processes template files
-// 4. Installs dependencies using uv sync
-// Returns an error if any step fails.
-func createAgentApp(opts CreateAgentAppOptions) error {
-	// Create project directory
-	if err := os.MkdirAll(opts.Directory, 0755); err != nil {
-		return err
-	}
-
-	// Clone templates repository
-	cloneDir := filepath.Join(opts.Directory, "templates")
-	branch := getBranch()
-	cloneDirCmd := exec.Command("git", "clone", "https://github.com/beamlit/templates.git", cloneDir, "--branch", branch)
-	if err := cloneDirCmd.Run(); err != nil {
-		return fmt.Errorf("failed to clone templates repository: %w", err)
-	}
-
-	templateOptions := map[string]string{
-		"ProjectName":   opts.ProjectName,
-		"ProjectPrompt": opts.ProjectPrompt,
-		"Author":        opts.Author,
-		"Workspace":     workspace,
-	}
-	for key, value := range opts.TemplateOptions {
-		templateOptions[key] = *value
-	}
-
-	// Initialize ignore files and folders
-	ignoreFiles := []string{"template.yaml"}
-	ignoreFolders := []string{}
-	for key, ignoreFile := range opts.IgnoreFiles {
-		value, ok := templateOptions[key]
-		if ok {
-			if ignoreFile.Skip == value {
-				ignoreFiles = append(ignoreFiles, ignoreFile.File)
-			}
-		} else {
-			if ignoreFile.Skip == "" {
-				ignoreFiles = append(ignoreFiles, ignoreFile.File)
-			}
-		}
-	}
-	for key, ignoreDir := range opts.IgnoreDirs {
-		value, ok := templateOptions[key]
-		if ok {
-			if ignoreDir.Skip == value {
-				ignoreFolders = append(ignoreFolders, ignoreDir.Folder)
-			}
-		} else {
-			if ignoreDir.Skip == "" {
-				ignoreFolders = append(ignoreFolders, ignoreDir.Folder)
-			}
-		}
-	}
-	templateDir := filepath.Join(cloneDir, "agents", opts.Language, opts.Template)
-	err := filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip directories
-		if info.IsDir() {
-			return nil
-		}
-
-		// Calculate relative path
-		rel, err := filepath.Rel(templateDir, path)
-		if err != nil {
-			return err
-		}
-
-		// Skip files based on config
-		for _, ignoreFile := range ignoreFiles {
-			if strings.HasSuffix(rel, ignoreFile) {
-				return nil
-			}
-		}
-
-		// Skip folders based on config
-		for _, ignoreFolder := range ignoreFolders {
-			if strings.HasPrefix(rel, ignoreFolder) {
-				return nil
-			}
-		}
-
-		// Process template
-		tmpl, err := template.ParseFiles(path)
-		if err != nil {
-			return err
-		}
-
-		// Create output file
-		outPath := filepath.Join(opts.Directory, rel)
-		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-			return err
-		}
-
-		out, err := os.Create(outPath)
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-
-		// Execute template
-		return tmpl.Execute(out, templateOptions)
-	})
-	if err != nil {
-		return err
-	}
-	// Remove templates directory after processing
-	if err := os.RemoveAll(cloneDir); err != nil {
-		return fmt.Errorf("failed to remove templates directory: %w", err)
-	}
-
-	// Install dependencies based on language
-	switch opts.Language {
-	case "python":
-		if err := installPythonDependencies(opts.Directory); err != nil {
-			return err
-		}
-	case "typescript":
-		if err := installTypescriptDependencies(opts.Directory); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // CreateAgentAppCmd returns a cobra.Command that implements the 'create-agent-app' CLI command.
@@ -568,7 +264,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			spinnerErr := spinner.New().
 				Title("Creating your blaxel agent app...").
 				Action(func() {
-					err = createAgentApp(opts)
+					err = opts.Template.Clone(opts)
 				}).
 				Run()
 			if spinnerErr != nil {
