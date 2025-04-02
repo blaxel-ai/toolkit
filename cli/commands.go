@@ -37,13 +37,13 @@ type RootCmdConfig struct {
 	Envs       CommandEnv
 }
 
-func findRootCmdAsString(config RootCmdConfig) ([]string, error) {
+func findRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	language := moduleLanguage()
 	switch language {
 	case "python":
-		return findPythonRootCmdAsString(config)
+		return findPythonRootCmdAsString(cfg)
 	case "typescript":
-		return findTSRootCmdAsString(config)
+		return findTSRootCmdAsString(cfg)
 	}
 	return nil, fmt.Errorf("language not supported")
 }

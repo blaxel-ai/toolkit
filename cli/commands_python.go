@@ -82,9 +82,9 @@ func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 	return py
 }
 
-func findPythonRootCmdAsString(config RootCmdConfig) ([]string, error) {
+func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
-		if config.Hotreload && config.Entrypoint.Development != "" {
+		if cfg.Hotreload && config.Entrypoint.Development != "" {
 			return strings.Split(config.Entrypoint.Development, " "), nil
 		}
 		return strings.Split(config.Entrypoint.Production, " "), nil
