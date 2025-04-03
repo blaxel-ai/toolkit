@@ -207,7 +207,7 @@ func promptCreateAgentApp(directory string) TemplateOptions {
 			huh.NewSelect[string]().
 				Title("Template").
 				Description("Template to use for your agent app").
-				Height(5).
+				Height(12).
 				OptionsFunc(func() []huh.Option[string] {
 					templates := templates.filterByLanguage(agentAppOptions.Language)
 					if len(templates) == 0 {

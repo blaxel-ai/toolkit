@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -24,6 +25,7 @@ type Template struct {
 	Language string   `json:"language"`
 	Name     string   `json:"name"`
 	Topics   []string `json:"topics"`
+	Id       int      `json:"id"`
 }
 
 type TemplateConfig struct {
@@ -96,6 +98,9 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 			templates = append(templates, repo)
 		}
 	}
+	sort.Slice(templates, func(i, j int) bool {
+		return templates[i].Id > templates[j].Id
+	})
 	return templates, nil
 }
 
