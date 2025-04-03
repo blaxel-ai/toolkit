@@ -22,7 +22,7 @@ func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 		Hotreload:  hotreload,
 		Production: false,
 		Entrypoint: config.Entrypoint,
-		Envs:       getServerEnvironment(port, host),
+		Envs:       getServerEnvironment(port, host, hotreload),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error finding root cmd: %v", err)

@@ -70,7 +70,7 @@ func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 	py.Stderr = os.Stderr
 
 	// Set env variables
-	envs := getServerEnvironment(port, host)
+	envs := getServerEnvironment(port, host, hotreload)
 	py.Env = envs.ToEnv()
 
 	err = py.Start()

@@ -79,7 +79,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	return cmd
 }
 
-func getServerEnvironment(port int, host string) CommandEnv {
+func getServerEnvironment(port int, host string, hotreload bool) CommandEnv {
 	env := CommandEnv{}
 	// Add all current env variables if not already set
 	env.AddClientEnv()
@@ -87,7 +87,9 @@ func getServerEnvironment(port int, host string) CommandEnv {
 	env.Set("BL_SERVER_HOST", host)
 	env.Set("BL_WORKSPACE", config.Workspace)
 	env.Set("PATH", getServerPath())
-
+	if hotreload {
+		env.Set("BL_HOTRELOAD", "true")
+	}
 	return env
 }
 

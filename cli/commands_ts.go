@@ -64,7 +64,7 @@ func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
 	ts.Stderr = os.Stderr
 
 	// Set env variables
-	envs := getServerEnvironment(port, host)
+	envs := getServerEnvironment(port, host, hotreload)
 	ts.Env = envs.ToEnv()
 
 	err = ts.Start()
