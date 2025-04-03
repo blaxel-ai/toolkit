@@ -1,5 +1,0 @@
-agent:
-  functions_directory: src/integrationtest/functions
-server:
-  module: integrationtest.agent.main
-  port: 1338
