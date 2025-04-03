@@ -111,7 +111,8 @@ func (resource Resource) DeleteFn(name string) {
 	}
 
 	if response.StatusCode >= 400 {
-		ErrorHandler(response.Request, resource.Kind, name, buf.String())
+		fmt.Println(ErrorHandler(response.Request, resource.Kind, name, buf.String()))
+		os.Exit(1)
 		return
 	}
 

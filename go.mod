@@ -3,6 +3,7 @@ module github.com/beamlit/toolkit
 go 1.23.2
 
 require (
+	github.com/BurntSushi/toml v1.3.2
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.0.0

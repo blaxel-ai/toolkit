@@ -239,20 +239,3 @@ func GetHuhTheme() *huh.Theme {
 
 	return t
 }
-
-func AddClientEnv(env []string) []string {
-	// Add all current env variables if not already set
-	for _, envVar := range os.Environ() {
-		found := false
-		for _, existingVar := range env {
-			if envVar == existingVar {
-				found = true
-				break
-			}
-		}
-		if !found {
-			env = append(env, envVar)
-		}
-	}
-	return env
-}
