@@ -101,12 +101,22 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		"src/app.py",
 		"src/api.py",
 	}
-	for _, file := range files {
-		if _, err := os.Stat(file); err == nil {
-			return []string{"python", file}, nil
+	file := ""
+	for _, f := range files {
+		if _, err := os.Stat(f); err == nil {
+			file = f
+			break
 		}
 	}
-	return nil, fmt.Errorf("app.py or main.py not found in current directory")
+	if file == "" {
+		return nil, fmt.Errorf("app.py or main.py not found in current directory")
+	}
+	venv := ".venv"
+	if _, err := os.Stat(venv); err == nil {
+		cmd := []string{".venv/bin/python", file}
+		return cmd, nil
+	}
+	return []string{"python", file}, nil
 }
 
 func findPythonPackageManager() string {
