@@ -113,7 +113,7 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	}
 	venv := ".venv"
 	if _, err := os.Stat(venv); err == nil {
-		cmd := []string{".venv/bin/python", file}
+		cmd := []string{filepath.Join(venv, "bin", "python"), file}
 		return cmd, nil
 	}
 	return []string{"python", file}, nil
