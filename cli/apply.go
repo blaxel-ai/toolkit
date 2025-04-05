@@ -220,7 +220,8 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 	if resource.Kind == "IntegrationConnection" {
 		response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
 		if err == nil && response.StatusCode() == 200 {
-			fmt.Printf("Resource %s:%s already exists, skipping update\n", resourceName, name)
+			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", APP_URL, workspace, *response.JSON200.Spec.Integration)
+			fmt.Printf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl)
 			return &ResourceOperationResult{
 				Status: "skipped",
 			}
