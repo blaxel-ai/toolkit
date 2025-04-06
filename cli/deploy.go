@@ -17,6 +17,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 	var directory string
 	var name string
 	var dryRun bool
+	var recursive bool
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -27,7 +28,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Example: `bl deploy`,
 		Run: func(cmd *cobra.Command, args []string) {
 
-			if config.Type == "package" {
+			if recursive {
 				deployPackage(dryRun)
 				return
 			}
@@ -79,6 +80,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Optional name for the deployment")
 	cmd.Flags().BoolVarP(&dryRun, "dryrun", "", false, "Dry run the deployment")
+	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Deploy recursively")
 	return cmd
 }
 
@@ -390,15 +392,26 @@ func getDeployCommands(dryRun bool) ([]PackageCommand, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting current directory: %v", err)
 	}
-	commands := []PackageCommand{}
+	command := PackageCommand{
+		Name:    "root",
+		Cwd:     pwd,
+		Command: "bl",
+		Args:    []string{"deploy", "--recursive=false"},
+	}
+	if dryRun {
+		command.Args = append(command.Args, "--dryrun")
+	}
+	commands := []PackageCommand{command}
 
-	for name, pkg := range config.Packages {
+	packages := getAllPackages()
+	for name, pkg := range packages {
 		command := PackageCommand{
 			Name:    name,
 			Cwd:     filepath.Join(pwd, pkg.Path),
 			Command: "bl",
 			Args: []string{
 				"deploy",
+				"--recursive=false",
 			},
 		}
 		if dryRun {

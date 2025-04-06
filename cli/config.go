@@ -82,7 +82,8 @@ type Config struct {
 	Agents     []string           `toml:"agents"`
 	Entrypoint Entrypoints        `toml:"entrypoint"`
 	Env        Envs               `toml:"env"`
-	Packages   map[string]Package `toml:"packages"`
+	Function   map[string]Package `toml:"function"`
+	Agent      map[string]Package `toml:"agent"`
 }
 
 func readConfigToml() {

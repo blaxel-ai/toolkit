@@ -14,14 +14,14 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	var port int
 	var host string
 	var hotreload bool
-
+	var recursive bool
 	cmd := &cobra.Command{
 		Use:     "serve",
 		Args:    cobra.MaximumNArgs(1),
 		Aliases: []string{"s", "se"},
 		Short:   "Serve a blaxel project",
 		Long:    "Serve a blaxel project",
-		Example: `  bl serve --remote --hotreload --port 1338`,
+		Example: `bl serve --remote --hotreload --port 1338`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var activeProc *exec.Cmd
 
@@ -37,11 +37,10 @@ func (r *Operations) ServeCmd() *cobra.Command {
 			}
 
 			// If it's a package, we need to handle it
-			if config.Type == "package" {
+			if recursive {
 				startPackageServer(port, host, hotreload)
 				return
 			}
-
 			// Check for pyproject.toml or package.json
 			language := moduleLanguage()
 			switch language {
@@ -82,6 +81,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	cmd.Flags().IntVarP(&port, "port", "p", 1338, "Bind socket to this host")
 	cmd.Flags().StringVarP(&host, "host", "H", "0.0.0.0", "Bind socket to this port. If 0, an available port will be picked")
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
+	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Serve the project recursively")
 	return cmd
 }
 

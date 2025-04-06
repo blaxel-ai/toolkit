@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -25,7 +24,7 @@ type PackageCommand struct {
 }
 
 func startPackageServer(port int, host string, hotreload bool) {
-	commands, err := getPackageCommands(port, host, hotreload)
+	commands, err := getServeCommands(port, host, hotreload)
 	if err != nil {
 		fmt.Println("Error getting package commands:", err)
 		os.Exit(1)
@@ -105,42 +104,44 @@ func colorize(text string, clr string) string {
 	}
 }
 
-func getFreePort() int {
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		fmt.Println("Error getting free port:", err)
-		os.Exit(1)
+func getAllPackages() map[string]Package {
+	packages := make(map[string]Package)
+	for functionName := range config.Function {
+		pkg := config.Function[functionName]
+		pkg.Type = "function"
+		packages[functionName] = pkg
 	}
-	freePort := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	return freePort
+	for agentName := range config.Agent {
+		pkg := config.Agent[agentName]
+		pkg.Type = "agent"
+		packages[agentName] = pkg
+	}
+	return packages
 }
 
-func getPackageCommands(port int, host string, hotreload bool) ([]PackageCommand, error) {
+func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, error) {
+	packages := getAllPackages()
 	usedPorts := make(map[int]bool)
 	pwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("error getting current directory: %v", err)
 	}
-	commands := []PackageCommand{}
-	first := true
-	i := 0
 	colors := []string{"red", "green", "blue", "yellow", "purple", "cyan", "white"}
-	for name, pkg := range config.Packages {
+	command := PackageCommand{
+		Name:    "root",
+		Cwd:     pwd,
+		Command: "bl",
+		Args:    []string{"serve", "--port", fmt.Sprintf("%d", port), "--host", host, "--recursive=false"},
+		Color:   colors[0],
+	}
+	if hotreload {
+		command.Args = append(command.Args, "--hotreload")
+	}
+	commands := []PackageCommand{command}
+	i := 1
+	for name, pkg := range packages {
 		if pkg.Port == 0 {
-			if first && port != 0 {
-				pkg.Port = port
-			} else {
-				// We get a free random port
-				for {
-					freePort := getFreePort()
-					if !usedPorts[freePort] {
-						pkg.Port = freePort
-						usedPorts[freePort] = true
-						break
-					}
-				}
-			}
+			return nil, fmt.Errorf("port is not set for %s", name)
 		} else {
 			if !usedPorts[pkg.Port] {
 				usedPorts[pkg.Port] = true
@@ -149,7 +150,6 @@ func getPackageCommands(port int, host string, hotreload bool) ([]PackageCommand
 				os.Exit(1)
 			}
 		}
-		first = false
 		command := PackageCommand{
 			Name:    name,
 			Cwd:     filepath.Join(pwd, pkg.Path),
@@ -160,18 +160,19 @@ func getPackageCommands(port int, host string, hotreload bool) ([]PackageCommand
 				fmt.Sprintf("%d", pkg.Port),
 				"--host",
 				host,
+				"--recursive=false",
 			},
+			Color: colors[i%len(colors)],
 		}
 		if hotreload {
 			command.Args = append(command.Args, "--hotreload")
 		}
-		command.Color = colors[i%len(colors)]
 		commands = append(commands, command)
 		i++
 	}
 
 	envs := CommandEnv{}
-	for name, pkg := range config.Packages {
+	for name, pkg := range packages {
 		if pkg.Type != "" {
 			nameUpper := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 			typeUpper := strings.ToUpper(pkg.Type)
