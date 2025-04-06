@@ -27,6 +27,11 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Example: `bl deploy`,
 		Run: func(cmd *cobra.Command, args []string) {
 
+			if config.Type == "package" {
+				deployPackage(dryRun)
+				return
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				fmt.Printf("Error getting current working directory: %v\n", err)
@@ -366,4 +371,40 @@ func (d *Deployment) PrintZip() error {
 	}
 
 	return nil
+}
+
+func deployPackage(dryRun bool) {
+	fmt.Println("Deploying package")
+
+	commands, err := getDeployCommands(dryRun)
+	if err != nil {
+		fmt.Println("Error getting package commands:", err)
+		os.Exit(1)
+	}
+
+	runCommands(commands, true)
+}
+
+func getDeployCommands(dryRun bool) ([]PackageCommand, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("error getting current directory: %v", err)
+	}
+	commands := []PackageCommand{}
+
+	for name, pkg := range config.Packages {
+		command := PackageCommand{
+			Name:    name,
+			Cwd:     filepath.Join(pwd, pkg.Path),
+			Command: "bl",
+			Args: []string{
+				"deploy",
+			},
+		}
+		if dryRun {
+			command.Args = append(command.Args, "--dryrun")
+		}
+		commands = append(commands, command)
+	}
+	return commands, nil
 }

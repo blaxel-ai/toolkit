@@ -65,17 +65,24 @@ var resources = []*Resource{
 	},
 }
 
+type Package struct {
+	Path string `toml:"path"`
+	Port int    `toml:"port,omitempty"`
+	Type string `toml:"type,omitempty"`
+}
+
 // readConfigToml reads the config.toml file and upgrade config according to content
 type Config struct {
-	Name       string      `toml:"name"`
-	Workspace  string      `toml:"workspace"`
-	Type       string      `toml:"type"`
-	Protocol   string      `toml:"protocol"`
-	Functions  []string    `toml:"functions"`
-	Models     []string    `toml:"models"`
-	Agents     []string    `toml:"agents"`
-	Entrypoint Entrypoints `toml:"entrypoint"`
-	Env        Envs        `toml:"env"`
+	Name       string             `toml:"name"`
+	Workspace  string             `toml:"workspace"`
+	Type       string             `toml:"type"`
+	Protocol   string             `toml:"protocol"`
+	Functions  []string           `toml:"functions"`
+	Models     []string           `toml:"models"`
+	Agents     []string           `toml:"agents"`
+	Entrypoint Entrypoints        `toml:"entrypoint"`
+	Env        Envs               `toml:"env"`
+	Packages   map[string]Package `toml:"packages"`
 }
 
 func readConfigToml() {

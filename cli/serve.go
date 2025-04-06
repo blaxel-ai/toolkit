@@ -36,6 +36,12 @@ func (r *Operations) ServeCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
+			// If it's a package, we need to handle it
+			if config.Type == "package" {
+				startPackageServer(port, host, hotreload)
+				return
+			}
+
 			// Check for pyproject.toml or package.json
 			language := moduleLanguage()
 			switch language {
