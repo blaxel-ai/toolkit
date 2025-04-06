@@ -49,7 +49,10 @@ func (r *Operations) SeedCache(cwd string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create cache file: %w", err)
 		}
-		file.WriteString(results)
+		_, err = file.WriteString(results)
+		if err != nil {
+			return fmt.Errorf("failed to write cache file: %w", err)
+		}
 	}
 	return nil
 }

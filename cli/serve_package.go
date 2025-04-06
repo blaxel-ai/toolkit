@@ -49,14 +49,20 @@ func runCommands(commands []PackageCommand, oneByOne bool) {
 			continue
 		}
 
-		go prefixOutput(stdoutPipe, fmt.Sprintf("%s", cmdInfo.Name), cmdInfo.Color)
-		go prefixOutput(stderrPipe, fmt.Sprintf("%s", cmdInfo.Name), cmdInfo.Color)
+		go prefixOutput(stdoutPipe, cmdInfo.Name, cmdInfo.Color)
+		go prefixOutput(stderrPipe, cmdInfo.Name, cmdInfo.Color)
 
 		if oneByOne {
-			cmd.Wait() // Wait for the command to finish before starting the next one
+			err := cmd.Wait() // Wait for the command to finish before starting the next one
+			if err != nil {
+				fmt.Printf("Error waiting for command %s: %v\n", cmdInfo.Name, err)
+			}
 		} else {
 			go func() {
-				cmd.Wait()
+				err := cmd.Wait()
+				if err != nil {
+					fmt.Printf("Error waiting for command %s: %v\n", cmdInfo.Name, err)
+				}
 			}()
 		}
 	}

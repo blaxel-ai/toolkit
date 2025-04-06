@@ -345,7 +345,10 @@ func (d *Deployment) Print() error {
 	}
 	fmt.Println(d.dockerfile)
 	fmt.Println("---")
-	d.PrintZip()
+	err := d.PrintZip()
+	if err != nil {
+		return fmt.Errorf("failed to print zip: %w", err)
+	}
 	return nil
 }
 
