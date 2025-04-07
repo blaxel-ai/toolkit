@@ -128,6 +128,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.AddCommand(reg.CreateMCPServerCmd())
 	rootCmd.AddCommand(reg.DeployCmd())
 	rootCmd.AddCommand(reg.ChatCmd())
+	rootCmd.AddCommand(reg.InspectCmd())
 	rootCmd.AddCommand(reg.VersionCmd())
 
 	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")
