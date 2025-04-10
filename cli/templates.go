@@ -72,7 +72,7 @@ type IgnoreDir struct {
 
 func RetrieveTemplates(templateType string) (Templates, error) {
 	templates := Templates{}
-	url := fmt.Sprintf("https://api.github.com/orgs/%s/repos", GH_ORGANIZATION)
+	url := fmt.Sprintf("https://api.github.com/orgs/%s/repos?per_page=40", GH_ORGANIZATION)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating github request: %w", err)
