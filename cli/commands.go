@@ -67,8 +67,12 @@ func (c *CommandEnv) Set(key, value string) {
 
 func (c *CommandEnv) AddClientEnv() {
 	for _, envVar := range os.Environ() {
-		key := strings.Split(envVar, "=")[0]
-		value := strings.Split(envVar, "=")[1]
+		parts := strings.Split(envVar, "=")
+		if len(parts) < 2 {
+			continue
+		}
+		key := parts[0]
+		value := strings.Join(parts[1:], "=")
 		c.Set(key, value)
 	}
 }

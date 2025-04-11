@@ -35,7 +35,7 @@ func readSecrets() {
 		}
 		secrets = append(secrets, Env{
 			Name:  parts[0],
-			Value: strings.Join(parts[1:], "="),
+			Value: strings.Trim(strings.Join(parts[1:], "="), `"`),
 		})
 	}
 }
