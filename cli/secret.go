@@ -30,12 +30,12 @@ func readSecrets() {
 			continue
 		}
 		parts := strings.Split(line, "=")
-		if len(parts) != 2 {
+		if len(parts) < 2 {
 			continue
 		}
 		secrets = append(secrets, Env{
 			Name:  parts[0],
-			Value: parts[1],
+			Value: strings.Join(parts[1:], "="),
 		})
 	}
 }
