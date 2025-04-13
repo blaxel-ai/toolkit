@@ -1,0 +1,103 @@
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Model
+metadata:
+  createdAt: "2025-04-12T01:31:36.328631404Z"
+  createdBy: user:1b79b739-3e99-433d-8c6e-04ee0909a441
+  displayName: Sandbox OpenAI
+  labels:
+    sandbox: "true"
+  name: sandbox-openai
+  updatedAt: "2025-04-12T01:31:36.791947998Z"
+  updatedBy: user:1b79b739-3e99-433d-8c6e-04ee0909a441
+  workspace: testcharlou
+spec:
+  configurations: null
+  enabled: true
+  flavors:
+  - name: all
+    type: cpu
+  integrationConnections:
+  - sandbox-openai
+  podTemplate: null
+  policies:
+  - sandbox-openai-maxtoken-policy
+  privateClusters: null
+  revision:
+    active: jdty1hqjpwch7evv
+    canary: null
+    canaryPercent: 0
+    traffic: null
+  runtime:
+    Resources: null
+    args: null
+    command: null
+    cpu: 0
+    endpointName: thirsty-rabbit
+    envs: null
+    image: ""
+    memory: 0
+    metricPort: null
+    model: gpt-4o-mini
+    organization: ""
+    servingPort: 0
+    startupProbe: null
+    type: openai
+  sandbox: true
+  serverlessConfig: null
+status: DEPLOYED
+
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Function
+metadata:
+  createdAt: "2025-04-12T01:33:08.674746662Z"
+  createdBy: service_account:testcharlou
+  displayName: blaxel-search
+  labels: null
+  name: blaxel-search
+  updatedAt: "2025-04-12T23:50:34.982901019Z"
+  updatedBy: user:1b79b739-3e99-433d-8c6e-04ee0909a441
+  workspace: testcharlou
+spec:
+  configurations: null
+  description: ""
+  enabled: true
+  flavors:
+  - name: all
+    type: cpu
+  integrationConnections:
+  - blaxel-search-integration
+  kit: null
+  podTemplate: null
+  policies: null
+  privateClusters: null
+  revision:
+    active: ""
+    canary: null
+    canaryPercent: 0
+    traffic: null
+  runtime:
+    Resources: null
+    args: null
+    command: null
+    cpu: 0
+    endpointName: ""
+    envs: null
+    image: ""
+    memory: 512
+    metricPort: null
+    model: ""
+    organization: ""
+    servingPort: 0
+    startupProbe: null
+    type: mcp
+  sandbox: false
+  schema:
+    type: ""
+  serverlessConfig:
+    maxScale: 10
+    minScale: 0
+    timeout: 900
+status: DEPLOYED
+

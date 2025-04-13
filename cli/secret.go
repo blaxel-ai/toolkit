@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/joho/godotenv"
 )
 
 // readSecret from .env file at root of project
@@ -19,23 +20,17 @@ func readSecrets() {
 		return
 	}
 
-	content, err := os.ReadFile(filepath.Join(cwd, ".env"))
+	envMap, err := godotenv.Read(filepath.Join(cwd, ".env"))
 	if err != nil {
+		fmt.Println("Error reading .env file:", err)
 		return
 	}
 
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.Split(line, "=")
-		if len(parts) < 2 {
-			continue
-		}
+	for key, value := range envMap {
 		secrets = append(secrets, Env{
-			Name:  parts[0],
-			Value: strings.Trim(strings.Join(parts[1:], "="), `"`),
+			Name:  key,
+			Value: value,
 		})
 	}
+
 }
