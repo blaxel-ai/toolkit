@@ -22,7 +22,6 @@ func readSecrets() {
 
 	envMap, err := godotenv.Read(filepath.Join(cwd, ".env"))
 	if err != nil {
-		fmt.Println("Error reading .env file:", err)
 		return
 	}
 
