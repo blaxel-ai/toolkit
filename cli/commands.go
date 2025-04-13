@@ -33,6 +33,7 @@ func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 type RootCmdConfig struct {
 	Hotreload  bool
 	Production bool
+	Docker     bool
 	Entrypoint Entrypoints
 	Envs       CommandEnv
 }

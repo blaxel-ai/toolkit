@@ -124,6 +124,20 @@ func (d *Deployment) Generate() error {
 }
 
 func (d *Deployment) GenerateDeployment() Result {
+	entrypoint, err := findRootCmdAsString(RootCmdConfig{
+		Hotreload:  false,
+		Production: true,
+		Entrypoint: config.Entrypoint,
+	})
+	if err != nil {
+		fmt.Printf("failed to find root cmd: %v", err)
+	}
+	if len(entrypoint) > 0 {
+		entrypoint[0] = "/usr/bin/" + entrypoint[0]
+	}
+	if len(entrypoint) > 1 {
+		entrypoint[1] = "/blaxel/" + entrypoint[1]
+	}
 	var Spec map[string]interface{}
 	var Kind string
 	switch config.Type {
@@ -131,15 +145,17 @@ func (d *Deployment) GenerateDeployment() Result {
 		Kind = "Function"
 		Spec = map[string]interface{}{
 			"runtime": map[string]interface{}{
-				"type": "mcp",
-				"envs": GetEnvs(),
+				"type":       "mcp",
+				"envs":       GetEnvs(),
+				"entrypoint": entrypoint,
 			},
 		}
 	case "agent":
 		Kind = "Agent"
 		Spec = map[string]interface{}{
 			"runtime": map[string]interface{}{
-				"envs": GetEnvs(),
+				"envs":       GetEnvs(),
+				"entrypoint": entrypoint,
 			},
 		}
 	}
