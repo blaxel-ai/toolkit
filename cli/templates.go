@@ -248,7 +248,33 @@ func (t Template) Clone(opts TemplateOptions) error {
 		// Process template
 		tmpl, err := template.ParseFiles(path)
 		if err != nil {
-			return err
+			// If template parsing fails, just copy the file
+			// An error happened with google image for instance
+			outPath := filepath.Join(opts.Directory, rel)
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				return err
+			}
+
+			// Open source file for reading
+			src, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer src.Close()
+
+			// Create destination file
+			out, err := os.Create(outPath)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+
+			// Copy the contents
+			_, err = io.Copy(out, src)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
 
 		// Create output file
@@ -264,7 +290,11 @@ func (t Template) Clone(opts TemplateOptions) error {
 		defer out.Close()
 
 		// Execute template
-		return tmpl.Execute(out, templateOptions)
+		err = tmpl.Execute(out, templateOptions)
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return err
