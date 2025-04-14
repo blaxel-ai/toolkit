@@ -29,8 +29,9 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if recursive {
-				deployPackage(dryRun)
-				return
+				if deployPackage(dryRun) {
+					return
+				}
 			}
 
 			cwd, err := os.Getwd()
@@ -394,7 +395,7 @@ func (d *Deployment) PrintZip() error {
 	return nil
 }
 
-func deployPackage(dryRun bool) {
+func deployPackage(dryRun bool) bool {
 	fmt.Println("Deploying package")
 
 	commands, err := getDeployCommands(dryRun)
@@ -403,7 +404,12 @@ func deployPackage(dryRun bool) {
 		os.Exit(1)
 	}
 
+	if len(commands) == 1 {
+		return false
+	}
+
 	runCommands(commands, true)
+	return true
 }
 
 func getDeployCommands(dryRun bool) ([]PackageCommand, error) {

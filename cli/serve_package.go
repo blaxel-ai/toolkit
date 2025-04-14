@@ -23,14 +23,18 @@ type PackageCommand struct {
 	Envs    CommandEnv
 }
 
-func startPackageServer(port int, host string, hotreload bool) {
+func startPackageServer(port int, host string, hotreload bool) bool {
 	commands, err := getServeCommands(port, host, hotreload)
 	if err != nil {
 		fmt.Println("Error getting package commands:", err)
 		os.Exit(1)
 	}
+	if len(commands) == 1 {
+		return false
+	}
 
 	runCommands(commands, false)
+	return true
 }
 
 func runCommands(commands []PackageCommand, oneByOne bool) {
@@ -73,6 +77,7 @@ func runCommands(commands []PackageCommand, oneByOne bool) {
 }
 
 func prefixOutput(pipe io.ReadCloser, prefix string, color string) {
+
 	// Ensure the prefix is exactly 20 characters long
 	if len(prefix) < 20 {
 		prefix = fmt.Sprintf("%-20s", prefix) // Left-align and pad with spaces

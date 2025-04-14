@@ -38,8 +38,9 @@ func (r *Operations) ServeCmd() *cobra.Command {
 
 			// If it's a package, we need to handle it
 			if recursive {
-				startPackageServer(port, host, hotreload)
-				return
+				if startPackageServer(port, host, hotreload) {
+					return
+				}
 			}
 			// Check for pyproject.toml or package.json
 			language := moduleLanguage()
