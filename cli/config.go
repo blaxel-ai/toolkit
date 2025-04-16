@@ -84,6 +84,7 @@ type Config struct {
 	Env        Envs               `toml:"env"`
 	Function   map[string]Package `toml:"function"`
 	Agent      map[string]Package `toml:"agent"`
+	Memory     int                `toml:"memory,omitempty"`
 }
 
 func readConfigToml() {

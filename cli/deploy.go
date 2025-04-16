@@ -160,6 +160,11 @@ func (d *Deployment) GenerateDeployment() Result {
 			},
 		}
 	}
+	if config.Memory != 0 {
+		if runtimeSpec, ok := Spec["runtime"].(map[string]interface{}); ok {
+			runtimeSpec["memory"] = config.Memory
+		}
+	}
 	return Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
 		Kind:       Kind,
