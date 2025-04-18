@@ -165,6 +165,9 @@ func (d *Deployment) GenerateDeployment() Result {
 			runtimeSpec["memory"] = config.Memory
 		}
 	}
+	if len(config.Policies) > 0 {
+		Spec["policies"] = config.Policies
+	}
 	return Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
 		Kind:       Kind,
