@@ -99,6 +99,7 @@ func readConfigToml() {
 	if err != nil {
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}
+		config.Type = "agent"
 		return
 	}
 
@@ -107,6 +108,12 @@ func readConfigToml() {
 		fmt.Println(err)
 		return
 	}
+
+	if config.Type == "" {
+		config.Type = "agent"
+	}
+
+	fmt.Println(config.Type)
 
 	if config.Workspace != "" {
 		fmt.Printf("Using workspace %s from blaxel.toml\n", config.Workspace)
