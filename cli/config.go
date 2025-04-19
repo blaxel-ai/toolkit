@@ -113,8 +113,6 @@ func readConfigToml() {
 		config.Type = "agent"
 	}
 
-	fmt.Println(config.Type)
-
 	if config.Workspace != "" {
 		fmt.Printf("Using workspace %s from blaxel.toml\n", config.Workspace)
 		workspace = config.Workspace
