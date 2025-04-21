@@ -7,42 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
-
-	"github.com/beamlit/toolkit/cli/dockerfiles"
 )
 
 type PackageJson struct {
 	Scripts map[string]string `json:"scripts"`
-}
-
-func getTSDockerfile() (string, error) {
-	entrypoint, err := findRootCmdAsString(RootCmdConfig{
-		Hotreload:  false,
-		Production: true,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to find root command: %w", err)
-	}
-	data := map[string]interface{}{
-		"BaseImage":      "node:22-alpine",
-		"LockFile":       findTSPackageManagerLockFile(),
-		"InstallCommand": strings.Join(findTSPackageManagerCommandAsString(true), " "),
-		"BuildCommand":   strings.Join(getTSBuildCommand(), " "),
-		"Entrypoint":     strings.Join(entrypoint, "\", \""),
-	}
-
-	tmpl, err := template.New("dockerfile").Parse(dockerfiles.TSTemplate)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse dockerfile template: %w", err)
-	}
-
-	var result strings.Builder
-	if err := tmpl.Execute(&result, data); err != nil {
-		return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
-	}
-
-	return result.String(), nil
 }
 
 func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {

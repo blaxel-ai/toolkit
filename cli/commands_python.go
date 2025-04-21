@@ -6,50 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/template"
-
-	"github.com/beamlit/toolkit/cli/dockerfiles"
 )
-
-func getPythonDockerfile() (string, error) {
-	entrypoint, err := findRootCmdAsString(RootCmdConfig{
-		Hotreload:  false,
-		Production: true,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to find root command: %w", err)
-	}
-	packageManager := findPythonPackageManager()
-	requirementFile := "requirements.txt"
-	if packageManager == "uv" {
-		requirementFile = "pyproject.toml"
-	}
-	// Check if the requirement file exists
-	if _, err := os.Stat(requirementFile); os.IsNotExist(err) {
-		return "", fmt.Errorf("requirement file %s does not exist", requirementFile)
-	}
-
-	data := map[string]interface{}{
-		"BaseImage":       "python:3.12-slim",
-		"LockFile":        findPythonPackageManagerLockFile(),
-		"PreInstall":      "apt update && apt install -y build-essential",
-		"InstallCommand":  strings.Join(findPythonPackageManagerCommandAsString(true), " "),
-		"Entrypoint":      strings.Join(entrypoint, "\", \""),
-		"RequirementFile": requirementFile,
-	}
-
-	tmpl, err := template.New("dockerfile").Parse(dockerfiles.PythonTemplate)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse dockerfile template: %w", err)
-	}
-
-	var result strings.Builder
-	if err := tmpl.Execute(&result, data); err != nil {
-		return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
-	}
-
-	return result.String(), nil
-}
 
 func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 	py, err := findRootCmd(port, host, hotreload)

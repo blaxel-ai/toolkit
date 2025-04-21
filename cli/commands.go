@@ -49,17 +49,6 @@ func findRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	return nil, fmt.Errorf("language not supported")
 }
 
-func getDockerfile() (string, error) {
-	language := moduleLanguage()
-	switch language {
-	case "python":
-		return getPythonDockerfile()
-	case "typescript":
-		return getTSDockerfile()
-	}
-	return "", fmt.Errorf("language not supported")
-}
-
 type CommandEnv map[string]string
 
 func (c *CommandEnv) Set(key, value string) {

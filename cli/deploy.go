@@ -89,7 +89,6 @@ type Deployment struct {
 	dir               string
 	name              string
 	blaxelDeployments []Result
-	dockerfile        string
 	zip               *os.File
 	cwd               string
 	r                 *Operations
@@ -108,12 +107,6 @@ func (d *Deployment) Generate() error {
 
 	// Generate the blaxel deployment yaml
 	d.blaxelDeployments = []Result{d.GenerateDeployment()}
-	// Generate the dockerfile
-	dockerfile, err := getDockerfile()
-	if err != nil {
-		return fmt.Errorf("failed to get dockerfile: %w", err)
-	}
-	d.dockerfile = dockerfile
 
 	// Zip the directory
 	err = d.Zip()
@@ -278,20 +271,6 @@ func (d *Deployment) Zip() error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	// Add Dockerfile to the zip
-	dockerfileHeader := &zip.FileHeader{
-		Name:   "Dockerfile",
-		Method: zip.Deflate,
-	}
-	dockerfileWriter, err := zipWriter.CreateHeader(dockerfileHeader)
-	if err != nil {
-		return fmt.Errorf("failed to create Dockerfile in zip: %w", err)
-	}
-	_, err = dockerfileWriter.Write([]byte(d.dockerfile))
-	if err != nil {
-		return fmt.Errorf("failed to write Dockerfile to zip: %w", err)
-	}
-
 	err = filepath.Walk(d.cwd, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -368,7 +347,6 @@ func (d *Deployment) Print() error {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	fmt.Println(d.dockerfile)
 	fmt.Println("---")
 	err := d.PrintZip()
 	if err != nil {
