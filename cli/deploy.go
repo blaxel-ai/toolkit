@@ -142,6 +142,7 @@ func (d *Deployment) GenerateDeployment() Result {
 				"type":       "mcp",
 				"envs":       GetEnvs(),
 				"entrypoint": entrypoint,
+				"generation": config.Generation,
 			},
 		}
 	case "agent":
@@ -150,6 +151,7 @@ func (d *Deployment) GenerateDeployment() Result {
 			"runtime": map[string]interface{}{
 				"envs":       GetEnvs(),
 				"entrypoint": entrypoint,
+				"generation": config.Generation,
 			},
 		}
 	}
