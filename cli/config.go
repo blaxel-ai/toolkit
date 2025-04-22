@@ -115,7 +115,7 @@ func readConfigToml() {
 	}
 
 	if config.Generation == "" {
-		config.Generation = "v2"
+		config.Generation = "mk2"
 	}
 
 	if config.Workspace != "" {
