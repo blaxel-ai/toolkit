@@ -84,9 +84,9 @@ type Config struct {
 	Env        Envs               `toml:"env"`
 	Function   map[string]Package `toml:"function"`
 	Agent      map[string]Package `toml:"agent"`
-	Memory     int                `toml:"memory,omitempty"`
-	Policies   []string           `toml:"policies,omitempty"`
-	Generation string             `toml:"generation,omitempty"`
+
+	Runtime  *map[string]interface{} `toml:"runtime"`
+	Policies []string                `toml:"policies,omitempty"`
 }
 
 func readConfigToml() {
@@ -112,10 +112,6 @@ func readConfigToml() {
 
 	if config.Type == "" {
 		config.Type = "agent"
-	}
-
-	if config.Generation == "" {
-		config.Generation = "mk2"
 	}
 
 	if config.Workspace != "" {

@@ -134,30 +134,27 @@ func (d *Deployment) GenerateDeployment() Result {
 	}
 	var Spec map[string]interface{}
 	var Kind string
+
+	runtime := make(map[string]interface{})
+	if config.Runtime != nil {
+		runtime = *config.Runtime
+	}
+	runtime["envs"] = GetEnvs()
+	runtime["entrypoint"] = entrypoint
+	if config.Type == "function" {
+		runtime["type"] = "mcp"
+	}
+
 	switch config.Type {
 	case "function":
 		Kind = "Function"
 		Spec = map[string]interface{}{
-			"runtime": map[string]interface{}{
-				"type":       "mcp",
-				"envs":       GetEnvs(),
-				"entrypoint": entrypoint,
-				"generation": config.Generation,
-			},
+			"runtime": runtime,
 		}
 	case "agent":
 		Kind = "Agent"
 		Spec = map[string]interface{}{
-			"runtime": map[string]interface{}{
-				"envs":       GetEnvs(),
-				"entrypoint": entrypoint,
-				"generation": config.Generation,
-			},
-		}
-	}
-	if config.Memory != 0 {
-		if runtimeSpec, ok := Spec["runtime"].(map[string]interface{}); ok {
-			runtimeSpec["memory"] = config.Memory
+			"runtime": runtime,
 		}
 	}
 	if len(config.Policies) > 0 {
@@ -349,7 +346,6 @@ func (d *Deployment) Print() error {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	fmt.Println("---")
 	err := d.PrintZip()
 	if err != nil {
 		return fmt.Errorf("failed to print zip: %w", err)
