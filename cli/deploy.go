@@ -149,12 +149,14 @@ func (d *Deployment) GenerateDeployment() Result {
 	case "function":
 		Kind = "Function"
 		Spec = map[string]interface{}{
-			"runtime": runtime,
+			"runtime":  runtime,
+			"triggers": config.Triggers,
 		}
 	case "agent":
 		Kind = "Agent"
 		Spec = map[string]interface{}{
-			"runtime": runtime,
+			"runtime":  runtime,
+			"triggers": config.Triggers,
 		}
 	}
 	if len(config.Policies) > 0 {

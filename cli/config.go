@@ -85,8 +85,9 @@ type Config struct {
 	Function   map[string]Package `toml:"function"`
 	Agent      map[string]Package `toml:"agent"`
 
-	Runtime  *map[string]interface{} `toml:"runtime"`
-	Policies []string                `toml:"policies,omitempty"`
+	Runtime  *map[string]interface{}   `toml:"runtime"`
+	Triggers *[]map[string]interface{} `toml:"triggers"`
+	Policies []string                  `toml:"policies,omitempty"`
 }
 
 func readConfigToml() {
