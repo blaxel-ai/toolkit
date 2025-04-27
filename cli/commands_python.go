@@ -75,34 +75,3 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	}
 	return []string{"python", file}, nil
 }
-
-func findPythonPackageManager() string {
-	lockFile := findPythonPackageManagerLockFile()
-	switch lockFile {
-	case "uv.lock":
-		return "uv"
-	default:
-		return "pip"
-	}
-}
-
-func findPythonPackageManagerLockFile() string {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	if _, err := os.Stat(filepath.Join(currentDir, "uv.lock")); err == nil {
-		return "uv.lock"
-	}
-	return ""
-}
-
-func findPythonPackageManagerCommandAsString(production bool) []string {
-	// Production mode is not supported for now cause we build in onestage
-	packageManager := findPythonPackageManager()
-	if packageManager == "uv" {
-		baseCmd := []string{"pip", "install", "uv", "&&", "uv", "sync", "--refresh"}
-		return baseCmd
-	}
-	return []string{"pip", "install", "-r", "requirements.txt"}
-}

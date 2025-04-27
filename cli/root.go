@@ -2,9 +2,15 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/beamlit/toolkit/sdk"
 	"github.com/joho/godotenv"
@@ -15,6 +21,127 @@ var BASE_URL = "https://api.blaxel.ai/v0"
 var APP_URL = "https://app.blaxel.ai"
 var RUN_URL = "https://run.blaxel.ai"
 var REGISTRY_URL = "https://us.registry.blaxel.ai"
+var GITHUB_RELEASES_URL = "https://api.github.com/repos/beamlit/toolkit/releases/latest"
+
+// ANSI color codes
+const (
+	colorYellow = "\033[33m"
+	colorReset  = "\033[0m"
+)
+
+type versionCache struct {
+	Version   string    `json:"version"`
+	LastCheck time.Time `json:"last_check"`
+}
+
+func getVersionCachePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".blaxel", "version")
+}
+
+func readVersionCache() (versionCache, error) {
+	var cache versionCache
+	path := getVersionCachePath()
+	if path == "" {
+		return cache, fmt.Errorf("could not determine cache path")
+	}
+
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return cache, err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cache, nil
+		}
+		return cache, err
+	}
+
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return cache, err
+	}
+
+	return cache, nil
+}
+
+func writeVersionCache(cache versionCache) error {
+	path := getVersionCachePath()
+	if path == "" {
+		return fmt.Errorf("could not determine cache path")
+	}
+
+	data, err := json.Marshal(cache)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+func notifyNewVersionAvailable(latestVersion, currentVersion string) {
+	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s (current: %s)%s\n",
+		colorYellow, latestVersion, currentVersion, colorReset)
+}
+
+func checkForUpdates(currentVersion string) {
+	if currentVersion == "dev" {
+		return
+	}
+
+	// Read from cache
+	cache, err := readVersionCache()
+	if err == nil && cache.Version != "" && time.Since(cache.LastCheck) < 6*time.Hour {
+		if cache.Version != currentVersion {
+			notifyNewVersionAvailable(cache.Version, currentVersion)
+		}
+		return
+	}
+
+	// If cache is invalid or expired, fetch from GitHub
+	resp, err := http.Get(GITHUB_RELEASES_URL)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.Unmarshal(body, &release); err != nil {
+		return
+	}
+
+	latestVersion := strings.TrimPrefix(release.TagName, "v")
+
+	// Update cache
+	cache = versionCache{
+		Version:   latestVersion,
+		LastCheck: time.Now(),
+	}
+	_ = writeVersionCache(cache)
+
+	if strings.Contains(currentVersion, "-SNAPSHOT") {
+		currentVersion = strings.Split(currentVersion, "-SNAPSHOT")[0]
+	}
+	if latestVersion != currentVersion {
+		notifyNewVersionAvailable(latestVersion, currentVersion)
+	}
+}
 
 func init() {
 	err := godotenv.Load()
@@ -147,5 +274,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	if date == "" {
 		date = releaseDate
 	}
+
+	// Check for updates in a goroutine to not block the main execution
+	checkForUpdates(version)
+
 	return rootCmd.Execute()
 }
