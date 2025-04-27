@@ -63,6 +63,13 @@ var resources = []*Resource{
 		Singular: "integrationconnection",
 		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
 	},
+	{
+		Kind:     "UVM",
+		Short:    "uvm",
+		Plural:   "uvms",
+		Singular: "uvm",
+		SpecType: reflect.TypeOf(sdk.UVM{}),
+	},
 }
 
 type Package struct {
