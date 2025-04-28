@@ -22,6 +22,7 @@ var APP_URL = "https://app.blaxel.ai"
 var RUN_URL = "https://run.blaxel.ai"
 var REGISTRY_URL = "https://us.registry.blaxel.ai"
 var GITHUB_RELEASES_URL = "https://api.github.com/repos/beamlit/toolkit/releases/latest"
+var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#update"
 
 // ANSI color codes
 const (
@@ -85,8 +86,8 @@ func writeVersionCache(cache versionCache) error {
 }
 
 func notifyNewVersionAvailable(latestVersion, currentVersion string) {
-	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s (current: %s)%s\n",
-		colorYellow, latestVersion, currentVersion, colorReset)
+	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s (current: %s)\nTo update follow the instructions at %s\n\n%s",
+		colorYellow, latestVersion, currentVersion, UPDATE_CLI_DOC_URL, colorReset)
 }
 
 func checkForUpdates(currentVersion string) {
