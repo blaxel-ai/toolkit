@@ -26,7 +26,8 @@ type ChatModel struct {
 	Loading         bool
 	Debug           bool
 	Local           bool
-	SendMessage     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool) (string, error)
+	Headers         []string
+	SendMessage     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string) (string, error)
 	lastUserMessage string
 }
 
@@ -104,7 +105,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(
 				m.spinner.Tick,
 				func() tea.Msg {
-					response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local)
+					response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
 					if err != nil {
 						return errMsg{err}
 					}

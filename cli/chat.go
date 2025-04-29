@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"encoding/json"
 	"io"
@@ -18,6 +19,7 @@ import (
 func (r *Operations) ChatCmd() *cobra.Command {
 	var debug bool
 	var local bool
+	var headerFlags []string
 
 	cmd := &cobra.Command{
 		Use:     "chat [agent-name]",
@@ -34,7 +36,7 @@ func (r *Operations) ChatCmd() *cobra.Command {
 			resourceType := "agent"
 			resourceName := args[0]
 
-			err := r.Chat(context.Background(), workspace, resourceType, resourceName, debug, local)
+			err := r.Chat(context.Background(), workspace, resourceType, resourceName, debug, local, headerFlags)
 			if err != nil {
 				fmt.Println("Error: Failed to chat", err)
 				os.Exit(1)
@@ -44,6 +46,7 @@ func (r *Operations) ChatCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
+	cmd.Flags().StringSliceVar(&headerFlags, "header", []string{}, "Request headers in 'Key: Value' format. Can be specified multiple times")
 	return cmd
 }
 
@@ -54,6 +57,7 @@ func (r *Operations) Chat(
 	resourceName string,
 	debug bool,
 	local bool,
+	headerFlags []string,
 ) error {
 	if !local {
 		err := r.CheckResource(ctx, workspace, resourceType, resourceName)
@@ -62,7 +66,7 @@ func (r *Operations) Chat(
 		}
 	}
 
-	return r.BootChat(ctx, workspace, resourceType, resourceName, debug, local)
+	return r.BootChat(ctx, workspace, resourceType, resourceName, debug, local, headerFlags)
 }
 
 func (r *Operations) BootChat(
@@ -72,6 +76,7 @@ func (r *Operations) BootChat(
 	resourceName string,
 	debug bool,
 	local bool,
+	headerFlags []string,
 ) error {
 	m := &chat.ChatModel{
 		Messages:    []chat.Message{},
@@ -81,6 +86,7 @@ func (r *Operations) BootChat(
 		SendMessage: r.SendMessage,
 		Debug:       debug,
 		Local:       local,
+		Headers:     headerFlags,
 	}
 
 	p := tea.NewProgram(
@@ -129,6 +135,7 @@ func (r *Operations) SendMessage(
 	message string,
 	debug bool,
 	local bool,
+	headers []string,
 ) (string, error) {
 	type Input struct {
 		Inputs string `json:"inputs"`
@@ -137,6 +144,13 @@ func (r *Operations) SendMessage(
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal message: %w", err)
 	}
+	headersMap := make(map[string]string)
+	for _, header := range headers {
+		parts := strings.Split(header, ": ")
+		if len(parts) == 2 {
+			headersMap[parts[0]] = parts[1]
+		}
+	}
 	response, err := client.Run(
 		ctx,
 		workspace,
@@ -144,7 +158,7 @@ func (r *Operations) SendMessage(
 		resourceName,
 		"POST",
 		"/",
-		map[string]string{},
+		headersMap,
 		[]string{},
 		string(inputBody),
 		debug,
