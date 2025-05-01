@@ -883,6 +883,89 @@ type Runtime struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// Sandbox Micro VM for running agentic tasks
+type Sandbox struct {
+	// Events Core events
+	Events *CoreEvents `json:"events,omitempty"`
+
+	// Metadata Metadata
+	Metadata *Metadata `json:"metadata,omitempty"`
+
+	// Spec Sandbox specification
+	Spec *SandboxSpec `json:"spec,omitempty"`
+
+	// Status Sandbox status
+	Status *string `json:"status,omitempty"`
+}
+
+// SandboxDefinition Sandbox definition for admin store operations
+type SandboxDefinition struct {
+	// Categories Categories of the defintion
+	Categories *[]interface{} `json:"categories,omitempty"`
+
+	// ComingSoon If the definition is coming soon
+	ComingSoon *bool `json:"coming_soon,omitempty"`
+
+	// Description Description of the defintion
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Display name of the definition
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Enterprise If the definition is enterprise
+	Enterprise *bool `json:"enterprise,omitempty"`
+
+	// Icon Icon of the definition
+	Icon *string `json:"icon,omitempty"`
+
+	// Image Image of the Sandbox definition
+	Image *string `json:"image,omitempty"`
+
+	// LongDescription Long description of the defintion
+	LongDescription *string `json:"longDescription,omitempty"`
+
+	// Memory Memory of the Sandbox definition in MB
+	Memory *int `json:"memory,omitempty"`
+
+	// Name Name of the artifact
+	Name *string `json:"name,omitempty"`
+
+	// Ports Set of ports for a resource
+	Ports *Ports `json:"ports,omitempty"`
+
+	// Url URL of the definition
+	Url *string `json:"url,omitempty"`
+}
+
+// SandboxSpec defines model for SandboxSpec.
+type SandboxSpec struct {
+	// Configurations Optional configurations for the object
+	Configurations *struct {
+		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
+		Key *SpecConfiguration `json:"key,omitempty"`
+	} `json:"configurations,omitempty"`
+
+	// Enabled Enable or disable the resource
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Flavors Types of hardware available for deployments
+	Flavors                *Flavors                    `json:"flavors,omitempty"`
+	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
+	Policies               *PoliciesList               `json:"policies,omitempty"`
+
+	// PrivateClusters Private cluster where the model deployment is deployed
+	PrivateClusters *ModelPrivateCluster `json:"privateClusters,omitempty"`
+
+	// Revision Revision configuration
+	Revision *RevisionConfiguration `json:"revision,omitempty"`
+
+	// Runtime Set of configurations for a deployment
+	Runtime *Runtime `json:"runtime,omitempty"`
+
+	// Sandbox Sandbox mode
+	Sandbox *bool `json:"sandbox,omitempty"`
+}
+
 // SpecConfiguration Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
 type SpecConfiguration struct {
 	// Secret ACconfiguration secret
@@ -892,27 +975,27 @@ type SpecConfiguration struct {
 	Value *string `json:"value,omitempty"`
 }
 
-// StartUVM Response when starting a UVM
-type StartUVM struct {
+// StartSandbox Response when starting a Sandbox
+type StartSandbox struct {
 	// Message Human readable message about the start operation
 	Message *string `json:"message,omitempty"`
 
 	// Metadata Metadata
 	Metadata *Metadata `json:"metadata,omitempty"`
 
-	// Status Status of the UVM start operation
+	// Status Status of the Sandbox start operation
 	Status *string `json:"status,omitempty"`
 }
 
-// StopUVM Response when stopping a UVM
-type StopUVM struct {
+// StopSandbox Response when stopping a Sandbox
+type StopSandbox struct {
 	// Message Human readable message about the stop operation
 	Message *string `json:"message,omitempty"`
 
 	// Metadata Metadata
 	Metadata *Metadata `json:"metadata,omitempty"`
 
-	// Status Status of the UVM stop operation
+	// Status Status of the Sandbox stop operation
 	Status *string `json:"status,omitempty"`
 }
 
@@ -996,50 +1079,6 @@ type Trigger struct {
 
 // Triggers Triggers to use your agent
 type Triggers = []Trigger
-
-// UVM Micro VM for running agentic tasks
-type UVM struct {
-	// Events Core events
-	Events *CoreEvents `json:"events,omitempty"`
-
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
-
-	// Spec UVM specification
-	Spec *UVMSpec `json:"spec,omitempty"`
-
-	// Status UVM status
-	Status *string `json:"status,omitempty"`
-}
-
-// UVMSpec defines model for UVMSpec.
-type UVMSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
-
-	// Enabled Enable or disable the resource
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
-	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
-	Policies               *PoliciesList               `json:"policies,omitempty"`
-
-	// PrivateClusters Private cluster where the model deployment is deployed
-	PrivateClusters *ModelPrivateCluster `json:"privateClusters,omitempty"`
-
-	// Revision Revision configuration
-	Revision *RevisionConfiguration `json:"revision,omitempty"`
-
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
-	Sandbox *bool `json:"sandbox,omitempty"`
-}
 
 // Workspace defines model for Workspace.
 type Workspace struct {
@@ -1148,12 +1187,6 @@ type CreateAgentJSONRequestBody = Agent
 // UpdateAgentJSONRequestBody defines body for UpdateAgent for application/json ContentType.
 type UpdateAgentJSONRequestBody = Agent
 
-// CreateUVMJSONRequestBody defines body for CreateUVM for application/json ContentType.
-type CreateUVMJSONRequestBody = UVM
-
-// UpdateUVMJSONRequestBody defines body for UpdateUVM for application/json ContentType.
-type UpdateUVMJSONRequestBody = UVM
-
 // CreateFunctionJSONRequestBody defines body for CreateFunction for application/json ContentType.
 type CreateFunctionJSONRequestBody = Function
 
@@ -1183,6 +1216,12 @@ type CreatePolicyJSONRequestBody = Policy
 
 // UpdatePolicyJSONRequestBody defines body for UpdatePolicy for application/json ContentType.
 type UpdatePolicyJSONRequestBody = Policy
+
+// CreateSandboxJSONRequestBody defines body for CreateSandbox for application/json ContentType.
+type CreateSandboxJSONRequestBody = Sandbox
+
+// UpdateSandboxJSONRequestBody defines body for UpdateSandbox for application/json ContentType.
+type UpdateSandboxJSONRequestBody = Sandbox
 
 // CreateWorkspaceServiceAccountJSONRequestBody defines body for CreateWorkspaceServiceAccount for application/json ContentType.
 type CreateWorkspaceServiceAccountJSONRequestBody CreateWorkspaceServiceAccountJSONBody
@@ -1317,31 +1356,6 @@ type ClientInterface interface {
 
 	// ListAgentRevisions request
 	ListAgentRevisions(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListUVMs request
-	ListUVMs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateUVMWithBody request with any body
-	CreateUVMWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateUVM(ctx context.Context, body CreateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteUVM request
-	DeleteUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetUVM request
-	GetUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateUVMWithBody request with any body
-	UpdateUVMWithBody(ctx context.Context, uvmName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateUVM(ctx context.Context, uvmName string, body UpdateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartUVM request
-	StartUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StopUVM request
-	StopUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetConfiguration request
 	GetConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1492,6 +1506,34 @@ type ClientInterface interface {
 	// ListAllPendingInvitations request
 	ListAllPendingInvitations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListSandboxHubDefinitions request
+	ListSandboxHubDefinitions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxes request
+	ListSandboxes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxWithBody request with any body
+	CreateSandboxWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandbox(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSandbox request
+	DeleteSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSandbox request
+	GetSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSandboxWithBody request with any body
+	UpdateSandboxWithBody(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSandbox(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartSandbox request
+	StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopSandbox request
+	StopSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWorkspaceServiceAccounts request
 	GetWorkspaceServiceAccounts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1596,27 +1638,6 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for ListAgentRevisions
 	reg.CliCommand(ctx, "ListAgentRevisions", c.ListAgentRevisions)
-
-	// Register CLI commands for ListUVMs
-	reg.CliCommand(ctx, "ListUVMs", c.ListUVMs)
-
-	// Register CLI commands for CreateUVM
-	reg.CliCommand(ctx, "CreateUVM", c.CreateUVM)
-
-	// Register CLI commands for DeleteUVM
-	reg.CliCommand(ctx, "DeleteUVM", c.DeleteUVM)
-
-	// Register CLI commands for GetUVM
-	reg.CliCommand(ctx, "GetUVM", c.GetUVM)
-
-	// Register CLI commands for UpdateUVM
-	reg.CliCommand(ctx, "UpdateUVM", c.UpdateUVM)
-
-	// Register CLI commands for StartUVM
-	reg.CliCommand(ctx, "StartUVM", c.StartUVM)
-
-	// Register CLI commands for StopUVM
-	reg.CliCommand(ctx, "StopUVM", c.StopUVM)
 
 	// Register CLI commands for GetConfiguration
 	reg.CliCommand(ctx, "GetConfiguration", c.GetConfiguration)
@@ -1746,6 +1767,30 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for ListAllPendingInvitations
 	reg.CliCommand(ctx, "ListAllPendingInvitations", c.ListAllPendingInvitations)
+
+	// Register CLI commands for ListSandboxHubDefinitions
+	reg.CliCommand(ctx, "ListSandboxHubDefinitions", c.ListSandboxHubDefinitions)
+
+	// Register CLI commands for ListSandboxes
+	reg.CliCommand(ctx, "ListSandboxes", c.ListSandboxes)
+
+	// Register CLI commands for CreateSandbox
+	reg.CliCommand(ctx, "CreateSandbox", c.CreateSandbox)
+
+	// Register CLI commands for DeleteSandbox
+	reg.CliCommand(ctx, "DeleteSandbox", c.DeleteSandbox)
+
+	// Register CLI commands for GetSandbox
+	reg.CliCommand(ctx, "GetSandbox", c.GetSandbox)
+
+	// Register CLI commands for UpdateSandbox
+	reg.CliCommand(ctx, "UpdateSandbox", c.UpdateSandbox)
+
+	// Register CLI commands for StartSandbox
+	reg.CliCommand(ctx, "StartSandbox", c.StartSandbox)
+
+	// Register CLI commands for StopSandbox
+	reg.CliCommand(ctx, "StopSandbox", c.StopSandbox)
 
 	// Register CLI commands for GetWorkspaceServiceAccounts
 	reg.CliCommand(ctx, "GetWorkspaceServiceAccounts", c.GetWorkspaceServiceAccounts)
@@ -1904,114 +1949,6 @@ func (c *Client) UpdateAgent(ctx context.Context, agentName string, body UpdateA
 
 func (c *Client) ListAgentRevisions(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAgentRevisionsRequest(c.Server, agentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListUVMs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListUVMsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateUVMWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateUVMRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateUVM(ctx context.Context, body CreateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateUVMRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteUVMRequest(c.Server, uvmName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetUVMRequest(c.Server, uvmName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateUVMWithBody(ctx context.Context, uvmName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateUVMRequestWithBody(c.Server, uvmName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateUVM(ctx context.Context, uvmName string, body UpdateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateUVMRequest(c.Server, uvmName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StartUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartUVMRequest(c.Server, uvmName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StopUVM(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopUVMRequest(c.Server, uvmName)
 	if err != nil {
 		return nil, err
 	}
@@ -2658,6 +2595,126 @@ func (c *Client) ListAllPendingInvitations(ctx context.Context, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListSandboxHubDefinitions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxHubDefinitionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandbox(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSandboxRequest(c.Server, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSandboxRequest(c.Server, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandboxWithBody(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxRequestWithBody(c.Server, sandboxName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandbox(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxRequest(c.Server, sandboxName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartSandboxRequest(c.Server, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StopSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopSandboxRequest(c.Server, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetWorkspaceServiceAccounts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkspaceServiceAccountsRequest(c.Server)
 	if err != nil {
@@ -3227,256 +3284,6 @@ func NewListAgentRevisionsRequest(server string, agentName string) (*http.Reques
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewListUVMsRequest generates requests for ListUVMs
-func NewListUVMsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateUVMRequest calls the generic CreateUVM builder with application/json body
-func NewCreateUVMRequest(server string, body CreateUVMJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateUVMRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateUVMRequestWithBody generates requests for CreateUVM with any type of body
-func NewCreateUVMRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewDeleteUVMRequest generates requests for DeleteUVM
-func NewDeleteUVMRequest(server string, uvmName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uvmName", runtime.ParamLocationPath, uvmName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetUVMRequest generates requests for GetUVM
-func NewGetUVMRequest(server string, uvmName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uvmName", runtime.ParamLocationPath, uvmName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateUVMRequest calls the generic UpdateUVM builder with application/json body
-func NewUpdateUVMRequest(server string, uvmName string, body UpdateUVMJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateUVMRequestWithBody(server, uvmName, "application/json", bodyReader)
-}
-
-// NewUpdateUVMRequestWithBody generates requests for UpdateUVM with any type of body
-func NewUpdateUVMRequestWithBody(server string, uvmName string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uvmName", runtime.ParamLocationPath, uvmName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm/%s", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewStartUVMRequest generates requests for StartUVM
-func NewStartUVMRequest(server string, uvmName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uvmName", runtime.ParamLocationPath, uvmName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm/%s/start", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewStopUVMRequest generates requests for StopUVM
-func NewStopUVMRequest(server string, uvmName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "uvmName", runtime.ParamLocationPath, uvmName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/compute/uvm/%s/stop", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -4971,6 +4778,283 @@ func NewListAllPendingInvitationsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListSandboxHubDefinitionsRequest generates requests for ListSandboxHubDefinitions
+func NewListSandboxHubDefinitionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandbox/hub")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSandboxesRequest generates requests for ListSandboxes
+func NewListSandboxesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxRequest calls the generic CreateSandbox builder with application/json body
+func NewCreateSandboxRequest(server string, body CreateSandboxJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateSandboxRequestWithBody generates requests for CreateSandbox with any type of body
+func NewCreateSandboxRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSandboxRequest generates requests for DeleteSandbox
+func NewDeleteSandboxRequest(server string, sandboxName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSandboxRequest generates requests for GetSandbox
+func NewGetSandboxRequest(server string, sandboxName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSandboxRequest calls the generic UpdateSandbox builder with application/json body
+func NewUpdateSandboxRequest(server string, sandboxName string, body UpdateSandboxJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSandboxRequestWithBody(server, sandboxName, "application/json", bodyReader)
+}
+
+// NewUpdateSandboxRequestWithBody generates requests for UpdateSandbox with any type of body
+func NewUpdateSandboxRequestWithBody(server string, sandboxName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartSandboxRequest generates requests for StartSandbox
+func NewStartSandboxRequest(server string, sandboxName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/start", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStopSandboxRequest generates requests for StopSandbox
+func NewStopSandboxRequest(server string, sandboxName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/stop", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetWorkspaceServiceAccountsRequest generates requests for GetWorkspaceServiceAccounts
 func NewGetWorkspaceServiceAccountsRequest(server string) (*http.Request, error) {
 	var err error
@@ -5874,31 +5958,6 @@ type ClientWithResponsesInterface interface {
 	// ListAgentRevisionsWithResponse request
 	ListAgentRevisionsWithResponse(ctx context.Context, agentName string, reqEditors ...RequestEditorFn) (*ListAgentRevisionsResponse, error)
 
-	// ListUVMsWithResponse request
-	ListUVMsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUVMsResponse, error)
-
-	// CreateUVMWithBodyWithResponse request with any body
-	CreateUVMWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUVMResponse, error)
-
-	CreateUVMWithResponse(ctx context.Context, body CreateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUVMResponse, error)
-
-	// DeleteUVMWithResponse request
-	DeleteUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*DeleteUVMResponse, error)
-
-	// GetUVMWithResponse request
-	GetUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*GetUVMResponse, error)
-
-	// UpdateUVMWithBodyWithResponse request with any body
-	UpdateUVMWithBodyWithResponse(ctx context.Context, uvmName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUVMResponse, error)
-
-	UpdateUVMWithResponse(ctx context.Context, uvmName string, body UpdateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUVMResponse, error)
-
-	// StartUVMWithResponse request
-	StartUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*StartUVMResponse, error)
-
-	// StopUVMWithResponse request
-	StopUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*StopUVMResponse, error)
-
 	// GetConfigurationWithResponse request
 	GetConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigurationResponse, error)
 
@@ -6047,6 +6106,34 @@ type ClientWithResponsesInterface interface {
 
 	// ListAllPendingInvitationsWithResponse request
 	ListAllPendingInvitationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllPendingInvitationsResponse, error)
+
+	// ListSandboxHubDefinitionsWithResponse request
+	ListSandboxHubDefinitionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxHubDefinitionsResponse, error)
+
+	// ListSandboxesWithResponse request
+	ListSandboxesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxesResponse, error)
+
+	// CreateSandboxWithBodyWithResponse request with any body
+	CreateSandboxWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
+
+	CreateSandboxWithResponse(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
+
+	// DeleteSandboxWithResponse request
+	DeleteSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*DeleteSandboxResponse, error)
+
+	// GetSandboxWithResponse request
+	GetSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*GetSandboxResponse, error)
+
+	// UpdateSandboxWithBodyWithResponse request with any body
+	UpdateSandboxWithBodyWithResponse(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxResponse, error)
+
+	UpdateSandboxWithResponse(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxResponse, error)
+
+	// StartSandboxWithResponse request
+	StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error)
+
+	// StopSandboxWithResponse request
+	StopSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StopSandboxResponse, error)
 
 	// GetWorkspaceServiceAccountsWithResponse request
 	GetWorkspaceServiceAccountsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWorkspaceServiceAccountsResponse, error)
@@ -6258,160 +6345,6 @@ func (r ListAgentRevisionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListAgentRevisionsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListUVMsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]UVM
-}
-
-// Status returns HTTPResponse.Status
-func (r ListUVMsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListUVMsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *UVM
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateUVMResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *UVM
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteUVMResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *UVM
-}
-
-// Status returns HTTPResponse.Status
-func (r GetUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetUVMResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *UVM
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateUVMResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type StartUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *StartUVM
-}
-
-// Status returns HTTPResponse.Status
-func (r StartUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StartUVMResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type StopUVMResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *StopUVM
-}
-
-// Status returns HTTPResponse.Status
-func (r StopUVMResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StopUVMResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7358,6 +7291,182 @@ func (r ListAllPendingInvitationsResponse) StatusCode() int {
 	return 0
 }
 
+type ListSandboxHubDefinitionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]SandboxDefinition
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxHubDefinitionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxHubDefinitionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListSandboxesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Sandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Sandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Sandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Sandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Sandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StartSandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r StartSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StopSandboxResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StopSandbox
+}
+
+// Status returns HTTPResponse.Status
+func (r StopSandboxResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StopSandboxResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetWorkspaceServiceAccountsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7995,85 +8104,6 @@ func (c *ClientWithResponses) ListAgentRevisionsWithResponse(ctx context.Context
 	return ParseListAgentRevisionsResponse(rsp)
 }
 
-// ListUVMsWithResponse request returning *ListUVMsResponse
-func (c *ClientWithResponses) ListUVMsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUVMsResponse, error) {
-	rsp, err := c.ListUVMs(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListUVMsResponse(rsp)
-}
-
-// CreateUVMWithBodyWithResponse request with arbitrary body returning *CreateUVMResponse
-func (c *ClientWithResponses) CreateUVMWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUVMResponse, error) {
-	rsp, err := c.CreateUVMWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateUVMResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateUVMWithResponse(ctx context.Context, body CreateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUVMResponse, error) {
-	rsp, err := c.CreateUVM(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateUVMResponse(rsp)
-}
-
-// DeleteUVMWithResponse request returning *DeleteUVMResponse
-func (c *ClientWithResponses) DeleteUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*DeleteUVMResponse, error) {
-	rsp, err := c.DeleteUVM(ctx, uvmName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteUVMResponse(rsp)
-}
-
-// GetUVMWithResponse request returning *GetUVMResponse
-func (c *ClientWithResponses) GetUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*GetUVMResponse, error) {
-	rsp, err := c.GetUVM(ctx, uvmName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetUVMResponse(rsp)
-}
-
-// UpdateUVMWithBodyWithResponse request with arbitrary body returning *UpdateUVMResponse
-func (c *ClientWithResponses) UpdateUVMWithBodyWithResponse(ctx context.Context, uvmName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateUVMResponse, error) {
-	rsp, err := c.UpdateUVMWithBody(ctx, uvmName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateUVMResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateUVMWithResponse(ctx context.Context, uvmName string, body UpdateUVMJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUVMResponse, error) {
-	rsp, err := c.UpdateUVM(ctx, uvmName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateUVMResponse(rsp)
-}
-
-// StartUVMWithResponse request returning *StartUVMResponse
-func (c *ClientWithResponses) StartUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*StartUVMResponse, error) {
-	rsp, err := c.StartUVM(ctx, uvmName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartUVMResponse(rsp)
-}
-
-// StopUVMWithResponse request returning *StopUVMResponse
-func (c *ClientWithResponses) StopUVMWithResponse(ctx context.Context, uvmName string, reqEditors ...RequestEditorFn) (*StopUVMResponse, error) {
-	rsp, err := c.StopUVM(ctx, uvmName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStopUVMResponse(rsp)
-}
-
 // GetConfigurationWithResponse request returning *GetConfigurationResponse
 func (c *ClientWithResponses) GetConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetConfigurationResponse, error) {
 	rsp, err := c.GetConfiguration(ctx, reqEditors...)
@@ -8541,6 +8571,94 @@ func (c *ClientWithResponses) ListAllPendingInvitationsWithResponse(ctx context.
 	return ParseListAllPendingInvitationsResponse(rsp)
 }
 
+// ListSandboxHubDefinitionsWithResponse request returning *ListSandboxHubDefinitionsResponse
+func (c *ClientWithResponses) ListSandboxHubDefinitionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxHubDefinitionsResponse, error) {
+	rsp, err := c.ListSandboxHubDefinitions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxHubDefinitionsResponse(rsp)
+}
+
+// ListSandboxesWithResponse request returning *ListSandboxesResponse
+func (c *ClientWithResponses) ListSandboxesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxesResponse, error) {
+	rsp, err := c.ListSandboxes(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxesResponse(rsp)
+}
+
+// CreateSandboxWithBodyWithResponse request with arbitrary body returning *CreateSandboxResponse
+func (c *ClientWithResponses) CreateSandboxWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
+	rsp, err := c.CreateSandboxWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxWithResponse(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
+	rsp, err := c.CreateSandbox(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxResponse(rsp)
+}
+
+// DeleteSandboxWithResponse request returning *DeleteSandboxResponse
+func (c *ClientWithResponses) DeleteSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*DeleteSandboxResponse, error) {
+	rsp, err := c.DeleteSandbox(ctx, sandboxName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSandboxResponse(rsp)
+}
+
+// GetSandboxWithResponse request returning *GetSandboxResponse
+func (c *ClientWithResponses) GetSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*GetSandboxResponse, error) {
+	rsp, err := c.GetSandbox(ctx, sandboxName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSandboxResponse(rsp)
+}
+
+// UpdateSandboxWithBodyWithResponse request with arbitrary body returning *UpdateSandboxResponse
+func (c *ClientWithResponses) UpdateSandboxWithBodyWithResponse(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxResponse, error) {
+	rsp, err := c.UpdateSandboxWithBody(ctx, sandboxName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSandboxWithResponse(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxResponse, error) {
+	rsp, err := c.UpdateSandbox(ctx, sandboxName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxResponse(rsp)
+}
+
+// StartSandboxWithResponse request returning *StartSandboxResponse
+func (c *ClientWithResponses) StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error) {
+	rsp, err := c.StartSandbox(ctx, sandboxName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartSandboxResponse(rsp)
+}
+
+// StopSandboxWithResponse request returning *StopSandboxResponse
+func (c *ClientWithResponses) StopSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StopSandboxResponse, error) {
+	rsp, err := c.StopSandbox(ctx, sandboxName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopSandboxResponse(rsp)
+}
+
 // GetWorkspaceServiceAccountsWithResponse request returning *GetWorkspaceServiceAccountsResponse
 func (c *ClientWithResponses) GetWorkspaceServiceAccountsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWorkspaceServiceAccountsResponse, error) {
 	rsp, err := c.GetWorkspaceServiceAccounts(ctx, reqEditors...)
@@ -8950,188 +9068,6 @@ func ParseListAgentRevisionsResponse(rsp *http.Response) (*ListAgentRevisionsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []RevisionMetadata
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListUVMsResponse parses an HTTP response from a ListUVMsWithResponse call
-func ParseListUVMsResponse(rsp *http.Response) (*ListUVMsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListUVMsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []UVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateUVMResponse parses an HTTP response from a CreateUVMWithResponse call
-func ParseCreateUVMResponse(rsp *http.Response) (*CreateUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest UVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteUVMResponse parses an HTTP response from a DeleteUVMWithResponse call
-func ParseDeleteUVMResponse(rsp *http.Response) (*DeleteUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest UVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetUVMResponse parses an HTTP response from a GetUVMWithResponse call
-func ParseGetUVMResponse(rsp *http.Response) (*GetUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest UVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateUVMResponse parses an HTTP response from a UpdateUVMWithResponse call
-func ParseUpdateUVMResponse(rsp *http.Response) (*UpdateUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest UVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStartUVMResponse parses an HTTP response from a StartUVMWithResponse call
-func ParseStartUVMResponse(rsp *http.Response) (*StartUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StartUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest StartUVM
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStopUVMResponse parses an HTTP response from a StopUVMWithResponse call
-func ParseStopUVMResponse(rsp *http.Response) (*StopUVMResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StopUVMResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest StopUVM
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -10200,6 +10136,214 @@ func ParseListAllPendingInvitationsResponse(rsp *http.Response) (*ListAllPending
 	return response, nil
 }
 
+// ParseListSandboxHubDefinitionsResponse parses an HTTP response from a ListSandboxHubDefinitionsWithResponse call
+func ParseListSandboxHubDefinitionsResponse(rsp *http.Response) (*ListSandboxHubDefinitionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxHubDefinitionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []SandboxDefinition
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxesResponse parses an HTTP response from a ListSandboxesWithResponse call
+func ParseListSandboxesResponse(rsp *http.Response) (*ListSandboxesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Sandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxResponse parses an HTTP response from a CreateSandboxWithResponse call
+func ParseCreateSandboxResponse(rsp *http.Response) (*CreateSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Sandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSandboxResponse parses an HTTP response from a DeleteSandboxWithResponse call
+func ParseDeleteSandboxResponse(rsp *http.Response) (*DeleteSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Sandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSandboxResponse parses an HTTP response from a GetSandboxWithResponse call
+func ParseGetSandboxResponse(rsp *http.Response) (*GetSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Sandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSandboxResponse parses an HTTP response from a UpdateSandboxWithResponse call
+func ParseUpdateSandboxResponse(rsp *http.Response) (*UpdateSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Sandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartSandboxResponse parses an HTTP response from a StartSandboxWithResponse call
+func ParseStartSandboxResponse(rsp *http.Response) (*StartSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StartSandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStopSandboxResponse parses an HTTP response from a StopSandboxWithResponse call
+func ParseStopSandboxResponse(rsp *http.Response) (*StopSandboxResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StopSandboxResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StopSandbox
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetWorkspaceServiceAccountsResponse parses an HTTP response from a GetWorkspaceServiceAccountsWithResponse call
 func ParseGetWorkspaceServiceAccountsResponse(rsp *http.Response) (*GetWorkspaceServiceAccountsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10844,134 +10988,136 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"fwAAAP//m7nDXDH2AAA=",
+	"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",
+	"5cRSLyz8AAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
