@@ -168,8 +168,10 @@ func getModelDefaultPath(resourceName string) string {
 								key = path
 							}
 						}
-						fmt.Printf("Using default path: %s, you can change it by specifying it with --path PATH\n", key)
-						return key // Return the first key found
+						if key != "" {
+							fmt.Printf("Using default path: %s, you can change it by specifying it with --path PATH\n", key)
+						}
+						return key
 					}
 				}
 			}
