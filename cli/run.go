@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +61,9 @@ bl run function my-function --data '{"query": "4+2"}'`,
 				}
 				data = string(fileContent)
 			}
-
+			if resourceType == "model" && path == "" {
+				path = getModelDefaultPath(resourceName)
+			}
 			res, err := client.Run(
 				context.Background(),
 				workspace,
@@ -121,4 +124,56 @@ bl run function my-function --data '{"query": "4+2"}'`,
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
 	return cmd
+}
+
+func getModelDefaultPath(resourceName string) string {
+	res, err := client.GetModel(context.Background(), resourceName)
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 200 {
+		var model sdk.Model
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return ""
+		}
+		err = json.Unmarshal(body, &model)
+		if err != nil {
+			return ""
+		}
+
+		integrationName := model.Spec.Runtime.Type
+		if integrationName != nil {
+			res, err := client.GetIntegration(context.Background(), *integrationName)
+			if err == nil {
+				defer res.Body.Close()
+				if res.StatusCode == 200 {
+					var integrationResponse sdk.Integration
+					body, err := io.ReadAll(res.Body)
+					if err != nil {
+						return ""
+					}
+
+					err = json.Unmarshal(body, &integrationResponse)
+					if err != nil {
+						return ""
+					}
+					endpoints := integrationResponse.Endpoints
+					if endpoints != nil {
+						key := ""
+						for path := range *endpoints {
+							if key == "" || strings.Contains(key, "/v1/chat/completions") {
+								key = path
+							}
+						}
+						fmt.Printf("Using default path: %s, you can change it by specifying it with --path PATH\n", key)
+						return key // Return the first key found
+					}
+				}
+			}
+		}
+	}
+	return ""
 }

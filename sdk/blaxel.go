@@ -321,6 +321,30 @@ type FunctionSpec struct {
 // FunctionsList defines model for FunctionsList.
 type FunctionsList = []string
 
+// Integration Integration
+type Integration struct {
+	// AdditionalInfos Integration additional infos
+	AdditionalInfos *map[string]string `json:"additionalInfos,omitempty"`
+
+	// Endpoints Integration endpoints
+	Endpoints *IntegrationEndpoints `json:"endpoints,omitempty"`
+
+	// Headers Integration headers
+	Headers *IntegrationHeaders `json:"headers,omitempty"`
+
+	// Name Integration name
+	Name *string `json:"name,omitempty"`
+
+	// Organizations Integration organizations
+	Organizations *[]IntegrationOrganization `json:"organizations,omitempty"`
+
+	// Params Integration query params
+	Params *IntegrationQueryParams `json:"params,omitempty"`
+
+	// Repositories Integration repositories
+	Repositories *[]IntegrationRepository `json:"repositories,omitempty"`
+}
+
 // IntegrationConnection Integration Connection
 type IntegrationConnection struct {
 	// Metadata Metadata
@@ -347,6 +371,84 @@ type IntegrationConnectionSpec struct {
 
 // IntegrationConnectionsList defines model for IntegrationConnectionsList.
 type IntegrationConnectionsList = []string
+
+// IntegrationEndpoint Integration endpoint
+type IntegrationEndpoint struct {
+	// Body Integration endpoint body
+	Body *string `json:"body,omitempty"`
+
+	// IgnoreModels Integration endpoint ignore models
+	IgnoreModels *[]interface{} `json:"ignoreModels,omitempty"`
+
+	// Method Integration endpoint method
+	Method *string `json:"method,omitempty"`
+
+	// Models Integration endpoint models
+	Models *[]interface{} `json:"models,omitempty"`
+
+	// StreamKey Integration endpoint stream key
+	StreamKey *string `json:"streamKey,omitempty"`
+
+	// StreamToken Integration endpoint token
+	StreamToken *IntegrationEndpointToken `json:"streamToken,omitempty"`
+
+	// Token Integration endpoint token
+	Token *IntegrationEndpointToken `json:"token,omitempty"`
+}
+
+// IntegrationEndpointToken Integration endpoint token
+type IntegrationEndpointToken struct {
+	// Received Integration endpoint token received
+	Received *string `json:"received,omitempty"`
+
+	// Sent Integration endpoint token sent
+	Sent *string `json:"sent,omitempty"`
+
+	// Total Integration endpoint token total
+	Total *string `json:"total,omitempty"`
+}
+
+// IntegrationEndpoints Integration endpoints
+type IntegrationEndpoints map[string]IntegrationEndpoint
+
+// IntegrationHeaders Integration headers
+type IntegrationHeaders map[string]string
+
+// IntegrationOrganization Integration organization
+type IntegrationOrganization struct {
+	// AvatarUrl Provider organization avatar URL
+	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// DisplayName Provider organization display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Id Provider organization ID
+	Id *string `json:"id,omitempty"`
+
+	// Name Provider organization name
+	Name *string `json:"name,omitempty"`
+}
+
+// IntegrationQueryParams Integration query params
+type IntegrationQueryParams map[string]string
+
+// IntegrationRepository Integration repository
+type IntegrationRepository struct {
+	// Id Repository ID
+	Id *string `json:"id,omitempty"`
+
+	// IsBl Whether the repository has Blaxel imports
+	IsBl *bool `json:"isBl,omitempty"`
+
+	// Name Repository name
+	Name *string `json:"name,omitempty"`
+
+	// Organization Repository owner
+	Organization *string `json:"organization,omitempty"`
+
+	// Url Repository URL
+	Url *string `json:"url,omitempty"`
+}
 
 // Knowledgebase Knowledgebase
 type Knowledgebase struct {
@@ -729,6 +831,99 @@ type Port struct {
 
 // Ports Set of ports for a resource
 type Ports = []Port
+
+// Preview Preview of a Resource
+type Preview struct {
+	// Metadata PreviewMetadata
+	Metadata *PreviewMetadata `json:"metadata,omitempty"`
+
+	// Spec Preview of a Resource
+	Spec *PreviewSpec `json:"spec,omitempty"`
+}
+
+// PreviewMetadata defines model for PreviewMetadata.
+type PreviewMetadata struct {
+	// CreatedAt The date and time when the resource was created
+	CreatedAt *string `json:"createdAt,omitempty"`
+
+	// CreatedBy The user or service account who created the resource
+	CreatedBy *string `json:"createdBy,omitempty"`
+
+	// DisplayName Model display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name Preview name
+	Name *string `json:"name,omitempty"`
+
+	// ResourceName Resource name
+	ResourceName *string `json:"resourceName,omitempty"`
+
+	// ResourceType Resource type
+	ResourceType *string `json:"resourceType,omitempty"`
+
+	// UpdatedAt The date and time when the resource was updated
+	UpdatedAt *string `json:"updatedAt,omitempty"`
+
+	// UpdatedBy The user or service account who updated the resource
+	UpdatedBy *string `json:"updatedBy,omitempty"`
+
+	// Workspace Workspace name
+	Workspace *string `json:"workspace,omitempty"`
+}
+
+// PreviewSpec Preview of a Resource
+type PreviewSpec struct {
+	// Port Port of the preview
+	Port *int `json:"port,omitempty"`
+
+	// Public Whether the preview is public
+	Public *bool `json:"public,omitempty"`
+
+	// Url URL of the preview
+	Url *string `json:"url,omitempty"`
+}
+
+// PreviewToken Token for a Preview
+type PreviewToken struct {
+	// Metadata PreviewTokenMetadata
+	Metadata *PreviewTokenMetadata `json:"metadata,omitempty"`
+
+	// Spec Spec for a Preview Token
+	Spec *PreviewTokenSpec `json:"spec,omitempty"`
+}
+
+// PreviewTokenMetadata PreviewTokenMetadata
+type PreviewTokenMetadata struct {
+	// Name Token name
+	Name *string `json:"name,omitempty"`
+
+	// PreviewName Preview name
+	PreviewName *string `json:"previewName,omitempty"`
+
+	// ResourceName Resource name
+	ResourceName *string `json:"resourceName,omitempty"`
+
+	// ResourceType Resource type
+	ResourceType *string `json:"resourceType,omitempty"`
+
+	// Workspace Workspace name
+	Workspace *string `json:"workspace,omitempty"`
+}
+
+// PreviewTokenSpec Spec for a Preview Token
+type PreviewTokenSpec struct {
+	// Expired Whether the token is expired
+	Expired *bool `json:"expired,omitempty"`
+
+	// ExpiresAt Expiration time of the token
+	ExpiresAt *string `json:"expiresAt,omitempty"`
+
+	// Public Whether the token is public
+	Public *bool `json:"public,omitempty"`
+
+	// Token Token
+	Token *string `json:"token,omitempty"`
+}
 
 // PrivateCluster defines model for PrivateCluster.
 type PrivateCluster struct {
@@ -1181,6 +1376,11 @@ type UpdateWorkspaceUserRoleJSONBody struct {
 	Role string `json:"role"`
 }
 
+// CheckWorkspaceAvailabilityJSONBody defines parameters for CheckWorkspaceAvailability.
+type CheckWorkspaceAvailabilityJSONBody struct {
+	Name string `json:"name"`
+}
+
 // CreateAgentJSONRequestBody defines body for CreateAgent for application/json ContentType.
 type CreateAgentJSONRequestBody = Agent
 
@@ -1223,6 +1423,15 @@ type CreateSandboxJSONRequestBody = Sandbox
 // UpdateSandboxJSONRequestBody defines body for UpdateSandbox for application/json ContentType.
 type UpdateSandboxJSONRequestBody = Sandbox
 
+// CreateSandboxPreviewJSONRequestBody defines body for CreateSandboxPreview for application/json ContentType.
+type CreateSandboxPreviewJSONRequestBody = Preview
+
+// UpdateSandboxPreviewJSONRequestBody defines body for UpdateSandboxPreview for application/json ContentType.
+type UpdateSandboxPreviewJSONRequestBody = Preview
+
+// CreateSandboxPreviewTokenJSONRequestBody defines body for CreateSandboxPreviewToken for application/json ContentType.
+type CreateSandboxPreviewTokenJSONRequestBody = PreviewToken
+
 // CreateWorkspaceServiceAccountJSONRequestBody defines body for CreateWorkspaceServiceAccount for application/json ContentType.
 type CreateWorkspaceServiceAccountJSONRequestBody CreateWorkspaceServiceAccountJSONBody
 
@@ -1240,6 +1449,9 @@ type UpdateWorkspaceUserRoleJSONRequestBody UpdateWorkspaceUserRoleJSONBody
 
 // CreateWorspaceJSONRequestBody defines body for CreateWorspace for application/json ContentType.
 type CreateWorspaceJSONRequestBody = Workspace
+
+// CheckWorkspaceAvailabilityJSONRequestBody defines body for CheckWorkspaceAvailability for application/json ContentType.
+type CheckWorkspaceAvailabilityJSONRequestBody CheckWorkspaceAvailabilityJSONBody
 
 // UpdateWorkspaceJSONRequestBody defines body for UpdateWorkspace for application/json ContentType.
 type UpdateWorkspaceJSONRequestBody = Workspace
@@ -1528,6 +1740,36 @@ type ClientInterface interface {
 
 	UpdateSandbox(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListSandboxPreviews request
+	ListSandboxPreviews(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxPreviewWithBody request with any body
+	CreateSandboxPreviewWithBody(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxPreview(ctx context.Context, sandboxName string, body CreateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSandboxPreview request
+	DeleteSandboxPreview(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSandboxPreview request
+	GetSandboxPreview(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSandboxPreviewWithBody request with any body
+	UpdateSandboxPreviewWithBody(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSandboxPreview(ctx context.Context, sandboxName string, previewName string, body UpdateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSandboxPreviewTokens request
+	ListSandboxPreviewTokens(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSandboxPreviewTokenWithBody request with any body
+	CreateSandboxPreviewTokenWithBody(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, body CreateSandboxPreviewTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSandboxPreviewToken request
+	DeleteSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StartSandbox request
 	StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1596,6 +1838,11 @@ type ClientInterface interface {
 	CreateWorspaceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateWorspace(ctx context.Context, body CreateWorspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CheckWorkspaceAvailabilityWithBody request with any body
+	CheckWorkspaceAvailabilityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CheckWorkspaceAvailability(ctx context.Context, body CheckWorkspaceAvailabilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteWorkspace request
 	DeleteWorkspace(ctx context.Context, workspaceName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1786,6 +2033,30 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for UpdateSandbox
 	reg.CliCommand(ctx, "UpdateSandbox", c.UpdateSandbox)
 
+	// Register CLI commands for ListSandboxPreviews
+	reg.CliCommand(ctx, "ListSandboxPreviews", c.ListSandboxPreviews)
+
+	// Register CLI commands for CreateSandboxPreview
+	reg.CliCommand(ctx, "CreateSandboxPreview", c.CreateSandboxPreview)
+
+	// Register CLI commands for DeleteSandboxPreview
+	reg.CliCommand(ctx, "DeleteSandboxPreview", c.DeleteSandboxPreview)
+
+	// Register CLI commands for GetSandboxPreview
+	reg.CliCommand(ctx, "GetSandboxPreview", c.GetSandboxPreview)
+
+	// Register CLI commands for UpdateSandboxPreview
+	reg.CliCommand(ctx, "UpdateSandboxPreview", c.UpdateSandboxPreview)
+
+	// Register CLI commands for ListSandboxPreviewTokens
+	reg.CliCommand(ctx, "ListSandboxPreviewTokens", c.ListSandboxPreviewTokens)
+
+	// Register CLI commands for CreateSandboxPreviewToken
+	reg.CliCommand(ctx, "CreateSandboxPreviewToken", c.CreateSandboxPreviewToken)
+
+	// Register CLI commands for DeleteSandboxPreviewToken
+	reg.CliCommand(ctx, "DeleteSandboxPreviewToken", c.DeleteSandboxPreviewToken)
+
 	// Register CLI commands for StartSandbox
 	reg.CliCommand(ctx, "StartSandbox", c.StartSandbox)
 
@@ -1842,6 +2113,9 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for CreateWorspace
 	reg.CliCommand(ctx, "CreateWorspace", c.CreateWorspace)
+
+	// Register CLI commands for CheckWorkspaceAvailability
+	reg.CliCommand(ctx, "CheckWorkspaceAvailability", c.CheckWorkspaceAvailability)
 
 	// Register CLI commands for DeleteWorkspace
 	reg.CliCommand(ctx, "DeleteWorkspace", c.DeleteWorkspace)
@@ -2691,6 +2965,138 @@ func (c *Client) UpdateSandbox(ctx context.Context, sandboxName string, body Upd
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListSandboxPreviews(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxPreviewsRequest(c.Server, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxPreviewWithBody(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxPreviewRequestWithBody(c.Server, sandboxName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxPreview(ctx context.Context, sandboxName string, body CreateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxPreviewRequest(c.Server, sandboxName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSandboxPreview(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSandboxPreviewRequest(c.Server, sandboxName, previewName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSandboxPreview(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSandboxPreviewRequest(c.Server, sandboxName, previewName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandboxPreviewWithBody(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxPreviewRequestWithBody(c.Server, sandboxName, previewName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSandboxPreview(ctx context.Context, sandboxName string, previewName string, body UpdateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSandboxPreviewRequest(c.Server, sandboxName, previewName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListSandboxPreviewTokens(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSandboxPreviewTokensRequest(c.Server, sandboxName, previewName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxPreviewTokenWithBody(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxPreviewTokenRequestWithBody(c.Server, sandboxName, previewName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, body CreateSandboxPreviewTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxPreviewTokenRequest(c.Server, sandboxName, previewName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSandboxPreviewTokenRequest(c.Server, sandboxName, previewName, tokenName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStartSandboxRequest(c.Server, sandboxName)
 	if err != nil {
@@ -2981,6 +3387,30 @@ func (c *Client) CreateWorspaceWithBody(ctx context.Context, contentType string,
 
 func (c *Client) CreateWorspace(ctx context.Context, body CreateWorspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateWorspaceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CheckWorkspaceAvailabilityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckWorkspaceAvailabilityRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CheckWorkspaceAvailability(ctx context.Context, body CheckWorkspaceAvailabilityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckWorkspaceAvailabilityRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4987,6 +5417,366 @@ func NewUpdateSandboxRequestWithBody(server string, sandboxName string, contentT
 	return req, nil
 }
 
+// NewListSandboxPreviewsRequest generates requests for ListSandboxPreviews
+func NewListSandboxPreviewsRequest(server string, sandboxName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxPreviewRequest calls the generic CreateSandboxPreview builder with application/json body
+func NewCreateSandboxPreviewRequest(server string, sandboxName string, body CreateSandboxPreviewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxPreviewRequestWithBody(server, sandboxName, "application/json", bodyReader)
+}
+
+// NewCreateSandboxPreviewRequestWithBody generates requests for CreateSandboxPreview with any type of body
+func NewCreateSandboxPreviewRequestWithBody(server string, sandboxName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSandboxPreviewRequest generates requests for DeleteSandboxPreview
+func NewDeleteSandboxPreviewRequest(server string, sandboxName string, previewName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSandboxPreviewRequest generates requests for GetSandboxPreview
+func NewGetSandboxPreviewRequest(server string, sandboxName string, previewName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSandboxPreviewRequest calls the generic UpdateSandboxPreview builder with application/json body
+func NewUpdateSandboxPreviewRequest(server string, sandboxName string, previewName string, body UpdateSandboxPreviewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSandboxPreviewRequestWithBody(server, sandboxName, previewName, "application/json", bodyReader)
+}
+
+// NewUpdateSandboxPreviewRequestWithBody generates requests for UpdateSandboxPreview with any type of body
+func NewUpdateSandboxPreviewRequestWithBody(server string, sandboxName string, previewName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSandboxPreviewTokensRequest generates requests for ListSandboxPreviewTokens
+func NewListSandboxPreviewTokensRequest(server string, sandboxName string, previewName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s/tokens", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateSandboxPreviewTokenRequest calls the generic CreateSandboxPreviewToken builder with application/json body
+func NewCreateSandboxPreviewTokenRequest(server string, sandboxName string, previewName string, body CreateSandboxPreviewTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSandboxPreviewTokenRequestWithBody(server, sandboxName, previewName, "application/json", bodyReader)
+}
+
+// NewCreateSandboxPreviewTokenRequestWithBody generates requests for CreateSandboxPreviewToken with any type of body
+func NewCreateSandboxPreviewTokenRequestWithBody(server string, sandboxName string, previewName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s/tokens", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSandboxPreviewTokenRequest generates requests for DeleteSandboxPreviewToken
+func NewDeleteSandboxPreviewTokenRequest(server string, sandboxName string, previewName string, tokenName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "previewName", runtime.ParamLocationPath, previewName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "tokenName", runtime.ParamLocationPath, tokenName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sandboxes/%s/previews/%s/tokens/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewStartSandboxRequest generates requests for StartSandbox
 func NewStartSandboxRequest(server string, sandboxName string) (*http.Request, error) {
 	var err error
@@ -5676,6 +6466,46 @@ func NewCreateWorspaceRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewCheckWorkspaceAvailabilityRequest calls the generic CheckWorkspaceAvailability builder with application/json body
+func NewCheckWorkspaceAvailabilityRequest(server string, body CheckWorkspaceAvailabilityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCheckWorkspaceAvailabilityRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCheckWorkspaceAvailabilityRequestWithBody generates requests for CheckWorkspaceAvailability with any type of body
+func NewCheckWorkspaceAvailabilityRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/workspaces/availability")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteWorkspaceRequest generates requests for DeleteWorkspace
 func NewDeleteWorkspaceRequest(server string, workspaceName string) (*http.Request, error) {
 	var err error
@@ -6129,6 +6959,36 @@ type ClientWithResponsesInterface interface {
 
 	UpdateSandboxWithResponse(ctx context.Context, sandboxName string, body UpdateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxResponse, error)
 
+	// ListSandboxPreviewsWithResponse request
+	ListSandboxPreviewsWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*ListSandboxPreviewsResponse, error)
+
+	// CreateSandboxPreviewWithBodyWithResponse request with any body
+	CreateSandboxPreviewWithBodyWithResponse(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewResponse, error)
+
+	CreateSandboxPreviewWithResponse(ctx context.Context, sandboxName string, body CreateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewResponse, error)
+
+	// DeleteSandboxPreviewWithResponse request
+	DeleteSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*DeleteSandboxPreviewResponse, error)
+
+	// GetSandboxPreviewWithResponse request
+	GetSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*GetSandboxPreviewResponse, error)
+
+	// UpdateSandboxPreviewWithBodyWithResponse request with any body
+	UpdateSandboxPreviewWithBodyWithResponse(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxPreviewResponse, error)
+
+	UpdateSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, body UpdateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxPreviewResponse, error)
+
+	// ListSandboxPreviewTokensWithResponse request
+	ListSandboxPreviewTokensWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*ListSandboxPreviewTokensResponse, error)
+
+	// CreateSandboxPreviewTokenWithBodyWithResponse request with any body
+	CreateSandboxPreviewTokenWithBodyWithResponse(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewTokenResponse, error)
+
+	CreateSandboxPreviewTokenWithResponse(ctx context.Context, sandboxName string, previewName string, body CreateSandboxPreviewTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewTokenResponse, error)
+
+	// DeleteSandboxPreviewTokenWithResponse request
+	DeleteSandboxPreviewTokenWithResponse(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*DeleteSandboxPreviewTokenResponse, error)
+
 	// StartSandboxWithResponse request
 	StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error)
 
@@ -6197,6 +7057,11 @@ type ClientWithResponsesInterface interface {
 	CreateWorspaceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorspaceResponse, error)
 
 	CreateWorspaceWithResponse(ctx context.Context, body CreateWorspaceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorspaceResponse, error)
+
+	// CheckWorkspaceAvailabilityWithBodyWithResponse request with any body
+	CheckWorkspaceAvailabilityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckWorkspaceAvailabilityResponse, error)
+
+	CheckWorkspaceAvailabilityWithResponse(ctx context.Context, body CheckWorkspaceAvailabilityJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckWorkspaceAvailabilityResponse, error)
 
 	// DeleteWorkspaceWithResponse request
 	DeleteWorkspaceWithResponse(ctx context.Context, workspaceName string, reqEditors ...RequestEditorFn) (*DeleteWorkspaceResponse, error)
@@ -6681,6 +7546,7 @@ func (r GetIntegrationConnectionModelResponse) StatusCode() int {
 type GetIntegrationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *Integration
 }
 
 // Status returns HTTPResponse.Status
@@ -7423,6 +8289,185 @@ func (r UpdateSandboxResponse) StatusCode() int {
 	return 0
 }
 
+type ListSandboxPreviewsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Preview
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxPreviewsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxPreviewsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateSandboxPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Preview
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSandboxPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Preview
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSandboxPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSandboxPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSandboxPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Preview
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSandboxPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSandboxPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateSandboxPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Preview
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSandboxPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSandboxPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListSandboxPreviewTokensResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]PreviewToken
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSandboxPreviewTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSandboxPreviewTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateSandboxPreviewTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PreviewToken
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSandboxPreviewTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSandboxPreviewTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSandboxPreviewTokenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		// Message Success message
+		Message *string `json:"message,omitempty"`
+	}
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSandboxPreviewTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSandboxPreviewTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type StartSandboxResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7896,6 +8941,28 @@ func (r CreateWorspaceResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateWorspaceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CheckWorkspaceAvailabilityResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *bool
+}
+
+// Status returns HTTPResponse.Status
+func (r CheckWorkspaceAvailabilityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CheckWorkspaceAvailabilityResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -8641,6 +9708,102 @@ func (c *ClientWithResponses) UpdateSandboxWithResponse(ctx context.Context, san
 	return ParseUpdateSandboxResponse(rsp)
 }
 
+// ListSandboxPreviewsWithResponse request returning *ListSandboxPreviewsResponse
+func (c *ClientWithResponses) ListSandboxPreviewsWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*ListSandboxPreviewsResponse, error) {
+	rsp, err := c.ListSandboxPreviews(ctx, sandboxName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxPreviewsResponse(rsp)
+}
+
+// CreateSandboxPreviewWithBodyWithResponse request with arbitrary body returning *CreateSandboxPreviewResponse
+func (c *ClientWithResponses) CreateSandboxPreviewWithBodyWithResponse(ctx context.Context, sandboxName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewResponse, error) {
+	rsp, err := c.CreateSandboxPreviewWithBody(ctx, sandboxName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxPreviewResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxPreviewWithResponse(ctx context.Context, sandboxName string, body CreateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewResponse, error) {
+	rsp, err := c.CreateSandboxPreview(ctx, sandboxName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxPreviewResponse(rsp)
+}
+
+// DeleteSandboxPreviewWithResponse request returning *DeleteSandboxPreviewResponse
+func (c *ClientWithResponses) DeleteSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*DeleteSandboxPreviewResponse, error) {
+	rsp, err := c.DeleteSandboxPreview(ctx, sandboxName, previewName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSandboxPreviewResponse(rsp)
+}
+
+// GetSandboxPreviewWithResponse request returning *GetSandboxPreviewResponse
+func (c *ClientWithResponses) GetSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*GetSandboxPreviewResponse, error) {
+	rsp, err := c.GetSandboxPreview(ctx, sandboxName, previewName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSandboxPreviewResponse(rsp)
+}
+
+// UpdateSandboxPreviewWithBodyWithResponse request with arbitrary body returning *UpdateSandboxPreviewResponse
+func (c *ClientWithResponses) UpdateSandboxPreviewWithBodyWithResponse(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSandboxPreviewResponse, error) {
+	rsp, err := c.UpdateSandboxPreviewWithBody(ctx, sandboxName, previewName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxPreviewResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSandboxPreviewWithResponse(ctx context.Context, sandboxName string, previewName string, body UpdateSandboxPreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSandboxPreviewResponse, error) {
+	rsp, err := c.UpdateSandboxPreview(ctx, sandboxName, previewName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSandboxPreviewResponse(rsp)
+}
+
+// ListSandboxPreviewTokensWithResponse request returning *ListSandboxPreviewTokensResponse
+func (c *ClientWithResponses) ListSandboxPreviewTokensWithResponse(ctx context.Context, sandboxName string, previewName string, reqEditors ...RequestEditorFn) (*ListSandboxPreviewTokensResponse, error) {
+	rsp, err := c.ListSandboxPreviewTokens(ctx, sandboxName, previewName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSandboxPreviewTokensResponse(rsp)
+}
+
+// CreateSandboxPreviewTokenWithBodyWithResponse request with arbitrary body returning *CreateSandboxPreviewTokenResponse
+func (c *ClientWithResponses) CreateSandboxPreviewTokenWithBodyWithResponse(ctx context.Context, sandboxName string, previewName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewTokenResponse, error) {
+	rsp, err := c.CreateSandboxPreviewTokenWithBody(ctx, sandboxName, previewName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxPreviewTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateSandboxPreviewTokenWithResponse(ctx context.Context, sandboxName string, previewName string, body CreateSandboxPreviewTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxPreviewTokenResponse, error) {
+	rsp, err := c.CreateSandboxPreviewToken(ctx, sandboxName, previewName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSandboxPreviewTokenResponse(rsp)
+}
+
+// DeleteSandboxPreviewTokenWithResponse request returning *DeleteSandboxPreviewTokenResponse
+func (c *ClientWithResponses) DeleteSandboxPreviewTokenWithResponse(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*DeleteSandboxPreviewTokenResponse, error) {
+	rsp, err := c.DeleteSandboxPreviewToken(ctx, sandboxName, previewName, tokenName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSandboxPreviewTokenResponse(rsp)
+}
+
 // StartSandboxWithResponse request returning *StartSandboxResponse
 func (c *ClientWithResponses) StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error) {
 	rsp, err := c.StartSandbox(ctx, sandboxName, reqEditors...)
@@ -8858,6 +10021,23 @@ func (c *ClientWithResponses) CreateWorspaceWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseCreateWorspaceResponse(rsp)
+}
+
+// CheckWorkspaceAvailabilityWithBodyWithResponse request with arbitrary body returning *CheckWorkspaceAvailabilityResponse
+func (c *ClientWithResponses) CheckWorkspaceAvailabilityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CheckWorkspaceAvailabilityResponse, error) {
+	rsp, err := c.CheckWorkspaceAvailabilityWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckWorkspaceAvailabilityResponse(rsp)
+}
+
+func (c *ClientWithResponses) CheckWorkspaceAvailabilityWithResponse(ctx context.Context, body CheckWorkspaceAvailabilityJSONRequestBody, reqEditors ...RequestEditorFn) (*CheckWorkspaceAvailabilityResponse, error) {
+	rsp, err := c.CheckWorkspaceAvailability(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckWorkspaceAvailabilityResponse(rsp)
 }
 
 // DeleteWorkspaceWithResponse request returning *DeleteWorkspaceResponse
@@ -9449,6 +10629,16 @@ func ParseGetIntegrationResponse(rsp *http.Response) (*GetIntegrationResponse, e
 	response := &GetIntegrationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Integration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -10292,6 +11482,217 @@ func ParseUpdateSandboxResponse(rsp *http.Response) (*UpdateSandboxResponse, err
 	return response, nil
 }
 
+// ParseListSandboxPreviewsResponse parses an HTTP response from a ListSandboxPreviewsWithResponse call
+func ParseListSandboxPreviewsResponse(rsp *http.Response) (*ListSandboxPreviewsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxPreviewsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Preview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxPreviewResponse parses an HTTP response from a CreateSandboxPreviewWithResponse call
+func ParseCreateSandboxPreviewResponse(rsp *http.Response) (*CreateSandboxPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Preview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSandboxPreviewResponse parses an HTTP response from a DeleteSandboxPreviewWithResponse call
+func ParseDeleteSandboxPreviewResponse(rsp *http.Response) (*DeleteSandboxPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSandboxPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Preview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSandboxPreviewResponse parses an HTTP response from a GetSandboxPreviewWithResponse call
+func ParseGetSandboxPreviewResponse(rsp *http.Response) (*GetSandboxPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSandboxPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Preview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSandboxPreviewResponse parses an HTTP response from a UpdateSandboxPreviewWithResponse call
+func ParseUpdateSandboxPreviewResponse(rsp *http.Response) (*UpdateSandboxPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSandboxPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Preview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListSandboxPreviewTokensResponse parses an HTTP response from a ListSandboxPreviewTokensWithResponse call
+func ParseListSandboxPreviewTokensResponse(rsp *http.Response) (*ListSandboxPreviewTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSandboxPreviewTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []PreviewToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSandboxPreviewTokenResponse parses an HTTP response from a CreateSandboxPreviewTokenWithResponse call
+func ParseCreateSandboxPreviewTokenResponse(rsp *http.Response) (*CreateSandboxPreviewTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSandboxPreviewTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PreviewToken
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSandboxPreviewTokenResponse parses an HTTP response from a DeleteSandboxPreviewTokenWithResponse call
+func ParseDeleteSandboxPreviewTokenResponse(rsp *http.Response) (*DeleteSandboxPreviewTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSandboxPreviewTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Message Success message
+			Message *string `json:"message,omitempty"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStartSandboxResponse parses an HTTP response from a StartSandboxWithResponse call
 func ParseStartSandboxResponse(rsp *http.Response) (*StartSandboxResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10829,6 +12230,32 @@ func ParseCreateWorspaceResponse(rsp *http.Response) (*CreateWorspaceResponse, e
 	return response, nil
 }
 
+// ParseCheckWorkspaceAvailabilityResponse parses an HTTP response from a CheckWorkspaceAvailabilityWithResponse call
+func ParseCheckWorkspaceAvailabilityResponse(rsp *http.Response) (*CheckWorkspaceAvailabilityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CheckWorkspaceAvailabilityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest bool
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteWorkspaceResponse parses an HTTP response from a DeleteWorkspaceWithResponse call
 func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10988,136 +12415,151 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"5cRSLyz8AAA=",
+	"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",
+	"/16KWJE5IwEA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
