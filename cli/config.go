@@ -64,11 +64,12 @@ var resources = []*Resource{
 		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
 	},
 	{
-		Kind:     "Sandbox",
-		Short:    "sbx",
-		Plural:   "sandboxes",
-		Singular: "sandbox",
-		SpecType: reflect.TypeOf(sdk.Sandbox{}),
+		Kind:       "Sandbox",
+		Short:      "sbx",
+		Plural:     "sandboxes",
+		Singular:   "sandbox",
+		SpecType:   reflect.TypeOf(sdk.Sandbox{}),
+		WithStatus: true,
 	},
 }
 
