@@ -72,11 +72,12 @@ var resources = []*Resource{
 		WithStatus: true,
 	},
 	{
-		Kind:     "Job",
-		Short:    "jb",
-		Plural:   "jobs",
-		Singular: "job",
-		SpecType: reflect.TypeOf(sdk.Job{}),
+		Kind:       "Job",
+		Short:      "jb",
+		Plural:     "jobs",
+		Singular:   "job",
+		SpecType:   reflect.TypeOf(sdk.Job{}),
+		WithStatus: true,
 	},
 }
 
