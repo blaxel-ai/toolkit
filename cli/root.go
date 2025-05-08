@@ -21,7 +21,7 @@ var BASE_URL = "https://api.blaxel.ai/v0"
 var APP_URL = "https://app.blaxel.ai"
 var RUN_URL = "https://run.blaxel.ai"
 var REGISTRY_URL = "https://us.registry.blaxel.ai"
-var GITHUB_RELEASES_URL = "https://api.github.com/repos/beamlit/toolkit/releases/latest"
+var GITHUB_RELEASES_URL = "https://api.github.com/repos/blaxel-ai/toolkit/releases/latest"
 var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#update"
 
 // ANSI color codes
