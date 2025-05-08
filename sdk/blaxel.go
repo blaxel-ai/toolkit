@@ -16,7 +16,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/beamlit/toolkit/cli/register"
+	"github.com/blaxel-ai/toolkit/cli/register"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"

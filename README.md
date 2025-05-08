@@ -2,7 +2,7 @@
 
 ## Install cli on MacOS
 ```sh
-brew tap beamlit/blaxel
+brew tap blaxel-ai/blaxel
 brew install blaxel
 ```
 
@@ -17,7 +17,7 @@ import (
 	"os"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 )
 
 var BASE_URL = "https://api.blaxel.ai/v0"

@@ -20,7 +20,7 @@ Add an explorer view where you can:
 
 1. Install Blaxel CLI
 ```bash
-curl -fsSL https://raw.githubusercontent.com/beamlit/toolkit/main/install.sh | BINDIR=$HOME/.local/bin sh
+curl -fsSL https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.sh | BINDIR=$HOME/.local/bin sh
 ```
 2. Login to Blaxel's Platform
 ```

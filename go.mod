@@ -1,4 +1,4 @@
-module github.com/beamlit/toolkit
+module github.com/blaxel-ai/toolkit
 
 go 1.23.2
 

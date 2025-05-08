@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )

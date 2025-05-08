@@ -10,7 +10,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/beamlit/toolkit/cli/chat"
+	"github.com/blaxel-ai/toolkit/cli/chat"
 	"github.com/spf13/cobra"
 
 	tea "github.com/charmbracelet/bubbletea"

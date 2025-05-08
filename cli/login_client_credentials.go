@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 )
 
 func (r *Operations) ClientCredentialsLogin(workspace string, clientCredentials string) {

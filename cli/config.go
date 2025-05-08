@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"github.com/BurntSushi/toml"
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 )
 
 type Resource struct {

@@ -189,7 +189,7 @@ End of functions from https://github.com/client9/posixshell
 ------------------------------------------------------------------------
 EOF
 
-OWNER=beamlit
+OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
