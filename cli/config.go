@@ -71,6 +71,13 @@ var resources = []*Resource{
 		SpecType:   reflect.TypeOf(sdk.Sandbox{}),
 		WithStatus: true,
 	},
+	{
+		Kind:     "Job",
+		Short:    "jb",
+		Plural:   "jobs",
+		Singular: "job",
+		SpecType: reflect.TypeOf(sdk.Job{}),
+	},
 }
 
 type Package struct {
