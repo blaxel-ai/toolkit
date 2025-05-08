@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -209,7 +210,8 @@ func (d *Deployment) Apply() error {
 
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
-	fmt.Println("You can find it at " + d.r.AppURL + "/" + config.Workspace + "/global-agentic-network/" + config.Type + "/" + d.name)
+	currentWorkspace := sdk.CurrentContext().Workspace
+	fmt.Println("You can find it at " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 
 func (d *Deployment) Upload(url string) error {
