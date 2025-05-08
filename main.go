@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/beamlit/toolkit/cli"
+	"github.com/blaxel-ai/toolkit/cli"
 )
 
 var (

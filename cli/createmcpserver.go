@@ -9,7 +9,7 @@ import (
 	"os/user"
 	"regexp"
 
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"

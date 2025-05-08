@@ -16,7 +16,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var GH_ORGANIZATION = "beamlit"
+var GH_ORGANIZATION = "blaxel-ai"
 var GH_BRANCH = "main"
 
 type Templates []Template
@@ -135,7 +135,7 @@ func (t Templates) find(language string, name string) Template {
 
 func (t Template) getConfig() (TemplateConfig, error) {
 	var templateConfig TemplateConfig
-	url := fmt.Sprintf("https://raw.githubusercontent.com/beamlit/%s/refs/heads/%s/template.yaml", t.Name, GH_BRANCH)
+	url := fmt.Sprintf("https://raw.githubusercontent.com/blaxel-ai/%s/refs/heads/%s/template.yaml", t.Name, GH_BRANCH)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return templateConfig, err
@@ -160,7 +160,7 @@ func (t Template) getConfig() (TemplateConfig, error) {
 }
 
 func (t Template) getUrl() string {
-	return fmt.Sprintf("https://github.com/beamlit/%s.git", t.Name)
+	return fmt.Sprintf("https://github.com/blaxel-ai/%s.git", t.Name)
 }
 
 func (t Template) Clone(opts TemplateOptions) error {

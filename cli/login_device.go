@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 )
 
 func (r *Operations) DeviceModeLogin(workspace string) {

@@ -16,7 +16,7 @@
   "main": "./dist/extension.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/beamlit/toolkit/vscode"
+    "url": "https://github.com/blaxel-ai/toolkit/vscode"
   },
   "contributes": {
     "views": {
