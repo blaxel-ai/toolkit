@@ -13,6 +13,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func runJobLocally(data string) {
+	batch := sdk.Batch{}
+	err := json.Unmarshal([]byte(data), &batch)
+	if err != nil {
+		fmt.Println("Error: Invalid JSON")
+		os.Exit(1)
+	}
+
+	for i, task := range batch.Tasks {
+		fmt.Printf("Task %d:\n", i+1)
+		jsonencoded, err := json.Marshal(task)
+		if err != nil {
+			fmt.Println("Error marshalling task:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Arguments: %s\n", string(jsonencoded))
+		cmd, err := findJobCommand(task)
+		if err != nil {
+			fmt.Println("Error finding root cmd:", err)
+			os.Exit(1)
+		}
+
+		// Capture stdout and stderr
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Run the command and wait for it to complete
+		err = cmd.Run()
+		if err != nil {
+			fmt.Printf("Error executing task %d: %v\n", i+1, err)
+			os.Exit(1)
+		}
+		fmt.Println()
+	}
+}
+
 func (r *Operations) RunCmd() *cobra.Command {
 	var data string
 	var path string
@@ -22,14 +58,14 @@ func (r *Operations) RunCmd() *cobra.Command {
 	var local bool
 	var headerFlags []string
 	var uploadFilePath string
-
+	var filePath string
 	cmd := &cobra.Command{
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
 		Short: "Run a resource on blaxel",
 		Example: `bl run agent my-agent --data '{"inputs": "Hello, world!"}'
 bl run model my-model --data '{"inputs": "Hello, world!"}'
-bl run function my-function --data '{"query": "4+2"}'`,
+bl run job my-job --file myjob.json`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || len(args) == 1 {
 				fmt.Println("Error: Resource type and name are required")
@@ -52,6 +88,14 @@ bl run function my-function --data '{"query": "4+2"}'`,
 				headers[key] = value
 			}
 
+			if filePath != "" {
+				fileContent, err := os.ReadFile(filePath)
+				if err != nil {
+					fmt.Printf("Error reading file: %v\n", err)
+				}
+				data = string(fileContent)
+			}
+
 			// Handle file upload if specified
 			if uploadFilePath != "" {
 				fileContent, err := os.ReadFile(uploadFilePath)
@@ -64,6 +108,12 @@ bl run function my-function --data '{"query": "4+2"}'`,
 			if resourceType == "model" && path == "" {
 				path = getModelDefaultPath(resourceName)
 			}
+
+			if resourceType == "job" && local {
+				runJobLocally(data)
+				os.Exit(0)
+			}
+
 			res, err := client.Run(
 				context.Background(),
 				workspace,
@@ -115,7 +165,8 @@ bl run function my-function --data '{"query": "4+2"}'`,
 		},
 	}
 
-	cmd.Flags().StringVar(&data, "data", "", "JSON body data for the inference request")
+	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Input from a file")
+	cmd.Flags().StringVarP(&data, "data", "d", "", "JSON body data for the inference request")
 	cmd.Flags().StringVar(&path, "path", "", "path for the inference request")
 	cmd.Flags().StringVar(&method, "method", "POST", "HTTP method for the inference request")
 	cmd.Flags().StringSliceVar(&params, "params", []string{}, "Query params sent to the inference request")

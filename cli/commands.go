@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,6 +29,23 @@ func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 		return nil, fmt.Errorf("error finding root cmd: %v", err)
 	}
 	return exec.Command("sh", "-c", strings.Join(rootCmd, " ")), nil
+}
+
+func findJobCommand(task map[string]interface{}) (*exec.Cmd, error) {
+	rootCmd, err := findRootCmd(0, "localhost", false)
+	if err != nil {
+		return nil, fmt.Errorf("error finding root cmd: %v", err)
+	}
+	for arg := range task {
+		jsonencoded, err := json.Marshal(task[arg])
+		if err != nil {
+			return nil, fmt.Errorf("error marshalling task: %v", err)
+		}
+		lastArg := rootCmd.Args[len(rootCmd.Args)-1]
+		lastArg = strings.Join([]string{lastArg, "--" + arg, string(jsonencoded)}, " ")
+		rootCmd.Args[len(rootCmd.Args)-1] = lastArg
+	}
+	return rootCmd, nil
 }
 
 type RootCmdConfig struct {
