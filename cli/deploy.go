@@ -139,7 +139,7 @@ func (d *Deployment) GenerateDeployment() Result {
 	if config.Runtime != nil {
 		runtime = *config.Runtime
 	}
-	runtime["envs"] = GetEnvs()
+	runtime["envs"] = GetUniqueEnvs()
 	runtime["entrypoint"] = entrypoint
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
