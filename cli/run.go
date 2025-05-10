@@ -114,6 +114,10 @@ bl run job my-job --file myjob.json`,
 				os.Exit(0)
 			}
 
+			if resourceType == "job" && path == "" {
+				path = "/executions"
+			}
+
 			res, err := client.Run(
 				context.Background(),
 				workspace,
