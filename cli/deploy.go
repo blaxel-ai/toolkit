@@ -211,7 +211,7 @@ func (d *Deployment) Apply() error {
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
 	currentWorkspace := sdk.CurrentContext().Workspace
-	fmt.Println("You can find it at " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
+	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 
 func (d *Deployment) Upload(url string) error {
