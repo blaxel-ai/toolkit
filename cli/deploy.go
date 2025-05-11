@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +24,8 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
 		Aliases: []string{"d", "dp"},
-		Short:   "Deploy a blaxel agent app",
-		Long:    "Deploy a blaxel agent app, you must be in a blaxel agent app directory.",
+		Short:   "Deploy on blaxel",
+		Long:    "Deploy agent, mcp or job on blaxel, you must be in a blaxel directory.",
 		Example: `bl deploy`,
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -75,7 +76,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Println("Deployment applied successfully")
+			deployment.Ready()
 		},
 	}
 	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
@@ -158,6 +159,12 @@ func (d *Deployment) GenerateDeployment() Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+	case "job":
+		Kind = "Job"
+		Spec = map[string]interface{}{
+			"runtime":  runtime,
+			"triggers": config.Triggers,
+		}
 	}
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
@@ -186,7 +193,7 @@ func (d *Deployment) Apply() error {
 	}
 	applyResults, err := d.r.ApplyResources(d.blaxelDeployments)
 	if err != nil {
-		return fmt.Errorf("failed to apply agent deployment: %w", err)
+		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
 	for _, result := range applyResults {
@@ -199,6 +206,12 @@ func (d *Deployment) Apply() error {
 	}
 
 	return nil
+}
+
+func (d *Deployment) Ready() {
+	fmt.Println("Deployment applied successfully")
+	currentWorkspace := sdk.CurrentContext().Workspace
+	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 
 func (d *Deployment) Upload(url string) error {
@@ -240,7 +253,6 @@ func (d *Deployment) Upload(url string) error {
 		return fmt.Errorf("upload failed with status: %s", resp.Status)
 	}
 
-	fmt.Println("Upload successful")
 	return nil
 }
 
@@ -382,8 +394,6 @@ func (d *Deployment) PrintZip() error {
 }
 
 func deployPackage(dryRun bool) bool {
-	fmt.Println("Deploying package")
-
 	commands, err := getDeployCommands(dryRun)
 	if err != nil {
 		fmt.Println("Error getting package commands:", err)
