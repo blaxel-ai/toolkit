@@ -98,11 +98,24 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 				fmt.Printf("Error: %s already exists\n", args[0])
 				return
 			}
-			templates, errTemplates := RetrieveTemplates("agent")
-			if errTemplates != nil {
-				fmt.Println("Could not retrieve templates")
+
+			var templateError error
+			var templates Templates
+			spinnerErr := spinner.New().
+				Title("Retrieving templates...").
+				Action(func() {
+					templates, templateError = RetrieveTemplates("agent")
+				}).
+				Run()
+			if spinnerErr != nil {
+				fmt.Println("Error creating agent app", spinnerErr)
+				return
+			}
+			if templateError != nil {
+				fmt.Println("Error creating agent app", templateError)
 				os.Exit(0)
 			}
+
 			if len(templates) == 0 {
 				fmt.Println("No templates found")
 				os.Exit(0)
@@ -110,7 +123,7 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			opts := promptCreateAgentApp(args[0], templates)
 
 			var cloneError error
-			spinnerErr := spinner.New().
+			spinnerErr = spinner.New().
 				Title("Creating your blaxel agent app...").
 				Action(func() {
 					template, err := templates.Find(opts.TemplateName)
