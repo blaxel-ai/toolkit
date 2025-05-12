@@ -1,15 +1,11 @@
 package cli
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 	"regexp"
 
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
@@ -141,21 +137,6 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			if cloneError != nil {
 				fmt.Println("Error creating agent app", cloneError)
 				os.RemoveAll(opts.Directory)
-				return
-			}
-			res, err := client.ListModels(context.Background())
-			if err != nil {
-				return
-			}
-
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				return
-			}
-
-			var models []sdk.Model
-			err = json.Unmarshal(body, &models)
-			if err != nil {
 				return
 			}
 			fmt.Printf(`Your blaxel agent app has been created. Start working on it:

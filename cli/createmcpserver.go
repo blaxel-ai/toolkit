@@ -34,6 +34,10 @@ func promptCreateMCPServer(directory string) TemplateOptions {
 		fmt.Println("Could not retrieve templates")
 		os.Exit(0)
 	}
+	if len(templates) == 0 {
+		fmt.Println("No templates found")
+		os.Exit(0)
+	}
 	languagesOptions := []huh.Option[string]{}
 	for _, language := range templates.getLanguages() {
 		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
