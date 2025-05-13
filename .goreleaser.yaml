@@ -63,7 +63,5 @@ brews:
       bin.install "blaxel"
       bin.install_symlink "blaxel" => "bl"
     repository:
-      owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+      owner: "blaxel-ai"
       name: homebrew-blaxel
-      pull_request:
-        enabled: true
