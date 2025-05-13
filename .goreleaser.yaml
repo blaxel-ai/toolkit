@@ -68,3 +68,5 @@ brews:
       branch: main
       pull_request:
         enabled: true
+        base:
+          branch: develop
