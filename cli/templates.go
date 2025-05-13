@@ -115,11 +115,11 @@ func (t Template) Clone(opts TemplateOptions) error {
 
 	// Install dependencies based on language
 	switch opts.Language {
-	case "Python":
+	case "python":
 		if err := installPythonDependencies(opts.Directory); err != nil {
 			return err
 		}
-	case "TypeScript":
+	case "typescript":
 		if err := installTypescriptDependencies(opts.Directory); err != nil {
 			return err
 		}
