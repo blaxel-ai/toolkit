@@ -65,8 +65,8 @@ brews:
     repository:
       owner: "blaxel-ai"
       name: homebrew-blaxel
-      branch: main
+      branch: develop
       pull_request:
         enabled: true
         base:
-          branch: develop
+          branch: main
