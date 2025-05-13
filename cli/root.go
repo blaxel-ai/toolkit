@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
@@ -98,7 +99,7 @@ func checkForUpdates(currentVersion string) {
 	// Read from cache
 	cache, err := readVersionCache()
 	if err == nil && cache.Version != "" && time.Since(cache.LastCheck) < 6*time.Hour {
-		if cache.Version != currentVersion {
+		if isNewerVersion(cache.Version, currentVersion) {
 			notifyNewVersionAvailable(cache.Version, currentVersion)
 		}
 		return
@@ -139,9 +140,20 @@ func checkForUpdates(currentVersion string) {
 	if strings.Contains(currentVersion, "-SNAPSHOT") {
 		currentVersion = strings.Split(currentVersion, "-SNAPSHOT")[0]
 	}
-	if latestVersion != currentVersion {
+	if isNewerVersion(latestVersion, currentVersion) {
 		notifyNewVersionAvailable(latestVersion, currentVersion)
 	}
+}
+
+// isNewerVersion returns true if latestVersion is newer than currentVersion using semver
+func isNewerVersion(latestVersion, currentVersion string) bool {
+	latest, err1 := semver.NewVersion(latestVersion)
+	current, err2 := semver.NewVersion(currentVersion)
+	if err1 != nil || err2 != nil {
+		// fallback to string compare if semver parsing fails
+		return latestVersion != currentVersion
+	}
+	return latest.GreaterThan(current)
 }
 
 func init() {
