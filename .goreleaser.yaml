@@ -65,3 +65,4 @@ brews:
     repository:
       owner: "blaxel-ai"
       name: homebrew-blaxel
+      branch: main
