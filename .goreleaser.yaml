@@ -66,3 +66,5 @@ brews:
       owner: "blaxel-ai"
       name: homebrew-blaxel
       branch: main
+      pull_request:
+        enabled: true
