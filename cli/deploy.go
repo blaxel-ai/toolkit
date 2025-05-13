@@ -30,7 +30,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if recursive {
-				if deployPackage(dryRun) {
+				if deployPackage(dryRun, name) {
 					return
 				}
 			}
@@ -393,8 +393,8 @@ func (d *Deployment) PrintZip() error {
 	return nil
 }
 
-func deployPackage(dryRun bool) bool {
-	commands, err := getDeployCommands(dryRun)
+func deployPackage(dryRun bool, name string) bool {
+	commands, err := getDeployCommands(dryRun, name)
 	if err != nil {
 		fmt.Println("Error getting package commands:", err)
 		os.Exit(1)
@@ -408,7 +408,7 @@ func deployPackage(dryRun bool) bool {
 	return true
 }
 
-func getDeployCommands(dryRun bool) ([]PackageCommand, error) {
+func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("error getting current directory: %v", err)
@@ -421,6 +421,9 @@ func getDeployCommands(dryRun bool) ([]PackageCommand, error) {
 	}
 	if dryRun {
 		command.Args = append(command.Args, "--dryrun")
+	}
+	if defaultName != "" {
+		command.Args = append(command.Args, "--name", defaultName)
 	}
 	commands := []PackageCommand{command}
 
