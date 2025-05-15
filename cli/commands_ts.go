@@ -49,7 +49,7 @@ func getPackageJson() (PackageJson, error) {
 	if err != nil {
 		return PackageJson{}, fmt.Errorf("error getting current directory: %v", err)
 	}
-	packageJsonPath := filepath.Join(currentDir, "package.json")
+	packageJsonPath := filepath.Join(currentDir, folder, "package.json")
 	if _, err := os.Stat(packageJsonPath); err == nil {
 		packageJson, err := os.ReadFile(packageJsonPath)
 		if err != nil {

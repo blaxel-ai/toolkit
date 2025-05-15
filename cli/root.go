@@ -183,16 +183,17 @@ var reg *Operations
 var verbose bool
 var version string
 var commit string
+var folder string
 var date string
 var utc bool
 var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		setEnvs()
 
-		readSecrets()
-		readConfigToml()
+		setEnvs()
+		readSecrets(folder)
+		readConfigToml(folder)
 
 		reg = &Operations{
 			BaseURL:     BASE_URL,
@@ -275,7 +276,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
-
+	rootCmd.PersistentFlags().StringVarP(&folder, "folder", "f", "", "Deployment app folder, can be a subfolder")
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace
 	}
