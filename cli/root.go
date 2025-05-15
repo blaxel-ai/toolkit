@@ -185,10 +185,16 @@ var version string
 var commit string
 var date string
 var utc bool
+var skipVersionWarning bool
 var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Check for updates in a goroutine to not block the main execution
+		if !skipVersionWarning {
+			checkForUpdates(version)
+		}
+
 		setEnvs()
 
 		readSecrets()
@@ -275,6 +281,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
+	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
 
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace
@@ -288,9 +295,5 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	if date == "" {
 		date = releaseDate
 	}
-
-	// Check for updates in a goroutine to not block the main execution
-	checkForUpdates(version)
-
 	return rootCmd.Execute()
 }

@@ -417,7 +417,7 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 		Name:    "root",
 		Cwd:     pwd,
 		Command: "bl",
-		Args:    []string{"deploy", "--recursive=false"},
+		Args:    []string{"deploy", "--recursive=false", "--skip-version-warning"},
 	}
 	if dryRun {
 		command.Args = append(command.Args, "--dryrun")
@@ -425,8 +425,10 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 	if defaultName != "" {
 		command.Args = append(command.Args, "--name", defaultName)
 	}
-	commands := []PackageCommand{command}
-
+	commands := []PackageCommand{}
+	if !config.SkipRoot {
+		commands = append(commands, command)
+	}
 	packages := getAllPackages()
 	for name, pkg := range packages {
 		command := PackageCommand{
@@ -436,6 +438,7 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 			Args: []string{
 				"deploy",
 				"--recursive=false",
+				"--skip-version-warning",
 			},
 		}
 		if dryRun {

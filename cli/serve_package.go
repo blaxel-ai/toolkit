@@ -142,13 +142,16 @@ func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, 
 		Name:    "root",
 		Cwd:     pwd,
 		Command: "bl",
-		Args:    []string{"serve", "--port", fmt.Sprintf("%d", port), "--host", host, "--recursive=false"},
+		Args:    []string{"serve", "--port", fmt.Sprintf("%d", port), "--host", host, "--recursive=false", "--skip-version-warning"},
 		Color:   colors[0],
 	}
 	if hotreload {
 		command.Args = append(command.Args, "--hotreload")
 	}
-	commands := []PackageCommand{command}
+	commands := []PackageCommand{}
+	if !config.SkipRoot {
+		commands = append(commands, command)
+	}
 	i := 1
 	for name, pkg := range packages {
 		if pkg.Port == 0 {
@@ -172,6 +175,7 @@ func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, 
 				"--host",
 				host,
 				"--recursive=false",
+				"--skip-version-warning",
 			},
 			Color: colors[i%len(colors)],
 		}
