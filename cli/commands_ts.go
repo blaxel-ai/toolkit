@@ -65,6 +65,47 @@ func getPackageJson() (PackageJson, error) {
 	return PackageJson{}, fmt.Errorf("package.json not found in current directory")
 }
 
+func findTSPackageManagerLockFile() string {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "pnpm-lock.yaml")); err == nil {
+		return "pnpm-lock.yaml"
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "yarn.lock")); err == nil {
+		return "yarn.lock"
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "package-lock.json")); err == nil {
+		return "package-lock.json"
+	}
+	return ""
+}
+
+func findTSPackageManager() string {
+	lockFile := findTSPackageManagerLockFile()
+	switch lockFile {
+	case "pnpm-lock.yaml":
+		return "pnpm"
+	case "yarn.lock":
+		return "yarn"
+	default:
+		return "npm"
+	}
+}
+
+func findStartCommand(script string) ([]string, error) {
+	packageManager := findTSPackageManager()
+	switch packageManager {
+	case "pnpm":
+		return []string{"npx", "pnpm", "run", script}, nil
+	case "yarn":
+		return []string{"yarn", "run", script}, nil
+	default:
+		return []string{"npm", "run", script}, nil
+	}
+}
+
 func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
 		cmd := config.Entrypoint.Production
@@ -78,15 +119,15 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	if err == nil {
 		if config.Hotreload {
 			if packageJson.Scripts["dev"] != "" {
-				return strings.Split(packageJson.Scripts["dev"], " "), nil
+				return findStartCommand("dev")
 			}
 			fmt.Println("Warning: dev script not found in package.json, hotreload will not work")
 		}
 		if config.Production && packageJson.Scripts["prod"] != "" {
-			return strings.Split(packageJson.Scripts["prod"], " "), nil
+			return findStartCommand("prod")
 		}
 		if packageJson.Scripts["start"] != "" {
-			return strings.Split(packageJson.Scripts["start"], " "), nil
+			return findStartCommand("start")
 		}
 		fmt.Println("Warning: start script not found in package.json")
 	} else {
