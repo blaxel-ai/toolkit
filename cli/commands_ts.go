@@ -134,17 +134,22 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 		fmt.Println("Warning: package.json not found in current directory")
 	}
 
-	if _, err := os.Stat("index.ts"); err == nil {
-		return []string{"tsx", "index.ts"}, nil
+	files := []string{
+		"dist/index.ts",
+		"dist/app.ts",
+		"dist/server.ts",
+		"index.js",
+		"app.js",
+		"server.js",
+		"src/index.ts",
+		"src/app.ts",
+		"src/server.ts",
 	}
-	if _, err := os.Stat("index.js"); err == nil {
-		return []string{"node", "index.js"}, nil
-	}
-	if _, err := os.Stat("app.ts"); err == nil {
-		return []string{"tsx", "app.ts"}, nil
-	}
-	if _, err := os.Stat("app.js"); err == nil {
-		return []string{"node", "app.js"}, nil
+
+	for _, file := range files {
+		if _, err := os.Stat(file); err == nil {
+			return []string{"node", file}, nil
+		}
 	}
 	return nil, fmt.Errorf("index.js, index.ts, app.js or app.ts not found in current directory")
 }
