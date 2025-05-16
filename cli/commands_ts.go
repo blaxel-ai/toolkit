@@ -135,19 +135,20 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	}
 
 	files := []string{
-		"dist/index.ts",
-		"dist/app.ts",
-		"dist/server.ts",
+		"dist/index.js",
+		"dist/app.js",
+		"dist/server.js",
 		"index.js",
 		"app.js",
 		"server.js",
-		"src/index.ts",
-		"src/app.ts",
-		"src/server.ts",
+		"src/index.js",
+		"src/app.js",
+		"src/server.js",
 	}
 
 	for _, file := range files {
 		if _, err := os.Stat(file); err == nil {
+			fmt.Printf("Found file: %s\n", file)
 			return []string{"node", file}, nil
 		}
 	}
