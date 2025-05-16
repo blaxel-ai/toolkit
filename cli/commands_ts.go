@@ -148,7 +148,6 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 
 	for _, file := range files {
 		if _, err := os.Stat(file); err == nil {
-			fmt.Printf("Found file: %s\n", file)
 			return []string{"node", file}, nil
 		}
 	}
