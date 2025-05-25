@@ -1,19 +1,19 @@
 ---
-title: "bl workspaces"
-slug: bl_workspaces
+title: "bl delete sandbox"
+slug: bl_delete_sandbox
 ---
-## bl workspaces
+## bl delete sandbox
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+Delete a Sandbox
 
 ```
-bl workspaces [workspace] [flags]
+bl delete sandbox name [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+  -h, --help   help for sandbox
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +28,5 @@ bl workspaces [workspace] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl delete](bl_delete.md)	 - Delete a resource
 
