@@ -65,6 +65,47 @@ func getPackageJson() (PackageJson, error) {
 	return PackageJson{}, fmt.Errorf("package.json not found in current directory")
 }
 
+func findTSPackageManagerLockFile() string {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "pnpm-lock.yaml")); err == nil {
+		return "pnpm-lock.yaml"
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "yarn.lock")); err == nil {
+		return "yarn.lock"
+	}
+	if _, err := os.Stat(filepath.Join(currentDir, "package-lock.json")); err == nil {
+		return "package-lock.json"
+	}
+	return ""
+}
+
+func findTSPackageManager() string {
+	lockFile := findTSPackageManagerLockFile()
+	switch lockFile {
+	case "pnpm-lock.yaml":
+		return "pnpm"
+	case "yarn.lock":
+		return "yarn"
+	default:
+		return "npm"
+	}
+}
+
+func findStartCommand(script string) ([]string, error) {
+	packageManager := findTSPackageManager()
+	switch packageManager {
+	case "pnpm":
+		return []string{"npx", "pnpm", "run", script}, nil
+	case "yarn":
+		return []string{"yarn", "run", script}, nil
+	default:
+		return []string{"npm", "run", script}, nil
+	}
+}
+
 func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
 		cmd := config.Entrypoint.Production
@@ -78,32 +119,37 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	if err == nil {
 		if config.Hotreload {
 			if packageJson.Scripts["dev"] != "" {
-				return strings.Split(packageJson.Scripts["dev"], " "), nil
+				return findStartCommand("dev")
 			}
 			fmt.Println("Warning: dev script not found in package.json, hotreload will not work")
 		}
 		if config.Production && packageJson.Scripts["prod"] != "" {
-			return strings.Split(packageJson.Scripts["prod"], " "), nil
+			return findStartCommand("prod")
 		}
 		if packageJson.Scripts["start"] != "" {
-			return strings.Split(packageJson.Scripts["start"], " "), nil
+			return findStartCommand("start")
 		}
 		fmt.Println("Warning: start script not found in package.json")
 	} else {
 		fmt.Println("Warning: package.json not found in current directory")
 	}
 
-	if _, err := os.Stat("index.ts"); err == nil {
-		return []string{"tsx", "index.ts"}, nil
+	files := []string{
+		"dist/index.js",
+		"dist/app.js",
+		"dist/server.js",
+		"index.js",
+		"app.js",
+		"server.js",
+		"src/index.js",
+		"src/app.js",
+		"src/server.js",
 	}
-	if _, err := os.Stat("index.js"); err == nil {
-		return []string{"node", "index.js"}, nil
-	}
-	if _, err := os.Stat("app.ts"); err == nil {
-		return []string{"tsx", "app.ts"}, nil
-	}
-	if _, err := os.Stat("app.js"); err == nil {
-		return []string{"node", "app.js"}, nil
+
+	for _, file := range files {
+		if _, err := os.Stat(file); err == nil {
+			return []string{"node", file}, nil
+		}
 	}
 	return nil, fmt.Errorf("index.js, index.ts, app.js or app.ts not found in current directory")
 }

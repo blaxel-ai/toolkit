@@ -1,19 +1,29 @@
 ---
-title: "bl workspaces"
-slug: bl_workspaces
+title: "bl create-mcp-server"
+slug: bl_create-mcp-server
 ---
-## bl workspaces
+## bl create-mcp-server
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+Create a new blaxel mcp server
+
+### Synopsis
+
+Create a new blaxel mcp server
 
 ```
-bl workspaces [workspace] [flags]
+bl create-mcp-server directory [flags]
+```
+
+### Examples
+
+```
+bl create-mcpserver my-mcp-server
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+  -h, --help   help for create-mcp-server
 ```
 
 ### Options inherited from parent commands

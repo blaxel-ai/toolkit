@@ -31,10 +31,11 @@ bl delete [flags]
 ### Options inherited from parent commands
 
 ```
-  -o, --output string      Output format. One of: pretty,yaml,json,table
-  -u, --utc                Enable UTC timezone
-  -v, --verbose            Enable verbose output
-  -w, --workspace string   Specify the workspace name
+  -o, --output string          Output format. One of: pretty,yaml,json,table
+      --skip-version-warning   Skip version warning
+  -u, --utc                    Enable UTC timezone
+  -v, --verbose                Enable verbose output
+  -w, --workspace string       Specify the workspace name
 ```
 
 ### SEE ALSO
@@ -43,6 +44,8 @@ bl delete [flags]
 * [bl delete agent](bl_delete_agent.md)	 - Delete a Agent
 * [bl delete function](bl_delete_function.md)	 - Delete a Function
 * [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete a IntegrationConnection
+* [bl delete job](bl_delete_job.md)	 - Delete a Job
 * [bl delete model](bl_delete_model.md)	 - Delete a Model
 * [bl delete policy](bl_delete_policy.md)	 - Delete a Policy
+* [bl delete sandbox](bl_delete_sandbox.md)	 - Delete a Sandbox
 

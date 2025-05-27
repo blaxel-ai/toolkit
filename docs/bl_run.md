@@ -15,14 +15,15 @@ bl run resource-type resource-name [flags]
 ```
 bl run agent my-agent --data '{"inputs": "Hello, world!"}'
 bl run model my-model --data '{"inputs": "Hello, world!"}'
-bl run function my-function --data '{"query": "4+2"}'
+bl run job my-job --file myjob.json
 ```
 
 ### Options
 
 ```
-      --data string          JSON body data for the inference request
+  -d, --data string          JSON body data for the inference request
       --debug                Debug mode
+  -f, --file string          Input from a file
       --header stringArray   Request headers in 'Key: Value' format. Can be specified multiple times
   -h, --help                 help for run
       --local                Run locally
@@ -35,10 +36,11 @@ bl run function my-function --data '{"query": "4+2"}'
 ### Options inherited from parent commands
 
 ```
-  -o, --output string      Output format. One of: pretty,yaml,json,table
-  -u, --utc                Enable UTC timezone
-  -v, --verbose            Enable verbose output
-  -w, --workspace string   Specify the workspace name
+  -o, --output string          Output format. One of: pretty,yaml,json,table
+      --skip-version-warning   Skip version warning
+  -u, --utc                    Enable UTC timezone
+  -v, --verbose                Enable verbose output
+  -w, --workspace string       Specify the workspace name
 ```
 
 ### SEE ALSO
