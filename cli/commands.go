@@ -20,6 +20,7 @@ type RegisterImpl struct {
 
 func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 	rootCmd, err := findRootCmdAsString(RootCmdConfig{
+		Folder:     folder,
 		Hotreload:  hotreload,
 		Production: false,
 		Entrypoint: config.Entrypoint,

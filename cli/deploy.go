@@ -15,7 +15,6 @@ import (
 )
 
 func (r *Operations) DeployCmd() *cobra.Command {
-	var directory string
 	var name string
 	var dryRun bool
 	var recursive bool
@@ -79,7 +78,6 @@ func (r *Operations) DeployCmd() *cobra.Command {
 			deployment.Ready()
 		},
 	}
-	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Optional name for the deployment")
 	cmd.Flags().BoolVarP(&dryRun, "dryrun", "", false, "Dry run the deployment")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Deploy recursively")
@@ -128,12 +126,6 @@ func (d *Deployment) GenerateDeployment() Result {
 	})
 	if err != nil {
 		fmt.Printf("failed to find root cmd: %v", err)
-	}
-	if len(entrypoint) > 0 {
-		entrypoint[0] = "/usr/bin/" + entrypoint[0]
-	}
-	if len(entrypoint) > 1 {
-		entrypoint[1] = "/blaxel/" + entrypoint[1]
 	}
 	var Spec map[string]interface{}
 	var Kind string
