@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/beamlit/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 

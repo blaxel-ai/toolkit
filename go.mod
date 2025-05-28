@@ -7,8 +7,9 @@ toolchain go1.24.2
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
+	github.com/agentuity/mcp-golang/v2 v2.0.2
 	github.com/beamlit/toolkit v0.1.12
-	github.com/charmbracelet/bubbles v0.20.0
+	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/fatih/color v1.18.0
