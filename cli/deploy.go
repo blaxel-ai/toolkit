@@ -98,7 +98,7 @@ type Deployment struct {
 
 func (d *Deployment) Generate() error {
 	if d.name == "" {
-		split := strings.Split(d.cwd, "/")
+		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
 		d.name = split[len(split)-1]
 	}
 
@@ -121,6 +121,7 @@ func (d *Deployment) Generate() error {
 
 func (d *Deployment) GenerateDeployment() Result {
 	entrypoint, err := findRootCmdAsString(RootCmdConfig{
+		Folder:     d.folder,
 		Hotreload:  false,
 		Production: true,
 		Entrypoint: config.Entrypoint,

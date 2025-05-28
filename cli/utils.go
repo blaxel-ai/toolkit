@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -183,10 +184,10 @@ func handleDirectory(action string, filePath string, recursive bool, n int) ([]R
 	return results, nil
 }
 
-func moduleLanguage() string {
-	if _, err := os.Stat("pyproject.toml"); !os.IsNotExist(err) {
+func moduleLanguage(directory string) string {
+	if _, err := os.Stat(filepath.Join(directory, "pyproject.toml")); !os.IsNotExist(err) {
 		return "python"
-	} else if _, err := os.Stat("package.json"); !os.IsNotExist(err) {
+	} else if _, err := os.Stat(filepath.Join(directory, "package.json")); !os.IsNotExist(err) {
 		return "typescript"
 	}
 	return ""
