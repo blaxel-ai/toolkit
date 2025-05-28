@@ -13,9 +13,9 @@ import (
 
 func (r *Operations) ExploreCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "peek",
-		Short: "Peek into your sandbox resources",
-		Long:  "Peek into your sandbox resources with interactive interfaces",
+		Use:   "connect",
+		Short: "Connect into your sandbox resources",
+		Long:  "Connect into your sandbox resources with interactive interfaces",
 	}
 
 	cmd.AddCommand(r.ExploreSandboxCmd())
@@ -39,9 +39,9 @@ This command provides a terminal-like interface for:
 The shell connects to your sandbox via MCP (Model Control Protocol) over WebSocket.
 
 Examples:
-  bl peek sandbox my-sandbox
-  bl peek sandbox production-env
-  bl peek sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox`,
+  bl connect sandbox my-sandbox
+  bl connect sandbox production-env
+  bl connect sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			sandboxName := args[0]
@@ -116,7 +116,7 @@ func (r *Operations) ExploreSandbox(ctx context.Context, sandboxName string, deb
 	}
 
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running sandbox peek: %v\n", err)
+		fmt.Printf("Error running sandbox connect: %v\n", err)
 		os.Exit(1)
 	}
 }
