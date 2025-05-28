@@ -10,7 +10,7 @@ Follow the installation instructions at [docs.blaxel.ai](https://docs.blaxel.ai/
 
 ### Explore Sandbox
 
-The `explore sandbox` command provides an interactive shell interface for executing commands in sandbox environments using MCP (Model Control Protocol) over WebSocket. It works like a terminal where you can:
+The `peek sandbox` command provides an interactive shell interface for executing commands in sandbox environments using MCP (Model Control Protocol) over WebSocket. It works like a terminal where you can:
 
 - Execute any shell command in the sandbox
 - View command output in real-time
@@ -22,20 +22,20 @@ The `explore sandbox` command provides an interactive shell interface for execut
 #### Usage
 
 ```bash
-bl explore sandbox [sandbox-name] [flags]
+bl peek sandbox [sandbox-name] [flags]
 ```
 
 #### Examples
 
 ```bash
 # Open an interactive shell for a sandbox
-bl explore sandbox my-sandbox
+bl peek sandbox my-sandbox
 
 # Open sandbox shell with debug mode enabled
-bl explore sandbox my-sandbox --debug
+bl peek sandbox my-sandbox --debug
 
 # Connect to a custom WebSocket URL
-bl explore sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox
+bl peek sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox
 ```
 
 #### Flags
