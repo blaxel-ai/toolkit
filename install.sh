@@ -196,11 +196,11 @@ BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-./bin}
 PREFIX="$OWNER/$REPO"
+
 ARCH=$(uname_arch)
 OS=$(uname_os)
 OS_TITLE=$(echo "$OS" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
 
-VERSION=$1
 case "$VERSION" in
  latest)
     VERSION=""
