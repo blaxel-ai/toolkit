@@ -141,7 +141,7 @@ github_last_release() {
   owner_repo=$1
   giturl="https://api.github.com/repos/${owner_repo}/releases/latest"
   html=$(github_api - "$giturl")
-  version=$(echo "$html" | grep -m 1 "\"tag_name\":" | cut -f4 -d'"')
+  version=$(echo "$html" | grep -m 1 "\"tag_name\":" | grep -v -E "(preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable)" | cut -f4 -d'"')
   test -z "$version" && return 1
   echo "$version"
 }
