@@ -139,9 +139,10 @@ github_api() {
 
 github_last_release() {
   owner_repo=$1
-  giturl="https://api.github.com/repos/${owner_repo}/releases/latest"
+  giturl="https://api.github.com/repos/${owner_repo}/releases"
   html=$(github_api - "$giturl")
-  version=$(echo "$html" | grep -m 1 "\"tag_name\":" | cut -f4 -d'"')
+  # Extract all tag names, filter out preview versions, and get the first (latest) one
+  version=$(echo "$html" | grep "\"tag_name\":" | cut -f4 -d'"' | grep -v -E "(preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable)" | head -n 1)
   test -z "$version" && return 1
   echo "$version"
 }
@@ -195,11 +196,11 @@ BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-./bin}
 PREFIX="$OWNER/$REPO"
+
 ARCH=$(uname_arch)
 OS=$(uname_os)
 OS_TITLE=$(echo "$OS" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
 
-VERSION=$1
 case "$VERSION" in
  latest)
     VERSION=""
