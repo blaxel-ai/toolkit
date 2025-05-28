@@ -1,19 +1,19 @@
 ---
-title: "bl workspaces"
-slug: bl_workspaces
+title: "bl delete job"
+slug: bl_delete_job
 ---
-## bl workspaces
+## bl delete job
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+Delete a Job
 
 ```
-bl workspaces [workspace] [flags]
+bl delete job name [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+  -h, --help   help for job
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +28,5 @@ bl workspaces [workspace] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl delete](bl_delete.md)	 - Delete a resource
 

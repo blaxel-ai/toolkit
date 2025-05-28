@@ -1,19 +1,19 @@
 ---
-title: "bl workspaces"
-slug: bl_workspaces
+title: "bl get jobs"
+slug: bl_get_jobs
 ---
-## bl workspaces
+## bl get jobs
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+Get a Job
 
 ```
-bl workspaces [workspace] [flags]
+bl get jobs [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+  -h, --help   help for jobs
 ```
 
 ### Options inherited from parent commands
@@ -23,10 +23,11 @@ bl workspaces [workspace] [flags]
       --skip-version-warning   Skip version warning
   -u, --utc                    Enable UTC timezone
   -v, --verbose                Enable verbose output
+      --watch                  After listing/getting the requested object, watch for changes.
   -w, --workspace string       Specify the workspace name
 ```
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl get](bl_get.md)	 - Get a resource
 
