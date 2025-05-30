@@ -220,6 +220,7 @@ var reg *Operations
 var verbose bool
 var version string
 var commit string
+var folder string
 var date string
 var utc bool
 var skipVersionWarning bool
@@ -234,8 +235,8 @@ var rootCmd = &cobra.Command{
 
 		setEnvs()
 
-		readSecrets()
-		readConfigToml()
+		readSecrets(folder)
+		readConfigToml(folder)
 
 		reg = &Operations{
 			BaseURL:     BASE_URL,
@@ -319,6 +320,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
+	rootCmd.PersistentFlags().StringVarP(&folder, "directory", "d", "", "Deployment app path, can be a sub directory")
 	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
 
 	if workspace == "" {

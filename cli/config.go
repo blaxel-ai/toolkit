@@ -106,14 +106,14 @@ type Config struct {
 	Policies   []string                  `toml:"policies,omitempty"`
 }
 
-func readConfigToml() {
+func readConfigToml(folder string) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	content, err := os.ReadFile(filepath.Join(cwd, "blaxel.toml"))
+	content, err := os.ReadFile(filepath.Join(cwd, folder, "blaxel.toml"))
 	if err != nil {
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}

@@ -43,7 +43,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 				}
 			}
 			// Check for pyproject.toml or package.json
-			language := moduleLanguage()
+			language := moduleLanguage(folder)
 			switch language {
 			case "python":
 				activeProc = startPythonServer(port, host, hotreload)
@@ -106,7 +106,7 @@ func getServerPath() string {
 		fmt.Println("Error getting current directory:", err)
 		os.Exit(1)
 	}
-	language := moduleLanguage()
+	language := moduleLanguage(folder)
 	switch language {
 	case "typescript":
 		path := filepath.Join(pwd, "node_modules", ".bin")

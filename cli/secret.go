@@ -13,14 +13,14 @@ type Secrets []Env
 
 var secrets Secrets
 
-func readSecrets() {
+func readSecrets(folder string) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	envMap, err := godotenv.Read(filepath.Join(cwd, ".env"))
+	envMap, err := godotenv.Read(filepath.Join(cwd, folder, ".env"))
 	if err != nil {
 		return
 	}
