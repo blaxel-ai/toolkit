@@ -249,17 +249,6 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.spinner, spCmd = m.spinner.Update(msg)
 			// Style spinner with dark orange color
 			m.spinner.Style = m.getSpinnerStyle()
-
-			// Only show spinner if no content has been streamed yet
-			if m.streamingMessageIndex < len(m.Messages) &&
-				(m.streamState == nil || (m.streamState != nil && m.streamState.content.Len() == 0)) {
-				m.Messages[m.streamingMessageIndex] = Message{
-					Content:   m.spinner.View(),
-					Timestamp: nil,
-					IsUser:    false,
-				}
-				m.updateViewportContent()
-			}
 			return m, spCmd
 		}
 	}
@@ -315,8 +304,12 @@ func (m *ChatModel) View() string {
 	m.viewport.MouseWheelEnabled = true
 	m.viewport.MouseWheelDelta = 1
 
-	// Only show textarea if not loading
-	if !m.Loading {
+	// Show textarea with spinner when loading, normal textarea when not loading
+	if m.Loading {
+		// Create a disabled textarea appearance with spinner
+		spinnerView := m.spinner.View()
+		s += "\n\n" + spinnerView
+	} else {
 		s += "\n\n" + m.textarea.View()
 	}
 
