@@ -3,6 +3,8 @@ package chat
 import (
 	"context"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -13,27 +15,45 @@ import (
 	"golang.org/x/term"
 )
 
+type streamState struct {
+	active  bool
+	content strings.Builder
+	mu      sync.Mutex
+}
+
 type ChatModel struct {
 	textarea textarea.Model
 	viewport viewport.Model
 	spinner  spinner.Model
 
-	Messages        []Message
-	Err             error
-	Workspace       string
-	ResType         string
-	ResName         string
-	Loading         bool
-	Debug           bool
-	Local           bool
-	Headers         []string
-	SendMessage     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string) (string, error)
-	lastUserMessage string
+	Messages              []Message
+	Err                   error
+	Workspace             string
+	ResType               string
+	ResName               string
+	Loading               bool
+	Debug                 bool
+	Local                 bool
+	Headers               []string
+	SendMessage           func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string) (string, error)
+	SendMessageStream     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string, onChunk func(string)) error
+	lastUserMessage       string
+	textareaFocused       bool
+	streamingMessageIndex int
+	streamState           *streamState
 }
 
 type responseMsg struct {
 	content string
 }
+
+type streamChunkMsg struct {
+	chunk string
+}
+
+type streamCompleteMsg struct{}
+
+type streamTickMsg struct{}
 
 type errMsg struct {
 	err error
@@ -53,8 +73,16 @@ func (m *ChatModel) Init() tea.Cmd {
 	m.textarea = ta
 	m.viewport = vp
 	m.spinner = sp
+	m.textareaFocused = true // Start with textarea focused
+	m.streamState = &streamState{}
 
-	return tea.Batch(textarea.Blink, m.spinner.Tick)
+	// Only start blinking if textarea is focused
+	var blinkCmd tea.Cmd
+	if m.textareaFocused {
+		blinkCmd = textarea.Blink
+	}
+
+	return tea.Batch(blinkCmd, m.spinner.Tick)
 }
 
 func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -94,27 +122,90 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				IsUser:    true,
 			})
 
-			// Add empty message that will be updated by spinner
-			m.Messages = append(m.Messages, Message{})
+			// Add empty message for streaming response
+			m.Messages = append(m.Messages, Message{
+				Content:   "",
+				Timestamp: nil,
+				IsUser:    false,
+			})
+			m.streamingMessageIndex = len(m.Messages) - 1
+			m.streamState = &streamState{active: true}
 			m.updateViewportContent()
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
 			// Start loading
 			m.Loading = true
-			return m, tea.Batch(
-				m.spinner.Tick,
-				func() tea.Msg {
-					response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
-					if err != nil {
-						return errMsg{err}
-					}
-					return responseMsg{response}
-				},
-			)
+			m.textareaFocused = false // Lose focus while loading
+
+			// Use streaming if available, otherwise fall back to regular SendMessage
+			if m.SendMessageStream != nil {
+				return m, tea.Batch(
+					m.spinner.Tick,
+					m.startStreamingCommand(userInput),
+					m.streamTickCommand(),
+				)
+			} else {
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+						if err != nil {
+							return errMsg{err}
+						}
+						return responseMsg{response}
+					},
+				)
+			}
+		default:
+			// Handle other key events to manage textarea focus
+			if !m.Loading {
+				m.textareaFocused = true
+			}
 		}
+	case streamTickMsg:
+		if m.streamState != nil && m.streamState.active {
+			m.streamState.mu.Lock()
+			content := m.streamState.content.String()
+			m.streamState.mu.Unlock()
+
+			if m.streamingMessageIndex < len(m.Messages) {
+				m.Messages[m.streamingMessageIndex].Content = content
+				m.updateViewportContent()
+				m.viewport.GotoBottom()
+			}
+
+			// Continue ticking while streaming is active
+			return m, tea.Batch(m.streamTickCommand())
+		}
+		return m, nil
+	case streamCompleteMsg:
+		m.Loading = false
+		m.textareaFocused = true // Regain focus after streaming
+
+		if m.streamState != nil {
+			m.streamState.mu.Lock()
+			m.streamState.active = false
+			finalContent := m.streamState.content.String()
+			m.streamState.mu.Unlock()
+
+			// Set timestamp for completed message
+			now := time.Now()
+			if m.streamingMessageIndex < len(m.Messages) {
+				formattedContent := FormatMarkdown(finalContent)
+				m.Messages[m.streamingMessageIndex].Content = formattedContent
+				m.Messages[m.streamingMessageIndex].Timestamp = &now
+			}
+			m.updateViewportContent()
+			m.viewport.GotoBottom()
+		}
+
+		// Resume blinking when focused
+		return m, textarea.Blink
 	case responseMsg:
 		m.Loading = false
+		m.textareaFocused = true // Regain focus
+
 		// Remove the loader message
 		m.Messages = m.Messages[:len(m.Messages)-1]
 
@@ -127,8 +218,13 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 		m.updateViewportContent()
 		m.viewport.GotoBottom()
+
+		// Resume blinking when focused
+		return m, textarea.Blink
 	case errMsg:
 		m.Loading = false
+		m.textareaFocused = true // Regain focus
+
 		now := time.Now()
 		// Remove the loader message
 		m.Messages = m.Messages[:len(m.Messages)-1]
@@ -141,6 +237,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 		m.updateViewportContent()
 		m.viewport.GotoBottom()
+
+		// Resume blinking when focused
+		return m, textarea.Blink
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width - 2
 		m.viewport.Height = msg.Height - 6
@@ -150,24 +249,71 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.spinner, spCmd = m.spinner.Update(msg)
 			// Style spinner with dark orange color
 			m.spinner.Style = m.getSpinnerStyle()
-			m.Messages[len(m.Messages)-1] = Message{
-				Content:   m.spinner.View(),
-				Timestamp: nil,
-				IsUser:    false,
+
+			// Only show spinner if no content has been streamed yet
+			if m.streamingMessageIndex < len(m.Messages) &&
+				(m.streamState == nil || (m.streamState != nil && m.streamState.content.Len() == 0)) {
+				m.Messages[m.streamingMessageIndex] = Message{
+					Content:   m.spinner.View(),
+					Timestamp: nil,
+					IsUser:    false,
+				}
+				m.updateViewportContent()
 			}
-			m.updateViewportContent()
 			return m, spCmd
 		}
 	}
 
-	m.textarea, tiCmd = m.textarea.Update(msg)
+	// Only update textarea if focused and not loading
+	if m.textareaFocused && !m.Loading {
+		m.textarea, tiCmd = m.textarea.Update(msg)
+	}
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	return m, tea.Batch(tiCmd, vpCmd, spCmd)
 }
 
+// streamTickCommand creates a command that periodically updates the streaming content
+func (m *ChatModel) streamTickCommand() tea.Cmd {
+	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+		return streamTickMsg{}
+	})
+}
+
+// startStreamingCommand creates a command that will handle streaming responses
+func (m *ChatModel) startStreamingCommand(userInput string) tea.Cmd {
+	return func() tea.Msg {
+		if m.SendMessageStream == nil {
+			// Fall back to regular message if streaming not available
+			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+			if err != nil {
+				return errMsg{err}
+			}
+			return responseMsg{response}
+		}
+
+		err := m.SendMessageStream(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers, func(chunk string) {
+			if m.streamState != nil {
+				m.streamState.mu.Lock()
+				m.streamState.content.WriteString(chunk)
+				m.streamState.mu.Unlock()
+			}
+		})
+
+		if err != nil {
+			return errMsg{err}
+		}
+
+		return streamCompleteMsg{}
+	}
+}
+
 func (m *ChatModel) View() string {
 	s := "\n" + m.viewport.View()
+
+	// Slow down the scroll speed by setting mouse wheel delta to 1 line per scroll
+	m.viewport.MouseWheelEnabled = true
+	m.viewport.MouseWheelDelta = 1
 
 	// Only show textarea if not loading
 	if !m.Loading {
