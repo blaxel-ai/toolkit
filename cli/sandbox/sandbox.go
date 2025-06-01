@@ -167,6 +167,10 @@ func createSandboxShell(ctx context.Context, client *SandboxClient) *SandboxShel
 	output := viewport.New(100, 25) // Larger default size
 	output.SetContent("")
 
+	// Slow down the scroll speed by setting mouse wheel delta to 1 line per scroll
+	output.MouseWheelEnabled = true
+	output.MouseWheelDelta = 1
+
 	return &SandboxShell{
 		client:            client,
 		ctx:               ctx,
