@@ -189,6 +189,8 @@ func moduleLanguage(directory string) string {
 		return "python"
 	} else if _, err := os.Stat(filepath.Join(directory, "package.json")); !os.IsNotExist(err) {
 		return "typescript"
+	} else if _, err := os.Stat(filepath.Join(directory, "go.mod")); !os.IsNotExist(err) {
+		return "go"
 	}
 	return ""
 

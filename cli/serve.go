@@ -49,6 +49,8 @@ func (r *Operations) ServeCmd() *cobra.Command {
 				activeProc = startPythonServer(port, host, hotreload)
 			case "typescript":
 				activeProc = startTypescriptServer(port, host, hotreload)
+			case "go":
+				activeProc = startGoServer(port, host, hotreload)
 			default:
 				fmt.Println("Error: Neither pyproject.toml nor package.json found in current directory")
 				os.Exit(1)
