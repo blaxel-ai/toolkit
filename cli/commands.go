@@ -65,6 +65,8 @@ func findRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		return findPythonRootCmdAsString(cfg)
 	case "typescript":
 		return findTSRootCmdAsString(cfg)
+	case "go":
+		return findGoRootCmdAsString(cfg)
 	}
 	return nil, fmt.Errorf("language not supported")
 }

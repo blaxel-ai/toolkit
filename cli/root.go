@@ -95,6 +95,9 @@ func checkForUpdates(currentVersion string) {
 	if currentVersion == "dev" {
 		return
 	}
+	if strings.Contains(currentVersion, "-SNAPSHOT") {
+		return
+	}
 
 	// Skip update check for pre-release versions
 	cleanCurrentVersion := strings.Split(currentVersion, "-SNAPSHOT")[0]
@@ -229,7 +232,8 @@ var rootCmd = &cobra.Command{
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in a goroutine to not block the main execution
-		if !skipVersionWarning {
+
+		if !skipVersionWarning && cmd.Name() != "__complete" {
 			checkForUpdates(version)
 		}
 
