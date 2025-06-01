@@ -233,7 +233,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in a goroutine to not block the main execution
 
-		if !skipVersionWarning && cmd.Name() != "__complete" {
+		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
 			checkForUpdates(version)
 		}
 
