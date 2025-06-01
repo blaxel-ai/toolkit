@@ -30,6 +30,7 @@ func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
 	}
 	ts.Stdout = os.Stdout
 	ts.Stderr = os.Stderr
+	ts.Dir = folder
 
 	// Set env variables
 	envs := getServerEnvironment(port, host, hotreload)
@@ -49,7 +50,7 @@ func getPackageJson() (PackageJson, error) {
 	if err != nil {
 		return PackageJson{}, fmt.Errorf("error getting current directory: %v", err)
 	}
-	packageJsonPath := filepath.Join(currentDir, "package.json")
+	packageJsonPath := filepath.Join(currentDir, folder, "package.json")
 	if _, err := os.Stat(packageJsonPath); err == nil {
 		packageJson, err := os.ReadFile(packageJsonPath)
 		if err != nil {
@@ -147,7 +148,7 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 	}
 
 	for _, file := range files {
-		if _, err := os.Stat(file); err == nil {
+		if _, err := os.Stat(filepath.Join(config.Folder, file)); err == nil {
 			return []string{"node", file}, nil
 		}
 	}
