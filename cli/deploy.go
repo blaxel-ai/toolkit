@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -159,6 +158,12 @@ func (d *Deployment) GenerateDeployment() Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+	case "sandbox":
+		Kind = "Sandbox"
+		Spec = map[string]interface{}{
+			"runtime":  runtime,
+			"triggers": config.Triggers,
+		}
 	}
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
@@ -204,7 +209,7 @@ func (d *Deployment) Apply() error {
 
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
-	currentWorkspace := sdk.CurrentContext().Workspace
+	currentWorkspace := workspace
 	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 

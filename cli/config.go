@@ -22,15 +22,18 @@ type Resource struct {
 	Put        interface{}
 	Post       interface{}
 	WithStatus bool
+	WithImage  bool
 }
 
 var resources = []*Resource{
 	{
-		Kind:     "Policy",
-		Short:    "pol",
-		Plural:   "policies",
-		Singular: "policy",
-		SpecType: reflect.TypeOf(sdk.Policy{}),
+		Kind:       "Policy",
+		Short:      "pol",
+		Plural:     "policies",
+		Singular:   "policy",
+		SpecType:   reflect.TypeOf(sdk.Policy{}),
+		WithStatus: false,
+		WithImage:  false,
 	},
 	{
 		Kind:       "Model",
@@ -39,6 +42,7 @@ var resources = []*Resource{
 		Singular:   "model",
 		SpecType:   reflect.TypeOf(sdk.Model{}),
 		WithStatus: true,
+		WithImage:  false,
 	},
 	{
 		Kind:       "Function",
@@ -47,6 +51,7 @@ var resources = []*Resource{
 		Singular:   "function",
 		SpecType:   reflect.TypeOf(sdk.Function{}),
 		WithStatus: true,
+		WithImage:  true,
 	},
 	{
 		Kind:       "Agent",
@@ -55,13 +60,16 @@ var resources = []*Resource{
 		Singular:   "agent",
 		SpecType:   reflect.TypeOf(sdk.Agent{}),
 		WithStatus: true,
+		WithImage:  true,
 	},
 	{
-		Kind:     "IntegrationConnection",
-		Short:    "ic",
-		Plural:   "integrationconnections",
-		Singular: "integrationconnection",
-		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
+		Kind:       "IntegrationConnection",
+		Short:      "ic",
+		Plural:     "integrationconnections",
+		Singular:   "integrationconnection",
+		SpecType:   reflect.TypeOf(sdk.IntegrationConnection{}),
+		WithStatus: false,
+		WithImage:  false,
 	},
 	{
 		Kind:       "Sandbox",
@@ -70,6 +78,7 @@ var resources = []*Resource{
 		Singular:   "sandbox",
 		SpecType:   reflect.TypeOf(sdk.Sandbox{}),
 		WithStatus: true,
+		WithImage:  true,
 	},
 	{
 		Kind:       "Job",
@@ -78,6 +87,7 @@ var resources = []*Resource{
 		Singular:   "job",
 		SpecType:   reflect.TypeOf(sdk.Job{}),
 		WithStatus: true,
+		WithImage:  true,
 	},
 }
 
