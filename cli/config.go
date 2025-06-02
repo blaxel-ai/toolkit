@@ -142,7 +142,6 @@ func readConfigToml(folder string) {
 	}
 
 	if config.Workspace != "" {
-		fmt.Printf("Using workspace %s from blaxel.toml\n", config.Workspace)
 		workspace = config.Workspace
 	}
 }
