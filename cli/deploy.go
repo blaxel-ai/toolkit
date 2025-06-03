@@ -117,15 +117,6 @@ func (d *Deployment) Generate() error {
 }
 
 func (d *Deployment) GenerateDeployment() Result {
-	entrypoint, err := findRootCmdAsString(RootCmdConfig{
-		Folder:     d.folder,
-		Hotreload:  false,
-		Production: true,
-		Entrypoint: config.Entrypoint,
-	})
-	if err != nil {
-		fmt.Printf("failed to find root cmd: %v", err)
-	}
 	var Spec map[string]interface{}
 	var Kind string
 
@@ -134,7 +125,6 @@ func (d *Deployment) GenerateDeployment() Result {
 		runtime = *config.Runtime
 	}
 	runtime["envs"] = GetUniqueEnvs()
-	runtime["entrypoint"] = entrypoint
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
 	}
