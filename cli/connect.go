@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/sandbox"
 	"github.com/blaxel-ai/toolkit/sdk"
@@ -11,25 +12,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) ExploreCmd() *cobra.Command {
+func (r *Operations) ConnectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
 		Short: "Connect into your sandbox resources",
 		Long:  "Connect into your sandbox resources with interactive interfaces",
 	}
 
-	cmd.AddCommand(r.ExploreSandboxCmd())
+	cmd.AddCommand(r.ConnectSandboxCmd())
 	return cmd
 }
 
-func (r *Operations) ExploreSandboxCmd() *cobra.Command {
+func (r *Operations) ConnectSandboxCmd() *cobra.Command {
 	var debug bool
 	var url string
 
 	cmd := &cobra.Command{
 		Use:   "sandbox [sandbox-name]",
-		Short: "Explore a sandbox environment",
-		Long: `Explore and interact with a sandbox environment using an interactive shell interface.
+		Short: "Connect to a sandbox environment",
+		Long: `Connect to a sandbox environment using an interactive shell interface.
 
 This command provides a terminal-like interface for:
 - Executing commands in the sandbox
@@ -51,7 +52,7 @@ Examples:
 				ctx = context.Background()
 			}
 
-			r.ExploreSandbox(ctx, sandboxName, debug, url)
+			r.ConnectSandbox(ctx, sandboxName, debug, url)
 		},
 	}
 
@@ -60,7 +61,7 @@ Examples:
 	return cmd
 }
 
-func (r *Operations) ExploreSandbox(ctx context.Context, sandboxName string, debug bool, url string) {
+func (r *Operations) ConnectSandbox(ctx context.Context, sandboxName string, debug bool, url string) {
 	// Get the current workspace from SDK context
 	currentContext := sdk.CurrentContext()
 	workspace := currentContext.Workspace
@@ -69,16 +70,45 @@ func (r *Operations) ExploreSandbox(ctx context.Context, sandboxName string, deb
 		os.Exit(1)
 	}
 
+	if url == "" {
+		response, err := client.ListSandboxesWithResponse(ctx)
+		if err != nil {
+			fmt.Printf("Error listing sandboxes: %v", err)
+			os.Exit(1)
+		}
+		if response.StatusCode() != 200 {
+			fmt.Printf("Error listing sandboxes: %s", response.Status())
+			os.Exit(1)
+		}
+		found := false
+		sandboxes := response.JSON200
+		names := []string{}
+		for _, sandbox := range *sandboxes {
+			if *sandbox.Metadata.Name == sandboxName {
+				found = true
+				break
+			}
+			names = append(names, *sandbox.Metadata.Name)
+		}
+		if !found {
+			fmt.Printf("\033[31mSandbox %s not found.\033[0m\n", sandboxName)
+			if len(names) > 0 {
+				fmt.Printf("Here is a list of available sandboxes: %s\n", strings.Join(names, ", "))
+				fmt.Printf("Or you can create a new Sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace)
+			} else {
+				fmt.Printf("You can create a Sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace)
+			}
+			os.Exit(1)
+		}
+	}
+	// Prepare authentication headers based on available credentials
+	authHeaders := make(map[string]string)
 	// Load credentials for the workspace
 	credentials := sdk.LoadCredentials(workspace)
 	if !credentials.IsValid() {
 		fmt.Println("Error: No valid credentials found. Please run 'bl auth login' first.")
 		os.Exit(1)
 	}
-
-	// Prepare authentication headers based on available credentials
-	authHeaders := make(map[string]string)
-
 	if credentials.APIKey != "" {
 		authHeaders["X-Blaxel-Api-Key"] = credentials.APIKey
 	} else if credentials.AccessToken != "" {
