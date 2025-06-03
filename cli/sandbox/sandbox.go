@@ -543,7 +543,9 @@ func (m *SandboxShell) startCompletion() tea.Msg {
 	pathCommands := map[string]bool{
 		"cd": true, "ls": true, "ll": true, "la": true, "l": true, "cat": true, "less": true, "more": true,
 		"mkdir": true, "rmdir": true, "rm": true, "cp": true, "mv": true, "find": true,
-		"grep": true, "touch": true, "chmod": true, "chown": true, "file": true,
+		"grep": true, "touch": true, "chmod": true, "chown": true, "file": true, "zip": true, "unzip": true,
+		"tar": true, "gzip": true, "gunzip": true, "bz2": true, "bunzip2": true, "xz": true, "unxz": true,
+		"lzma": true, "unlzma": true, "lzop": true, "unlzop": true, "rar": true, "unrar": true, "7z": true, "un7z": true, "bzip2": true,
 	}
 
 	// Commands that should only complete directories (not files)
