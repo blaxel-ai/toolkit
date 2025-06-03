@@ -26,7 +26,7 @@ func checkServiceHealth(wsURL string, headers map[string]string) error {
 
 	// Create HTTP client with timeout
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 
 	// Create the request
