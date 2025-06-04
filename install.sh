@@ -288,9 +288,15 @@ setup_path_interactive() {
   echo "To get started, you need ${BINARY} in your PATH environment variable."
   echo ""
   
-  # Ask user if they want automatic setup
+  # Ask user if they want automatic setup - read from /dev/tty for interactive mode
   printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [Y/n] "
-  read -r response
+  if [ -t 0 ]; then
+    # Running interactively
+    read -r response
+  else
+    # Running from pipe (curl | sh), read from terminal directly
+    read -r response < /dev/tty
+  fi
   
   case "$response" in
     [nN]|[nN][oO])
