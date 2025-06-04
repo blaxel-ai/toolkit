@@ -371,13 +371,13 @@ setup_path_interactive() {
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
-  TMPDIR=$(mktmpdir)
+  SCRIPT_TMPDIR=$(mktmpdir)
   echo "$PREFIX: downloading from ${TARBALL_URL}"
-  http_download "${TMPDIR}/${NAME}" "$TARBALL_URL"
-  untar "${TMPDIR}/${NAME}" "${TMPDIR}"
+  http_download "${SCRIPT_TMPDIR}/${NAME}" "$TARBALL_URL"
+  untar "${SCRIPT_TMPDIR}/${NAME}" "${SCRIPT_TMPDIR}"
   install -d "${BINDIR}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
+  install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
+  install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
   
   # Convert relative path to absolute path for PATH instructions
   if [ "${BINDIR#/}" = "${BINDIR}" ]; then
