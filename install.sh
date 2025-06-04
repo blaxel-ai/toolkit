@@ -194,7 +194,7 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
-BINDIR=${BINDIR:-./bin}
+BINDIR=${BINDIR:-./.local/bin}
 PREFIX="$OWNER/$REPO"
 
 ARCH=$(uname_arch)
@@ -223,6 +223,64 @@ fi
 
 TARBALL_URL=https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}/${NAME}
 
+# Function to detect shell and provide PATH instructions
+print_path_instructions() {
+  local bin_path="$1"
+  local shell_name=""
+  local rc_file=""
+  
+  # Detect shell from $SHELL environment variable
+  if [ -n "$SHELL" ]; then
+    shell_name=$(basename "$SHELL")
+  else
+    # Fallback: try to detect from process
+    shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+  fi
+  
+  # Determine the appropriate RC file based on shell
+  case "$shell_name" in
+    zsh)
+      rc_file="~/.zshrc"
+      ;;
+    bash)
+      # Check for .bash_profile first (macOS default), then .bashrc
+      if [ -f "$HOME/.bash_profile" ]; then
+        rc_file="~/.bash_profile"
+      else
+        rc_file="~/.bashrc"
+      fi
+      ;;
+    fish)
+      rc_file="~/.config/fish/config.fish"
+      ;;
+    tcsh|csh)
+      rc_file="~/.cshrc"
+      ;;
+    ksh|mksh)
+      rc_file="~/.kshrc"
+      ;;
+    *)
+      rc_file="~/.profile"
+      shell_name="shell"
+      ;;
+  esac
+  
+  echo ""
+  echo "To add ${BINARY} and ${BINARY_SHORT_NAME} to your PATH, run:"
+  echo ""
+  
+  if [ "$shell_name" = "fish" ]; then
+    echo "  echo 'set -gx PATH $bin_path \$PATH' >> $rc_file"
+  else
+    echo "  echo 'export PATH=\"$bin_path:\$PATH\"' >> $rc_file"
+  fi
+  
+  echo ""
+  echo "Then restart your $shell_name or run:"
+  echo "  source $rc_file"
+  echo ""
+}
+
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
@@ -234,6 +292,17 @@ execute() {
   install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
   install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
   echo "$PREFIX: installed ${BINDIR}/${BINARY} and ${BINDIR}/${BINARY_SHORT_NAME}"
+  
+  # Convert relative path to absolute path for PATH instructions
+  if [ "${BINDIR#/}" = "${BINDIR}" ]; then
+    # Relative path - convert to absolute
+    ABSOLUTE_BINDIR="$(cd "${BINDIR}" && pwd)"
+  else
+    # Already absolute path
+    ABSOLUTE_BINDIR="${BINDIR}"
+  fi
+  
+  print_path_instructions "$ABSOLUTE_BINDIR"
 }
 
 uname_os_check
