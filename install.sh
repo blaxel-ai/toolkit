@@ -194,7 +194,7 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
-BINDIR=${BINDIR:-./.local/bin}
+BINDIR=${BINDIR:-~/.local/bin}
 PREFIX="$OWNER/$REPO"
 
 ARCH=$(uname_arch)
