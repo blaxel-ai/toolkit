@@ -184,22 +184,178 @@ hash_sha256_verify() {
      return 1
   fi
 }
+
+# Function to detect shell and config file
+detect_shell_and_config() {
+  # Get the user's current shell
+  USER_SHELL="$(basename "$SHELL")"
+  
+  # Set default config file paths based on shell
+  case "$USER_SHELL" in
+    bash)
+      if [ "$(uname_os)" = "darwin" ]; then
+        CONFIG_FILE="$HOME/.bash_profile"
+        # Check if .bashrc exists and is referenced from .bash_profile
+        if [ -f "$HOME/.bashrc" ] && ! grep -q "source.*\.bashrc" "$HOME/.bash_profile" 2>/dev/null; then
+          CONFIG_FILE="$HOME/.bashrc"
+        fi
+      else
+        CONFIG_FILE="$HOME/.bashrc"
+      fi
+      ;;
+    zsh)
+      CONFIG_FILE="$HOME/.zshrc"
+      ;;
+    fish)
+      CONFIG_FILE="$HOME/.config/fish/config.fish"
+      mkdir -p "$(dirname "$CONFIG_FILE")" 2>/dev/null || true
+      ;;
+    *)
+      # Default to .profile for unknown shells
+      CONFIG_FILE="$HOME/.profile"
+      ;;
+  esac
+}
+
+# Function to update PATH in shell config
+setup_path() {
+  # Initialize PATH_UPDATED to false
+  PATH_UPDATED="false"
+  
+  # Skip PATH setup if using system directories or running as root
+  if [ "$(id -u)" -eq 0 ]; then
+    # Skip PATH setup when running as root/sudo
+    return 0
+  fi
+  
+  if echo "$BINDIR" | grep -q "^/usr/\|^/opt/"; then
+    # Skip PATH setup for system directories
+    return 0
+  fi
+
+  # Check if BINDIR is already in PATH
+  if echo "$PATH" | tr ':' '\n' | grep -q "^$BINDIR$"; then
+    echo "✓ $BINDIR is already in your PATH"
+    return 0
+  fi
+  
+  # Detect shell and config file
+  detect_shell_and_config
+  
+  # Create the appropriate export statement based on shell
+  case "$USER_SHELL" in
+    fish)
+      EXPORT_STATEMENT="set -gx PATH \$PATH $BINDIR"
+      ;;
+    *)
+      EXPORT_STATEMENT="export PATH=\"\$PATH:$BINDIR\""
+      ;;
+  esac
+  
+  # Check if config file already contains our PATH addition
+  if [ -f "$CONFIG_FILE" ] && grep -q "$BINDIR" "$CONFIG_FILE"; then
+    echo "✓ PATH configuration for $BINDIR already exists in $CONFIG_FILE"
+    # Set PATH_UPDATED to true since it's already in the config
+    PATH_UPDATED="true"
+    return 0
+  fi
+  
+  # Ask for confirmation
+  echo
+  echo "To complete installation, $BINDIR needs to be added to your PATH."
+  echo "The following line will be added to $CONFIG_FILE:"
+  echo
+  echo "    $EXPORT_STATEMENT"
+  echo
+  printf "Add this line to %s? [y/N] " "$CONFIG_FILE"
+  read -r response
+  
+  case "$response" in
+    [yY][eE][sS]|[yY])
+      # Append to config file
+      echo >> "$CONFIG_FILE"
+      echo "# Added by $BINARY installer" >> "$CONFIG_FILE"
+      echo "$EXPORT_STATEMENT" >> "$CONFIG_FILE"
+      echo "✓ PATH has been updated in $CONFIG_FILE"
+      
+      # Provide instructions for sourcing config file
+      case "$USER_SHELL" in
+        fish)
+          echo "✓ To use $BINARY now, run: source $CONFIG_FILE"
+          ;;
+        *)
+          echo "✓ To use $BINARY now, run: source $CONFIG_FILE"
+          ;;
+      esac
+      
+      # Set PATH_UPDATED to true
+      PATH_UPDATED="true"
+      ;;
+    *)
+      echo
+      echo "PATH not updated. To use $BINARY, you need to either:"
+      echo "1. Add $BINDIR to your PATH manually, or"
+      echo "2. Run $BINARY using the full path: $BINDIR/$BINARY"
+      ;;
+  esac
+}
+
 cat /dev/null << EOF
 ------------------------------------------------------------------------
 End of functions from https://github.com/client9/posixshell
 ------------------------------------------------------------------------
 EOF
 
+# Allow PATH to be updated in parent shell
+# This allows the binary to be immediately available after installation
+update_parent_shell_path() {
+  # Only output if user chose to update their config
+  if [ "$PATH_UPDATED" != "true" ]; then
+    return 0
+  fi
+  
+  # Only attempt for non-sudo installations
+  if [ "$(id -u)" -eq 0 ]; then
+    return 0
+  fi
+  
+  # Create a temporary script that can be sourced
+  TEMP_SCRIPT="/tmp/blaxel_path_update_$.sh"
+  cat > "$TEMP_SCRIPT" << EOT
+#!/bin/sh
+# Temporary script to update PATH for blaxel
+export PATH="\$PATH:$BINDIR"
+echo "✓ PATH updated. The 'blaxel' and 'bl' commands are now available."
+EOT
+  chmod +x "$TEMP_SCRIPT"
+  
+  echo
+  echo "To use blaxel immediately without restarting your terminal, run:"
+  echo
+  echo "    source $TEMP_SCRIPT"
+  echo
+}
+
 OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
-BINDIR=${BINDIR:-./bin}
+BINDIR=${BINDIR:-$HOME/.local/bin}
 PREFIX="$OWNER/$REPO"
 
 ARCH=$(uname_arch)
 OS=$(uname_os)
 OS_TITLE=$(echo "$OS" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+
+# Color codes for better output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# Flag to track if PATH was updated
+PATH_UPDATED="false"
+SOURCE_CMD=""
 
 case "$VERSION" in
  latest)
@@ -230,12 +386,104 @@ execute() {
   echo "$PREFIX: downloading from ${TARBALL_URL}"
   http_download "${TMPDIR}/${NAME}" "$TARBALL_URL"
   untar "${TMPDIR}/${NAME}" "${TMPDIR}"
-  install -d "${BINDIR}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
-  echo "$PREFIX: installed ${BINDIR}/${BINARY} and ${BINDIR}/${BINARY_SHORT_NAME}"
+  
+  # Create directory if it doesn't exist
+  mkdir -p "${BINDIR}" || { 
+    echo "Failed to create ${BINDIR}, trying with sudo..."
+    sudo mkdir -p "${BINDIR}" || { echo "Failed to create ${BINDIR} directory. Please check permissions."; exit 1; }
+  }
+  
+  # Determine if we need sudo for installation
+  if [ ! -w "${BINDIR}" ]; then
+    echo "Installing to ${BINDIR} requires elevated permissions"
+    sudo install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}" || { echo "Installation failed. Please check permissions."; exit 1; }
+    sudo install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}" || { echo "Installation failed. Please check permissions."; exit 1; }
+  else
+    install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}" || { echo "Installation failed."; exit 1; }
+    install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}" || { echo "Installation failed."; exit 1; }
+  fi
+  
+  echo "${GREEN}✓ Installed ${BINDIR}/${BINARY} and ${BINDIR}/${BINARY_SHORT_NAME}${NC}"
+  
+  # Setup PATH if binary is not already accessible and we're not using sudo
+  if [ "$(id -u)" -ne 0 ]; then
+    if ! command -v "${BINARY}" > /dev/null 2>&1; then
+      setup_path
+    fi
+  fi
+  
+  # Create an uninstall script in the same directory as the binary
+  UNINSTALL_SCRIPT="${BINDIR}/uninstall-${BINARY}.sh"
+  
+  # Determine if we need sudo for creating the uninstall script
+  if [ ! -w "${BINDIR}" ]; then
+    sudo tee "${UNINSTALL_SCRIPT}" > /dev/null << EOL
+#!/bin/sh
+if [ "\$(id -u)" -ne 0 ]; then
+  echo "Uninstalling from ${BINDIR} requires elevated permissions. Please run with sudo."
+  exit 1
+fi
+rm -f "${BINDIR}/${BINARY}"
+rm -f "${BINDIR}/${BINARY_SHORT_NAME}" 
+rm -f "${UNINSTALL_SCRIPT}"
+echo "${BINARY} has been uninstalled"
+EOL
+    sudo chmod +x "${UNINSTALL_SCRIPT}"
+  else
+    cat > "${UNINSTALL_SCRIPT}" << EOL
+#!/bin/sh
+if [ ! -w "${BINDIR}" ]; then
+  echo "Uninstalling from ${BINDIR} requires elevated permissions. Please run with sudo."
+  exit 1
+fi
+rm -f "${BINDIR}/${BINARY}"
+rm -f "${BINDIR}/${BINARY_SHORT_NAME}"
+rm -f "${UNINSTALL_SCRIPT}"
+echo "${BINARY} has been uninstalled"
+EOL
+    chmod +x "${UNINSTALL_SCRIPT}"
+  fi
+  
+  echo "${BLUE}To uninstall later, run: ${UNINSTALL_SCRIPT}${NC}"
+  echo "${GREEN}Installation complete!${NC}"
+  
+  # Provide helpful usage hint
+  if command -v "${BINARY}" > /dev/null 2>&1 || [ "$(id -u)" -eq 0 ]; then
+    echo "Run '${BINARY} --help' to get started"
+  else
+    # For non-sudo installations where PATH might not be updated yet
+    echo "Run '${BINDIR}/${BINARY} --help' to get started"
+  fi
 }
 
 uname_os_check
 uname_arch_check
 execute
+
+# Output reminder to source config file
+if [ "$PATH_UPDATED" = "true" ] && [ "$(id -u)" -ne 0 ]; then
+  echo
+  echo "# ---------------------------------------------------------------"
+  echo "# To use $BINARY immediately, run this command:"
+  # Make sure we have the correct source command based on shell
+  case "$(basename "$SHELL")" in
+    fish)
+      echo "  source $HOME/.config/fish/config.fish"
+      ;;
+    zsh)
+      echo "  source $HOME/.zshrc"
+      ;;
+    bash)
+      if [ "$(uname_os)" = "darwin" ]; then
+        echo "  source $HOME/.bash_profile"
+      else
+        echo "  source $HOME/.bashrc"
+      fi
+      ;;
+    *)
+      echo "  source $HOME/.profile"
+      ;;
+  esac
+  echo "# ---------------------------------------------------------------"
+  echo
+fi
