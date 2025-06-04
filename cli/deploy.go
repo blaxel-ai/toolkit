@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
@@ -119,15 +118,6 @@ func (d *Deployment) Generate() error {
 }
 
 func (d *Deployment) GenerateDeployment() Result {
-	entrypoint, err := findRootCmdAsString(RootCmdConfig{
-		Folder:     d.folder,
-		Hotreload:  false,
-		Production: true,
-		Entrypoint: config.Entrypoint,
-	})
-	if err != nil {
-		fmt.Printf("failed to find root cmd: %v", err)
-	}
 	var Spec map[string]interface{}
 	var Kind string
 
@@ -136,7 +126,6 @@ func (d *Deployment) GenerateDeployment() Result {
 		runtime = *config.Runtime
 	}
 	runtime["envs"] = GetUniqueEnvs()
-	runtime["entrypoint"] = entrypoint
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
 	}
@@ -156,6 +145,12 @@ func (d *Deployment) GenerateDeployment() Result {
 		}
 	case "job":
 		Kind = "Job"
+		Spec = map[string]interface{}{
+			"runtime":  runtime,
+			"triggers": config.Triggers,
+		}
+	case "sandbox":
+		Kind = "Sandbox"
 		Spec = map[string]interface{}{
 			"runtime":  runtime,
 			"triggers": config.Triggers,
@@ -205,7 +200,7 @@ func (d *Deployment) Apply() error {
 
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
-	currentWorkspace := sdk.CurrentContext().Workspace
+	currentWorkspace := workspace
 	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 

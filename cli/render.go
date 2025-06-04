@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -28,18 +29,61 @@ func output(resource Resource, slices []interface{}, outputFormat string) {
 }
 
 func retrieveKey(itemMap map[string]interface{}, key string) string {
-	if value, ok := itemMap[key]; ok {
-		return value.(string)
+	// Split the key by dots to handle nested access
+	keys := strings.Split(key, ".")
+
+	// Try to navigate through the nested structure
+	value := navigateToKey(itemMap, keys)
+	if value != nil {
+		if str, ok := value.(string); ok {
+			return str
+		}
 	}
-	if value, ok := itemMap["metadata"].(map[string]interface{})[key]; ok {
-		return value.(string)
+
+	// Fallback: check metadata for the full key or last part of the key
+	if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+		// Try full key first
+		if value, ok := metadata[key]; ok {
+			if str, ok := value.(string); ok {
+				return str
+			}
+		}
+		// Try just the last part of the key
+		lastKey := keys[len(keys)-1]
+		if value, ok := metadata[lastKey]; ok {
+			if str, ok := value.(string); ok {
+				return str
+			}
+		}
 	}
+
 	return "-"
+}
+
+// navigateToKey recursively navigates through nested maps using the provided keys
+func navigateToKey(m map[string]interface{}, keys []string) interface{} {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	if len(keys) == 1 {
+		return m[keys[0]]
+	}
+
+	if nested, ok := m[keys[0]].(map[string]interface{}); ok {
+		return navigateToKey(nested, keys[1:])
+	}
+
+	return nil
 }
 
 func printTable(resource Resource, slices []interface{}) {
 	// Print header with fixed width columns
-	if resource.WithStatus {
+	if resource.WithImage && resource.WithStatus {
+		fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT", "STATUS")
+	} else if resource.WithImage {
+		fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT")
+	} else if resource.WithStatus {
 		fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
 	} else {
 		fmt.Printf("%-15s %-24s %-24s %-24s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
@@ -61,7 +105,14 @@ func printTable(resource Resource, slices []interface{}) {
 			// Get the updated_at field, default to "-" if not found
 			updatedAt := retrieveDate(itemMap, "updatedAt")
 
-			if resource.WithStatus {
+			if resource.WithImage && resource.WithStatus {
+				image := retrieveKey(itemMap, "spec.runtime.image")
+				status := retrieveKey(itemMap, "status")
+				fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", workspace, name, image, createdAt, updatedAt, status)
+			} else if resource.WithImage {
+				image := retrieveKey(itemMap, "spec.runtime.image")
+				fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", workspace, name, image, createdAt, updatedAt)
+			} else if resource.WithStatus {
 				status := retrieveKey(itemMap, "status")
 				fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", workspace, name, createdAt, updatedAt, status)
 			} else {
