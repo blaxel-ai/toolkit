@@ -230,12 +230,27 @@ setup_path_interactive() {
   local rc_file=""
   local rc_file_path=""
   
-  # Detect shell from $SHELL environment variable
+  # Detect shell from $SHELL environment variable first (most reliable)
   if [ -n "$SHELL" ]; then
     shell_name=$(basename "$SHELL")
   else
-    # Fallback: try to detect from process
-    shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+    # Fallback: try to detect from parent process
+    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+    if [ -n "$parent_pid" ]; then
+      shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
+    fi
+    
+    # Final fallback: try to detect from process
+    if [ -z "$shell_name" ]; then
+      shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+    fi
+  fi
+  
+  # If still no shell detected, check if fish config exists
+  if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
+    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
+      shell_name="fish"
+    fi
   fi
   
   # Determine the appropriate RC file based on shell
