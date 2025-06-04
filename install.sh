@@ -260,15 +260,27 @@ setup_path() {
     return 0
   fi
   
-  # Ask for confirmation
-  echo
-  echo "To complete installation, $BINDIR needs to be added to your PATH."
-  echo "The following line will be added to $CONFIG_FILE:"
-  echo
-  echo "    $EXPORT_STATEMENT"
-  echo
-  printf "Add this line to %s? [y/N] " "$CONFIG_FILE"
-  read -r response
+  # Ask for confirmation or auto-accept in non-interactive mode
+  if [ -t 0 ]; then
+    # Terminal is interactive, ask for confirmation
+    echo
+    echo "To complete installation, $BINDIR needs to be added to your PATH."
+    echo "The following line will be added to $CONFIG_FILE:"
+    echo
+    echo "    $EXPORT_STATEMENT"
+    echo
+    printf "Add this line to %s? [y/N] " "$CONFIG_FILE"
+    read -r response
+  else
+    # Non-interactive mode (e.g., curl | sh), auto-accept
+    echo
+    echo "To complete installation, $BINDIR will be added to your PATH."
+    echo "The following line will be added to $CONFIG_FILE:"
+    echo
+    echo "    $EXPORT_STATEMENT"
+    echo
+    response="y"
+  fi
   
   case "$response" in
     [yY][eE][sS]|[yY])
@@ -276,7 +288,11 @@ setup_path() {
       echo >> "$CONFIG_FILE"
       echo "# Added by $BINARY installer" >> "$CONFIG_FILE"
       echo "$EXPORT_STATEMENT" >> "$CONFIG_FILE"
-      echo "✓ PATH has been updated in $CONFIG_FILE"
+      if [ -t 0 ]; then
+        echo "✓ PATH has been updated in $CONFIG_FILE"
+      else
+        echo "✓ PATH has been automatically updated in $CONFIG_FILE"
+      fi
       
       # Provide instructions for sourcing config file
       case "$USER_SHELL" in
@@ -452,7 +468,7 @@ EOL
     echo "Run '${BINARY} --help' to get started"
   else
     # For non-sudo installations where PATH might not be updated yet
-    echo "Run '${BINARY} --help' to get started"
+    echo "Run '${BINDIR}/${BINARY} --help' to get started"
   fi
 }
 
@@ -463,25 +479,27 @@ execute
 # Output reminder to source config file
 if [ "$PATH_UPDATED" = "true" ] && [ "$(id -u)" -ne 0 ]; then
   echo
-  echo "To use $BINARY immediately, run this command:"
+  echo "# ---------------------------------------------------------------"
+  echo "# To use $BINARY immediately, run this command:"
   # Make sure we have the correct source command based on shell
   case "$(basename "$SHELL")" in
     fish)
-      echo "    source $HOME/.config/fish/config.fish"
+      echo "  source $HOME/.config/fish/config.fish"
       ;;
     zsh)
-      echo "    source $HOME/.zshrc"
+      echo "  source $HOME/.zshrc"
       ;;
     bash)
       if [ "$(uname_os)" = "darwin" ]; then
-        echo "    source $HOME/.bash_profile"
+        echo "  source $HOME/.bash_profile"
       else
-        echo "    source $HOME/.bashrc"
+        echo "  source $HOME/.bashrc"
       fi
       ;;
     *)
-      echo "    source $HOME/.profile"
+      echo "  source $HOME/.profile"
       ;;
   esac
+  echo "# ---------------------------------------------------------------"
   echo
 fi
