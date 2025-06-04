@@ -452,7 +452,7 @@ EOL
     echo "Run '${BINARY} --help' to get started"
   else
     # For non-sudo installations where PATH might not be updated yet
-    echo "Run '${BINDIR}/${BINARY} --help' to get started"
+    echo "Run '${BINARY} --help' to get started"
   fi
 }
 
@@ -463,27 +463,25 @@ execute
 # Output reminder to source config file
 if [ "$PATH_UPDATED" = "true" ] && [ "$(id -u)" -ne 0 ]; then
   echo
-  echo "# ---------------------------------------------------------------"
-  echo "# To use $BINARY immediately, run this command:"
+  echo "To use $BINARY immediately, run this command:"
   # Make sure we have the correct source command based on shell
   case "$(basename "$SHELL")" in
     fish)
-      echo "  source $HOME/.config/fish/config.fish"
+      echo "    source $HOME/.config/fish/config.fish"
       ;;
     zsh)
-      echo "  source $HOME/.zshrc"
+      echo "    source $HOME/.zshrc"
       ;;
     bash)
       if [ "$(uname_os)" = "darwin" ]; then
-        echo "  source $HOME/.bash_profile"
+        echo "    source $HOME/.bash_profile"
       else
-        echo "  source $HOME/.bashrc"
+        echo "    source $HOME/.bashrc"
       fi
       ;;
     *)
-      echo "  source $HOME/.profile"
+      echo "    source $HOME/.profile"
       ;;
   esac
-  echo "# ---------------------------------------------------------------"
   echo
 fi
