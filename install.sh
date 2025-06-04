@@ -290,7 +290,7 @@ setup_path_interactive() {
   
   # Check if running interactively
   if [ -t 0 ]; then
-    # Running interactively - ask user
+    # Running interactively - ask user via stdin
     printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "
     read -r response
     
@@ -303,8 +303,23 @@ setup_path_interactive() {
         ;;
     esac
   else
-    # Running non-interactively (piped from curl) - default to no
-    response="n"
+    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
+    if [ -e /dev/tty ]; then
+      printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] " > /dev/tty
+      read -r response < /dev/tty
+      
+      case "$response" in
+        [yY]|[yY][eE][sS])
+          response="y"
+          ;;
+        *)
+          response="n"
+          ;;
+      esac
+    else
+      # No TTY available - default to no
+      response="n"
+    fi
   fi
   
   case "$response" in
