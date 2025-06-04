@@ -140,8 +140,8 @@ func (r *Operations) CreateJobCmd() *cobra.Command {
 
 			fmt.Printf(`Your blaxel job has been created. Start working on it:
 cd %s;
-bl run job my-job --local --file batches/sample-batch.json;
-`, opts.Directory)
+bl run job %s --local --file batches/sample-batch.json;
+`, opts.Directory, opts.Directory)
 		},
 	}
 	return cmd
