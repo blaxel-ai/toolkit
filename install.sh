@@ -139,9 +139,10 @@ github_api() {
 
 github_last_release() {
   owner_repo=$1
-  giturl="https://api.github.com/repos/${owner_repo}/releases/latest"
+  giturl="https://api.github.com/repos/${owner_repo}/releases"
   html=$(github_api - "$giturl")
-  version=$(echo "$html" | grep -m 1 "\"tag_name\":" | cut -f4 -d'"')
+  # Extract all tag names, filter out preview versions, and get the first (latest) one
+  version=$(echo "$html" | grep "\"tag_name\":" | cut -f4 -d'"' | grep -v -E "(preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable)" | head -n 1)
   test -z "$version" && return 1
   echo "$version"
 }
@@ -193,13 +194,13 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
-BINDIR=${BINDIR:-./bin}
+BINDIR=${BINDIR:-./.local/bin}
 PREFIX="$OWNER/$REPO"
+
 ARCH=$(uname_arch)
 OS=$(uname_os)
 OS_TITLE=$(echo "$OS" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
 
-VERSION=$1
 case "$VERSION" in
  latest)
     VERSION=""
@@ -222,17 +223,200 @@ fi
 
 TARBALL_URL=https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}/${NAME}
 
+# Function to detect shell and provide PATH instructions
+setup_path_interactive() {
+  local bin_path="$1"
+  local shell_name=""
+  local rc_file=""
+  local rc_file_path=""
+  
+  # Skip PATH setup for system directories that are already in PATH
+  case "$bin_path" in
+    /usr/local/bin|/usr/bin|/bin)
+      echo ""
+      echo "${BINARY} and ${BINARY_SHORT_NAME} were installed successfully to $bin_path"
+      echo ""
+      echo "Since $bin_path is already in your system PATH, no additional configuration is needed."
+      echo ""
+      echo "To get started, run: ${BINARY_SHORT_NAME} --help"
+      return
+      ;;
+  esac
+  
+  # Detect shell from $SHELL environment variable first (most reliable)
+  if [ -n "$SHELL" ]; then
+    shell_name=$(basename "$SHELL")
+  else
+    # Fallback: try to detect from parent process
+    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+    if [ -n "$parent_pid" ]; then
+      shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
+    fi
+    
+    # Final fallback: try to detect from process
+    if [ -z "$shell_name" ]; then
+      shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+    fi
+  fi
+  
+  # If still no shell detected, check if fish config exists
+  if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
+    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
+      shell_name="fish"
+    fi
+  fi
+  
+  # Determine the appropriate RC file based on shell
+  case "$shell_name" in
+    zsh)
+      rc_file="~/.zshrc"
+      rc_file_path="$HOME/.zshrc"
+      ;;
+    bash)
+      # Check for .bash_profile first (macOS default), then .bashrc
+      if [ -f "$HOME/.bash_profile" ]; then
+        rc_file="~/.bash_profile"
+        rc_file_path="$HOME/.bash_profile"
+      else
+        rc_file="~/.bashrc"
+        rc_file_path="$HOME/.bashrc"
+      fi
+      ;;
+    fish)
+      rc_file="~/.config/fish/config.fish"
+      rc_file_path="$HOME/.config/fish/config.fish"
+      ;;
+    tcsh|csh)
+      rc_file="~/.cshrc"
+      rc_file_path="$HOME/.cshrc"
+      ;;
+    ksh|mksh)
+      rc_file="~/.kshrc"
+      rc_file_path="$HOME/.kshrc"
+      ;;
+    *)
+      rc_file="~/.profile"
+      rc_file_path="$HOME/.profile"
+      shell_name="shell"
+      ;;
+  esac
+  
+  echo ""
+  echo "${BINARY} and ${BINARY_SHORT_NAME} were installed successfully to $bin_path"
+  echo ""
+  
+  # Check if PATH is already configured
+  if [ -f "$rc_file_path" ] && grep -q "# Added by ${BINARY} installer" "$rc_file_path"; then
+    echo "${BINARY} is already configured in your PATH via $rc_file"
+    echo ""
+    echo "To get started, run: ${BINARY_SHORT_NAME} --help"
+    return
+  fi
+  
+  echo "To get started, you need ${BINARY} in your PATH environment variable."
+  echo ""
+  
+  # Check if running interactively
+  if [ -t 0 ]; then
+    # Running interactively - ask user via stdin
+    printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "
+    read -r response
+    
+    case "$response" in
+      [yY]|[yY][eE][sS])
+        response="y"
+        ;;
+      *)
+        response="n"
+        ;;
+    esac
+  else
+    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
+    if [ -e /dev/tty ]; then
+      printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] " > /dev/tty
+      read -r response < /dev/tty
+      
+      case "$response" in
+        [yY]|[yY][eE][sS])
+          response="y"
+          ;;
+        *)
+          response="n"
+          ;;
+      esac
+    else
+      # No TTY available - default to no
+      response="n"
+    fi
+  fi
+  
+  case "$response" in
+    n)
+      # User declined or non-interactive mode
+      echo "To add ${BINARY} and ${BINARY_SHORT_NAME} to your PATH, run:"
+      echo ""
+      if [ "$shell_name" = "fish" ]; then
+        echo "  echo '' >> $rc_file"
+        echo "  echo '# Added by ${BINARY} installer' >> $rc_file"
+        echo "  echo 'set -gx PATH $bin_path \$PATH' >> $rc_file"
+      else
+        echo "  echo '' >> $rc_file"
+        echo "  echo '# Added by ${BINARY} installer' >> $rc_file"
+        echo "  echo 'export PATH=\"$bin_path:\$PATH\"' >> $rc_file"
+      fi
+      echo ""
+      echo "Then restart your $shell_name or run: source $rc_file"
+      ;;
+    y)
+      # User accepted automatic setup
+      echo "Adding ${BINARY} to PATH in $rc_file"
+      
+      # Create the directory if it doesn't exist (for fish config)
+      if [ "$shell_name" = "fish" ]; then
+        mkdir -p "$(dirname "$rc_file_path")"
+      fi
+      
+      # Add PATH export to the RC file using printf for better portability
+      if [ "$shell_name" = "fish" ]; then
+        printf "\n# Added by %s installer\nset -gx PATH %s \$PATH\n" "$BINARY" "$bin_path" >> "$rc_file_path"
+      else
+        printf "\n# Added by %s installer\nexport PATH=\"%s:\$PATH\"\n" "$BINARY" "$bin_path" >> "$rc_file_path"
+      fi
+      
+      echo "✓ Added ${BINARY} to PATH in $rc_file"
+      echo ""
+      echo "To use ${BINARY} in your current shell, run:"
+      echo "  source $rc_file"
+      echo ""
+      echo "Or start a new terminal session."
+      ;;
+  esac
+  
+  echo ""
+  echo "To get started, run: ${BINARY_SHORT_NAME} --help"
+}
+
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
-  TMPDIR=$(mktmpdir)
+  SCRIPT_TMPDIR=$(mktmpdir)
   echo "$PREFIX: downloading from ${TARBALL_URL}"
-  http_download "${TMPDIR}/${NAME}" "$TARBALL_URL"
-  untar "${TMPDIR}/${NAME}" "${TMPDIR}"
+  http_download "${SCRIPT_TMPDIR}/${NAME}" "$TARBALL_URL"
+  untar "${SCRIPT_TMPDIR}/${NAME}" "${SCRIPT_TMPDIR}"
   install -d "${BINDIR}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
-  install "${TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
-  echo "$PREFIX: installed ${BINDIR}/${BINARY} and ${BINDIR}/${BINARY_SHORT_NAME}"
+  install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
+  install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
+  
+  # Convert relative path to absolute path for PATH instructions
+  if [ "${BINDIR#/}" = "${BINDIR}" ]; then
+    # Relative path - convert to absolute
+    ABSOLUTE_BINDIR="$(cd "${BINDIR}" && pwd)"
+  else
+    # Already absolute path
+    ABSOLUTE_BINDIR="${BINDIR}"
+  fi
+  
+  setup_path_interactive "$ABSOLUTE_BINDIR"
 }
 
 uname_os_check

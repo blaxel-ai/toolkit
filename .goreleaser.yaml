@@ -59,6 +59,7 @@ brews:
   - name: blaxel
     caveats: Blaxel is a tool to ship AI agents that never slack.
     homepage: "https://www.blaxel.ai"
+    skip_upload: auto
     install: |
       bin.install "blaxel"
       bin.install_symlink "blaxel" => "bl"

@@ -10,16 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/beamlit/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
 func (r *Operations) DeployCmd() *cobra.Command {
-	var directory string
 	var name string
 	var dryRun bool
 	var recursive bool
-
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -41,7 +38,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			// Create a temporary directory for deployment files
+			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
 
 			if config.Name != "" {
@@ -49,10 +46,11 @@ func (r *Operations) DeployCmd() *cobra.Command {
 			}
 
 			deployment := Deployment{
-				dir:  deployDir,
-				name: name,
-				cwd:  cwd,
-				r:    r,
+				dir:    deployDir,
+				folder: folder,
+				name:   name,
+				cwd:    cwd,
+				r:      r,
 			}
 
 			err = deployment.Generate()
@@ -79,16 +77,17 @@ func (r *Operations) DeployCmd() *cobra.Command {
 			deployment.Ready()
 		},
 	}
-	cmd.Flags().StringVarP(&directory, "directory", "d", "src", "Directory to deploy, defaults to current directory")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Optional name for the deployment")
 	cmd.Flags().BoolVarP(&dryRun, "dryrun", "", false, "Dry run the deployment")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Deploy recursively")
+	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Deployment app path, can be a sub directory")
 	return cmd
 }
 
 type Deployment struct {
 	dir               string
 	name              string
+	folder            string
 	blaxelDeployments []Result
 	zip               *os.File
 	cwd               string
@@ -97,7 +96,7 @@ type Deployment struct {
 
 func (d *Deployment) Generate() error {
 	if d.name == "" {
-		split := strings.Split(d.cwd, "/")
+		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
 		d.name = split[len(split)-1]
 	}
 
@@ -119,20 +118,6 @@ func (d *Deployment) Generate() error {
 }
 
 func (d *Deployment) GenerateDeployment() Result {
-	entrypoint, err := findRootCmdAsString(RootCmdConfig{
-		Hotreload:  false,
-		Production: true,
-		Entrypoint: config.Entrypoint,
-	})
-	if err != nil {
-		fmt.Printf("failed to find root cmd: %v", err)
-	}
-	if len(entrypoint) > 0 {
-		entrypoint[0] = "/usr/bin/" + entrypoint[0]
-	}
-	if len(entrypoint) > 1 {
-		entrypoint[1] = "/blaxel/" + entrypoint[1]
-	}
 	var Spec map[string]interface{}
 	var Kind string
 
@@ -141,7 +126,6 @@ func (d *Deployment) GenerateDeployment() Result {
 		runtime = *config.Runtime
 	}
 	runtime["envs"] = GetUniqueEnvs()
-	runtime["entrypoint"] = entrypoint
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
 	}
@@ -161,6 +145,12 @@ func (d *Deployment) GenerateDeployment() Result {
 		}
 	case "job":
 		Kind = "Job"
+		Spec = map[string]interface{}{
+			"runtime":  runtime,
+			"triggers": config.Triggers,
+		}
+	case "sandbox":
+		Kind = "Sandbox"
 		Spec = map[string]interface{}{
 			"runtime":  runtime,
 			"triggers": config.Triggers,
@@ -210,7 +200,7 @@ func (d *Deployment) Apply() error {
 
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
-	currentWorkspace := sdk.CurrentContext().Workspace
+	currentWorkspace := workspace
 	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 
@@ -304,43 +294,14 @@ func (d *Deployment) Zip() error {
 			return nil
 		}
 
-		// Create a header based on the file info
-		header, err := zip.FileInfoHeader(info)
+		relPath, err := filepath.Rel(d.cwd, path)
 		if err != nil {
 			return err
 		}
 
-		// Set the header name to the relative path
-		header.Name, err = filepath.Rel(d.cwd, path)
+		err = d.addFileToZip(zipWriter, path, relPath)
 		if err != nil {
 			return err
-		}
-
-		// If it's a directory, we need to add a trailing slash
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			header.Method = zip.Deflate
-		}
-
-		// Create a writer for the file
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		// If it's a file, write its content to the zip
-		if !info.IsDir() {
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-
-			_, err = io.Copy(writer, file)
-			if err != nil {
-				return err
-			}
 		}
 
 		return nil
@@ -350,8 +311,63 @@ func (d *Deployment) Zip() error {
 		return fmt.Errorf("failed to zip directory: %w", err)
 	}
 
+	if d.folder != "" {
+		blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
+		err := d.addFileToZip(zipWriter, blaxelTomlPath, "blaxel.toml")
+		if err != nil {
+			return err
+		}
+		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
+		err = d.addFileToZip(zipWriter, dockerfilePath, "Dockerfile")
+		if err != nil {
+			return err
+		}
+	}
+
 	d.zip = zipFile
 
+	return nil
+}
+
+func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, headerName string) error {
+	if _, err := os.Stat(filePath); err == nil {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to stat %s: %w", headerName, err)
+		}
+
+		header, err := zip.FileInfoHeader(fileInfo)
+		if err != nil {
+			return fmt.Errorf("failed to create zip header: %w", err)
+		}
+
+		// Set the header name to the specified headerName
+		if fileInfo.IsDir() {
+			header.Name = headerName + "/" // Add trailing slash for directories
+		} else {
+			header.Name = headerName
+			header.Method = zip.Deflate
+		}
+
+		writer, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return fmt.Errorf("failed to create zip writer: %w", err)
+		}
+
+		// If it's a file, write its content to the zip
+		if !fileInfo.IsDir() {
+			file, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to open %s: %w", headerName, err)
+			}
+			defer file.Close()
+
+			_, err = io.Copy(writer, file)
+			if err != nil {
+				return fmt.Errorf("failed to copy %s to zip: %w", headerName, err)
+			}
+		}
+	}
 	return nil
 }
 

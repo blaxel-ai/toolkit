@@ -43,12 +43,14 @@ func (r *Operations) ServeCmd() *cobra.Command {
 				}
 			}
 			// Check for pyproject.toml or package.json
-			language := moduleLanguage()
+			language := moduleLanguage(folder)
 			switch language {
 			case "python":
 				activeProc = startPythonServer(port, host, hotreload)
 			case "typescript":
 				activeProc = startTypescriptServer(port, host, hotreload)
+			case "go":
+				activeProc = startGoServer(port, host, hotreload)
 			default:
 				fmt.Println("Error: Neither pyproject.toml nor package.json found in current directory")
 				os.Exit(1)
@@ -83,6 +85,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&host, "host", "H", "0.0.0.0", "Bind socket to this port. If 0, an available port will be picked")
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Serve the project recursively")
+	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Serve the project from a sub directory")
 	return cmd
 }
 
@@ -106,7 +109,7 @@ func getServerPath() string {
 		fmt.Println("Error getting current directory:", err)
 		os.Exit(1)
 	}
-	language := moduleLanguage()
+	language := moduleLanguage(folder)
 	switch language {
 	case "typescript":
 		path := filepath.Join(pwd, "node_modules", ".bin")

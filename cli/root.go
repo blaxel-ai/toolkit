@@ -22,7 +22,7 @@ var BASE_URL = "https://api.blaxel.ai/v0"
 var APP_URL = "https://app.blaxel.ai"
 var RUN_URL = "https://run.blaxel.ai"
 var REGISTRY_URL = "https://us.registry.blaxel.ai"
-var GITHUB_RELEASES_URL = "https://api.github.com/repos/blaxel-ai/toolkit/releases/latest"
+var GITHUB_RELEASES_URL = "https://api.github.com/repos/blaxel-ai/toolkit/releases"
 var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#update"
 
 // ANSI color codes
@@ -95,6 +95,17 @@ func checkForUpdates(currentVersion string) {
 	if currentVersion == "dev" {
 		return
 	}
+	if strings.Contains(currentVersion, "-SNAPSHOT") {
+		return
+	}
+
+	// Skip update check for pre-release versions
+	cleanCurrentVersion := strings.Split(currentVersion, "-SNAPSHOT")[0]
+	if semVer, err := semver.NewVersion(cleanCurrentVersion); err == nil {
+		if semVer.Prerelease() != "" {
+			return // Skip check for pre-release versions like 1.2.3-rc1, 1.2.3-alpha, etc.
+		}
+	}
 
 	// Read from cache
 	cache, err := readVersionCache()
@@ -121,18 +132,47 @@ func checkForUpdates(currentVersion string) {
 		return
 	}
 
-	var release struct {
+	var releases []struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.Unmarshal(body, &release); err != nil {
+	if err := json.Unmarshal(body, &releases); err != nil {
 		return
 	}
 
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
+	// Filter releases to only include stable versions (N.N.N format)
+	var stableVersions []*semver.Version
+	for _, release := range releases {
+		version := strings.TrimPrefix(release.TagName, "v")
+
+		// Parse with semver to validate format
+		semVer, err := semver.NewVersion(version)
+		if err != nil {
+			continue // Skip invalid versions
+		}
+
+		// Only include versions without pre-release identifiers (N.N.N format only)
+		if semVer.Prerelease() == "" {
+			stableVersions = append(stableVersions, semVer)
+		}
+	}
+
+	// Find the highest version among stable versions
+	if len(stableVersions) == 0 {
+		return // No stable versions found
+	}
+
+	var latestVersion *semver.Version
+	for _, version := range stableVersions {
+		if latestVersion == nil || version.GreaterThan(latestVersion) {
+			latestVersion = version
+		}
+	}
+
+	latestVersionString := latestVersion.String()
 
 	// Update cache
 	cache = versionCache{
-		Version:   latestVersion,
+		Version:   latestVersionString,
 		LastCheck: time.Now(),
 	}
 	_ = writeVersionCache(cache)
@@ -140,8 +180,8 @@ func checkForUpdates(currentVersion string) {
 	if strings.Contains(currentVersion, "-SNAPSHOT") {
 		currentVersion = strings.Split(currentVersion, "-SNAPSHOT")[0]
 	}
-	if isNewerVersion(latestVersion, currentVersion) {
-		notifyNewVersionAvailable(latestVersion, currentVersion)
+	if isNewerVersion(latestVersionString, currentVersion) {
+		notifyNewVersionAvailable(latestVersionString, currentVersion)
 	}
 }
 
@@ -183,6 +223,7 @@ var reg *Operations
 var verbose bool
 var version string
 var commit string
+var folder string
 var date string
 var utc bool
 var skipVersionWarning bool
@@ -191,14 +232,15 @@ var rootCmd = &cobra.Command{
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in a goroutine to not block the main execution
-		if !skipVersionWarning {
+
+		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
 			checkForUpdates(version)
 		}
 
 		setEnvs()
 
-		readSecrets()
-		readConfigToml()
+		readSecrets(folder)
+		readConfigToml(folder)
 
 		reg = &Operations{
 			BaseURL:     BASE_URL,
@@ -275,6 +317,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.AddCommand(reg.CreateJobCmd())
 	rootCmd.AddCommand(reg.DeployCmd())
 	rootCmd.AddCommand(reg.ChatCmd())
+	rootCmd.AddCommand(reg.ConnectCmd())
 	rootCmd.AddCommand(reg.VersionCmd())
 
 	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")

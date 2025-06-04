@@ -1,19 +1,29 @@
 ---
-title: "bl workspaces"
-slug: bl_workspaces
+title: "bl create-job"
+slug: bl_create-job
 ---
-## bl workspaces
+## bl create-job
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+Create a new blaxel job
+
+### Synopsis
+
+Create a new blaxel job
 
 ```
-bl workspaces [workspace] [flags]
+bl create-job directory [flags]
+```
+
+### Examples
+
+```
+bl create-job my-job
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+  -h, --help   help for create-job
 ```
 
 ### Options inherited from parent commands

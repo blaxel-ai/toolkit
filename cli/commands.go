@@ -20,6 +20,7 @@ type RegisterImpl struct {
 
 func findRootCmd(port int, host string, hotreload bool) (*exec.Cmd, error) {
 	rootCmd, err := findRootCmdAsString(RootCmdConfig{
+		Folder:     folder,
 		Hotreload:  hotreload,
 		Production: false,
 		Entrypoint: config.Entrypoint,
@@ -49,6 +50,7 @@ func findJobCommand(task map[string]interface{}) (*exec.Cmd, error) {
 }
 
 type RootCmdConfig struct {
+	Folder     string
 	Hotreload  bool
 	Production bool
 	Docker     bool
@@ -57,12 +59,14 @@ type RootCmdConfig struct {
 }
 
 func findRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
-	language := moduleLanguage()
+	language := moduleLanguage(cfg.Folder)
 	switch language {
 	case "python":
 		return findPythonRootCmdAsString(cfg)
 	case "typescript":
 		return findTSRootCmdAsString(cfg)
+	case "go":
+		return findGoRootCmdAsString(cfg)
 	}
 	return nil, fmt.Errorf("language not supported")
 }

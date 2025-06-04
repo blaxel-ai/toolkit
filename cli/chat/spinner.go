@@ -18,10 +18,10 @@ func (m *ChatModel) initializeSpinner() spinner.Model {
 	sp := spinner.New()
 	sp.Spinner = spinner.Spinner{
 		Frames: []string{"🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"},
-		FPS:    500 * time.Millisecond,
+		FPS:    100 * time.Millisecond,
 	}
 	sp.Style = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("213")).
+		Foreground(lipgloss.Color("240")).
 		PaddingLeft(2)
 	return sp
 }

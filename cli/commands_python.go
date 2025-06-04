@@ -25,6 +25,7 @@ func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 	}
 	py.Stdout = os.Stdout
 	py.Stderr = os.Stderr
+	py.Dir = folder
 
 	// Set env variables
 	envs := getServerEnvironment(port, host, hotreload)
@@ -60,7 +61,7 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	}
 	file := ""
 	for _, f := range files {
-		if _, err := os.Stat(f); err == nil {
+		if _, err := os.Stat(filepath.Join(cfg.Folder, f)); err == nil {
 			file = f
 			break
 		}
@@ -69,7 +70,7 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		return nil, fmt.Errorf("app.py or main.py not found in current directory")
 	}
 	venv := ".venv"
-	if _, err := os.Stat(venv); err == nil {
+	if _, err := os.Stat(filepath.Join(cfg.Folder, venv)); err == nil {
 		cmd := []string{filepath.Join(venv, "bin", "python"), file}
 		return cmd, nil
 	}
