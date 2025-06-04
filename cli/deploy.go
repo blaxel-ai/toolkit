@@ -81,6 +81,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Optional name for the deployment")
 	cmd.Flags().BoolVarP(&dryRun, "dryrun", "", false, "Dry run the deployment")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Deploy recursively")
+	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Deployment app path, can be a sub directory")
 	return cmd
 }
 
