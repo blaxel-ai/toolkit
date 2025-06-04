@@ -12,6 +12,22 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// ColumnWidths holds the calculated maximum width for each column
+type ColumnWidths struct {
+	workspace int
+	name      int
+	image     int
+	createdAt int
+	updatedAt int
+	status    int
+}
+
+// TableRowArgs holds the format string and values for a table row
+type TableRowArgs struct {
+	format string
+	values []interface{}
+}
+
 func output(resource Resource, slices []interface{}, outputFormat string) {
 	if outputFormat == "pretty" {
 		printYaml(resource, slices, true)
@@ -77,47 +93,137 @@ func navigateToKey(m map[string]interface{}, keys []string) interface{} {
 	return nil
 }
 
-func printTable(resource Resource, slices []interface{}) {
-	// Print header with fixed width columns
-	if resource.WithImage && resource.WithStatus {
-		fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT", "STATUS")
-	} else if resource.WithImage {
-		fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT")
-	} else if resource.WithStatus {
-		fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
-	} else {
-		fmt.Printf("%-15s %-24s %-24s %-24s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
+// buildTableRow dynamically builds format string and values based on enabled columns
+func buildTableRow(widths ColumnWidths, resource Resource, data map[string]string) TableRowArgs {
+	var formatParts []string
+	var values []interface{}
+
+	// Always include workspace and name
+	formatParts = append(formatParts, "%-*s", "%-*s")
+	values = append(values, widths.workspace, data["workspace"], widths.name, data["name"])
+
+	// Add image column if enabled
+	if resource.WithImage {
+		formatParts = append(formatParts, "%-*s")
+		values = append(values, widths.image, data["image"])
 	}
+
+	// Always include created_at and updated_at
+	formatParts = append(formatParts, "%-*s", "%-*s")
+	values = append(values, widths.createdAt, data["createdAt"], widths.updatedAt, data["updatedAt"])
+
+	// Add status column if enabled
+	if resource.WithStatus {
+		formatParts = append(formatParts, "%-*s")
+		values = append(values, widths.status, data["status"])
+	}
+
+	// Join format parts with spaces and add newline
+	format := strings.Join(formatParts, " ") + "\n"
+
+	return TableRowArgs{
+		format: format,
+		values: values,
+	}
+}
+
+// calculateColumnWidths scans through all data to find maximum width needed for each column
+func calculateColumnWidths(resource Resource, slices []interface{}) ColumnWidths {
+	// Initialize with header lengths as minimum widths
+	widths := ColumnWidths{
+		workspace: len("WORKSPACE"),
+		name:      len("NAME"),
+		image:     len("IMAGE"),
+		createdAt: len("CREATED_AT"),
+		updatedAt: len("UPDATED_AT"),
+		status:    len("STATUS"),
+	}
+
+	// Scan through all items to find maximum content width
+	for _, item := range slices {
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			// Check workspace width
+			workspace := retrieveKey(itemMap, "workspace")
+			if len(workspace) > widths.workspace {
+				widths.workspace = len(workspace)
+			}
+
+			// Check name width
+			name := retrieveKey(itemMap, "name")
+			if len(name) > widths.name {
+				widths.name = len(name)
+			}
+
+			// Check image width if needed
+			if resource.WithImage {
+				image := retrieveKey(itemMap, "spec.runtime.image")
+				if len(image) > widths.image {
+					widths.image = len(image)
+				}
+			}
+
+			// Check createdAt width
+			createdAt := retrieveDate(itemMap, "createdAt")
+			if len(createdAt) > widths.createdAt {
+				widths.createdAt = len(createdAt)
+			}
+
+			// Check updatedAt width
+			updatedAt := retrieveDate(itemMap, "updatedAt")
+			if len(updatedAt) > widths.updatedAt {
+				widths.updatedAt = len(updatedAt)
+			}
+
+			// Check status width if needed
+			if resource.WithStatus {
+				status := retrieveKey(itemMap, "status")
+				if len(status) > widths.status {
+					widths.status = len(status)
+				}
+			}
+		}
+	}
+
+	// Add a small padding (2 spaces) to each column for better readability
+	widths.workspace += 2
+	widths.name += 2
+	widths.image += 2
+	widths.createdAt += 2
+	widths.updatedAt += 2
+	widths.status += 2
+
+	return widths
+}
+
+func printTable(resource Resource, slices []interface{}) {
+	// Calculate maximum width for each column
+	maxWidths := calculateColumnWidths(resource, slices)
+
+	// Print header
+	headerArgs := buildTableRow(maxWidths, resource, map[string]string{
+		"workspace": "WORKSPACE",
+		"name":      "NAME",
+		"image":     "IMAGE",
+		"createdAt": "CREATED_AT",
+		"updatedAt": "UPDATED_AT",
+		"status":    "STATUS",
+	})
+	fmt.Printf(headerArgs.format, headerArgs.values...)
 
 	// Print each item in the array
 	for _, item := range slices {
-		// Convert item to map to access fields
 		if itemMap, ok := item.(map[string]interface{}); ok {
-			// Get the workspace field, default to "-" if not found
-			workspace := retrieveKey(itemMap, "workspace")
-
-			// Get the name field, default to "-" if not found
-			name := retrieveKey(itemMap, "name")
-
-			// Get the created_at field, default to "-" if not found
-			createdAt := retrieveDate(itemMap, "createdAt")
-
-			// Get the updated_at field, default to "-" if not found
-			updatedAt := retrieveDate(itemMap, "updatedAt")
-
-			if resource.WithImage && resource.WithStatus {
-				image := retrieveKey(itemMap, "spec.runtime.image")
-				status := retrieveKey(itemMap, "status")
-				fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", workspace, name, image, createdAt, updatedAt, status)
-			} else if resource.WithImage {
-				image := retrieveKey(itemMap, "spec.runtime.image")
-				fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", workspace, name, image, createdAt, updatedAt)
-			} else if resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", workspace, name, createdAt, updatedAt, status)
-			} else {
-				fmt.Printf("%-15s %-24s %-24s %-24s\n", workspace, name, createdAt, updatedAt)
+			rowData := map[string]string{
+				"workspace": retrieveKey(itemMap, "workspace"),
+				"name":      retrieveKey(itemMap, "name"),
+				"image":     retrieveKey(itemMap, "spec.runtime.image"),
+				"createdAt": retrieveDate(itemMap, "createdAt"),
+				"updatedAt": retrieveDate(itemMap, "updatedAt"),
+				"status":    retrieveKey(itemMap, "status"),
 			}
+
+			rowArgs := buildTableRow(maxWidths, resource, rowData)
+			fmt.Printf(rowArgs.format, rowArgs.values...)
 		}
 	}
 }
