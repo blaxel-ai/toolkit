@@ -230,6 +230,19 @@ setup_path_interactive() {
   local rc_file=""
   local rc_file_path=""
   
+  # Skip PATH setup for system directories that are already in PATH
+  case "$bin_path" in
+    /usr/local/bin|/usr/bin|/bin)
+      echo ""
+      echo "${BINARY} and ${BINARY_SHORT_NAME} were installed successfully to $bin_path"
+      echo ""
+      echo "Since $bin_path is already in your system PATH, no additional configuration is needed."
+      echo ""
+      echo "To get started, run: ${BINARY_SHORT_NAME} --help"
+      return
+      ;;
+  esac
+  
   # Detect shell from $SHELL environment variable first (most reliable)
   if [ -n "$SHELL" ]; then
     shell_name=$(basename "$SHELL")
