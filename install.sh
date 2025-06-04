@@ -291,15 +291,15 @@ setup_path_interactive() {
   # Check if running interactively
   if [ -t 0 ]; then
     # Running interactively - ask user
-    printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [Y/n] "
+    printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "
     read -r response
     
     case "$response" in
-      [nN]|[nN][oO])
-        response="n"
+      [yY]|[yY][eE][sS])
+        response="y"
         ;;
       *)
-        response="y"
+        response="n"
         ;;
     esac
   else
