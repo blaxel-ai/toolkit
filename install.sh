@@ -288,21 +288,29 @@ setup_path_interactive() {
   echo "To get started, you need ${BINARY} in your PATH environment variable."
   echo ""
   
-  # Ask user if they want automatic setup - read from /dev/tty for interactive mode
-  printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [Y/n] "
+  # Check if running interactively
   if [ -t 0 ]; then
-    # Running interactively
+    # Running interactively - ask user
+    printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [Y/n] "
     read -r response
+    
+    case "$response" in
+      [nN]|[nN][oO])
+        response="n"
+        ;;
+      *)
+        response="y"
+        ;;
+    esac
   else
-    # Running from pipe (curl | sh), read from terminal directly
-    read -r response < /dev/tty
+    # Running non-interactively (piped from curl) - default to no
+    response="n"
   fi
   
   case "$response" in
-    [nN]|[nN][oO])
-      # User declined automatic setup
-      echo ""
-      echo "To add ${BINARY} and ${BINARY_SHORT_NAME} to your PATH manually, run:"
+    n)
+      # User declined or non-interactive mode
+      echo "To add ${BINARY} and ${BINARY_SHORT_NAME} to your PATH, run:"
       echo ""
       if [ "$shell_name" = "fish" ]; then
         echo "  echo '' >> $rc_file"
@@ -316,9 +324,8 @@ setup_path_interactive() {
       echo ""
       echo "Then restart your $shell_name or run: source $rc_file"
       ;;
-    *)
-      # User accepted automatic setup (default)
-      echo ""
+    y)
+      # User accepted automatic setup
       echo "Adding ${BINARY} to PATH in $rc_file"
       
       # Create the directory if it doesn't exist (for fish config)
