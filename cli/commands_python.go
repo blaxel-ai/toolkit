@@ -10,11 +10,11 @@ import (
 
 func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
 	py, err := findRootCmd(port, host, hotreload)
-	fmt.Printf("Starting server : %s\n", strings.Join(py.Args, " "))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	fmt.Printf("Starting server : %s\n", strings.Join(py.Args, " "))
 	if os.Getenv("COMMAND") != "" {
 		command := strings.Split(os.Getenv("COMMAND"), " ")
 		if len(command) > 1 {
