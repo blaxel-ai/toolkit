@@ -197,10 +197,6 @@ func isNewerVersion(latestVersion, currentVersion string) bool {
 }
 
 func init() {
-	err := godotenv.Load()
-	// nolint:staticcheck
-	if err != nil {
-	}
 	env := os.Getenv("BL_ENV")
 	if env == "dev" {
 		BASE_URL = "https://api.blaxel.dev/v0"
@@ -215,6 +211,7 @@ func init() {
 	}
 }
 
+var envFile string
 var config Config
 var workspace string
 var outputFormat string
@@ -232,6 +229,8 @@ var rootCmd = &cobra.Command{
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in a goroutine to not block the main execution
+		// nolint:staticcheck
+		godotenv.Load(envFile)
 
 		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
 			checkForUpdates(version)
@@ -253,7 +252,7 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Invalid credentials for workspace %s\n", workspace)
 			fmt.Printf("Please run `bl login %s` to fix it credentials.\n", workspace)
 		}
-		var err error
+
 		os := runtime.GOOS
 		arch := runtime.GOARCH
 		commitShort := "unknown"
@@ -325,6 +324,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
 	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
+	rootCmd.PersistentFlags().StringVarP(&envFile, "env-file", "e", ".env", "Environment file to load")
 
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace

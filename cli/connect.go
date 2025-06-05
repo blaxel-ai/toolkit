@@ -28,8 +28,9 @@ func (r *Operations) ConnectSandboxCmd() *cobra.Command {
 	var url string
 
 	cmd := &cobra.Command{
-		Use:   "sandbox [sandbox-name]",
-		Short: "Connect to a sandbox environment",
+		Use:     "sandbox [sandbox-name]",
+		Aliases: []string{"sb"},
+		Short:   "Connect to a sandbox environment",
 		Long: `Connect to a sandbox environment using an interactive shell interface.
 
 This command provides a terminal-like interface for:
@@ -41,6 +42,7 @@ The shell connects to your sandbox via MCP (Model Control Protocol) over WebSock
 
 Examples:
   bl connect sandbox my-sandbox
+  bl connect sb my-sandbox
   bl connect sandbox production-env
   bl connect sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox`,
 		Args: cobra.ExactArgs(1),

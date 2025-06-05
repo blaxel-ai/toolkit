@@ -8,4 +8,7 @@ tmp
 blaxel_generated.py
 test.yaml
 node_modules
-.blaxel
+.blaxel\
+.env
+.env-dev
+.cache
