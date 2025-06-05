@@ -211,7 +211,7 @@ func init() {
 	}
 }
 
-var envFile string
+var envFiles []string
 var config Config
 var workspace string
 var outputFormat string
@@ -224,13 +224,14 @@ var folder string
 var date string
 var utc bool
 var skipVersionWarning bool
+var commandSecrets []string
 var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in a goroutine to not block the main execution
 		// nolint:staticcheck
-		godotenv.Load(envFile)
+		godotenv.Load(envFiles...)
 
 		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
 			checkForUpdates(version)
@@ -238,7 +239,11 @@ var rootCmd = &cobra.Command{
 
 		setEnvs()
 
+		loadCommandSecrets()
 		readSecrets(folder)
+		if folder != "" {
+			readSecrets("")
+		}
 		readConfigToml(folder)
 
 		reg = &Operations{
@@ -324,7 +329,8 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
 	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
-	rootCmd.PersistentFlags().StringVarP(&envFile, "env-file", "e", ".env", "Environment file to load")
+	rootCmd.PersistentFlags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
+	rootCmd.PersistentFlags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace

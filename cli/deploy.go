@@ -460,6 +460,12 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 		if dryRun {
 			command.Args = append(command.Args, "--dryrun")
 		}
+		for _, envFile := range envFiles {
+			command.Args = append(command.Args, "--env-file", envFile)
+		}
+		for _, secret := range secrets {
+			command.Args = append(command.Args, "-s", fmt.Sprintf("%s=%s", secret.Name, secret.Value))
+		}
 		commands = append(commands, command)
 	}
 	return commands, nil

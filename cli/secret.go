@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,20 @@ type Secrets []Env
 
 var secrets Secrets
 
+func loadCommandSecrets() {
+	for _, secret := range commandSecrets {
+		parts := strings.Split(secret, "=")
+		if len(parts) != 2 {
+			fmt.Println("Invalid secret format", secret)
+			continue
+		}
+		secrets = append(secrets, Env{
+			Name:  parts[0],
+			Value: parts[1],
+		})
+	}
+}
+
 func readSecrets(folder string) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -20,16 +35,16 @@ func readSecrets(folder string) {
 		return
 	}
 
-	envMap, err := godotenv.Read(filepath.Join(cwd, folder, ".env"))
-	if err != nil {
-		return
+	for _, file := range envFiles {
+		envMap, err := godotenv.Read(filepath.Join(cwd, folder, file))
+		if err != nil {
+			return
+		}
+		for key, value := range envMap {
+			secrets = append(secrets, Env{
+				Name:  key,
+				Value: value,
+			})
+		}
 	}
-
-	for key, value := range envMap {
-		secrets = append(secrets, Env{
-			Name:  key,
-			Value: value,
-		})
-	}
-
 }
