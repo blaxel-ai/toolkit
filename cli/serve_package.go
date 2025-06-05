@@ -182,6 +182,12 @@ func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, 
 		if hotreload {
 			command.Args = append(command.Args, "--hotreload")
 		}
+		for _, envFile := range envFiles {
+			command.Args = append(command.Args, "--env-file", envFile)
+		}
+		for _, secret := range secrets {
+			command.Args = append(command.Args, "-s", fmt.Sprintf("%s=%s", secret.Name, secret.Value))
+		}
 		commands = append(commands, command)
 		i++
 	}
