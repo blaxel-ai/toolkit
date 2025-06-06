@@ -1,25 +1,131 @@
 package cli
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 	"regexp"
 
-	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	core.RegisterCommand("create-mcp-server", func() *cobra.Command {
+		return CreateMCPServerCmd()
+	})
+}
+
+// CreateMCPServerCmd returns a cobra.Command that implements the 'create-mcpserver' CLI command.
+// The command creates a new Blaxel mcp server in the specified directory after collecting
+// necessary configuration through an interactive prompt.
+// Usage: bl create-mcp-server directory [--template template-name]
+func CreateMCPServerCmd() *cobra.Command {
+	var templateName string
+	var noTTY bool
+
+	cmd := &cobra.Command{
+		Use:     "create-mcp-server directory",
+		Args:    cobra.MaximumNArgs(2),
+		Aliases: []string{"cm", "cms"},
+		Short:   "Create a new blaxel mcp server",
+		Long:    "Create a new blaxel mcp server",
+		Example: `
+bl create-mcp-server my-mcp-server
+bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py
+bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) < 1 {
+				fmt.Println("Please provide a directory name")
+				return
+			}
+			// Check if directory already exists
+			if _, err := os.Stat(args[0]); !os.IsNotExist(err) {
+				fmt.Printf("Error: %s already exists\n", args[0])
+				return
+			}
+
+			templates, errTemplates := core.RetrieveTemplates("mcp")
+			if errTemplates != nil {
+				fmt.Println("Could not retrieve templates")
+				os.Exit(0)
+			}
+			if len(templates) == 0 {
+				fmt.Println("No templates found")
+				os.Exit(0)
+			}
+
+			var opts core.TemplateOptions
+			// If template is specified via flag or skip prompts is enabled, skip interactive prompt
+			if templateName != "" {
+				opts = core.CreateDefaultTemplateOptions(args[0], templateName, templates)
+				if opts.TemplateName == "" {
+					fmt.Printf("Error: template '%s' not found\n", templateName)
+					fmt.Println("Available templates:")
+					for _, template := range templates {
+						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
+						fmt.Printf("  %s (%s)\n", key, template.Language)
+					}
+					return
+				}
+			} else {
+				opts = promptCreateMCPServer(args[0])
+			}
+
+			if noTTY {
+				template, err := templates.Find(opts.TemplateName)
+				if err != nil {
+					fmt.Println("Error finding template", err)
+					return
+				}
+				cloneError := template.Clone(opts)
+				if cloneError != nil {
+					fmt.Println("Error creating mcp server", cloneError)
+					os.RemoveAll(opts.Directory)
+					return
+				}
+			} else {
+				var cloneError error
+				spinnerErr := spinner.New().
+					Title("Creating your blaxel mcp server...").
+					Action(func() {
+						template, err := templates.Find(opts.TemplateName)
+						if err != nil {
+							fmt.Println("Error finding template", err)
+							return
+						}
+						cloneError = template.Clone(opts)
+					}).
+					Run()
+				if spinnerErr != nil {
+					fmt.Println("Error creating mcp server", spinnerErr)
+					return
+				}
+				if cloneError != nil {
+					fmt.Println("Error creating mcp server", cloneError)
+					os.RemoveAll(opts.Directory)
+					return
+				}
+			}
+			fmt.Printf(`Your blaxel mcp server has been created. Start working on it:
+cd %s;
+bl serve --hotreload;
+`, opts.Directory)
+		},
+	}
+
+	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template to use for the mcp server (skips interactive prompt)")
+	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive prompts and use defaults")
+	return cmd
+}
+
 // promptCreateMCPServer displays an interactive form to collect user input for creating a new mcp server.
 // It prompts for project name, language selection, template, author, license, and additional features.
 // Takes a directory string parameter and returns a CreateMCPServerOptions struct with the user's selections.
-func promptCreateMCPServer(directory string) TemplateOptions {
-	mcpserverOptions := TemplateOptions{
+func promptCreateMCPServer(directory string) core.TemplateOptions {
+	mcpserverOptions := core.TemplateOptions{
 		ProjectName: directory,
 		Directory:   directory,
 	}
@@ -29,7 +135,7 @@ func promptCreateMCPServer(directory string) TemplateOptions {
 	} else {
 		mcpserverOptions.Author = "blaxel"
 	}
-	templates, err := RetrieveTemplates("mcp")
+	templates, err := core.RetrieveTemplates("mcp")
 	if err != nil {
 		fmt.Println("Could not retrieve templates")
 		os.Exit(0)
@@ -39,7 +145,7 @@ func promptCreateMCPServer(directory string) TemplateOptions {
 		os.Exit(0)
 	}
 	languagesOptions := []huh.Option[string]{}
-	for _, language := range templates.getLanguages() {
+	for _, language := range templates.GetLanguages() {
 		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
 	}
 	form := huh.NewForm(
@@ -63,7 +169,7 @@ func promptCreateMCPServer(directory string) TemplateOptions {
 						return []huh.Option[string]{}
 					}
 					options := []huh.Option[string]{}
-					for _, template := range templates.filterByLanguage(mcpserverOptions.Language) {
+					for _, template := range templates.FilterByLanguage(mcpserverOptions.Language) {
 						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
 						options = append(options, huh.NewOption(key, *template.Name))
 					}
@@ -72,89 +178,11 @@ func promptCreateMCPServer(directory string) TemplateOptions {
 				Value(&mcpserverOptions.TemplateName),
 		),
 	)
-	form.WithTheme(GetHuhTheme())
+	form.WithTheme(core.GetHuhTheme())
 	err = form.Run()
 	if err != nil {
 		fmt.Println("Cancel create blaxel mcp server")
 		os.Exit(0)
 	}
 	return mcpserverOptions
-}
-
-// CreateMCPServerCmd returns a cobra.Command that implements the 'create-mcpserver' CLI command.
-// The command creates a new Blaxel mcp server in the specified directory after collecting
-// necessary configuration through an interactive prompt.
-// Usage: bl create-mcpserver directory
-func (r *Operations) CreateMCPServerCmd() *cobra.Command {
-
-	cmd := &cobra.Command{
-		Use:     "create-mcp-server directory",
-		Args:    cobra.MaximumNArgs(2),
-		Aliases: []string{"cm", "cms"},
-		Short:   "Create a new blaxel mcp server",
-		Long:    "Create a new blaxel mcp server",
-		Example: `bl create-mcpserver my-mcp-server`,
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) < 1 {
-				fmt.Println("Please provide a directory name")
-				return
-			}
-			// Check if directory already exists
-			if _, err := os.Stat(args[0]); !os.IsNotExist(err) {
-				fmt.Printf("Error: %s already exists\n", args[0])
-				return
-			}
-			opts := promptCreateMCPServer(args[0])
-			templates, errTemplates := RetrieveTemplates("mcp")
-			if errTemplates != nil {
-				fmt.Println("Could not retrieve templates")
-				os.Exit(0)
-			}
-			if len(templates) == 0 {
-				fmt.Println("No templates found")
-				os.Exit(0)
-			}
-			var cloneError error
-			spinnerErr := spinner.New().
-				Title("Creating your blaxel mcp server...").
-				Action(func() {
-					template, err := templates.Find(opts.TemplateName)
-					if err != nil {
-						fmt.Println("Error finding template", err)
-						return
-					}
-					cloneError = template.Clone(opts)
-				}).
-				Run()
-			if spinnerErr != nil {
-				fmt.Println("Error creating mcp server", spinnerErr)
-				return
-			}
-			if cloneError != nil {
-				fmt.Println("Error creating mcp server", cloneError)
-				os.RemoveAll(opts.Directory)
-				return
-			}
-			res, err := client.ListModels(context.Background())
-			if err != nil {
-				return
-			}
-
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				return
-			}
-
-			var models []sdk.Model
-			err = json.Unmarshal(body, &models)
-			if err != nil {
-				return
-			}
-			fmt.Printf(`Your blaxel mcp server has been created. Start working on it:
-cd %s;
-bl serve --hotreload;
-`, opts.Directory)
-		},
-	}
-	return cmd
 }

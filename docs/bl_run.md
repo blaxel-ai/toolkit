@@ -23,6 +23,8 @@ bl run job my-job --file myjob.json
 ```
   -d, --data string          JSON body data for the inference request
       --debug                Debug mode
+      --directory string     Directory to run the command from
+  -e, --env-file strings     Environment file to load (default [.env])
   -f, --file string          Input from a file
       --header stringArray   Request headers in 'Key: Value' format. Can be specified multiple times
   -h, --help                 help for run
@@ -30,6 +32,7 @@ bl run job my-job --file myjob.json
       --method string        HTTP method for the inference request (default "POST")
       --params strings       Query params sent to the inference request
       --path string          path for the inference request
+  -s, --secrets strings      Secrets to deploy
       --upload-file string   This transfers the specified local file to the remote URL
 ```
 

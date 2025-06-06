@@ -4,11 +4,19 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) LogoutCmd() *cobra.Command {
+func init() {
+	// Auto-register this command
+	core.RegisterCommand("logout", func() *cobra.Command {
+		return LogoutCmd()
+	})
+}
+
+func LogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout [workspace]",
 		Args:  cobra.MaximumNArgs(1),

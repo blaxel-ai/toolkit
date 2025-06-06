@@ -15,7 +15,19 @@ func NewApiKeyProvider(credentials Credentials, workspaceName string) *ApiKeyAut
 }
 
 func (s *ApiKeyAuth) Intercept(ctx context.Context, req *http.Request) error {
-	req.Header.Set("X-Blaxel-Api-Key", s.credentials.APIKey)
-	req.Header.Set("X-Blaxel-Workspace", s.workspaceName)
+	headers, err := s.GetHeaders()
+	if err != nil {
+		return err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return nil
+}
+
+func (s *ApiKeyAuth) GetHeaders() (map[string]string, error) {
+	return map[string]string{
+		"X-Blaxel-Authorization": "Bearer " + s.credentials.APIKey,
+		"X-Blaxel-Workspace":     s.workspaceName,
+	}, nil
 }

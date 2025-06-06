@@ -1,0 +1,10 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: test-base
+  displayName: Test Base
+spec:
+  runtime:
+    image: "blaxel/prod-base:latest"
+    memory: 4096
+    generation: mk3

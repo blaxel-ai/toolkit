@@ -1,0 +1,9 @@
+skipRoot = true
+
+[agent.main-agent]
+path = "main-agent"
+port = 1338
+
+[agent.main-agent-2]
+path = "main-agent-2"
+port = 1339

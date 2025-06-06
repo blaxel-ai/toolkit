@@ -10,22 +10,29 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) DeleteCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("delete", func() *cobra.Command {
+		return DeleteCmd()
+	})
+}
+
+func DeleteCmd() *cobra.Command {
 	var filePath string
 	var recursive bool
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a resource",
 		Example: `
-			bl delete -f ./my-resource.yaml
-			# Or using stdin
-			cat file.yaml | blaxel delete -f -
+bl delete -f ./my-resource.yaml
+# Or using stdin
+cat file.yaml | blaxel delete -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			results, err := getResults("delete", filePath, recursive)
+			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
 				fmt.Printf("error getting results: %v", err)
 				os.Exit(1)
@@ -33,10 +40,10 @@ func (r *Operations) DeleteCmd() *cobra.Command {
 
 			// À ce stade, results contient tous vos documents YAML
 			for _, result := range results {
-				for _, resource := range resources {
+				for _, resource := range core.GetResources() {
 					if resource.Kind == result.Kind {
 						name := result.Metadata.(map[string]interface{})["name"].(string)
-						resource.DeleteFn(name)
+						DeleteFn(resource, name)
 					}
 				}
 			}
@@ -51,18 +58,18 @@ func (r *Operations) DeleteCmd() *cobra.Command {
 		os.Exit(1)
 	}
 
-	for _, resource := range resources {
+	for _, resource := range core.GetResources() {
 		subcmd := &cobra.Command{
 			Use:     fmt.Sprintf("%s name [flags]", resource.Singular),
 			Aliases: []string{resource.Plural, resource.Short},
-			Short:   fmt.Sprintf("Delete a %s", resource.Kind),
+			Short:   fmt.Sprintf("Delete %s", resource.Singular),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
 					fmt.Println("no resource name provided")
 					os.Exit(1)
 				}
 				if len(args) == 1 {
-					resource.DeleteFn(args[0])
+					DeleteFn(resource, args[0])
 				}
 			},
 		}
@@ -72,7 +79,7 @@ func (r *Operations) DeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func (resource Resource) DeleteFn(name string) {
+func DeleteFn(resource *core.Resource, name string) {
 	ctx := context.Background()
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Delete)
@@ -111,7 +118,7 @@ func (resource Resource) DeleteFn(name string) {
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Println(ErrorHandler(response.Request, resource.Kind, name, buf.String()))
+		fmt.Println(core.ErrorHandler(response.Request, resource.Kind, name, buf.String()))
 		os.Exit(1)
 		return
 	}
