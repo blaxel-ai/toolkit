@@ -27,9 +27,11 @@ bl apply [flags]
 ### Options
 
 ```
-  -f, --filename string   Path to YAML file to apply
-  -h, --help              help for apply
-  -R, --recursive         Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.
+  -e, --env-file strings   Environment file to load (default [.env])
+  -f, --filename string    Path to YAML file to apply
+  -h, --help               help for apply
+  -R, --recursive          Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.
+  -s, --secrets strings    Secrets to deploy
 ```
 
 ### Options inherited from parent commands

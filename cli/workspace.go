@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) ListOrSetWorkspacesCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("workspace", func() *cobra.Command {
+		return ListOrSetWorkspacesCmd()
+	})
+}
+
+func ListOrSetWorkspacesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "workspaces [workspace]",
 		Aliases: []string{"ws", "workspace"},
@@ -44,10 +51,10 @@ func (r *Operations) ListOrSetWorkspacesCmd() *cobra.Command {
 func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sdk.Workspace, error) {
 	c, err := sdk.NewClientWithCredentials(
 		sdk.RunClientWithCredentials{
-			ApiURL:      BASE_URL,
-			RunURL:      RUN_URL,
+			ApiURL:      core.GetBaseURL(),
+			RunURL:      core.GetRunURL(),
 			Credentials: credentials,
-			Workspace:   workspace,
+			Workspace:   workspaceName,
 		},
 	)
 	if err != nil {
@@ -58,7 +65,7 @@ func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sd
 		return sdk.Workspace{}, err
 	}
 	if response.StatusCode() >= 400 {
-		fmt.Println(ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body)))
+		fmt.Println(core.ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body)))
 		os.Exit(1)
 	}
 	return *response.JSON200, nil

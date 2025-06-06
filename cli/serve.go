@@ -5,16 +5,26 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) ServeCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("serve", func() *cobra.Command {
+		return ServeCmd()
+	})
+}
+
+func ServeCmd() *cobra.Command {
 	var port int
 	var host string
 	var hotreload bool
 	var recursive bool
+	var folder string
+	var envFiles []string
+	var commandSecrets []string
 	cmd := &cobra.Command{
 		Use:     "serve",
 		Args:    cobra.MaximumNArgs(1),
@@ -24,13 +34,20 @@ func (r *Operations) ServeCmd() *cobra.Command {
 		Example: `bl serve --remote --hotreload --port 1338`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var activeProc *exec.Cmd
+			core.LoadCommandSecrets(commandSecrets)
+			core.ReadSecrets(folder, envFiles)
+			if folder != "" {
+				core.ReadSecrets("", envFiles)
+			}
+			config := core.GetConfig()
 
 			cwd, err := os.Getwd()
 			if err != nil {
 				fmt.Printf("Error getting current working directory: %v\n", err)
 				os.Exit(1)
 			}
-			err = r.SeedCache(cwd)
+
+			err = core.SeedCache(cwd)
 			if err != nil {
 				fmt.Println("Error seeding cache:", err)
 				os.Exit(1)
@@ -38,19 +55,19 @@ func (r *Operations) ServeCmd() *cobra.Command {
 
 			// If it's a package, we need to handle it
 			if recursive {
-				if startPackageServer(port, host, hotreload) {
+				if server.StartPackageServer(port, host, hotreload, config, envFiles, core.GetSecrets()) {
 					return
 				}
 			}
 			// Check for pyproject.toml or package.json
-			language := moduleLanguage(folder)
+			language := core.ModuleLanguage(folder)
 			switch language {
 			case "python":
-				activeProc = startPythonServer(port, host, hotreload)
+				activeProc = server.StartPythonServer(port, host, hotreload, folder, config)
 			case "typescript":
-				activeProc = startTypescriptServer(port, host, hotreload)
+				activeProc = server.StartTypescriptServer(port, host, hotreload, folder, config)
 			case "go":
-				activeProc = startGoServer(port, host, hotreload)
+				activeProc = server.StartGoServer(port, host, hotreload, folder, config)
 			default:
 				fmt.Println("Error: Neither pyproject.toml nor package.json found in current directory")
 				os.Exit(1)
@@ -86,34 +103,7 @@ func (r *Operations) ServeCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Serve the project recursively")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Serve the project from a sub directory")
+	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	return cmd
-}
-
-func getServerEnvironment(port int, host string, hotreload bool) CommandEnv {
-	env := CommandEnv{}
-	// Add all current env variables if not already set
-	env.AddClientEnv()
-	env.Set("BL_SERVER_PORT", fmt.Sprintf("%d", port))
-	env.Set("BL_SERVER_HOST", host)
-	env.Set("BL_WORKSPACE", config.Workspace)
-	env.Set("PATH", getServerPath())
-	if hotreload {
-		env.Set("BL_HOTRELOAD", "true")
-	}
-	return env
-}
-
-func getServerPath() string {
-	pwd, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Error getting current directory:", err)
-		os.Exit(1)
-	}
-	language := moduleLanguage(folder)
-	switch language {
-	case "typescript":
-		path := filepath.Join(pwd, "node_modules", ".bin")
-		return fmt.Sprintf("%s:%s", path, os.Getenv("PATH"))
-	}
-	return os.Getenv("PATH")
 }

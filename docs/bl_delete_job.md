@@ -4,7 +4,7 @@ slug: bl_delete_job
 ---
 ## bl delete job
 
-Delete a Job
+Delete job
 
 ```
 bl delete job name [flags]

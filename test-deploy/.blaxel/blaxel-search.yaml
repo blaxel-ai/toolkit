@@ -1,0 +1,16 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: IntegrationConnection
+metadata:
+  name: blaxel-search-integration
+spec:
+  integration: blaxel-search
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Function
+metadata:
+  name: blaxel-search
+spec:
+  integrationConnections:
+    - blaxel-search-integration
+  runtime:
+    type: mcp

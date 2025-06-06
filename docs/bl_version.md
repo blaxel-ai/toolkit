@@ -4,7 +4,7 @@ slug: bl_version
 ---
 ## bl version
 
-Get the version of the CLI
+Print the version number
 
 ```
 bl version [flags]

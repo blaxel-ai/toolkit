@@ -1,0 +1,25 @@
+[project]
+name = "template-google-adk-py"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asgi-correlation-id>=4.3.4",
+    "blaxel[google-adk]==0.1.21",
+    "fastapi[standard]>=0.115.12",
+    "rich>=13.9.4",
+]
+[dependency-groups]
+dev = ["ruff>=0.8.2"]
+
+[tool.ruff]
+indent-width = 4
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint]
+select = ["E", "F"]

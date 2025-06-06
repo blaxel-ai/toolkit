@@ -9,47 +9,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
 
-func runJobLocally(data string) {
-	batch := sdk.Batch{}
-	err := json.Unmarshal([]byte(data), &batch)
-	if err != nil {
-		fmt.Println("Error: Invalid JSON")
-		os.Exit(1)
-	}
-
-	for i, task := range batch.Tasks {
-		fmt.Printf("Task %d:\n", i+1)
-		jsonencoded, err := json.Marshal(task)
-		if err != nil {
-			fmt.Println("Error marshalling task:", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Arguments: %s\n", string(jsonencoded))
-		cmd, err := findJobCommand(task)
-		if err != nil {
-			fmt.Println("Error finding root cmd:", err)
-			os.Exit(1)
-		}
-
-		// Capture stdout and stderr
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		// Run the command and wait for it to complete
-		err = cmd.Run()
-		if err != nil {
-			fmt.Printf("Error executing task %d: %v\n", i+1, err)
-			os.Exit(1)
-		}
-		fmt.Println()
-	}
+func init() {
+	core.RegisterCommand("run", func() *cobra.Command {
+		return RunCmd()
+	})
 }
 
-func (r *Operations) RunCmd() *cobra.Command {
+func RunCmd() *cobra.Command {
 	var data string
 	var path string
 	var method string
@@ -59,6 +31,9 @@ func (r *Operations) RunCmd() *cobra.Command {
 	var headerFlags []string
 	var uploadFilePath string
 	var filePath string
+	var envFiles []string
+	var commandSecrets []string
+	var folder string
 	cmd := &cobra.Command{
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
@@ -71,6 +46,8 @@ bl run job my-job --file myjob.json`,
 				fmt.Println("Error: Resource type and name are required")
 				os.Exit(1)
 			}
+			core.LoadCommandSecrets(commandSecrets)
+			core.ReadSecrets("", envFiles)
 
 			resourceType := args[0]
 			resourceName := args[1]
@@ -110,7 +87,7 @@ bl run job my-job --file myjob.json`,
 			}
 
 			if resourceType == "job" && local {
-				runJobLocally(data)
+				runJobLocally(data, folder, core.GetConfig())
 				os.Exit(0)
 			}
 
@@ -118,6 +95,8 @@ bl run job my-job --file myjob.json`,
 				path = "/executions"
 			}
 
+			client := core.GetClient()
+			workspace := core.GetWorkspace()
 			res, err := client.Run(
 				context.Background(),
 				workspace,
@@ -178,10 +157,14 @@ bl run job my-job --file myjob.json`,
 	cmd.Flags().StringArrayVar(&headerFlags, "header", []string{}, "Request headers in 'Key: Value' format. Can be specified multiple times")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
+	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
+	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
 	return cmd
 }
 
 func getModelDefaultPath(resourceName string) string {
+	client := core.GetClient()
 	res, err := client.GetModel(context.Background(), resourceName)
 	if err != nil {
 		return ""
@@ -233,4 +216,40 @@ func getModelDefaultPath(resourceName string) string {
 		}
 	}
 	return ""
+}
+
+func runJobLocally(data string, folder string, config core.Config) {
+	batch := sdk.Batch{}
+	err := json.Unmarshal([]byte(data), &batch)
+	if err != nil {
+		fmt.Println("Error: Invalid JSON")
+		os.Exit(1)
+	}
+
+	for i, task := range batch.Tasks {
+		fmt.Printf("Task %d:\n", i+1)
+		jsonencoded, err := json.Marshal(task)
+		if err != nil {
+			fmt.Println("Error marshalling task:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Arguments: %s\n", string(jsonencoded))
+		cmd, err := server.FindJobCommand(task, folder, config)
+		if err != nil {
+			fmt.Println("Error finding root cmd:", err)
+			os.Exit(1)
+		}
+
+		// Capture stdout and stderr
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		// Run the command and wait for it to complete
+		err = cmd.Run()
+		if err != nil {
+			fmt.Printf("Error executing task %d: %v\n", i+1, err)
+			os.Exit(1)
+		}
+		fmt.Println()
+	}
 }

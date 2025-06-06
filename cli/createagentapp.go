@@ -6,75 +6,23 @@ import (
 	"os/user"
 	"regexp"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
-// promptCreateAgentApp displays an interactive form to collect user input for creating a new agent app.
-// It prompts for project name, model selection, template, author, license, and additional features.
-// Takes a directory string parameter and returns a CreateAgentAppOptions struct with the user's selections.
-func promptCreateAgentApp(directory string, templates Templates) TemplateOptions {
-	agentAppOptions := TemplateOptions{
-		ProjectName:  directory,
-		Directory:    directory,
-		TemplateName: "",
-	}
-	currentUser, err := user.Current()
-	if err == nil {
-		agentAppOptions.Author = currentUser.Username
-	} else {
-		agentAppOptions.Author = "blaxel"
-	}
-	languagesOptions := []huh.Option[string]{}
-	for _, language := range templates.getLanguages() {
-		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
-	}
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Project Name").
-				Description("Name of your agent app").
-				Value(&agentAppOptions.ProjectName),
-			huh.NewSelect[string]().
-				Title("Language").
-				Description("Language to use for your agent app").
-				Height(5).
-				Options(languagesOptions...).
-				Value(&agentAppOptions.Language),
-			huh.NewSelect[string]().
-				Title("Template").
-				Description("Template to use for your agent app").
-				Height(12).
-				OptionsFunc(func() []huh.Option[string] {
-					templates := templates.filterByLanguage(agentAppOptions.Language)
-					if len(templates) == 0 {
-						return []huh.Option[string]{}
-					}
-					options := []huh.Option[string]{}
-					for _, template := range templates {
-						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
-						options = append(options, huh.NewOption(key, *template.Name))
-					}
-					return options
-				}, &agentAppOptions).
-				Value(&agentAppOptions.TemplateName),
-		),
-	)
-	form.WithTheme(GetHuhTheme())
-	err = form.Run()
-	if err != nil {
-		fmt.Println("Cancel create blaxel agent app")
-		os.Exit(0)
-	}
-	return agentAppOptions
+func init() {
+	core.RegisterCommand("create-agent-app", func() *cobra.Command {
+		return CreateAgentAppCmd()
+	})
 }
 
 // CreateAgentAppCmd returns a cobra.Command that implements the 'create-agent-app' CLI command.
 // The command creates a new Blaxel agent app in the specified directory after collecting
 // necessary configuration through an interactive prompt.
 // Usage: bl create-agent-app directory
-func (r *Operations) CreateAgentAppCmd() *cobra.Command {
+func CreateAgentAppCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "create-agent-app directory",
@@ -96,11 +44,11 @@ func (r *Operations) CreateAgentAppCmd() *cobra.Command {
 			}
 
 			var templateError error
-			var templates Templates
+			var templates core.Templates
 			spinnerErr := spinner.New().
 				Title("Retrieving templates...").
 				Action(func() {
-					templates, templateError = RetrieveTemplates("agent")
+					templates, templateError = core.RetrieveTemplates("agent")
 				}).
 				Run()
 			if spinnerErr != nil {
@@ -146,4 +94,63 @@ bl serve --hotreload;
 		},
 	}
 	return cmd
+}
+
+// promptCreateAgentApp displays an interactive form to collect user input for creating a new agent app.
+// It prompts for project name, model selection, template, author, license, and additional features.
+// Takes a directory string parameter and returns a CreateAgentAppOptions struct with the user's selections.
+func promptCreateAgentApp(directory string, templates core.Templates) core.TemplateOptions {
+	agentAppOptions := core.TemplateOptions{
+		ProjectName:  directory,
+		Directory:    directory,
+		TemplateName: "",
+	}
+	currentUser, err := user.Current()
+	if err == nil {
+		agentAppOptions.Author = currentUser.Username
+	} else {
+		agentAppOptions.Author = "blaxel"
+	}
+	languagesOptions := []huh.Option[string]{}
+	for _, language := range templates.GetLanguages() {
+		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
+	}
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Project Name").
+				Description("Name of your agent app").
+				Value(&agentAppOptions.ProjectName),
+			huh.NewSelect[string]().
+				Title("Language").
+				Description("Language to use for your agent app").
+				Height(5).
+				Options(languagesOptions...).
+				Value(&agentAppOptions.Language),
+			huh.NewSelect[string]().
+				Title("Template").
+				Description("Template to use for your agent app").
+				Height(12).
+				OptionsFunc(func() []huh.Option[string] {
+					templates := templates.FilterByLanguage(agentAppOptions.Language)
+					if len(templates) == 0 {
+						return []huh.Option[string]{}
+					}
+					options := []huh.Option[string]{}
+					for _, template := range templates {
+						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
+						options = append(options, huh.NewOption(key, *template.Name))
+					}
+					return options
+				}, &agentAppOptions).
+				Value(&agentAppOptions.TemplateName),
+		),
+	)
+	form.WithTheme(core.GetHuhTheme())
+	err = form.Run()
+	if err != nil {
+		fmt.Println("Cancel create blaxel agent app")
+		os.Exit(0)
+	}
+	return agentAppOptions
 }
