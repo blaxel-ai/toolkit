@@ -17,7 +17,7 @@ import (
 
 func init() {
 	core.RegisterCommand("apply", func() *cobra.Command {
-		return ApplyCmd() // TODO: Fix this to pass proper Operations
+		return ApplyCmd()
 	})
 }
 

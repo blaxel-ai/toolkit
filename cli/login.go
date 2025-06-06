@@ -36,7 +36,7 @@ func LoginCmd() *cobra.Command {
 
 			// Check for environment variables first
 			if os.Getenv("BL_CLIENT_CREDENTIALS") != "" {
-				auth.LoginClientCredentials(workspace)
+				auth.LoginClientCredentials(workspace, os.Getenv("BL_CLIENT_CREDENTIALS"))
 				return
 			}
 
