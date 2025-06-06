@@ -95,13 +95,24 @@ func (c *ClientCredentials) RefreshIfNeeded() error {
 }
 
 func (c *ClientCredentials) Intercept(ctx context.Context, req *http.Request) error {
-	if err := c.RefreshIfNeeded(); err != nil {
+	headers, err := c.GetHeaders()
+	if err != nil {
 		return err
 	}
-
-	req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", c.credentials.AccessToken))
-	req.Header.Set("X-Blaxel-Workspace", c.workspaceName)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	return nil
+}
+
+func (c *ClientCredentials) GetHeaders() (map[string]string, error) {
+	if err := c.RefreshIfNeeded(); err != nil {
+		return nil, err
+	}
+	return map[string]string{
+		"X-Blaxel-Authorization": fmt.Sprintf("Bearer %s", c.credentials.AccessToken),
+		"X-Blaxel-Workspace":     c.workspaceName,
+	}, nil
 }
 
 func (c *ClientCredentials) DoRefresh() error {

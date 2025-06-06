@@ -1,4 +1,4 @@
-package cli
+package auth
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/blaxel-ai/toolkit/sdk"
 )
 
-func (r *Operations) ApiKeyLogin(workspace string) {
+func LoginApiKey(workspace string) {
 	var apiKey string
 	// Check if API key is provided via environment variable
 	if apiKey = os.Getenv("BL_API_KEY"); apiKey != "" {
@@ -33,7 +33,7 @@ func (r *Operations) ApiKeyLogin(workspace string) {
 		APIKey: apiKey,
 	}
 
-	_, err := CheckWorkspaceAccess(workspace, creds)
+	err := validateWorkspace(workspace, creds)
 	if err != nil {
 		fmt.Printf("Error accessing workspace %s : %s\n", workspace, err)
 		os.Exit(1)

@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"fmt"
@@ -11,7 +11,14 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-func (r *Operations) DocCmd() *cobra.Command {
+func init() {
+	// Auto-register this command
+	RegisterCommand("docs", func() *cobra.Command {
+		return DocCmd()
+	})
+}
+
+func DocCmd() *cobra.Command {
 	var format string
 	var outputDir string
 

@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"fmt"
@@ -144,4 +144,24 @@ func readConfigToml(folder string) {
 	if config.Workspace != "" {
 		workspace = config.Workspace
 	}
+}
+
+// Add missing methods for Resource struct
+
+// ListExec method for Resource
+func (r *Resource) ListExec() ([]interface{}, error) {
+	// This is a placeholder - the actual implementation should be moved here from CLI files
+	return nil, nil
+}
+
+// PutFn method for Resource - placeholder implementation
+func (r *Resource) PutFn(resourceName string, name string, resourceObject interface{}) interface{} {
+	// This is a placeholder - the actual implementation should be moved here from CLI files
+	return nil
+}
+
+// PostFn method for Resource - placeholder implementation
+func (r *Resource) PostFn(resourceName string, name string, resourceObject interface{}) interface{} {
+	// This is a placeholder - the actual implementation should be moved here from CLI files
+	return nil
 }

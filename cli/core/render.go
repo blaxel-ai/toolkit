@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"bytes"
@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"gopkg.in/yaml.v2"
 )
 
-func output(resource Resource, slices []interface{}, outputFormat string) {
+func Output(resource Resource, slices []interface{}, outputFormat string) {
 	if outputFormat == "pretty" {
 		printYaml(resource, slices, true)
 		return
@@ -78,48 +79,46 @@ func navigateToKey(m map[string]interface{}, keys []string) interface{} {
 }
 
 func printTable(resource Resource, slices []interface{}) {
-	// Print header with fixed width columns
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+
+	// Set header based on what columns are enabled
 	if resource.WithImage && resource.WithStatus {
-		fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT", "STATUS")
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT", "STATUS"})
 	} else if resource.WithImage {
-		fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", "WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT")
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "IMAGE", "CREATED_AT", "UPDATED_AT"})
 	} else if resource.WithStatus {
-		fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS")
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT", "STATUS"})
 	} else {
-		fmt.Printf("%-15s %-24s %-24s %-24s\n", "WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT")
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "CREATED_AT", "UPDATED_AT"})
 	}
 
-	// Print each item in the array
+	// Add rows to the table
 	for _, item := range slices {
-		// Convert item to map to access fields
 		if itemMap, ok := item.(map[string]interface{}); ok {
-			// Get the workspace field, default to "-" if not found
 			workspace := retrieveKey(itemMap, "workspace")
-
-			// Get the name field, default to "-" if not found
 			name := retrieveKey(itemMap, "name")
-
-			// Get the created_at field, default to "-" if not found
 			createdAt := retrieveDate(itemMap, "createdAt")
-
-			// Get the updated_at field, default to "-" if not found
 			updatedAt := retrieveDate(itemMap, "updatedAt")
 
 			if resource.WithImage && resource.WithStatus {
 				image := retrieveKey(itemMap, "spec.runtime.image")
 				status := retrieveKey(itemMap, "status")
-				fmt.Printf("%-15s %-24s %-40s %-24s %-24s %-20s\n", workspace, name, image, createdAt, updatedAt, status)
+				t.AppendRow(table.Row{workspace, name, image, createdAt, updatedAt, status})
 			} else if resource.WithImage {
 				image := retrieveKey(itemMap, "spec.runtime.image")
-				fmt.Printf("%-15s %-24s %-40s %-24s %-24s\n", workspace, name, image, createdAt, updatedAt)
+				t.AppendRow(table.Row{workspace, name, image, createdAt, updatedAt})
 			} else if resource.WithStatus {
 				status := retrieveKey(itemMap, "status")
-				fmt.Printf("%-15s %-24s %-24s %-24s %-20s\n", workspace, name, createdAt, updatedAt, status)
+				t.AppendRow(table.Row{workspace, name, createdAt, updatedAt, status})
 			} else {
-				fmt.Printf("%-15s %-24s %-24s %-24s\n", workspace, name, createdAt, updatedAt)
+				t.AppendRow(table.Row{workspace, name, createdAt, updatedAt})
 			}
 		}
 	}
+
+	// Render the table - this automatically sizes columns based on content
+	t.Render()
 }
 
 func retrieveDate(itemMap map[string]interface{}, key string) string {

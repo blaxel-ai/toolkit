@@ -4,7 +4,7 @@ slug: bl_delete_function
 ---
 ## bl delete function
 
-Delete a Function
+Delete function
 
 ```
 bl delete function name [flags]

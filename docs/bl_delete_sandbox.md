@@ -4,7 +4,7 @@ slug: bl_delete_sandbox
 ---
 ## bl delete sandbox
 
-Delete a Sandbox
+Delete sandbox
 
 ```
 bl delete sandbox name [flags]

@@ -13,15 +13,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) GetCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("get", func() *cobra.Command {
+		return GetCmd()
+	})
+}
+
+func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get a resource",
 	}
 	var watch bool
+	resources := core.GetResources()
 	for _, resource := range resources {
 		subcmd := &cobra.Command{
 			Use:     resource.Plural,
@@ -54,11 +62,11 @@ func (r *Operations) GetCmd() *cobra.Command {
 					}
 				} else {
 					if len(args) == 0 {
-						resource.ListFn()
+						ListFn(resource)
 						return
 					}
 					if len(args) == 1 {
-						resource.GetFn(args[0])
+						GetFn(resource, args[0])
 					}
 				}
 			},
@@ -69,7 +77,7 @@ func (r *Operations) GetCmd() *cobra.Command {
 	return cmd
 }
 
-func (resource Resource) GetFn(name string) {
+func GetFn(resource *core.Resource, name string) {
 	ctx := context.Background()
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resource.Kind, name)
 	// Use reflect to call the function
@@ -109,7 +117,7 @@ func (resource Resource) GetFn(name string) {
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Println(ErrorHandler(response.Request, resource.Kind, name, buf.String()))
+		fmt.Printf("Resource %s:%s error: %s\n", resource.Kind, name, buf.String())
 		os.Exit(1)
 	}
 
@@ -119,21 +127,20 @@ func (resource Resource) GetFn(name string) {
 		fmt.Printf("%s%v", formattedError, err)
 		os.Exit(1)
 	}
-	output(resource, []interface{}{res}, outputFormat)
+	core.Output(*resource, []interface{}{res}, core.GetOutputFormat())
 }
 
-func (resource Resource) ListFn() {
-	slices, err := resource.ListExec()
+func ListFn(resource *core.Resource) {
+	slices, err := ListExec(resource)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	// Check the output format
-	output(resource, slices, outputFormat)
-
+	core.Output(*resource, slices, core.GetOutputFormat())
 }
 
-func (resource Resource) ListExec() ([]interface{}, error) {
+func ListExec(resource *core.Resource) ([]interface{}, error) {
 	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
 
 	ctx := context.Background()
@@ -166,7 +173,7 @@ func (resource Resource) ListExec() ([]interface{}, error) {
 		return nil, err
 	}
 	if response.StatusCode >= 400 {
-		return nil, ErrorHandler(response.Request, resource.Kind, "", buf.String())
+		return nil, fmt.Errorf("resource %s error: %s", resource.Kind, buf.String())
 	}
 
 	// Check if the content is an array or an object
@@ -178,7 +185,7 @@ func (resource Resource) ListExec() ([]interface{}, error) {
 }
 
 // Helper function to execute and display results
-func executeAndDisplayWatch(args []string, resource Resource, seconds int) {
+func executeAndDisplayWatch(args []string, resource core.Resource, seconds int) {
 	// Create a pipe to capture output
 	r, w, _ := os.Pipe()
 	// Save the original stdout
@@ -188,9 +195,9 @@ func executeAndDisplayWatch(args []string, resource Resource, seconds int) {
 
 	// Execute the resource function
 	if len(args) == 0 {
-		resource.ListFn()
+		ListFn(&resource)
 	} else if len(args) == 1 {
-		resource.GetFn(args[0])
+		GetFn(&resource, args[0])
 	}
 
 	// Close the write end of the pipe
@@ -198,18 +205,15 @@ func executeAndDisplayWatch(args []string, resource Resource, seconds int) {
 
 	// Read the output from the pipe
 	var buf bytes.Buffer
-	_, err := io.Copy(&buf, r)
-	if err != nil {
-		fmt.Printf("Error reading output: %v", err)
-		os.Exit(1)
-	}
+	io.Copy(&buf, r)
 
 	// Restore stdout
 	os.Stdout = stdout
-	r.Close()
 
-	// Clear screen and move cursor to top-left
-	fmt.Print("\033[H\033[2J")
-	fmt.Printf("Every %ds: watching %s\n\n", seconds, resource.Kind)
+	// Clear the screen
+	fmt.Print("\033[2J\033[H")
+
+	// Print the timestamp and output
+	fmt.Printf("Every %ds: %s\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
 	fmt.Print(buf.String())
 }

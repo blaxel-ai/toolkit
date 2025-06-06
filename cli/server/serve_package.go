@@ -1,4 +1,4 @@
-package cli
+package server
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/fatih/color"
 )
 
@@ -20,11 +21,11 @@ type PackageCommand struct {
 	Command string
 	Args    []string
 	Color   string
-	Envs    CommandEnv
+	Envs    core.CommandEnv
 }
 
-func startPackageServer(port int, host string, hotreload bool) bool {
-	commands, err := getServeCommands(port, host, hotreload)
+func StartPackageServer(port int, host string, hotreload bool, config core.Config, envFiles []string, secrets []core.Env) bool {
+	commands, err := getServeCommands(port, host, hotreload, config, envFiles, secrets)
 	if err != nil {
 		fmt.Println("Error getting package commands:", err)
 		os.Exit(1)
@@ -33,11 +34,11 @@ func startPackageServer(port int, host string, hotreload bool) bool {
 		return false
 	}
 
-	runCommands(commands, false)
+	RunCommands(commands, false)
 	return true
 }
 
-func runCommands(commands []PackageCommand, oneByOne bool) {
+func RunCommands(commands []PackageCommand, oneByOne bool) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
@@ -115,8 +116,8 @@ func colorize(text string, clr string) string {
 	}
 }
 
-func getAllPackages() map[string]Package {
-	packages := make(map[string]Package)
+func GetAllPackages(config core.Config) map[string]core.Package {
+	packages := make(map[string]core.Package)
 	for functionName := range config.Function {
 		pkg := config.Function[functionName]
 		pkg.Type = "function"
@@ -130,8 +131,8 @@ func getAllPackages() map[string]Package {
 	return packages
 }
 
-func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, error) {
-	packages := getAllPackages()
+func getServeCommands(port int, host string, hotreload bool, config core.Config, envFiles []string, secrets []core.Env) ([]PackageCommand, error) {
+	packages := GetAllPackages(config)
 	usedPorts := make(map[int]bool)
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -192,7 +193,7 @@ func getServeCommands(port int, host string, hotreload bool) ([]PackageCommand, 
 		i++
 	}
 
-	envs := CommandEnv{}
+	envs := core.CommandEnv{}
 	for name, pkg := range packages {
 		if pkg.Type != "" {
 			nameUpper := strings.ToUpper(strings.ReplaceAll(name, "-", "_"))

@@ -1,4 +1,4 @@
-package cli
+package auth
 
 import (
 	"bytes"
@@ -10,11 +10,12 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
 )
 
-func (r *Operations) DeviceModeLogin(workspace string) {
-	url := r.BaseURL + "/login/device"
+func LoginDevice(workspace string) {
+	url := core.GetBaseURL() + "/login/device"
 
 	payload := sdk.DeviceLogin{
 		ClientID: "blaxel",
@@ -54,12 +55,12 @@ func (r *Operations) DeviceModeLogin(workspace string) {
 	}
 	fmt.Println("Waiting for user to finish login...")
 
-	r.DeviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace)
+	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace)
 }
 
-func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string) {
+func deviceModeLoginFinalize(deviceCode string, workspace string) {
 	time.Sleep(3 * time.Second)
-	url := r.BaseURL + "/oauth/token"
+	url := core.GetBaseURL() + "/oauth/token"
 
 	payload := sdk.DeviceLoginFinalizeRequest{
 		GrantType:  "urn:ietf:params:oauth:grant-type:device_code",
@@ -90,7 +91,7 @@ func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string
 	}
 
 	if res.StatusCode != http.StatusOK {
-		r.DeviceModeLoginFinalize(deviceCode, workspace)
+		deviceModeLoginFinalize(deviceCode, workspace)
 	}
 
 	creds := sdk.Credentials{
@@ -100,7 +101,7 @@ func (r *Operations) DeviceModeLoginFinalize(deviceCode string, workspace string
 		DeviceCode:   deviceCode,
 	}
 
-	_, err = CheckWorkspaceAccess(workspace, creds)
+	err = validateWorkspace(workspace, creds)
 	if err != nil {
 		fmt.Printf("Error accessing workspace %s : %s\n", workspace, err)
 	} else {

@@ -1,19 +1,19 @@
 ---
-title: "bl delete job"
-slug: bl_delete_job
+title: "bl connect"
+slug: bl_connect
 ---
-## bl delete job
+## bl connect
 
-Delete job
+Connect into your sandbox resources
 
-```
-bl delete job name [flags]
-```
+### Synopsis
+
+Connect into your sandbox resources with interactive interfaces
 
 ### Options
 
 ```
-  -h, --help   help for job
+  -h, --help   help for connect
 ```
 
 ### Options inherited from parent commands
@@ -28,5 +28,6 @@ bl delete job name [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl connect sandbox](bl_connect_sandbox.md)	 - Connect to a sandbox environment
 

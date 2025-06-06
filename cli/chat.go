@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/blaxel-ai/toolkit/cli/chat"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 
 	"bufio"
@@ -18,7 +19,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (r *Operations) ChatCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("chat", func() *cobra.Command {
+		return ChatCmd()
+	})
+}
+
+func ChatCmd() *cobra.Command {
 	var debug bool
 	var local bool
 	var headerFlags []string
@@ -29,7 +36,6 @@ func (r *Operations) ChatCmd() *cobra.Command {
 		Short:   "Chat with an agent",
 		Example: `bl chat my-agent`,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Chatting with", args[0])
 			if len(args) == 0 {
 				fmt.Println("Error: Agent name is required")
 				os.Exit(1)
@@ -38,7 +44,7 @@ func (r *Operations) ChatCmd() *cobra.Command {
 			resourceType := "agent"
 			resourceName := args[0]
 
-			err := r.Chat(context.Background(), workspace, resourceType, resourceName, debug, local, headerFlags)
+			err := Chat(context.Background(), core.GetWorkspace(), resourceType, resourceName, debug, local, headerFlags)
 			if err != nil {
 				fmt.Println("Error: Failed to chat", err)
 				os.Exit(1)
@@ -52,7 +58,7 @@ func (r *Operations) ChatCmd() *cobra.Command {
 	return cmd
 }
 
-func (r *Operations) Chat(
+func Chat(
 	ctx context.Context,
 	workspace string,
 	resourceType string,
@@ -62,16 +68,16 @@ func (r *Operations) Chat(
 	headerFlags []string,
 ) error {
 	if !local {
-		err := r.CheckResource(ctx, workspace, resourceType, resourceName)
+		err := CheckResource(ctx, workspace, resourceType, resourceName)
 		if err != nil {
 			return err
 		}
 	}
 
-	return r.BootChat(ctx, workspace, resourceType, resourceName, debug, local, headerFlags)
+	return BootChat(ctx, workspace, resourceType, resourceName, debug, local, headerFlags)
 }
 
-func (r *Operations) BootChat(
+func BootChat(
 	ctx context.Context,
 	workspace string,
 	resourceType string,
@@ -85,8 +91,8 @@ func (r *Operations) BootChat(
 		Workspace:         workspace,
 		ResType:           resourceType,
 		ResName:           resourceName,
-		SendMessage:       r.SendMessage,
-		SendMessageStream: r.SendMessageStream,
+		SendMessage:       SendMessage,
+		SendMessageStream: SendMessageStream,
 		Debug:             debug,
 		Local:             local,
 		Headers:           headerFlags,
@@ -104,7 +110,7 @@ func (r *Operations) BootChat(
 	return nil
 }
 
-func (r *Operations) CheckResource(
+func CheckResource(
 	ctx context.Context,
 	workspace string,
 	resourceType string,
@@ -116,6 +122,7 @@ func (r *Operations) CheckResource(
 	}
 
 	// Call GetAgent with the required parameters
+	client := core.GetClient()
 	resp, err := client.GetAgent(ctx, resourceName)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
@@ -130,7 +137,7 @@ func (r *Operations) CheckResource(
 	return nil
 }
 
-func (r *Operations) SendMessage(
+func SendMessage(
 	ctx context.Context,
 	workspace string,
 	resourceType string,
@@ -154,6 +161,7 @@ func (r *Operations) SendMessage(
 			headersMap[parts[0]] = parts[1]
 		}
 	}
+	client := core.GetClient()
 	response, err := client.Run(
 		ctx,
 		workspace,
@@ -179,7 +187,7 @@ func (r *Operations) SendMessage(
 	return string(body), nil
 }
 
-func (r *Operations) SendMessageStream(
+func SendMessageStream(
 	ctx context.Context,
 	workspace string,
 	resourceType string,
@@ -209,6 +217,7 @@ func (r *Operations) SendMessageStream(
 	headersMap["Accept"] = "text/event-stream"
 	headersMap["Cache-Control"] = "no-cache"
 
+	client := core.GetClient()
 	response, err := client.Run(
 		ctx,
 		workspace,

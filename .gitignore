@@ -10,5 +10,5 @@ test.yaml
 node_modules
 .blaxel\
 .env
-.env-dev
+.env.dev
 .cache

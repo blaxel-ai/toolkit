@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"slices"
 )
 
-func (r *Operations) SeedCache(cwd string) error {
+func SeedCache(cwd string) error {
 	cacheFile := filepath.Join(cwd, ".cache.yaml")
 	// Remove file if it exists
 	_ = os.Remove(cacheFile)

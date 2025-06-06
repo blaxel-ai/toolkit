@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"context"
@@ -184,7 +184,7 @@ func handleDirectory(action string, filePath string, recursive bool, n int) ([]R
 	return results, nil
 }
 
-func moduleLanguage(directory string) string {
+func ModuleLanguage(directory string) string {
 	if _, err := os.Stat(filepath.Join(directory, "pyproject.toml")); !os.IsNotExist(err) {
 		return "python"
 	} else if _, err := os.Stat(filepath.Join(directory, "package.json")); !os.IsNotExist(err) {
@@ -193,7 +193,6 @@ func moduleLanguage(directory string) string {
 		return "go"
 	}
 	return ""
-
 }
 
 // getTheme returns a custom theme configuration for the CLI interface using the Dracula color scheme.
@@ -241,4 +240,14 @@ func GetHuhTheme() *huh.Theme {
 	t.Blurred.PrevIndicator = lipgloss.NewStyle()
 
 	return t
+}
+
+// GetResults is a public wrapper for getResults
+func GetResults(action string, filePath string, recursive bool) ([]Result, error) {
+	return getResults(action, filePath, recursive)
+}
+
+// GetResources returns the resources slice
+func GetResources() []*Resource {
+	return resources
 }

@@ -1,8 +1,7 @@
-package cli
+package core
 
 import (
 	"context"
-	"strings"
 )
 
 type Operations struct {
@@ -12,13 +11,7 @@ type Operations struct {
 	RegistryURL string
 }
 
-func (r *Operations) GetRegistryURL() string {
-	registryURL := strings.Replace(r.RegistryURL, "https://", "", 1)
-	registryURL = strings.Replace(registryURL, "http://", "", 1)
-	return registryURL
-}
-
-func (r *Operations) CliCommand(ctx context.Context, operationId string, fn interface{}) {
+func (o *Operations) CliCommand(ctx context.Context, operationId string, fn interface{}) {
 	operation := formatOperationId(operationId)
 	if operation[0] == "list" {
 		for _, resource := range resources {
@@ -65,9 +58,4 @@ func (r *Operations) CliCommand(ctx context.Context, operationId string, fn inte
 		}
 		return
 	}
-
-}
-
-func (r *Operations) SetBaseURL(url string) {
-	r.BaseURL = url
 }

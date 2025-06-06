@@ -23,11 +23,13 @@ bl deploy
 ### Options
 
 ```
-  -d, --directory string   Directory to deploy, defaults to current directory (default "src")
+  -d, --directory string   Deployment app path, can be a sub directory
       --dryrun             Dry run the deployment
+  -e, --env-file strings   Environment file to load (default [.env])
   -h, --help               help for deploy
   -n, --name string        Optional name for the deployment
   -r, --recursive          Deploy recursively (default true)
+  -s, --secrets strings    Secrets to deploy
 ```
 
 ### Options inherited from parent commands

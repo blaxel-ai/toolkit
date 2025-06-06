@@ -1,4 +1,4 @@
-package cli
+package server
 
 import (
 	"fmt"
@@ -6,46 +6,48 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
-func startPythonServer(port int, host string, hotreload bool) *exec.Cmd {
-	py, err := findRootCmd(port, host, hotreload)
+func StartPythonServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
+	python, err := FindRootCmd(port, host, hotreload, folder, config)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Printf("Starting server : %s\n", strings.Join(py.Args, " "))
+	fmt.Printf("Starting server : %s\n", strings.Join(python.Args, " "))
 	if os.Getenv("COMMAND") != "" {
 		command := strings.Split(os.Getenv("COMMAND"), " ")
 		if len(command) > 1 {
-			py = exec.Command(command[0], command[1:]...)
+			python = exec.Command(command[0], command[1:]...)
 		} else {
-			py = exec.Command(command[0])
+			python = exec.Command(command[0])
 		}
 	}
-	py.Stdout = os.Stdout
-	py.Stderr = os.Stderr
-	py.Dir = folder
+	python.Stdout = os.Stdout
+	python.Stderr = os.Stderr
+	python.Dir = folder
 
 	// Set env variables
-	envs := getServerEnvironment(port, host, hotreload)
-	py.Env = envs.ToEnv()
+	envs := GetServerEnvironment(port, host, hotreload, config)
+	python.Env = envs.ToEnv()
 
-	err = py.Start()
+	err = python.Start()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	return py
+	return python
 }
 
 func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
-	if config.Entrypoint.Production != "" || config.Entrypoint.Development != "" {
-		if cfg.Hotreload && config.Entrypoint.Development != "" {
-			return strings.Split(config.Entrypoint.Development, " "), nil
+	if cfg.Entrypoint.Production != "" || cfg.Entrypoint.Development != "" {
+		if cfg.Hotreload && cfg.Entrypoint.Development != "" {
+			return strings.Split(cfg.Entrypoint.Development, " "), nil
 		}
-		return strings.Split(config.Entrypoint.Production, " "), nil
+		return strings.Split(cfg.Entrypoint.Production, " "), nil
 	}
 	fmt.Println("Entrypoint not found in config, using auto-detection")
 	files := []string{

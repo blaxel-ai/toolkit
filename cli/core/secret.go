@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"fmt"
@@ -47,4 +47,9 @@ func readSecrets(folder string) {
 			})
 		}
 	}
+}
+
+// GetSecrets returns the current secrets
+func GetSecrets() []Env {
+	return secrets
 }

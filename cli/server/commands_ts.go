@@ -1,4 +1,4 @@
-package cli
+package server
 
 import (
 	"encoding/json"
@@ -7,14 +7,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
 type PackageJson struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
-func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
-	ts, err := findRootCmd(port, host, hotreload)
+func StartTypescriptServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
+	ts, err := FindRootCmd(port, host, hotreload, folder, config)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -33,7 +35,7 @@ func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
 	ts.Dir = folder
 
 	// Set env variables
-	envs := getServerEnvironment(port, host, hotreload)
+	envs := GetServerEnvironment(port, host, hotreload, config)
 	ts.Env = envs.ToEnv()
 
 	err = ts.Start()
@@ -45,7 +47,7 @@ func startTypescriptServer(port int, host string, hotreload bool) *exec.Cmd {
 	return ts
 }
 
-func getPackageJson() (PackageJson, error) {
+func getPackageJson(folder string) (PackageJson, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return PackageJson{}, fmt.Errorf("error getting current directory: %v", err)
@@ -116,7 +118,7 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 		return strings.Split(cmd, " "), nil
 	}
 
-	packageJson, err := getPackageJson()
+	packageJson, err := getPackageJson(config.Folder)
 	if err == nil {
 		if config.Hotreload {
 			if packageJson.Scripts["dev"] != "" {

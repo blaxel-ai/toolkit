@@ -1,4 +1,4 @@
-package cli
+package core
 
 import (
 	"context"
@@ -66,7 +66,7 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 	return templates, nil
 }
 
-func (t Templates) getLanguages() []string {
+func (t Templates) GetLanguages() []string {
 	languages := []string{}
 	for _, template := range t {
 		if !slices.Contains(languages, template.Language) {
@@ -76,7 +76,7 @@ func (t Templates) getLanguages() []string {
 	return languages
 }
 
-func (t Templates) filterByLanguage(language string) Templates {
+func (t Templates) FilterByLanguage(language string) Templates {
 	filtered := Templates{}
 	for _, template := range t {
 		if template.Language == language {
