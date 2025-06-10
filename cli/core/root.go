@@ -421,3 +421,15 @@ func GetEnvFiles() []string {
 func GetCommandSecrets() []string {
 	return commandSecrets
 }
+
+func GetVersion() string {
+	return version
+}
+
+func GetCommit() string {
+	return commit
+}
+
+func GetDate() string {
+	return date
+}
