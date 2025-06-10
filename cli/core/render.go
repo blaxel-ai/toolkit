@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,19 +47,22 @@ func getImageColumnWidth() int {
 }
 
 func Output(resource Resource, slices []interface{}, outputFormat string) {
+	// Sort slices by creation date before rendering
+	sortedSlices := sortByCreationDate(slices)
+
 	if outputFormat == "pretty" {
-		printYaml(resource, slices, true)
+		printYaml(resource, sortedSlices, true)
 		return
 	}
 	if outputFormat == "yaml" {
-		printYaml(resource, slices, false)
+		printYaml(resource, sortedSlices, false)
 		return
 	}
 	if outputFormat == "json" {
-		printJson(resource, slices)
+		printJson(resource, sortedSlices)
 		return
 	}
-	printTable(resource, slices)
+	printTable(resource, sortedSlices)
 }
 
 func retrieveKey(itemMap map[string]interface{}, key string) string {
@@ -285,4 +289,43 @@ func printColoredYAML(yamlData []byte) {
 		// Print the colored key and value
 		fmt.Printf("%s: %s\n", keyColor(string(key)), coloredValue)
 	}
+}
+
+// sortByCreationDate sorts slices by creation date (newest first)
+func sortByCreationDate(slices []interface{}) []interface{} {
+	// Create a copy to avoid modifying the original slice
+	sortedSlices := make([]interface{}, len(slices))
+	copy(sortedSlices, slices)
+
+	sort.Slice(sortedSlices, func(i, j int) bool {
+		iMap, iOk := sortedSlices[i].(map[string]interface{})
+		jMap, jOk := sortedSlices[j].(map[string]interface{})
+
+		if !iOk || !jOk {
+			return false
+		}
+
+		iCreatedAt := retrieveKey(iMap, "createdAt")
+		jCreatedAt := retrieveKey(jMap, "createdAt")
+
+		// Parse times for comparison
+		iTime, iErr := time.Parse(time.RFC3339, iCreatedAt)
+		jTime, jErr := time.Parse(time.RFC3339, jCreatedAt)
+
+		// If either time couldn't be parsed, put them at the end
+		if iErr != nil && jErr != nil {
+			return false
+		}
+		if iErr != nil {
+			return false
+		}
+		if jErr != nil {
+			return true
+		}
+
+		// Sort newest first (descending order)
+		return iTime.After(jTime)
+	})
+
+	return sortedSlices
 }

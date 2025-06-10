@@ -19,9 +19,9 @@ func VersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			version := cmd.Root().Annotations["version"]
-			commit := cmd.Root().Annotations["commit"]
-			date := cmd.Root().Annotations["date"]
+			version := core.GetVersion()
+			commit := core.GetCommit()
+			date := core.GetDate()
 
 			if version == "" {
 				version = "dev"
