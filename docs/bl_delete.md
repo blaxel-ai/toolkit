@@ -14,9 +14,9 @@ bl delete [flags]
 
 ```
 
-			bl delete -f ./my-resource.yaml
-			# Or using stdin
-			cat file.yaml | blaxel delete -f -
+bl delete -f ./my-resource.yaml
+# Or using stdin
+cat file.yaml | blaxel delete -f -
 		
 ```
 
@@ -41,11 +41,11 @@ bl delete [flags]
 ### SEE ALSO
 
 * [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
-* [bl delete agent](bl_delete_agent.md)	 - Delete a Agent
-* [bl delete function](bl_delete_function.md)	 - Delete a Function
-* [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete a IntegrationConnection
-* [bl delete job](bl_delete_job.md)	 - Delete a Job
-* [bl delete model](bl_delete_model.md)	 - Delete a Model
-* [bl delete policy](bl_delete_policy.md)	 - Delete a Policy
-* [bl delete sandbox](bl_delete_sandbox.md)	 - Delete a Sandbox
+* [bl delete agent](bl_delete_agent.md)	 - Delete agent
+* [bl delete function](bl_delete_function.md)	 - Delete function
+* [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete integrationconnection
+* [bl delete job](bl_delete_job.md)	 - Delete job
+* [bl delete model](bl_delete_model.md)	 - Delete model
+* [bl delete policy](bl_delete_policy.md)	 - Delete policy
+* [bl delete sandbox](bl_delete_sandbox.md)	 - Delete sandbox
 

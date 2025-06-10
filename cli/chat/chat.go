@@ -56,7 +56,8 @@ type streamCompleteMsg struct{}
 type streamTickMsg struct{}
 
 type errMsg struct {
-	err error
+	err              error
+	isStreamingError bool
 }
 
 func (m *ChatModel) Init() tea.Cmd {
@@ -151,7 +152,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					func() tea.Msg {
 						response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
 						if err != nil {
-							return errMsg{err}
+							return errMsg{err, false}
 						}
 						return responseMsg{response}
 					},
@@ -192,8 +193,14 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Set timestamp for completed message
 			now := time.Now()
 			if m.streamingMessageIndex < len(m.Messages) {
-				formattedContent := FormatMarkdown(finalContent)
-				m.Messages[m.streamingMessageIndex].Content = formattedContent
+				// Only set content if we actually received some, otherwise show a default message
+				if finalContent != "" {
+					formattedContent := FormatMarkdown(finalContent)
+					m.Messages[m.streamingMessageIndex].Content = formattedContent
+				} else {
+					// Fallback for empty streaming response
+					m.Messages[m.streamingMessageIndex].Content = "No response received"
+				}
 				m.Messages[m.streamingMessageIndex].Timestamp = &now
 			}
 			m.updateViewportContent()
@@ -226,15 +233,41 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textareaFocused = true // Regain focus
 
 		now := time.Now()
-		// Remove the loader message
-		m.Messages = m.Messages[:len(m.Messages)-1]
 
-		// Display error in red
-		m.Messages = append(m.Messages, Message{
-			Content:   "Error: " + msg.err.Error(),
-			Timestamp: &now,
-			IsUser:    false,
-		})
+		// Handle streaming errors differently - preserve partial content
+		if msg.isStreamingError && m.streamState != nil {
+			// Stop streaming and get partial content
+			m.streamState.mu.Lock()
+			m.streamState.active = false
+			partialContent := m.streamState.content.String()
+			m.streamState.mu.Unlock()
+
+			// If we have partial content, append error to it
+			if partialContent != "" && m.streamingMessageIndex < len(m.Messages) {
+				errorContent := partialContent + "\n\n**Error:** " + msg.err.Error()
+				formattedContent := FormatMarkdown(errorContent)
+				m.Messages[m.streamingMessageIndex].Content = formattedContent
+				m.Messages[m.streamingMessageIndex].Timestamp = &now
+			} else {
+				// No partial content, replace with error message
+				if m.streamingMessageIndex < len(m.Messages) {
+					m.Messages[m.streamingMessageIndex].Content = "Error: " + msg.err.Error()
+					m.Messages[m.streamingMessageIndex].Timestamp = &now
+				}
+			}
+		} else {
+			// Handle non-streaming errors (original behavior)
+			// Remove the loader message
+			m.Messages = m.Messages[:len(m.Messages)-1]
+
+			// Display error in red
+			m.Messages = append(m.Messages, Message{
+				Content:   "Error: " + msg.err.Error(),
+				Timestamp: &now,
+				IsUser:    false,
+			})
+		}
+
 		m.updateViewportContent()
 		m.viewport.GotoBottom()
 
@@ -276,21 +309,34 @@ func (m *ChatModel) startStreamingCommand(userInput string) tea.Cmd {
 			// Fall back to regular message if streaming not available
 			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
 			if err != nil {
-				return errMsg{err}
+				return errMsg{err, false}
 			}
 			return responseMsg{response}
 		}
+
+		// Track if we received any streaming content
+		receivedContent := false
 
 		err := m.SendMessageStream(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers, func(chunk string) {
 			if m.streamState != nil {
 				m.streamState.mu.Lock()
 				m.streamState.content.WriteString(chunk)
+				receivedContent = true
 				m.streamState.mu.Unlock()
 			}
 		})
 
 		if err != nil {
-			return errMsg{err}
+			return errMsg{err, true}
+		}
+
+		// If no streaming content was received, try regular message as fallback
+		if !receivedContent {
+			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+			if err != nil {
+				return errMsg{err, false}
+			}
+			return responseMsg{response}
 		}
 
 		return streamCompleteMsg{}

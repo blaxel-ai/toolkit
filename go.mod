@@ -14,11 +14,13 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/jedib0t/go-pretty/v6 v6.6.7
 	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/qeesung/image2ascii v1.0.1
 	github.com/spf13/cobra v1.8.1
-	golang.org/x/term v0.28.0
+	github.com/stretchr/testify v1.10.0
+	golang.org/x/term v0.29.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -37,6 +39,7 @@ require (
 	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
@@ -53,8 +56,8 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -88,5 +91,5 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 )

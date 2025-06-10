@@ -1,0 +1,10 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: test-expo
+  displayName: Test Expo
+spec:
+  runtime:
+    image: "blaxel/prod-expo:latest"
+    memory: 4096
+    generation: mk3

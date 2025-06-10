@@ -4,7 +4,7 @@ slug: bl_delete_policy
 ---
 ## bl delete policy
 
-Delete a Policy
+Delete policy
 
 ```
 bl delete policy name [flags]

@@ -15,8 +15,13 @@ func (s *PublicProvider) Intercept(ctx context.Context, req *http.Request) error
 	return nil
 }
 
+func (s *PublicProvider) GetHeaders() (map[string]string, error) {
+	return nil, nil
+}
+
 type AuthProvider interface {
 	Intercept(ctx context.Context, req *http.Request) error
+	GetHeaders() (map[string]string, error)
 }
 
 type RunClientWithCredentials struct {
