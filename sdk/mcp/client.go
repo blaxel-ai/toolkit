@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -29,21 +28,13 @@ func NewMCPClient(serverURL string, headers map[string]string) (*MCPClient, erro
 	return client, nil
 }
 
-func (c *MCPClient) ListTools(ctx context.Context) ([]byte, error) {
+func (c *MCPClient) ListTools(ctx context.Context) (*mcp_golang.ToolsResponse, error) {
 	cursor := ""
-	response, err := c.client.ListTools(ctx, &cursor)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(response.Tools)
+	return c.client.ListTools(ctx, &cursor)
 }
 
-func (c *MCPClient) CallTool(ctx context.Context, toolName string, params any) ([]byte, error) {
-	response, err := c.client.CallTool(ctx, toolName, params)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(response)
+func (c *MCPClient) CallTool(ctx context.Context, toolName string, params any) (*mcp_golang.ToolResponse, error) {
+	return c.client.CallTool(ctx, toolName, params)
 }
 
 func (c *MCPClient) Close() error {
