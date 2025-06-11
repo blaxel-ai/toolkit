@@ -153,9 +153,12 @@ type SandboxShell struct {
 	completionRows    int // Number of rows in completion grid
 }
 
-func NewSandboxShellWithURL(ctx context.Context, workspace, sandboxName, url string, authHeaders map[string]string) *SandboxShell {
-	client := NewSandboxClientWithURL(workspace, sandboxName, url, authHeaders)
-	return createSandboxShell(ctx, client)
+func NewSandboxShellWithURL(ctx context.Context, workspace, sandboxName, url string, authHeaders map[string]string) (*SandboxShell, error) {
+	client, err := NewSandboxClientWithURL(workspace, sandboxName, url, authHeaders)
+	if err != nil {
+		return nil, err
+	}
+	return createSandboxShell(ctx, client), nil
 }
 
 func createSandboxShell(ctx context.Context, client *SandboxClient) *SandboxShell {

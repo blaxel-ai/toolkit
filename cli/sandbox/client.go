@@ -14,15 +14,18 @@ type SandboxClient struct {
 	SandboxName string
 }
 
-func NewSandboxClientWithURL(workspace, sandboxName, serverURL string, authHeaders map[string]string) *SandboxClient {
+func NewSandboxClientWithURL(workspace, sandboxName, serverURL string, authHeaders map[string]string) (*SandboxClient, error) {
 	// Create MCP client with WebSocket transport
-	mcpClient := mcp.NewMCPClient(serverURL, authHeaders)
+	mcpClient, err := mcp.NewMCPClient(serverURL, authHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MCP client: %w", err)
+	}
 
 	return &SandboxClient{
 		MCPClient:   mcpClient,
 		Workspace:   workspace,
 		SandboxName: sandboxName,
-	}
+	}, nil
 }
 
 // File and Directory structures for MCP responses

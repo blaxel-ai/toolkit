@@ -118,24 +118,15 @@ Examples:
 
 			// Use default URL if none provided
 			if url == "" {
-				url = fmt.Sprintf("wss://run.blaxel.ai/%s/sandboxes/%s", workspace, sandboxName)
-			}
-
-			if debug {
-				fmt.Printf("Debug: Connecting to sandbox '%s' in workspace '%s'\n", sandboxName, workspace)
-				fmt.Printf("Debug: WebSocket URL: %s\n", url)
-				fmt.Printf("Debug: Authentication method: ")
-				if credentials.APIKey != "" {
-					fmt.Println("API Key")
-				} else if credentials.AccessToken != "" {
-					fmt.Println("Access Token")
-				} else if credentials.ClientCredentials != "" {
-					fmt.Println("Client Credentials")
-				}
+				url = fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName)
 			}
 
 			// Create the MCP-based sandbox shell with custom URL
-			shell := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
+			shell, err := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
+			if err != nil {
+				fmt.Printf("Error creating sandbox shell: %v\n", err)
+				os.Exit(1)
+			}
 
 			// Initialize and run the Bubble Tea program
 			p := tea.NewProgram(shell, tea.WithAltScreen(), tea.WithMouseCellMotion())
