@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	mcp_golang "github.com/agentuity/mcp-golang/v2"
 	"github.com/blaxel-ai/toolkit/sdk/mcp"
 )
 
@@ -91,72 +92,41 @@ func (c *SandboxClient) ListDirectory(ctx context.Context, path string) (*Direct
 }
 
 // Helper method to parse process response with error handling
-func (c *SandboxClient) parseProcessResponse(response []byte) (*ProcessResponseWithLogs, error) {
-	var result map[string]interface{}
-	if err := json.Unmarshal(response, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
+func (c *SandboxClient) parseProcessResponse(response *mcp_golang.ToolResponse) (*ProcessResponseWithLogs, error) {
 
 	// Check for MCP errors
-	if isError, ok := result["isError"].(bool); ok && isError {
-		if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
-			if errorContent, ok := content[0].(map[string]interface{}); ok {
-				if text, ok := errorContent["text"].(string); ok {
-					return nil, fmt.Errorf("MCP error: %s", text)
-				}
-			}
-		}
-		return nil, fmt.Errorf("MCP error occurred")
+	if response == nil || len(response.Content) == 0 {
+		return nil, fmt.Errorf("unexpected response format from processExecute")
 	}
 
 	// Extract the process information from the MCP response
-	if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
-		if textContent, ok := content[0].(map[string]interface{}); ok {
-			if text, ok := textContent["text"].(string); ok {
-				var processWithLogs ProcessResponseWithLogs
-				if err := json.Unmarshal([]byte(text), &processWithLogs); err != nil {
-					return nil, fmt.Errorf("failed to parse process response: %w", err)
-				}
-				return &processWithLogs, nil
-			}
+	if response.Content[0].Type == mcp_golang.ContentTypeText {
+		text := response.Content[0].TextContent.Text
+		var processWithLogs ProcessResponseWithLogs
+		if err := json.Unmarshal([]byte(text), &processWithLogs); err != nil {
+			return nil, fmt.Errorf("failed to parse process response: %w", err)
 		}
+		return &processWithLogs, nil
 	}
 
 	return nil, fmt.Errorf("unexpected response format from processExecute")
 }
 
 // Helper method to parse directory response with error handling
-func (c *SandboxClient) parseDirectoryResponse(response []byte) (*Directory, error) {
-	var result map[string]interface{}
-	if err := json.Unmarshal(response, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+func (c *SandboxClient) parseDirectoryResponse(response *mcp_golang.ToolResponse) (*Directory, error) {
+
+	if response == nil || len(response.Content) == 0 {
+		return nil, fmt.Errorf("unexpected response format from fsListDirectory")
 	}
 
-	// Check for MCP errors
-	if isError, ok := result["isError"].(bool); ok && isError {
-		if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
-			if errorContent, ok := content[0].(map[string]interface{}); ok {
-				if text, ok := errorContent["text"].(string); ok {
-					return nil, fmt.Errorf("MCP error: %s", text)
-				}
-			}
+	if response.Content[0].Type == mcp_golang.ContentTypeText {
+		text := response.Content[0].TextContent.Text
+		var dir Directory
+		if err := json.Unmarshal([]byte(text), &dir); err != nil {
+			return nil, fmt.Errorf("failed to parse directory response: %w", err)
 		}
-		return nil, fmt.Errorf("MCP error occurred")
+		return &dir, nil
 	}
-
-	// Extract the directory information from the MCP response
-	if content, ok := result["content"].([]interface{}); ok && len(content) > 0 {
-		if textContent, ok := content[0].(map[string]interface{}); ok {
-			if text, ok := textContent["text"].(string); ok {
-				var dir Directory
-				if err := json.Unmarshal([]byte(text), &dir); err != nil {
-					return nil, fmt.Errorf("failed to parse directory response: %w", err)
-				}
-				return &dir, nil
-			}
-		}
-	}
-
 	return nil, fmt.Errorf("unexpected response format from fsListDirectory")
 }
 
