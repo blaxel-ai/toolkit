@@ -82,7 +82,7 @@ All standard Unix/Linux commands are available and executed in the sandbox envir
 The command uses the same authentication system as other Blaxel CLI commands. Make sure you're logged in to the appropriate workspace:
 
 ```bash
-bl auth login
+bl login my-workspace
 ```
 
 The MCP connection uses your stored credentials (API key, access token, or client credentials) for authentication.

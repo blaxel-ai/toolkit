@@ -1,0 +1,10 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: test-py-app
+  displayName: Test Py App
+spec:
+  runtime:
+    image: "blaxel/prod-py-app:latest"
+    memory: 4096
+    generation: mk3

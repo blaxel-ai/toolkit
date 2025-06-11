@@ -28,6 +28,25 @@ lint:
 	golangci-lint run
 	uv run ruff check --fix
 
+test:
+	go test -count=1 ./...
+
+test-integration:
+	@echo "🧪 Running CLI integration tests..."
+	@if [ -z "$$BL_API_KEY" ]; then \
+		echo "❌ Error: BL_API_KEY environment variable is required"; \
+		echo "   Please set your API key: export BL_API_KEY=your_api_key"; \
+		exit 1; \
+	fi
+	@if [ -z "$$BL_WORKSPACE" ]; then \
+		echo "⚠️  Warning: BL_WORKSPACE not set, using 'main' workspace"; \
+		export BL_WORKSPACE=main; \
+	fi
+	@echo "🔑 Using API key: $${BL_API_KEY:0:8}..."
+	@echo "🏢 Using workspace: $${BL_WORKSPACE:-main}"
+	@echo "🚀 Starting integration tests (this may take several minutes)..."
+	cd cli && go test -count=1 -v -timeout=30m ./test/integration/
+
 install:
 	uv pip install openapi-python-client
 
@@ -38,4 +57,4 @@ tag:
 %:
 	@:
 
-.PHONY: sdk
+.PHONY: sdk test test-integration

@@ -2,21 +2,32 @@ package cli
 
 import (
 	"fmt"
-	"os"
-
-	"archive/zip"
 	"io"
-	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"archive/zip"
+	"net/http"
+
+	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/spf13/cobra"
 )
 
-func (r *Operations) DeployCmd() *cobra.Command {
+func init() {
+	core.RegisterCommand("deploy", func() *cobra.Command {
+		return DeployCmd()
+	})
+}
+
+func DeployCmd() *cobra.Command {
 	var name string
 	var dryRun bool
 	var recursive bool
+	var folder string
+	var envFiles []string
+	var commandSecrets []string
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -25,6 +36,11 @@ func (r *Operations) DeployCmd() *cobra.Command {
 		Long:    "Deploy agent, mcp or job on blaxel, you must be in a blaxel directory.",
 		Example: `bl deploy`,
 		Run: func(cmd *cobra.Command, args []string) {
+			core.LoadCommandSecrets(commandSecrets)
+			core.ReadSecrets(folder, envFiles)
+			if folder != "" {
+				core.ReadSecrets("", envFiles)
+			}
 
 			if recursive {
 				if deployPackage(dryRun, name) {
@@ -41,6 +57,7 @@ func (r *Operations) DeployCmd() *cobra.Command {
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
 
+			config := core.GetConfig()
 			if config.Name != "" {
 				name = config.Name
 			}
@@ -50,7 +67,6 @@ func (r *Operations) DeployCmd() *cobra.Command {
 				folder: folder,
 				name:   name,
 				cwd:    cwd,
-				r:      r,
 			}
 
 			err = deployment.Generate()
@@ -81,6 +97,8 @@ func (r *Operations) DeployCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&dryRun, "dryrun", "", false, "Dry run the deployment")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Deploy recursively")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Deployment app path, can be a sub directory")
+	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	return cmd
 }
 
@@ -88,10 +106,9 @@ type Deployment struct {
 	dir               string
 	name              string
 	folder            string
-	blaxelDeployments []Result
+	blaxelDeployments []core.Result
 	zip               *os.File
 	cwd               string
-	r                 *Operations
 }
 
 func (d *Deployment) Generate() error {
@@ -100,13 +117,13 @@ func (d *Deployment) Generate() error {
 		d.name = split[len(split)-1]
 	}
 
-	err := d.r.SeedCache(d.cwd)
+	err := core.SeedCache(d.cwd)
 	if err != nil {
 		return fmt.Errorf("failed to seed cache: %w", err)
 	}
 
 	// Generate the blaxel deployment yaml
-	d.blaxelDeployments = []Result{d.GenerateDeployment()}
+	d.blaxelDeployments = []core.Result{d.GenerateDeployment()}
 
 	// Zip the directory
 	err = d.Zip()
@@ -117,15 +134,16 @@ func (d *Deployment) Generate() error {
 	return nil
 }
 
-func (d *Deployment) GenerateDeployment() Result {
+func (d *Deployment) GenerateDeployment() core.Result {
 	var Spec map[string]interface{}
 	var Kind string
 
 	runtime := make(map[string]interface{})
+	config := core.GetConfig()
 	if config.Runtime != nil {
 		runtime = *config.Runtime
 	}
-	runtime["envs"] = GetUniqueEnvs()
+	runtime["envs"] = core.GetUniqueEnvs()
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
 	}
@@ -159,7 +177,7 @@ func (d *Deployment) GenerateDeployment() Result {
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
-	return Result{
+	return core.Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
 		Kind:       Kind,
 		Metadata: map[string]interface{}{
@@ -176,12 +194,12 @@ func (d *Deployment) Apply() error {
 	blaxelDir := filepath.Join(d.cwd, ".blaxel")
 	if _, err := os.Stat(blaxelDir); err == nil {
 		fmt.Println("Applying additional resources from .blaxel directory...")
-		_, err = d.r.Apply(blaxelDir, WithRecursive(true))
+		_, err = Apply(blaxelDir, WithRecursive(true))
 		if err != nil {
 			return fmt.Errorf("failed to apply .blaxel directory: %w", err)
 		}
 	}
-	applyResults, err := d.r.ApplyResources(d.blaxelDeployments)
+	applyResults, err := ApplyResources(d.blaxelDeployments)
 	if err != nil {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
@@ -200,8 +218,10 @@ func (d *Deployment) Apply() error {
 
 func (d *Deployment) Ready() {
 	fmt.Println("Deployment applied successfully")
-	currentWorkspace := workspace
-	fmt.Println("Your deployment is available at: " + d.r.AppURL + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
+	currentWorkspace := core.GetWorkspace()
+	config := core.GetConfig()
+	appUrl := core.GetAppURL()
+	fmt.Println("Your deployment is available at: " + appUrl + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
 }
 
 func (d *Deployment) Upload(url string) error {
@@ -420,16 +440,16 @@ func deployPackage(dryRun bool, name string) bool {
 		return false
 	}
 
-	runCommands(commands, true)
+	server.RunCommands(commands, true)
 	return true
 }
 
-func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error) {
+func getDeployCommands(dryRun bool, defaultName string) ([]server.PackageCommand, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("error getting current directory: %v", err)
 	}
-	command := PackageCommand{
+	command := server.PackageCommand{
 		Name:    "root",
 		Cwd:     pwd,
 		Command: "bl",
@@ -441,13 +461,14 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 	if defaultName != "" {
 		command.Args = append(command.Args, "--name", defaultName)
 	}
-	commands := []PackageCommand{}
+	commands := []server.PackageCommand{}
+	config := core.GetConfig()
 	if !config.SkipRoot {
 		commands = append(commands, command)
 	}
-	packages := getAllPackages()
+	packages := server.GetAllPackages(core.GetConfig())
 	for name, pkg := range packages {
-		command := PackageCommand{
+		command := server.PackageCommand{
 			Name:    name,
 			Cwd:     filepath.Join(pwd, pkg.Path),
 			Command: "bl",
@@ -459,6 +480,12 @@ func getDeployCommands(dryRun bool, defaultName string) ([]PackageCommand, error
 		}
 		if dryRun {
 			command.Args = append(command.Args, "--dryrun")
+		}
+		for _, envFile := range core.GetEnvFiles() {
+			command.Args = append(command.Args, "--env-file", envFile)
+		}
+		for _, secret := range core.GetSecrets() {
+			command.Args = append(command.Args, "-s", fmt.Sprintf("%s=%s", secret.Name, secret.Value))
 		}
 		commands = append(commands, command)
 	}

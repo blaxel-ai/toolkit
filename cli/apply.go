@@ -10,9 +10,16 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
 )
+
+func init() {
+	core.RegisterCommand("apply", func() *cobra.Command {
+		return ApplyCmd()
+	})
+}
 
 type ResourceOperationResult struct {
 	Status    string
@@ -40,10 +47,11 @@ func WithRecursive(recursive bool) ApplyOption {
 	}
 }
 
-func (r *Operations) ApplyCmd() *cobra.Command {
+func ApplyCmd() *cobra.Command {
 	var filePath string
 	var recursive bool
-
+	envFiles := core.GetEnvFiles()
+	commandSecrets := core.GetCommandSecrets()
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply a configuration to a resource by file",
@@ -54,7 +62,7 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 			cat file.yaml | bl apply -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := r.Apply(filePath, WithRecursive(recursive))
+			_, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(1)
@@ -64,6 +72,8 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&filePath, "filename", "f", "", "Path to YAML file to apply")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "R", false, "Process the directory used in -f, --filename recursively. Useful when you want to manage related manifests organized within the same directory.")
+	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	err := cmd.MarkFlagRequired("filename")
 	if err != nil {
 		fmt.Println(err)
@@ -73,20 +83,21 @@ func (r *Operations) ApplyCmd() *cobra.Command {
 	return cmd
 }
 
-func (r *Operations) ApplyResources(results []Result) ([]ApplyResult, error) {
+func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	applyResults := []ApplyResult{}
+	resources := core.GetResources()
 
 	// À ce stade, results contient tous vos documents YAML
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
 				name := result.Metadata.(map[string]interface{})["name"].(string)
-				result := resource.PutFn(resource.Kind, name, result)
-				if result != nil {
+				resultOp := PutFn(resource, result.Kind, name, result)
+				if resultOp != nil {
 					applyResults = append(applyResults, ApplyResult{
 						Kind:   resource.Kind,
 						Name:   name,
-						Result: *result,
+						Result: *resultOp,
 					})
 				}
 			}
@@ -95,7 +106,7 @@ func (r *Operations) ApplyResources(results []Result) ([]ApplyResult, error) {
 	return applyResults, nil
 }
 
-func (r *Operations) Apply(filePath string, opts ...ApplyOption) ([]ApplyResult, error) {
+func Apply(filePath string, opts ...ApplyOption) ([]ApplyResult, error) {
 	// Default options
 	options := &applyOptions{
 		recursive: false,
@@ -106,12 +117,12 @@ func (r *Operations) Apply(filePath string, opts ...ApplyOption) ([]ApplyResult,
 		opt(options)
 	}
 
-	results, err := getResults("apply", filePath, options.recursive)
+	results, err := core.GetResults("apply", filePath, options.recursive)
 	if err != nil {
 		return nil, fmt.Errorf("error getting results: %w", err)
 	}
 
-	applyResults, err := r.ApplyResources(results)
+	applyResults, err := ApplyResources(results)
 	if err != nil {
 		return nil, fmt.Errorf("error applying resources: %w", err)
 	}
@@ -120,7 +131,7 @@ func (r *Operations) Apply(filePath string, opts ...ApplyOption) ([]ApplyResult,
 }
 
 // Helper function to handle common resource operations
-func (resource Resource) handleResourceOperation(name string, resourceObject interface{}, operation string) (*http.Response, error) {
+func handleResourceOperation(resource *core.Resource, name string, resourceObject interface{}, operation string) (*http.Response, error) {
 	ctx := context.Background()
 
 	// Get the appropriate function based on operation
@@ -213,14 +224,15 @@ func (resource Resource) handleResourceOperation(name string, resourceObject int
 	return response, nil
 }
 
-func (resource Resource) PutFn(resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
+func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
 	failedResponse := ResourceOperationResult{
 		Status: "failed",
 	}
 	if resource.Kind == "IntegrationConnection" {
+		client := core.GetClient()
 		response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
 		if err == nil && response.StatusCode() == 200 {
-			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", APP_URL, workspace, *response.JSON200.Spec.Integration)
+			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", core.GetAppURL(), core.GetWorkspace(), *response.JSON200.Spec.Integration)
 			fmt.Printf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl)
 			return &ResourceOperationResult{
 				Status: "skipped",
@@ -228,7 +240,7 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 		}
 	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	response, err := resource.handleResourceOperation(name, resourceObject, "put")
+	response, err := handleResourceOperation(resource, name, resourceObject, "put")
 	if err != nil {
 		fmt.Printf("%s%v", formattedError, err)
 		return &failedResponse
@@ -246,11 +258,11 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 
 	if response.StatusCode == 404 {
 		// Need to create the resource
-		return resource.PostFn(resourceName, name, resourceObject)
+		return PostFn(resource, resourceName, name, resourceObject)
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Println(ErrorHandler(response.Request, resourceName, name, buf.String()))
+		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
 		os.Exit(1)
 		return &failedResponse
 	}
@@ -270,12 +282,12 @@ func (resource Resource) PutFn(resourceName string, name string, resourceObject 
 	return &result
 }
 
-func (resource Resource) PostFn(resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
+func PostFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
 	failedResponse := ResourceOperationResult{
 		Status: "failed",
 	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	response, err := resource.handleResourceOperation(name, resourceObject, "post")
+	response, err := handleResourceOperation(resource, name, resourceObject, "post")
 	if err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
 		return &failedResponse
@@ -292,7 +304,7 @@ func (resource Resource) PostFn(resourceName string, name string, resourceObject
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Println(ErrorHandler(response.Request, resourceName, name, buf.String()))
+		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
 		os.Exit(1)
 		return &failedResponse
 	}

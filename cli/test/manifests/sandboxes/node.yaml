@@ -1,0 +1,10 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: test-node
+  displayName: Test Node
+spec:
+  runtime:
+    image: "blaxel/prod-node:latest"
+    memory: 4096
+    generation: mk3
