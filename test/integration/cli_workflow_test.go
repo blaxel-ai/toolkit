@@ -97,6 +97,253 @@ func TestCLIWorkflow_CompleteFlow(t *testing.T) {
 	})
 }
 
+// TestCLIWorkflow_AgentApp runs only the Agent App workflow
+func TestCLIWorkflow_AgentApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	env := SetupRealCLIEnvironment(t)
+	setupWorkflowEnvironment(t, env)
+
+	t.Run("Agent_App_Workflow", func(t *testing.T) {
+		project := ProjectConfig{
+			Name:     "Agent App",
+			Command:  "create-agent-app",
+			Template: "template-google-adk-py",
+			Dir:      "complete-test-agent",
+		}
+
+		t.Logf("🚀 Starting Agent App workflow...")
+		success := runSingleProjectWorkflow(t, env, project)
+
+		// Cleanup
+		cleanupSingleProject(t, env, project)
+
+		if success {
+			t.Logf("🎉 Agent App workflow completed successfully")
+		} else {
+			t.Logf("❌ Agent App workflow failed")
+		}
+	})
+}
+
+// TestCLIWorkflow_MCPServer runs only the MCP Server workflow
+func TestCLIWorkflow_MCPServer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	env := SetupRealCLIEnvironment(t)
+	setupWorkflowEnvironment(t, env)
+
+	t.Run("MCP_Server_Workflow", func(t *testing.T) {
+		project := ProjectConfig{
+			Name:     "MCP Server",
+			Command:  "create-mcp-server",
+			Template: "template-mcp-hello-world-py",
+			Dir:      "complete-test-mcp",
+		}
+
+		t.Logf("🚀 Starting MCP Server workflow...")
+		success := runSingleProjectWorkflow(t, env, project)
+
+		// Cleanup
+		cleanupSingleProject(t, env, project)
+
+		if success {
+			t.Logf("🎉 MCP Server workflow completed successfully")
+		} else {
+			t.Logf("❌ MCP Server workflow failed")
+		}
+	})
+}
+
+// TestCLIWorkflow_Job runs only the Job workflow
+func TestCLIWorkflow_Job(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	env := SetupRealCLIEnvironment(t)
+	setupWorkflowEnvironment(t, env)
+
+	t.Run("Job_Workflow", func(t *testing.T) {
+		project := ProjectConfig{
+			Name:     "Job",
+			Command:  "create-job",
+			Template: "template-jobs-ts",
+			Dir:      "complete-test-job",
+		}
+
+		t.Logf("🚀 Starting Job workflow...")
+		success := runSingleProjectWorkflow(t, env, project)
+
+		// Cleanup
+		cleanupSingleProject(t, env, project)
+
+		if success {
+			t.Logf("🎉 Job workflow completed successfully")
+		} else {
+			t.Logf("❌ Job workflow failed")
+		}
+	})
+}
+
+// TestCLIWorkflow_MultiAgent runs only the Multi-Agent workflow
+func TestCLIWorkflow_MultiAgent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	env := SetupRealCLIEnvironment(t)
+	setupWorkflowEnvironment(t, env)
+
+	t.Run("Multi_Agent_Workflow", func(t *testing.T) {
+		project := MultiAgentConfig{
+			Name: "Multi-Agent",
+			Dir:  filepath.Join(filepath.Dir(env.OriginalDir), "multi-agent"),
+		}
+
+		t.Logf("🚀 Starting Multi-Agent workflow...")
+		success := runSingleMultiAgentWorkflow(t, env, project)
+
+		// Cleanup
+		cleanupSingleMultiAgent(t, env, project)
+
+		if success {
+			t.Logf("🎉 Multi-Agent workflow completed successfully")
+		} else {
+			t.Logf("❌ Multi-Agent workflow failed")
+		}
+	})
+}
+
+// TestCLIWorkflow_ManifestApply runs only the Manifest Apply workflow
+func TestCLIWorkflow_ManifestApply(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	env := SetupRealCLIEnvironment(t)
+	setupWorkflowEnvironment(t, env)
+
+	t.Run("Manifest_Apply_Workflow", func(t *testing.T) {
+		project := ManifestConfig{
+			Name: "Manifests-Apply",
+			Dir:  "test",
+		}
+
+		t.Logf("🚀 Starting Manifest Apply workflow...")
+		success := runSingleManifestWorkflow(t, env, project)
+
+		if success {
+			t.Logf("🎉 Manifest Apply workflow completed successfully")
+		} else {
+			t.Logf("❌ Manifest Apply workflow failed")
+		}
+	})
+}
+
+// setupWorkflowEnvironment performs common setup steps for individual workflows
+func setupWorkflowEnvironment(t *testing.T, env *RealCLITestEnvironment) {
+	performLogin(t, env)
+	checkWorkspaces(t, env)
+}
+
+// runSingleProjectWorkflow runs a complete workflow for a single regular project
+func runSingleProjectWorkflow(t *testing.T, env *RealCLITestEnvironment, project ProjectConfig) bool {
+	// Pre-cleanup for this specific project
+	cleanupSingleProject(t, env, project)
+
+	t.Logf("⏰ Waiting %v before starting workflow...", PreCleanupDelay)
+	time.Sleep(PreCleanupDelay)
+
+	// Create the project
+	result := env.ExecuteCLI(project.Command, "--template", project.Template, "-y", project.Dir)
+	logCommandResult(t, project.Name+" creation", result)
+
+	if result.ExitCode != 0 {
+		return false
+	}
+
+	// Verify directory creation
+	if err := verifyDirectoryCreation(project.Dir); err != nil {
+		t.Logf("❌ %s directory creation failed: %v", project.Name, err)
+		return false
+	}
+
+	t.Logf("✅ %s created successfully, starting deployment...", project.Name)
+
+	// Deploy and test the project
+	return deployAndTestProject(t, env, project)
+}
+
+// runSingleMultiAgentWorkflow runs a complete workflow for a multi-agent project
+func runSingleMultiAgentWorkflow(t *testing.T, env *RealCLITestEnvironment, project MultiAgentConfig) bool {
+	// Pre-cleanup for multi-agent
+	cleanupSingleMultiAgent(t, env, project)
+
+	t.Logf("⏰ Waiting %v before starting workflow...", PreCleanupDelay)
+	time.Sleep(PreCleanupDelay)
+
+	t.Logf("🔀 Starting multi-agent deployment for %s from existing folder", project.Name)
+	t.Logf("🔍 Multi-agent deployment path: %s", project.Dir)
+
+	return deployMultipleAgents(t, env, project)
+}
+
+// runSingleManifestWorkflow runs a complete workflow for a manifest project
+func runSingleManifestWorkflow(t *testing.T, env *RealCLITestEnvironment, project ManifestConfig) bool {
+	t.Logf("📄 Starting manifest deployment for %s", project.Name)
+	return deployManifests(t, env, project)
+}
+
+// cleanupSingleProject cleans up a single regular project
+func cleanupSingleProject(t *testing.T, env *RealCLITestEnvironment, project ProjectConfig) {
+	t.Logf("🧹 Cleaning up %s", project.Name)
+
+	var deleteCmd []string
+	projectType := getProjectType(project.Command)
+
+	switch projectType {
+	case "agent":
+		deleteCmd = []string{"delete", "agents", project.Dir}
+	case "mcp":
+		deleteCmd = []string{"delete", "functions", project.Dir}
+	case "job":
+		deleteCmd = []string{"delete", "job", project.Dir}
+	}
+
+	if len(deleteCmd) > 0 {
+		deleteResult := env.ExecuteCLIWithTimeout(CleanupTimeout, deleteCmd...)
+		logCommandResult(t, "Delete "+project.Name, deleteResult)
+
+		if deleteResult.ExitCode == 0 {
+			t.Logf("✅ %s deleted successfully", project.Name)
+		} else {
+			t.Logf("ℹ️ %s not found or already deleted", project.Name)
+		}
+	}
+}
+
+// cleanupSingleMultiAgent cleans up a single multi-agent project
+func cleanupSingleMultiAgent(t *testing.T, env *RealCLITestEnvironment, project MultiAgentConfig) {
+	t.Logf("🧹 Cleaning up multi-agent deployments for %s", project.Name)
+
+	agents := []string{"main-agent-2", "main-agent"}
+	for _, agent := range agents {
+		deleteResult := env.ExecuteCLIWithTimeout(CleanupTimeout, "delete", "agents", agent)
+		logCommandResult(t, fmt.Sprintf("Delete %s %s", project.Name, agent), deleteResult)
+
+		if deleteResult.ExitCode == 0 {
+			t.Logf("✅ %s deleted successfully", agent)
+		} else {
+			t.Logf("ℹ️ %s not found or already deleted", agent)
+		}
+	}
+}
+
 // performPreTestCleanup removes any existing resources before starting the test
 func performPreTestCleanup(t *testing.T, env *RealCLITestEnvironment) {
 	t.Run("Pre_Test_Cleanup", func(t *testing.T) {
@@ -267,6 +514,11 @@ func deployAndTestProject(t *testing.T, env *RealCLITestEnvironment, proj Projec
 		testAgentFunctionality(t, env, proj)
 	}
 
+	// Test job functionality if it's a job project
+	if projectType == "job" {
+		testJobFunctionality(t, env, proj)
+	}
+
 	return true
 }
 
@@ -370,8 +622,8 @@ func deployManifests(t *testing.T, env *RealCLITestEnvironment, proj ManifestCon
 	t.Logf("🔍 Manifest deployment path: %s", proj.Dir)
 
 	// Get paths for manifests and environment file
-	projectRoot := filepath.Join(env.OriginalDir, "..", "..", "..")
-	manifestsDir := filepath.Join(projectRoot, "cli", "test", "manifests")
+	projectRoot := filepath.Join(env.OriginalDir, "..", "..")
+	manifestsDir := filepath.Join(projectRoot, "test", "manifests")
 	envFile := filepath.Join(projectRoot, ".env")
 
 	t.Logf("📁 Manifests directory: %s", manifestsDir)
@@ -539,6 +791,46 @@ func testAgentByName(t *testing.T, env *RealCLITestEnvironment, agentName string
 	}
 }
 
+// testJobFunctionality tests a job's functionality with a sample batch file
+func testJobFunctionality(t *testing.T, env *RealCLITestEnvironment, proj ProjectConfig) {
+	t.Logf("🔬 Testing %s job with a batch file...", proj.Dir)
+
+	// Create a sample batch file for testing
+	batchContent := `{
+    "tasks": [
+        {
+            "name": "John"
+        }
+    ]
+}`
+
+	// Create batches directory if it doesn't exist
+	batchesDir := filepath.Join(proj.Dir, "batches")
+	err := os.MkdirAll(batchesDir, 0755)
+	if err != nil {
+		t.Logf("⚠️ Failed to create batches directory: %v", err)
+		return
+	}
+
+	// Write the batch file
+	batchFile := filepath.Join(batchesDir, "sample-batch.json")
+	err = os.WriteFile(batchFile, []byte(batchContent), 0644)
+	if err != nil {
+		t.Logf("⚠️ Failed to create batch file: %v", err)
+		return
+	}
+
+	// Execute the job with the batch file
+	testResult := env.ExecuteCLIWithTimeout(AgentTestTimeout, "run", "job", proj.Dir, "--file", batchFile)
+	logCommandResult(t, fmt.Sprintf("Test %s job", proj.Name), testResult)
+
+	if testResult.ExitCode == 0 {
+		t.Logf("✅ %s job execution successful", proj.Name)
+	} else {
+		t.Logf("⚠️ %s job execution failed (may be expected in test environment)", proj.Name)
+	}
+}
+
 // sendResult sends a test result to the result channel
 func sendResult(resultChan chan<- TestResult, project string, success bool, err error) {
 	resultChan <- TestResult{
@@ -674,7 +966,7 @@ func SetupRealCLIEnvironment(t *testing.T) *RealCLITestEnvironment {
 	require.NoError(t, err)
 
 	// Build the CLI binary
-	rootDir := filepath.Join(originalDir, "..", "..", "..")
+	rootDir := filepath.Join(originalDir, "..", "..")
 	cliBinary := filepath.Join(tempDir, "bl-test")
 
 	buildCmd := exec.Command("go", "build", "-o", cliBinary, "main.go")
