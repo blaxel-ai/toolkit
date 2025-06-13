@@ -68,9 +68,9 @@ func NewRunRequest(
 	if local {
 		path = "" + path
 	} else if path != "" {
-		path = fmt.Sprintf("%s/%ss/%s/%s", workspaceName, resourceType, resourceName, path)
+		path = fmt.Sprintf("%s/%s/%s/%s", workspaceName, Pluralize(resourceType), resourceName, path)
 	} else {
-		path = fmt.Sprintf("%s/%ss/%s", workspaceName, resourceType, resourceName)
+		path = fmt.Sprintf("%s/%s/%s", workspaceName, Pluralize(resourceType), resourceName)
 	}
 
 	if debug {

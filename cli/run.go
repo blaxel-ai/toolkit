@@ -94,6 +94,12 @@ bl run job my-job --file myjob.json`,
 			if resourceType == "job" && path == "" {
 				path = "/executions"
 			}
+			if resourceType == "mcp" {
+				resourceType = "functions"
+			}
+			if resourceType == "sbx" {
+				resourceType = "sandbox"
+			}
 
 			client := core.GetClient()
 			workspace := core.GetWorkspace()

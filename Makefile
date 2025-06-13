@@ -45,7 +45,7 @@ test-integration:
 	@echo "🔑 Using API key: $${BL_API_KEY:0:8}..."
 	@echo "🏢 Using workspace: $${BL_WORKSPACE:-main}"
 	@echo "🚀 Starting integration tests (this may take several minutes)..."
-	cd cli && go test -count=1 -v -timeout=30m ./test/integration/
+	go test -count=1 -v -timeout=30m -run TestCLIWorkflow_CompleteFlow ./test/integration/
 
 install:
 	uv pip install openapi-python-client
