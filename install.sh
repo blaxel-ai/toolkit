@@ -229,7 +229,7 @@ setup_path_interactive() {
   local shell_name=""
   local rc_file=""
   local rc_file_path=""
-  
+
   # Skip PATH setup for system directories that are already in PATH
   case "$bin_path" in
     /usr/local/bin|/usr/bin|/bin)
@@ -242,7 +242,7 @@ setup_path_interactive() {
       return
       ;;
   esac
-  
+
   # Detect shell from $SHELL environment variable first (most reliable)
   if [ -n "$SHELL" ]; then
     shell_name=$(basename "$SHELL")
@@ -252,20 +252,20 @@ setup_path_interactive() {
     if [ -n "$parent_pid" ]; then
       shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
     fi
-    
+
     # Final fallback: try to detect from process
     if [ -z "$shell_name" ]; then
       shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
     fi
   fi
-  
+
   # If still no shell detected, check if fish config exists
   if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
     if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
       shell_name="fish"
     fi
   fi
-  
+
   # Determine the appropriate RC file based on shell
   case "$shell_name" in
     zsh)
@@ -300,11 +300,11 @@ setup_path_interactive() {
       shell_name="shell"
       ;;
   esac
-  
+
   echo ""
   echo "${BINARY} and ${BINARY_SHORT_NAME} were installed successfully to $bin_path"
   echo ""
-  
+
   # Check if PATH is already configured
   if [ -f "$rc_file_path" ] && grep -q "# Added by ${BINARY} installer" "$rc_file_path"; then
     echo "${BINARY} is already configured in your PATH via $rc_file"
@@ -312,16 +312,22 @@ setup_path_interactive() {
     echo "To get started, run: ${BINARY_SHORT_NAME} --help"
     return
   fi
-  
+
+  # Check if running in CI environment
+  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
+    echo "Detected CI environment - skipping PATH modification."
+    return
+  fi
+
   echo "To get started, you need ${BINARY} in your PATH environment variable."
   echo ""
-  
+
   # Check if running interactively
   if [ -t 0 ]; then
     # Running interactively - ask user via stdin
     printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "
     read -r response
-    
+
     case "$response" in
       [yY]|[yY][eE][sS])
         response="y"
@@ -335,7 +341,7 @@ setup_path_interactive() {
     if [ -e /dev/tty ]; then
       printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] " > /dev/tty
       read -r response < /dev/tty
-      
+
       case "$response" in
         [yY]|[yY][eE][sS])
           response="y"
@@ -349,7 +355,7 @@ setup_path_interactive() {
       response="n"
     fi
   fi
-  
+
   case "$response" in
     n)
       # User declined or non-interactive mode
@@ -370,19 +376,19 @@ setup_path_interactive() {
     y)
       # User accepted automatic setup
       echo "Adding ${BINARY} to PATH in $rc_file"
-      
+
       # Create the directory if it doesn't exist (for fish config)
       if [ "$shell_name" = "fish" ]; then
         mkdir -p "$(dirname "$rc_file_path")"
       fi
-      
+
       # Add PATH export to the RC file using printf for better portability
       if [ "$shell_name" = "fish" ]; then
         printf "\n# Added by %s installer\nset -gx PATH %s \$PATH\n" "$BINARY" "$bin_path" >> "$rc_file_path"
       else
         printf "\n# Added by %s installer\nexport PATH=\"%s:\$PATH\"\n" "$BINARY" "$bin_path" >> "$rc_file_path"
       fi
-      
+
       echo "✓ Added ${BINARY} to PATH in $rc_file"
       echo ""
       echo "To use ${BINARY} in your current shell, run:"
@@ -391,7 +397,7 @@ setup_path_interactive() {
       echo "Or start a new terminal session."
       ;;
   esac
-  
+
   echo ""
   echo "To get started, run: ${BINARY_SHORT_NAME} --help"
 }
@@ -406,7 +412,7 @@ execute() {
   install -d "${BINDIR}"
   install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY}"
   install "${SCRIPT_TMPDIR}/${BINARY}" "${BINDIR}/${BINARY_SHORT_NAME}"
-  
+
   # Convert relative path to absolute path for PATH instructions
   if [ "${BINDIR#/}" = "${BINDIR}" ]; then
     # Relative path - convert to absolute
@@ -415,7 +421,7 @@ execute() {
     # Already absolute path
     ABSOLUTE_BINDIR="${BINDIR}"
   fi
-  
+
   setup_path_interactive "$ABSOLUTE_BINDIR"
 }
 
