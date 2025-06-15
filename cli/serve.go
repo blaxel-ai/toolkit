@@ -38,6 +38,7 @@ func ServeCmd() *cobra.Command {
 			core.ReadSecrets(folder, envFiles)
 			if folder != "" {
 				core.ReadSecrets("", envFiles)
+				core.ReadConfigToml(folder)
 			}
 			config := core.GetConfig()
 

@@ -331,7 +331,7 @@ func cleanupSingleProject(t *testing.T, env *RealCLITestEnvironment, project Pro
 func cleanupSingleMultiAgent(t *testing.T, env *RealCLITestEnvironment, project MultiAgentConfig) {
 	t.Logf("🧹 Cleaning up multi-agent deployments for %s", project.Name)
 
-	agents := []string{"main-agent-2", "main-agent"}
+	agents := []string{"main-2", "main"}
 	for _, agent := range agents {
 		deleteResult := env.ExecuteCLIWithTimeout(CleanupTimeout, "delete", "agents", agent)
 		logCommandResult(t, fmt.Sprintf("Delete %s %s", project.Name, agent), deleteResult)
@@ -356,8 +356,8 @@ func performPreTestCleanup(t *testing.T, env *RealCLITestEnvironment) {
 			{"complete-test-agent", []string{"delete", "agents", "complete-test-agent"}},
 			{"complete-test-mcp", []string{"delete", "functions", "complete-test-mcp"}},
 			{"complete-test-job", []string{"delete", "job", "complete-test-job"}},
-			{"main-agent", []string{"delete", "agents", "main-agent"}},
-			{"main-agent-2", []string{"delete", "agents", "main-agent-2"}},
+			{"main", []string{"delete", "agents", "main"}},
+			{"main-2", []string{"delete", "agents", "main-2"}},
 		}
 
 		results := executeParallelCleanup(t, env, cleanupResources)
@@ -564,7 +564,7 @@ func deployMultipleAgents(t *testing.T, env *RealCLITestEnvironment, proj MultiA
 	}
 
 	// Wait for deployments to complete
-	return waitForMultiAgentDeployments(t, env, proj, agents)
+	return waitForMultiAgentDeployments(t, env, proj, []string{"main-2", "main"})
 }
 
 // waitForMultiAgentDeployments waits for multiple agent deployments to complete
@@ -908,7 +908,7 @@ func cleanupMultiAgentProjects(t *testing.T, env *RealCLITestEnvironment, projec
 		go func(project MultiAgentConfig) {
 			t.Logf("🧹 Cleaning up multi-agent deployments for %s", project.Name)
 
-			agents := []string{"main-agent-2", "main-agent"}
+			agents := []string{"main-2", "main"}
 			successfulDeletions := 0
 
 			for _, agent := range agents {
