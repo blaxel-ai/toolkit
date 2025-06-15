@@ -7,7 +7,10 @@ import agent from "./agent.js";
 
 sharedFunction();
 
-console.log(process.env.TEST)
+console.log(`FOO: ${process.env.FOO}`)
+console.log(`FOO2: ${process.env.FOO2}`)
+console.log(`HELLO: ${process.env.HELLO}`)
+
 interface RequestBody {
   inputs: string;
 }

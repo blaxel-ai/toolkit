@@ -14,6 +14,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -244,6 +245,22 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
 			checkForUpdates(version)
+		}
+
+		// Load .env file for all commands except serve, deploy, run, and apply cause they use envFiles
+		excludedCommands := map[string]bool{
+			"serve":  true,
+			"deploy": true,
+			"run":    true,
+			"apply":  true,
+		}
+		if !excludedCommands[cmd.Name()] {
+			if err := godotenv.Load(); err != nil {
+				// Only log error if .env file exists but can't be loaded
+				if !os.IsNotExist(err) {
+					fmt.Printf("Warning: Could not load .env file: %v\n", err)
+				}
+			}
 		}
 
 		setEnvs()
