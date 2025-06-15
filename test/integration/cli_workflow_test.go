@@ -542,7 +542,7 @@ func deployMultipleAgents(t *testing.T, env *RealCLITestEnvironment, proj MultiA
 	deployResults := make([]*CLIResult, len(agents))
 
 	for i, agent := range agents {
-		deployResults[i] = env.ExecuteCLIInDirectory(proj.Dir, "deploy", "-d", agent, "--recursive=false")
+		deployResults[i] = env.ExecuteCLIInDirectory(proj.Dir, "deploy", "-d", agent)
 		logCommandResult(t, fmt.Sprintf("Deploy %s %s", proj.Name, agent), deployResults[i])
 	}
 

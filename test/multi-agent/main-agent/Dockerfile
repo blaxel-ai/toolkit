@@ -6,10 +6,10 @@ RUN npx pnpm install
 
 WORKDIR /blaxel/main-agent
 
-COPY main-agent/package.json /blaxel/main-agent/
+COPY main-agent/package.json main-agent/pnpm-lock.yaml /blaxel/main-agent/
 RUN npx pnpm install
 
-COPY main-agent .
+COPY main-agent/ .
 
 RUN npx pnpm build
 ENTRYPOINT ["npx", "pnpm", "start"]
