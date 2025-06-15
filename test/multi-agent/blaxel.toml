@@ -1,4 +1,5 @@
 skipRoot = true
+name = "multi-agent"
 
 [agent.main-agent]
 path = "main-agent"

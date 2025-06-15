@@ -41,6 +41,7 @@ func DeployCmd() *cobra.Command {
 			if folder != "" {
 				recursive = false
 				core.ReadSecrets("", envFiles)
+				core.ReadConfigToml(folder)
 			}
 
 			if recursive {
