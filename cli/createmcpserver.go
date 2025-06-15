@@ -47,11 +47,31 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 				return
 			}
 
-			templates, errTemplates := core.RetrieveTemplates("mcp")
-			if errTemplates != nil {
-				fmt.Println("Could not retrieve templates")
-				os.Exit(0)
+			var templateError error
+			var templates core.Templates
+			if noTTY {
+				templates, templateError = core.RetrieveTemplates("mcp")
+				if templateError != nil {
+					fmt.Println("Error creating mcp server", templateError)
+					os.Exit(0)
+				}
+			} else {
+				spinnerErr := spinner.New().
+					Title("Retrieving templates...").
+					Action(func() {
+						templates, templateError = core.RetrieveTemplates("mcp")
+					}).
+					Run()
+				if spinnerErr != nil {
+					fmt.Println("Error creating mcp server", spinnerErr)
+					return
+				}
+				if templateError != nil {
+					fmt.Println("Error creating mcp server", templateError)
+					os.Exit(0)
+				}
 			}
+
 			if len(templates) == 0 {
 				fmt.Println("No templates found")
 				os.Exit(0)
@@ -70,8 +90,11 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 					}
 					return
 				}
+			} else if noTTY {
+				// When noTTY is true but no template specified, use first available template
+				opts = core.CreateDefaultTemplateOptions(args[0], "", templates)
 			} else {
-				opts = promptCreateMCPServer(args[0])
+				opts = promptCreateMCPServer(args[0], templates)
 			}
 
 			if noTTY {
@@ -123,26 +146,18 @@ bl serve --hotreload;
 
 // promptCreateMCPServer displays an interactive form to collect user input for creating a new mcp server.
 // It prompts for project name, language selection, template, author, license, and additional features.
-// Takes a directory string parameter and returns a CreateMCPServerOptions struct with the user's selections.
-func promptCreateMCPServer(directory string) core.TemplateOptions {
+// Takes a directory string parameter and templates, returns a CreateMCPServerOptions struct with the user's selections.
+func promptCreateMCPServer(directory string, templates core.Templates) core.TemplateOptions {
 	mcpserverOptions := core.TemplateOptions{
-		ProjectName: directory,
-		Directory:   directory,
+		ProjectName:  directory,
+		Directory:    directory,
+		TemplateName: "",
 	}
 	currentUser, err := user.Current()
 	if err == nil {
 		mcpserverOptions.Author = currentUser.Username
 	} else {
 		mcpserverOptions.Author = "blaxel"
-	}
-	templates, err := core.RetrieveTemplates("mcp")
-	if err != nil {
-		fmt.Println("Could not retrieve templates")
-		os.Exit(0)
-	}
-	if len(templates) == 0 {
-		fmt.Println("No templates found")
-		os.Exit(0)
 	}
 	languagesOptions := []huh.Option[string]{}
 	for _, language := range templates.GetLanguages() {
