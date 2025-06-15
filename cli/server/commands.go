@@ -74,5 +74,9 @@ func GetServerEnvironment(port int, host string, hotreload bool, config core.Con
 	if hotreload {
 		env.Set("BL_HOTRELOAD", "true")
 	}
+	secrets := core.GetSecrets()
+	for _, secret := range secrets {
+		env.Set(secret.Name, secret.Value)
+	}
 	return env
 }
