@@ -31,7 +31,11 @@ func StartPackageServer(port int, host string, hotreload bool, config core.Confi
 		os.Exit(1)
 	}
 	if len(commands) == 1 {
-		return false
+		if commands[0].Name == "root" {
+			return false
+		}
+		RunCommands(commands, true)
+		return true
 	}
 
 	RunCommands(commands, false)
@@ -128,6 +132,11 @@ func GetAllPackages(config core.Config) map[string]core.Package {
 		pkg.Type = "agent"
 		packages[agentName] = pkg
 	}
+	for jobName := range config.Job {
+		pkg := config.Job[jobName]
+		pkg.Type = "job"
+		packages[jobName] = pkg
+	}
 	return packages
 }
 
@@ -153,8 +162,12 @@ func getServeCommands(port int, host string, hotreload bool, config core.Config,
 	if !config.SkipRoot {
 		commands = append(commands, command)
 	}
-	i := 1
+	i := len(commands)
 	for name, pkg := range packages {
+		if pkg.Type == "job" {
+			fmt.Printf("Skipping job %s\n", name)
+			continue
+		}
 		if pkg.Port == 0 {
 			return nil, fmt.Errorf("port is not set for %s", name)
 		} else {
@@ -205,6 +218,5 @@ func getServeCommands(port int, host string, hotreload bool, config core.Config,
 	for i := range commands {
 		commands[i].Envs = envs
 	}
-
 	return commands, nil
 }

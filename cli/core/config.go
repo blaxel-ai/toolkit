@@ -110,6 +110,7 @@ type Config struct {
 	Env        Envs                      `toml:"env"`
 	Function   map[string]Package        `toml:"function"`
 	Agent      map[string]Package        `toml:"agent"`
+	Job        map[string]Package        `toml:"job"`
 	SkipRoot   bool                      `toml:"skipRoot"`
 	Runtime    *map[string]interface{}   `toml:"runtime"`
 	Triggers   *[]map[string]interface{} `toml:"triggers"`
