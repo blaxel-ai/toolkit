@@ -53,3 +53,12 @@ func readSecrets(folder string) {
 func GetSecrets() []Env {
 	return secrets
 }
+
+func LookupSecret(name string) string {
+	for _, secret := range secrets {
+		if secret.Name == name {
+			return secret.Value
+		}
+	}
+	return ""
+}
