@@ -66,6 +66,8 @@ func handleSecret(filePath string, content string) (string, error) {
 		values[fullMatch] = &value
 		if envValue, exists := os.LookupEnv(secretName); exists {
 			value = envValue
+		} else if secretValue := LookupSecret(secretName); secretValue != "" {
+			value = secretValue
 		} else {
 			title := fmt.Sprintf("name: %s", secretName)
 			if i == 0 {

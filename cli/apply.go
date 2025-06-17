@@ -50,8 +50,8 @@ func WithRecursive(recursive bool) ApplyOption {
 func ApplyCmd() *cobra.Command {
 	var filePath string
 	var recursive bool
-	envFiles := core.GetEnvFiles()
-	commandSecrets := core.GetCommandSecrets()
+	var envFiles []string
+	var commandSecrets []string
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply a configuration to a resource by file",
@@ -62,6 +62,8 @@ func ApplyCmd() *cobra.Command {
 			cat file.yaml | bl apply -f -
 		`,
 		Run: func(cmd *cobra.Command, args []string) {
+			core.LoadCommandSecrets(commandSecrets)
+			core.ReadSecrets("", envFiles)
 			_, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
 				fmt.Println(err)
