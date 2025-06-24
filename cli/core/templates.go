@@ -102,9 +102,13 @@ func (t Template) Clone(opts TemplateOptions) error {
 	if err := os.MkdirAll(opts.Directory, 0755); err != nil {
 		return err
 	}
-
+	env := os.Getenv("BL_ENV")
+	branch := "main"
+	if env == "dev" {
+		branch = "develop"
+	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
-	cloneDirCmd := exec.Command("git", "clone", *t.Template.Url, opts.Directory)
+	cloneDirCmd := exec.Command("git", "clone", "-b", branch, *t.Template.Url, opts.Directory)
 	if err := cloneDirCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone templates repository: %w", err)
 	}
