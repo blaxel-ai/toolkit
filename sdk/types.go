@@ -7,6 +7,7 @@ type Config struct {
 type WorkspaceConfig struct {
 	Name        string      `yaml:"name"`
 	Credentials Credentials `yaml:"credentials"`
+	Env         string      `yaml:"env"`
 }
 
 type ContextConfig struct {

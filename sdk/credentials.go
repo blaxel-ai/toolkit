@@ -83,6 +83,20 @@ func LoadCredentials(workspaceName string) Credentials {
 	return Credentials{}
 }
 
+func LoadEnv(workspaceName string) string {
+	config := loadConfig()
+	for _, workspace := range config.Workspaces {
+		if workspace.Name == workspaceName {
+			return workspace.Env
+		}
+	}
+	env := os.Getenv("BL_ENV")
+	if env != "" {
+		return env
+	}
+	return "prod"
+}
+
 func createHomeDirIfMissing() {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

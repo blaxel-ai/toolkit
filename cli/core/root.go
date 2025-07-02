@@ -212,19 +212,23 @@ func isNewerVersion(latestVersion, currentVersion string) bool {
 	return latest.GreaterThan(current)
 }
 
-func init() {
-	env := os.Getenv("BL_ENV")
-	if env == "dev" {
+func initEnv(env string) {
+	switch env {
+	case "dev":
 		BASE_URL = "https://api.blaxel.dev/v0"
 		APP_URL = "https://app.blaxel.dev"
 		RUN_URL = "https://run.blaxel.dev"
 		REGISTRY_URL = "https://eu.registry.blaxel.dev"
-	} else if env == "local" {
+	case "local":
 		BASE_URL = "http://localhost:8080/v0"
 		APP_URL = "http://localhost:3000"
 		RUN_URL = "https://run.blaxel.dev"
 		REGISTRY_URL = "https://eu.registry.blaxel.dev"
 	}
+}
+
+func init() {
+	initEnv(os.Getenv("BL_ENV"))
 }
 
 var envFiles []string
@@ -340,6 +344,8 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 
 	if workspace == "" {
 		workspace = sdk.CurrentContext().Workspace
+		env := sdk.LoadEnv(workspace)
+		initEnv(env)
 	}
 	if version == "" {
 		version = releaseVersion
