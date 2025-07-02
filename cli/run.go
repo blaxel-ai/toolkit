@@ -82,16 +82,16 @@ bl run job my-job --file myjob.json`,
 				}
 				data = string(fileContent)
 			}
-			if resourceType == "model" && path == "" {
+			if (resourceType == "model" || resourceType == "models") && path == "" {
 				path = getModelDefaultPath(resourceName)
 			}
 
-			if resourceType == "job" && local {
+			if (resourceType == "job" || resourceType == "jobs") && local {
 				runJobLocally(data, folder, core.GetConfig())
 				os.Exit(0)
 			}
 
-			if resourceType == "job" && path == "" {
+			if (resourceType == "job" || resourceType == "jobs") && path == "" {
 				path = "/executions"
 			}
 			if resourceType == "mcp" {
@@ -208,7 +208,7 @@ func getModelDefaultPath(resourceName string) string {
 					if endpoints != nil {
 						key := ""
 						for path := range *endpoints {
-							if key == "" || strings.Contains(key, "/v1/chat/completions") {
+							if key == "" || strings.Contains(path, "completions") {
 								key = path
 							}
 						}

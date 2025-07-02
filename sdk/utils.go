@@ -9,6 +9,11 @@ func BlString(s string) *string {
 func Pluralize(word string) string {
 	lower := strings.ToLower(word)
 
+	// If word ends in 's', assume it's already plural for resource types
+	if strings.HasSuffix(lower, "s") && word != "process" {
+		return word
+	}
+
 	switch {
 	case strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") || strings.HasSuffix(lower, "z") || strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "sh"):
 		return word + "es"
