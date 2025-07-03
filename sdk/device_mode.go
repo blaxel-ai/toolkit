@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +11,11 @@ import (
 	"strings"
 	"time"
 )
+
+type AuthErrorResponse struct {
+	Error string `json:"error"`
+	Code  int    `json:"code"`
+}
 
 type DeviceLogin struct {
 	ClientID string `json:"client_id"`
@@ -127,11 +133,26 @@ func (s *BearerToken) DoRefresh() error {
 		return fmt.Errorf("failed to refresh token: %v", err)
 	}
 	defer res.Body.Close()
-	body, _ := io.ReadAll(res.Body)
 
+	// Read the response body first
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, res.Body); err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	if res.StatusCode >= 400 {
+		var errorResponse AuthErrorResponse
+		if err := json.Unmarshal(buf.Bytes(), &errorResponse); err != nil {
+			// If JSON parsing fails, return the raw response
+			return fmt.Errorf("failed to refresh token: %s", buf.String())
+		}
+		return fmt.Errorf("failed to refresh token: %v", errorResponse.Error)
+	}
+
+	// Continue with successful response handling
 	var finalizeResponse DeviceLoginFinalizeResponse
-	if err := json.Unmarshal(body, &finalizeResponse); err != nil {
-		panic(err)
+	if err := json.Unmarshal(buf.Bytes(), &finalizeResponse); err != nil {
+		return fmt.Errorf("failed to parse refresh response: %v", err)
 	}
 	if finalizeResponse.RefreshToken == "" {
 		finalizeResponse.RefreshToken = s.credentials.RefreshToken
