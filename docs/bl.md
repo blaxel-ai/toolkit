@@ -26,6 +26,7 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl create-agent-app](bl_create-agent-app.md)	 - Create a new blaxel agent app
 * [bl create-job](bl_create-job.md)	 - Create a new blaxel job
 * [bl create-mcp-server](bl_create-mcp-server.md)	 - Create a new blaxel mcp server
+* [bl create-sandbox](bl_create-sandbox.md)	 - Create a new blaxel sandbox
 * [bl delete](bl_delete.md)	 - Delete a resource
 * [bl deploy](bl_deploy.md)	 - Deploy on blaxel
 * [bl get](bl_get.md)	 - Get a resource

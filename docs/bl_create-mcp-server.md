@@ -17,13 +17,18 @@ bl create-mcp-server directory [flags]
 ### Examples
 
 ```
-bl create-mcpserver my-mcp-server
+
+bl create-mcp-server my-mcp-server
+bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py
+bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y
 ```
 
 ### Options
 
 ```
-  -h, --help   help for create-mcp-server
+  -h, --help              help for create-mcp-server
+  -t, --template string   Template to use for the mcp server (skips interactive prompt)
+  -y, --yes               Skip interactive prompts and use defaults
 ```
 
 ### Options inherited from parent commands

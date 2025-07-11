@@ -251,7 +251,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		return nil
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
@@ -298,7 +298,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		return &failedResponse
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)

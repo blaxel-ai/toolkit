@@ -17,13 +17,18 @@ bl create-agent-app directory [flags]
 ### Examples
 
 ```
+
 bl create-agent-app my-agent-app
+bl create-agent-app my-agent-app --template template-google-adk-py
+bl create-agent-app my-agent-app --template template-google-adk-py -y
 ```
 
 ### Options
 
 ```
-  -h, --help   help for create-agent-app
+  -h, --help              help for create-agent-app
+  -t, --template string   Template to use for the agent app (skips interactive prompt)
+  -y, --yes               Skip interactive prompts and use defaults
 ```
 
 ### Options inherited from parent commands

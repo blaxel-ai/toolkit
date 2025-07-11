@@ -106,7 +106,7 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 				cloneError := template.Clone(opts)
 				if cloneError != nil {
 					fmt.Println("Error creating mcp server", cloneError)
-					os.RemoveAll(opts.Directory)
+					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			} else {
@@ -128,10 +128,11 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 				}
 				if cloneError != nil {
 					fmt.Println("Error creating mcp server", cloneError)
-					os.RemoveAll(opts.Directory)
+					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			}
+			core.CleanTemplate(opts.Directory)
 			fmt.Printf(`Your blaxel mcp server has been created. Start working on it:
 cd %s;
 bl serve --hotreload;

@@ -121,7 +121,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 		if err != nil {
 			return nil, fmt.Errorf("error opening file: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		reader = file
 	}
 	// Read the entire content as a string first

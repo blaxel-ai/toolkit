@@ -110,7 +110,7 @@ func DeleteFn(resource *core.Resource, name string) {
 		return
 	}
 	// Read the content of http.Response.Body
-	defer response.Body.Close() // Ensure to close the ReadCloser
+	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Println(err)

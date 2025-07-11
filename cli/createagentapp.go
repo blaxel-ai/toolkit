@@ -104,7 +104,7 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 				cloneError := template.Clone(opts)
 				if cloneError != nil {
 					fmt.Println("Error creating agent app", cloneError)
-					os.RemoveAll(opts.Directory)
+					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			} else {
@@ -126,10 +126,11 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 				}
 				if cloneError != nil {
 					fmt.Println("Error creating agent app", cloneError)
-					os.RemoveAll(opts.Directory)
+					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			}
+			core.CleanTemplate(opts.Directory)
 			fmt.Printf(`Your blaxel agent app has been created. Start working on it:
 cd %s;
 bl serve --hotreload;

@@ -127,7 +127,7 @@ func CheckResource(
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status code
 	if resp.StatusCode != http.StatusOK {
@@ -234,7 +234,7 @@ func SendMessageStream(
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	// Check if response is actually streaming
 	contentType := response.Header.Get("Content-Type")

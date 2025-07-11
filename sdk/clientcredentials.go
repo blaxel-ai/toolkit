@@ -55,7 +55,7 @@ func (c *ClientCredentials) RefreshIfNeeded() error {
 		if err != nil {
 			return fmt.Errorf("failed to execute request: %v", err)
 		}
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 
 		var response DeviceLoginFinalizeResponse
 		if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
@@ -142,7 +142,7 @@ func (c *ClientCredentials) DoRefresh() error {
 	if err != nil {
 		return fmt.Errorf("failed to refresh token: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, _ := io.ReadAll(res.Body)
 
 	var finalizeResponse DeviceLoginFinalizeResponse

@@ -26,7 +26,6 @@ doc:
 
 lint:
 	golangci-lint run
-	uv run ruff check --fix
 
 test:
 	go test -count=1 ./...

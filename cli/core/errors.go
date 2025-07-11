@@ -30,7 +30,7 @@ func ErrorHandler(request *http.Request, kind string, name string, body string) 
 			if name == "" {
 				resourceFullName = kind
 			}
-			err = fmt.Errorf("You are not authorized to access the resource %s on workspace %s. Please login again.", resourceFullName, workspace)
+			err = fmt.Errorf("you are not authorized to access the resource %s on workspace %s. Please login again", resourceFullName, workspace)
 		} else {
 			err = fmt.Errorf("Resource %s:%s:%s: %s (Code: %d)", kind, workspace, name, errorModel.Error, errorModel.Code)
 		}

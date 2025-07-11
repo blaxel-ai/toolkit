@@ -109,7 +109,7 @@ func GetFn(resource *core.Resource, name string) {
 		os.Exit(1)
 	}
 	// Read the content of http.Response.Body
-	defer response.Body.Close() // Ensure to close the ReadCloser
+	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Printf("%s%v", formattedError, err)
@@ -167,7 +167,7 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 		return nil, fmt.Errorf("the result is not a pointer to http.Response")
 	}
 	// Read the content of http.Response.Body
-	defer response.Body.Close() // Ensure to close the ReadCloser
+	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		return nil, err
@@ -201,11 +201,11 @@ func executeAndDisplayWatch(args []string, resource core.Resource, seconds int) 
 	}
 
 	// Close the write end of the pipe
-	w.Close()
+	_ = w.Close()
 
 	// Read the output from the pipe
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 
 	// Restore stdout
 	os.Stdout = stdout

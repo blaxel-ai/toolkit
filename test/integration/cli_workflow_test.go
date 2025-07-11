@@ -986,9 +986,9 @@ func SetupRealCLIEnvironment(t *testing.T) *RealCLITestEnvironment {
 		Workspace:   workspace,
 		Cleanup: func() {
 			// Restore original directory
-			os.Chdir(originalDir)
+			_ = os.Chdir(originalDir)
 			// Clean up temp directory
-			os.RemoveAll(tempDir)
+			_ = os.RemoveAll(tempDir)
 		},
 	}
 
@@ -1208,7 +1208,7 @@ func executeCommandWithTimeout(cmd *exec.Cmd, timeout time.Duration) (string, st
 	case err := <-done:
 		return stdout.String(), stderr.String(), err
 	case <-time.After(timeout):
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill()
 		return stdout.String(), stderr.String(), fmt.Errorf("command timed out after %v", timeout)
 	}
 }
