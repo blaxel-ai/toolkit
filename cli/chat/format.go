@@ -62,7 +62,7 @@ func ImageToAscii(url string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to download image: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Décoder l'image
 	img, _, err := image.Decode(resp.Body)

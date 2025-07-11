@@ -13,29 +13,29 @@ import (
 )
 
 func init() {
-	core.RegisterCommand("create-job", func() *cobra.Command {
-		return CreateJobCmd()
+	core.RegisterCommand("create-sandbox", func() *cobra.Command {
+		return CreateSandboxCmd()
 	})
 }
 
-// CreateJobCmd returns a cobra.Command that implements the 'create-job' CLI command.
-// The command creates a new Blaxel job in the specified directory after collecting
+// CreateSandboxCmd returns a cobra.Command that implements the 'create-sandbox' CLI command.
+// The command creates a new Blaxel sandbox in the specified directory after collecting
 // necessary configuration through an interactive prompt.
-// Usage: bl create-job directory [--template template-name]
-func CreateJobCmd() *cobra.Command {
+// Usage: bl create-sandbox directory [--template template-name]
+func CreateSandboxCmd() *cobra.Command {
 	var templateName string
 	var noTTY bool
 
 	cmd := &cobra.Command{
-		Use:     "create-job directory",
+		Use:     "create-sandbox directory",
 		Args:    cobra.MaximumNArgs(2),
-		Aliases: []string{"cj", "cjob"},
-		Short:   "Create a new blaxel job",
-		Long:    "Create a new blaxel job",
+		Aliases: []string{"cs"},
+		Short:   "Create a new blaxel sandbox",
+		Long:    "Create a new blaxel sandbox",
 		Example: `
-bl create-job my-job
-bl create-job my-job --template template-jobs-ts
-bl create-job my-job --template template-jobs-ts -y`,
+bl create-sandbox my-sandbox
+bl create-sandbox my-sandbox --template template-sandbox-ts
+bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) < 1 {
 				fmt.Println("Please provide a directory name")
@@ -50,24 +50,24 @@ bl create-job my-job --template template-jobs-ts -y`,
 			var templateError error
 			var templates core.Templates
 			if noTTY {
-				templates, templateError = core.RetrieveTemplates("job")
+				templates, templateError = core.RetrieveTemplates("sandbox")
 				if templateError != nil {
-					fmt.Println("Error creating job", templateError)
+					fmt.Println("Error creating sandbox", templateError)
 					os.Exit(0)
 				}
 			} else {
 				spinnerErr := spinner.New().
 					Title("Retrieving templates...").
 					Action(func() {
-						templates, templateError = core.RetrieveTemplates("job")
+						templates, templateError = core.RetrieveTemplates("sandbox")
 					}).
 					Run()
 				if spinnerErr != nil {
-					fmt.Println("Error creating job", spinnerErr)
+					fmt.Println("Error creating sandbox", spinnerErr)
 					return
 				}
 				if templateError != nil {
-					fmt.Println("Error creating job", templateError)
+					fmt.Println("Error creating sandbox", templateError)
 					os.Exit(0)
 				}
 			}
@@ -90,7 +90,7 @@ bl create-job my-job --template template-jobs-ts -y`,
 					return
 				}
 			} else {
-				opts = promptCreateJob(args[0], templates)
+				opts = promptCreateSandbox(args[0], templates)
 			}
 
 			if noTTY {
@@ -101,14 +101,14 @@ bl create-job my-job --template template-jobs-ts -y`,
 				}
 				cloneError := template.Clone(opts)
 				if cloneError != nil {
-					fmt.Println("Error creating job", cloneError)
+					fmt.Println("Error creating sandbox", cloneError)
 					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			} else {
 				var cloneError error
 				spinnerErr := spinner.New().
-					Title("Creating your blaxel job...").
+					Title("Creating your blaxel sandbox...").
 					Action(func() {
 						template, err := templates.Find(opts.TemplateName)
 						if err != nil {
@@ -119,83 +119,72 @@ bl create-job my-job --template template-jobs-ts -y`,
 					}).
 					Run()
 				if spinnerErr != nil {
-					fmt.Println("Error creating job", spinnerErr)
+					fmt.Println("Error creating sandbox", spinnerErr)
 					return
 				}
 				if cloneError != nil {
-					fmt.Println("Error creating job", cloneError)
+					fmt.Println("Error creating sandbox", cloneError)
 					_ = os.RemoveAll(opts.Directory)
 					return
 				}
 			}
 
 			core.CleanTemplate(opts.Directory)
-			fmt.Printf(`Your blaxel job has been created. Start working on it:
+			fmt.Printf(`Your blaxel sandbox has been created. Start working on it and then deploy it:
 cd %s;
-bl run job %s --local --file batches/sample-batch.json;
-`, opts.Directory, opts.Directory)
+bl deploy;`, opts.Directory)
 		},
 	}
 
-	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template to use for the job (skips interactive prompt)")
+	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template to use for the sandbox (skips interactive prompt)")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive prompts and use defaults")
 	return cmd
 }
 
-// promptCreateJob displays an interactive form to collect user input for creating a new job.
+// promptCreateSandbox displays an interactive form to collect user input for creating a new sandbox.
 // It prompts for project name, language selection, template, author, license, and additional features.
-// Takes a directory string parameter and returns a CreateJobOptions struct with the user's selections.
-func promptCreateJob(directory string, templates core.Templates) core.TemplateOptions {
-	jobOptions := core.TemplateOptions{
+// Takes a directory string parameter and returns a TemplateOptions struct with the user's selections.
+func promptCreateSandbox(directory string, templates core.Templates) core.TemplateOptions {
+	sandboxOptions := core.TemplateOptions{
 		ProjectName:  directory,
 		Directory:    directory,
 		TemplateName: "",
 	}
 	currentUser, err := user.Current()
 	if err == nil {
-		jobOptions.Author = currentUser.Username
+		sandboxOptions.Author = currentUser.Username
 	} else {
-		jobOptions.Author = "blaxel"
-	}
-	languagesOptions := []huh.Option[string]{}
-	for _, language := range templates.GetLanguages() {
-		languagesOptions = append(languagesOptions, huh.NewOption(language, language))
+		sandboxOptions.Author = "blaxel"
 	}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Project Name").
-				Description("Name of your job").
-				Value(&jobOptions.ProjectName),
-			huh.NewSelect[string]().
-				Title("Language").
-				Description("Language to use for your job").
-				Height(5).
-				Options(languagesOptions...).
-				Value(&jobOptions.Language),
+				Description("Name of your sandbox").
+				Value(&sandboxOptions.ProjectName),
 			huh.NewSelect[string]().
 				Title("Template").
-				Description("Template to use for your job").
+				Description("Template to use for your sandbox").
 				Height(5).
 				OptionsFunc(func() []huh.Option[string] {
 					if len(templates) == 0 {
 						return []huh.Option[string]{}
 					}
 					options := []huh.Option[string]{}
-					for _, template := range templates.FilterByLanguage(jobOptions.Language) {
+					for _, template := range templates {
 						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
 						options = append(options, huh.NewOption(key, *template.Name))
 					}
 					return options
-				}, &jobOptions).
-				Value(&jobOptions.TemplateName),
+				}, &sandboxOptions).
+				Value(&sandboxOptions.TemplateName),
 		),
 	)
 	form.WithTheme(core.GetHuhTheme())
 	err = form.Run()
 	if err != nil {
-		fmt.Println("Cancel create blaxel job")
+		fmt.Println("Cancel create blaxel sandbox")
 		os.Exit(0)
 	}
-	return jobOptions
+	return sandboxOptions
 }

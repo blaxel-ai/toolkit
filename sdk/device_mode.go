@@ -132,7 +132,7 @@ func (s *BearerToken) DoRefresh() error {
 	if err != nil {
 		return fmt.Errorf("failed to refresh token: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	// Read the response body first
 	var buf bytes.Buffer

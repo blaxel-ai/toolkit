@@ -36,7 +36,7 @@ func LoginDevice(workspace string) {
 		fmt.Printf("Error making request: %v\n", err)
 		os.Exit(1)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	body, _ := io.ReadAll(res.Body)
 
@@ -81,7 +81,7 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 		fmt.Printf("Error making request: %v\n", err)
 		os.Exit(1)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	body, _ := io.ReadAll(res.Body)
 

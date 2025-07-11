@@ -43,7 +43,7 @@ slug: %s
 				filePrepender := func(filename string) string {
 					name := filepath.Base(filename)
 					base := strings.TrimSuffix(name, path.Ext(name))
-					return fmt.Sprintf(fmTemplate, strings.Replace(base, "_", " ", -1), base)
+					return fmt.Sprintf(fmTemplate, strings.ReplaceAll(base, "_", " "), base)
 				}
 				linkHandler := func(name string) string {
 					return name

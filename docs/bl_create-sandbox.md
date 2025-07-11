@@ -1,33 +1,33 @@
 ---
-title: "bl create-job"
-slug: bl_create-job
+title: "bl create-sandbox"
+slug: bl_create-sandbox
 ---
-## bl create-job
+## bl create-sandbox
 
-Create a new blaxel job
+Create a new blaxel sandbox
 
 ### Synopsis
 
-Create a new blaxel job
+Create a new blaxel sandbox
 
 ```
-bl create-job directory [flags]
+bl create-sandbox directory [flags]
 ```
 
 ### Examples
 
 ```
 
-bl create-job my-job
-bl create-job my-job --template template-jobs-ts
-bl create-job my-job --template template-jobs-ts -y
+bl create-sandbox my-sandbox
+bl create-sandbox my-sandbox --template template-sandbox-ts
+bl create-sandbox my-sandbox --template template-sandbox-ts -y
 ```
 
 ### Options
 
 ```
-  -h, --help              help for create-job
-  -t, --template string   Template to use for the job (skips interactive prompt)
+  -h, --help              help for create-sandbox
+  -t, --template string   Template to use for the sandbox (skips interactive prompt)
   -y, --yes               Skip interactive prompts and use defaults
 ```
 

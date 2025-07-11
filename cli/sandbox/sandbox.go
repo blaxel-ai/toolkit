@@ -251,7 +251,7 @@ func (m *SandboxShell) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, keys.Quit):
-			m.client.Close()
+			_ = m.client.Close()
 			return m, tea.Quit
 
 		case key.Matches(msg, keys.Clear):

@@ -232,7 +232,7 @@ func (d *Deployment) Upload(url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open zip file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	// Get the file size
 	fileInfo, err := zipFile.Stat()
@@ -258,7 +258,7 @@ func (d *Deployment) Upload(url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to upload file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
@@ -291,10 +291,10 @@ func (d *Deployment) Zip() error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
+	defer func() { _ = zipWriter.Close() }()
 
 	err = filepath.Walk(d.cwd, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -382,7 +382,7 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 			if err != nil {
 				return fmt.Errorf("failed to open %s: %w", headerName, err)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			_, err = io.Copy(writer, file)
 			if err != nil {

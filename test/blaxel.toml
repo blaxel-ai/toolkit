@@ -1,0 +1,13 @@
+type = "sandbox"
+name = "playwright-firefox"
+
+[runtime]
+memory = 8192
+
+[[runtime.ports]]
+name = "playwright"
+target = 3000
+protocol = "tcp"
+[[runtime.envs]]
+name = "PLAYWRIGHT_BROWSERS_PATH"
+value = "/root/.cache/ms-playwright"

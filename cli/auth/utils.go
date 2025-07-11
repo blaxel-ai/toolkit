@@ -34,6 +34,8 @@ func validateWorkspace(workspace string, credentials sdk.Credentials) error {
 }
 
 // Helper function to handle login success
+//
+//nolint:unused
 func handleLoginSuccess(workspace string, credentials sdk.Credentials) {
 	err := saveCredentials(workspace, credentials)
 	if err != nil {
@@ -43,6 +45,8 @@ func handleLoginSuccess(workspace string, credentials sdk.Credentials) {
 }
 
 // Helper function to save credentials
+//
+//nolint:unused
 func saveCredentials(workspace string, credentials sdk.Credentials) error {
 	sdk.SaveCredentials(workspace, credentials)
 

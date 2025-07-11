@@ -47,6 +47,7 @@ type responseMsg struct {
 	content string
 }
 
+//nolint:unused
 type streamChunkMsg struct {
 	chunk string
 }

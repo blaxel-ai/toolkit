@@ -120,7 +120,7 @@ bl run job my-job --file myjob.json`,
 				fmt.Printf("Error making request: %v\n", err)
 				os.Exit(1)
 			}
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			// Read response body
 			body, err := io.ReadAll(res.Body)
@@ -175,7 +175,7 @@ func getModelDefaultPath(resourceName string) string {
 	if err != nil {
 		return ""
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode == 200 {
 		var model sdk.Model
@@ -192,7 +192,7 @@ func getModelDefaultPath(resourceName string) string {
 		if integrationName != nil {
 			res, err := client.GetIntegration(context.Background(), *integrationName)
 			if err == nil {
-				defer res.Body.Close()
+				defer func() { _ = res.Body.Close() }()
 				if res.StatusCode == 200 {
 					var integrationResponse sdk.Integration
 					body, err := io.ReadAll(res.Body)

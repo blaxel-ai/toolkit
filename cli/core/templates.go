@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"regexp"
 	"slices"
 
@@ -68,6 +69,22 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 	return templates, nil
 }
 
+func CleanTemplate(dir string) {
+	// List of files and folders to remove
+	itemsToRemove := []string{
+		".github",
+		"icon.png",
+		"icon-dark.png",
+		"LICENSE",
+		".devcontainer",
+	}
+
+	for _, item := range itemsToRemove {
+		itemPath := filepath.Join(dir, item)
+		_ = os.RemoveAll(itemPath)
+	}
+}
+
 func (t Templates) GetLanguages() []string {
 	languages := []string{}
 	for _, template := range t {
@@ -108,7 +125,7 @@ func (t Template) Clone(opts TemplateOptions) error {
 		branch = "develop"
 	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
-	cloneDirCmd := exec.Command("git", "clone", "-b", branch, *t.Template.Url, opts.Directory)
+	cloneDirCmd := exec.Command("git", "clone", "-b", branch, *t.Url, opts.Directory)
 	if err := cloneDirCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone templates repository: %w", err)
 	}

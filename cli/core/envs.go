@@ -31,16 +31,27 @@ func GetEnvs() []Env {
 		if slices.Contains(ignoredEnvs, k) {
 			continue
 		}
-		if v == "$secrets."+k || v == "${secrets."+k+"}" || v == "${ secrets."+k+" }" {
+
+		// Check if the environment variable is already in envs
+		alreadyInEnvs := false
+		for _, env := range envs {
+			if env.Name == k {
+				alreadyInEnvs = true
+				break
+			}
+		}
+
+		switch v {
+		case "$secrets." + k, "${secrets." + k + "}", "${ secrets." + k + " }":
 			if envValue, exists := os.LookupEnv(k); exists {
 				v = envValue
-			} else {
+			} else if !alreadyInEnvs {
 				fmt.Printf("It appears that the secret variable %s is not set. If it is not intentional, please set it in the .env file or in environment\n", k)
 			}
-		} else if v == "$"+k || v == "${"+k+"}" || v == "${ "+k+" }" {
+		case "$" + k, "${" + k + "}", "${ " + k + " }":
 			if envValue, exists := os.LookupEnv(k); exists {
 				v = envValue
-			} else {
+			} else if !alreadyInEnvs {
 				fmt.Printf("It appears that the environment variable %s is not set. If it is not intentional, please set it in the .env file or in environment\n", k)
 			}
 		}
