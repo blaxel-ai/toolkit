@@ -131,6 +131,7 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 				}
 			}
 			core.CleanTemplate(opts.Directory)
+			_ = core.EditBlaxelTomlInCurrentDir("agent", opts.ProjectName, opts.Directory)
 			fmt.Printf(`Your blaxel agent app has been created. Start working on it:
 cd %s;
 bl serve --hotreload;
