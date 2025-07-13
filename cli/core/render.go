@@ -21,7 +21,7 @@ func getImageColumnWidth() int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		// Fallback to default if we can't get terminal size
-		return 25
+		return 100
 	}
 
 	// Calculate space used by other columns (with some padding for separators and margins)

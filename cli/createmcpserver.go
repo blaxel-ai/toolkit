@@ -133,6 +133,7 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 				}
 			}
 			core.CleanTemplate(opts.Directory)
+			_ = core.EditBlaxelTomlInCurrentDir("function", opts.ProjectName, opts.Directory)
 			fmt.Printf(`Your blaxel mcp server has been created. Start working on it:
 cd %s;
 bl serve --hotreload;

@@ -85,6 +85,73 @@ func CleanTemplate(dir string) {
 	}
 }
 
+// editBlaxelTomlInCurrentDir checks if blaxel.toml exists in the current working directory
+// and appends text to it. If the file doesn't exist, it returns without error.
+func EditBlaxelTomlInCurrentDir(resourceType string, resourceName string, resourcePath string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	blaxelTomlPath := filepath.Join(cwd, "blaxel.toml")
+
+	// Check if blaxel.toml exists
+	if _, err := os.Stat(blaxelTomlPath); os.IsNotExist(err) {
+		// File doesn't exist, nothing to edit
+		return nil
+	}
+
+	// Read existing file to find used ports
+	existingContent, err := os.ReadFile(blaxelTomlPath)
+	if err != nil {
+		return fmt.Errorf("failed to read blaxel.toml: %w", err)
+	}
+
+	// Find the next available port starting from 1340
+	nextPort := findNextAvailablePort(string(existingContent))
+
+	// Open file for appending
+	file, err := os.OpenFile(blaxelTomlPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open blaxel.toml for appending: %w", err)
+	}
+	defer file.Close()
+
+	// Append the new resource configuration
+	textToAppend := fmt.Sprintf("\n[%s.%s]\npath = \"%s\"\nport = %d\n", resourceType, resourceName, resourcePath, nextPort)
+	_, err = file.WriteString(textToAppend)
+	if err != nil {
+		return fmt.Errorf("failed to append to blaxel.toml: %w", err)
+	}
+
+	return nil
+}
+
+// findNextAvailablePort parses the TOML content and finds the next available port starting from 1340
+func findNextAvailablePort(content string) int {
+	usedPorts := make(map[int]bool)
+
+	// Use regex to find all port assignments
+	portRegex := regexp.MustCompile(`port\s*=\s*(\d+)`)
+	matches := portRegex.FindAllStringSubmatch(content, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			var port int
+			fmt.Sscanf(match[1], "%d", &port)
+			usedPorts[port] = true
+		}
+	}
+
+	// Find the next available port starting from 1340
+	port := 1339
+	for usedPorts[port] {
+		port++
+	}
+
+	return port
+}
+
 func (t Templates) GetLanguages() []string {
 	languages := []string{}
 	for _, template := range t {
