@@ -238,7 +238,10 @@ func SendMessageStream(
 
 	// Check if response is actually streaming
 	contentType := response.Header.Get("Content-Type")
-	if !strings.Contains(contentType, "text/event-stream") &&
+	connection := response.Header.Get("Connection")
+
+	if connection != "keep-alive" &&
+		!strings.Contains(contentType, "text/event-stream") &&
 		!strings.Contains(contentType, "text/plain") &&
 		!strings.Contains(contentType, "application/x-ndjson") &&
 		!strings.Contains(contentType, "application/json") {
