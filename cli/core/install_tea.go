@@ -42,8 +42,6 @@ type Model struct {
 	height      int
 	done        bool
 	err         error
-	logReader   io.Reader
-	logWriter   io.Writer
 	showLogs    bool
 	maxLogLines int
 	logOffset   int      // For scrolling effect
@@ -61,10 +59,6 @@ type (
 	tickMsg       time.Time
 	scrollTickMsg time.Time // New message type for scrolling
 	doneMsg       bool
-	windowSizeMsg struct {
-		width  int
-		height int
-	}
 )
 
 // Styles
@@ -87,10 +81,6 @@ var (
 	pendingMark = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("8")).
 			SetString("○")
-
-	installLogStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8")).
-			MarginLeft(4)
 )
 
 // NewInstallationModel creates a new installation progress model
@@ -411,7 +401,7 @@ func runInstallationSteps(p *tea.Program, t Template, opts TemplateOptions) erro
 
 	// Remove .git folder
 	gitDir := opts.Directory + "/.git"
-	os.RemoveAll(gitDir)
+	_ = os.RemoveAll(gitDir)
 
 	p.Send(stepCompleteMsg(1))
 	time.Sleep(200 * time.Millisecond)
