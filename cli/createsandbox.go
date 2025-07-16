@@ -8,7 +8,6 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -38,42 +37,19 @@ bl create-sandbox my-sandbox --template template-sandbox-ts
 bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) < 1 {
-				fmt.Println("Please provide a directory name")
+				core.PrintError("Sandbox creation", fmt.Errorf("directory name is required"))
 				return
 			}
 			// Check if directory already exists
 			if _, err := os.Stat(args[0]); !os.IsNotExist(err) {
-				fmt.Printf("Error: %s already exists\n", args[0])
+				core.PrintError("Sandbox creation", fmt.Errorf("directory '%s' already exists", args[0]))
 				return
 			}
 
-			var templateError error
-			var templates core.Templates
-			if noTTY {
-				templates, templateError = core.RetrieveTemplates("sandbox")
-				if templateError != nil {
-					fmt.Println("Error creating sandbox", templateError)
-					os.Exit(0)
-				}
-			} else {
-				spinnerErr := spinner.New().
-					Title("Retrieving templates...").
-					Action(func() {
-						templates, templateError = core.RetrieveTemplates("sandbox")
-					}).
-					Run()
-				if spinnerErr != nil {
-					fmt.Println("Error creating sandbox", spinnerErr)
-					return
-				}
-				if templateError != nil {
-					fmt.Println("Error creating sandbox", templateError)
-					os.Exit(0)
-				}
-			}
-			if len(templates) == 0 {
-				fmt.Println("No templates found")
-				os.Exit(0)
+			// Retrieve templates using the new reusable function
+			templates, err := core.RetrieveTemplatesWithSpinner("sandbox", noTTY, "Sandbox creation")
+			if err != nil {
+				os.Exit(1)
 			}
 
 			var opts core.TemplateOptions
@@ -81,7 +57,7 @@ bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 			if templateName != "" {
 				opts = core.CreateDefaultTemplateOptions(args[0], templateName, templates)
 				if opts.TemplateName == "" {
-					fmt.Printf("Error: template '%s' not found\n", templateName)
+					core.PrintError("Sandbox creation", fmt.Errorf("template '%s' not found", templateName))
 					fmt.Println("Available templates:")
 					for _, template := range templates {
 						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
@@ -93,46 +69,19 @@ bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 				opts = promptCreateSandbox(args[0], templates)
 			}
 
-			if noTTY {
-				template, err := templates.Find(opts.TemplateName)
-				if err != nil {
-					fmt.Println("Error finding template", err)
-					return
-				}
-				cloneError := template.Clone(opts)
-				if cloneError != nil {
-					fmt.Println("Error creating sandbox", cloneError)
-					_ = os.RemoveAll(opts.Directory)
-					return
-				}
-			} else {
-				var cloneError error
-				spinnerErr := spinner.New().
-					Title("Creating your blaxel sandbox...").
-					Action(func() {
-						template, err := templates.Find(opts.TemplateName)
-						if err != nil {
-							fmt.Println("Error finding template", err)
-							return
-						}
-						cloneError = template.Clone(opts)
-					}).
-					Run()
-				if spinnerErr != nil {
-					fmt.Println("Error creating sandbox", spinnerErr)
-					return
-				}
-				if cloneError != nil {
-					fmt.Println("Error creating sandbox", cloneError)
-					_ = os.RemoveAll(opts.Directory)
-					return
-				}
+			// Clone template using the new reusable function
+			if err := core.CloneTemplateWithSpinner(opts, templates, noTTY, "Sandbox creation", "Creating your blaxel sandbox..."); err != nil {
+				return
 			}
 
 			core.CleanTemplate(opts.Directory)
-			fmt.Printf(`Your blaxel sandbox has been created. Start working on it and then deploy it:
-cd %s;
-bl deploy;`, opts.Directory)
+
+			// Success message with colors
+			core.PrintSuccess("Your blaxel sandbox has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
 		},
 	}
 

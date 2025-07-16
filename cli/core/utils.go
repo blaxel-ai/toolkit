@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fatih/color"
 	"gopkg.in/yaml.v3"
 )
 
@@ -178,7 +179,7 @@ func handleDirectory(action string, filePath string, recursive bool, n int) ([]R
 		path := fmt.Sprintf("%s/%s", filePath, file.Name())
 		fileResults, err := getResultsWrapper(action, path, recursive, n+1)
 		if err != nil {
-			fmt.Printf("error getting results for file %s: %v", path, err)
+			Print(fmt.Sprintf("error getting results for file %s: %v", path, err))
 			continue
 		}
 		results = append(results, fileResults...)
@@ -237,11 +238,58 @@ func GetHuhTheme() *huh.Theme {
 	t.Focused.TextInput.Prompt = t.Focused.TextInput.Prompt.Foreground(yellow)
 
 	t.Blurred = t.Focused
-	t.Blurred.Base = t.Blurred.Base.BorderStyle(lipgloss.HiddenBorder())
-	t.Blurred.NextIndicator = lipgloss.NewStyle()
-	t.Blurred.PrevIndicator = lipgloss.NewStyle()
+	t.Blurred.Base = t.Blurred.Base.BorderForeground(comment)
+	t.Blurred.NextIndicator = t.Blurred.NextIndicator.Foreground(comment)
+	t.Blurred.PrevIndicator = t.Blurred.PrevIndicator.Foreground(comment)
+
+	t.Blurred.TextInput.Prompt = t.Blurred.TextInput.Prompt.Foreground(comment)
+	t.Blurred.TextInput.Text = t.Blurred.TextInput.Text.Foreground(foreground)
+
+	t.Help.ShortKey = t.Help.ShortKey.Foreground(comment)
+	t.Help.ShortDesc = t.Help.ShortDesc.Foreground(foreground)
+	t.Help.ShortSeparator = t.Help.ShortSeparator.Foreground(comment)
+	t.Help.FullKey = t.Help.FullKey.Foreground(comment)
+	t.Help.FullDesc = t.Help.FullDesc.Foreground(foreground)
+	t.Help.FullSeparator = t.Help.FullSeparator.Foreground(comment)
 
 	return t
+}
+
+// PrintError prints a formatted error message with colors
+func PrintError(operation string, err error) {
+	// Print error header with red color and bold
+	fmt.Printf("%s %s\n",
+		color.New(color.FgRed, color.Bold).Sprint("✗"),
+		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation))
+
+	// Print reason with lighter red color
+	fmt.Printf("%s %s\n",
+		color.New(color.FgRed).Sprint("Reason:"),
+		color.New(color.FgWhite).Sprint(err.Error()))
+}
+
+// PrintWarning prints a formatted warning message with colors
+func PrintWarning(message string) {
+	fmt.Printf("%s %s\n",
+		color.New(color.FgYellow, color.Bold).Sprint("⚠"),
+		color.New(color.FgYellow).Sprint(message))
+}
+
+// PrintSuccess prints a formatted success message with colors
+func PrintSuccess(message string) {
+	fmt.Printf("%s %s\n",
+		color.New(color.FgGreen, color.Bold).Sprint("✓"),
+		color.New(color.FgGreen).Sprint(message))
+}
+
+func PrintInfo(message string) {
+	fmt.Printf("%s %s\n",
+		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
+		color.New(color.FgBlue).Sprint(message))
+}
+
+func Print(message string) {
+	fmt.Println(message)
 }
 
 // GetResults is a public wrapper for getResults

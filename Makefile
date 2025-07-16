@@ -1,7 +1,11 @@
 ARGS:= $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
 sdk:
-	cp ../controlplane/api/api/definitions/controlplane.yml ./definition.yml
+	@echo "Downloading controlplane definition from blaxel-ai/controlplane"
+	@curl -H "Authorization: token $$(gh auth token)" \
+		-H "Accept: application/vnd.github.v3.raw" \
+		-o ./definition.yml \
+		https://api.github.com/repos/blaxel-ai/controlplane/contents/api/api/definitions/controlplane.yml?ref=main
 	oapi-codegen -package=sdk \
 		-generate=types,client,spec \
 		-o=sdk/blaxel.go \

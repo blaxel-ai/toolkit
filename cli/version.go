@@ -33,9 +33,10 @@ func VersionCmd() *cobra.Command {
 				date = "unknown"
 			}
 
-			fmt.Printf("Blaxel CLI version: %s\n", version)
-			fmt.Printf("Commit: %s\n", commit)
-			fmt.Printf("Date: %s\n", date)
+			core.PrintInfo("Blaxel CLI")
+			core.Print(fmt.Sprintf("Version: %s", version))
+			core.Print(fmt.Sprintf("Commit: %s", commit))
+			core.Print(fmt.Sprintf("Date: %s", date))
 		},
 	}
 }

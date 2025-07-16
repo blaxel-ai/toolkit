@@ -34,7 +34,7 @@ cat file.yaml | blaxel delete -f -
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
-				fmt.Printf("error getting results: %v", err)
+				core.PrintError("Delete", fmt.Errorf("failed to get results: %w", err))
 				os.Exit(1)
 			}
 

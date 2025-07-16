@@ -8,7 +8,6 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/huh/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -37,45 +36,20 @@ bl create-agent-app my-agent-app
 bl create-agent-app my-agent-app --template template-google-adk-py
 bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 		Run: func(cmd *cobra.Command, args []string) {
-
 			if len(args) < 1 {
-				fmt.Println("Please provide a directory name")
+				core.PrintError("Agent creation", fmt.Errorf("directory name is required"))
 				return
 			}
 			// Check if directory already exists
 			if _, err := os.Stat(args[0]); !os.IsNotExist(err) {
-				fmt.Printf("Error: %s already exists\n", args[0])
+				core.PrintError("Agent creation", fmt.Errorf("directory '%s' already exists", args[0]))
 				return
 			}
 
-			var templateError error
-			var templates core.Templates
-			if noTTY {
-				templates, templateError = core.RetrieveTemplates("agent")
-				if templateError != nil {
-					fmt.Println("Error creating agent app", templateError)
-					os.Exit(0)
-				}
-			} else {
-				spinnerErr := spinner.New().
-					Title("Retrieving templates...").
-					Action(func() {
-						templates, templateError = core.RetrieveTemplates("agent")
-					}).
-					Run()
-				if spinnerErr != nil {
-					fmt.Println("Error creating agent app", spinnerErr)
-					return
-				}
-				if templateError != nil {
-					fmt.Println("Error creating agent app", templateError)
-					os.Exit(0)
-				}
-			}
-
-			if len(templates) == 0 {
-				fmt.Println("No templates found")
-				os.Exit(0)
+			// Retrieve templates using the new reusable function
+			templates, err := core.RetrieveTemplatesWithSpinner("agent", noTTY, "Agent creation")
+			if err != nil {
+				os.Exit(1)
 			}
 
 			var opts core.TemplateOptions
@@ -83,7 +57,7 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 			if templateName != "" {
 				opts = core.CreateDefaultTemplateOptions(args[0], templateName, templates)
 				if opts.TemplateName == "" {
-					fmt.Printf("Error: template '%s' not found\n", templateName)
+					core.PrintError("Agent creation", fmt.Errorf("template '%s' not found", templateName))
 					fmt.Println("Available templates:")
 					for _, template := range templates {
 						key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
@@ -95,46 +69,19 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 				opts = promptCreateAgentApp(args[0], templates)
 			}
 
-			if noTTY {
-				template, err := templates.Find(opts.TemplateName)
-				if err != nil {
-					fmt.Println("Error finding template", err)
-					return
-				}
-				cloneError := template.Clone(opts)
-				if cloneError != nil {
-					fmt.Println("Error creating agent app", cloneError)
-					_ = os.RemoveAll(opts.Directory)
-					return
-				}
-			} else {
-				var cloneError error
-				spinnerErr := spinner.New().
-					Title("Creating your blaxel agent app...").
-					Action(func() {
-						template, err := templates.Find(opts.TemplateName)
-						if err != nil {
-							fmt.Println("Error finding template", err)
-							return
-						}
-						cloneError = template.Clone(opts)
-					}).
-					Run()
-				if spinnerErr != nil {
-					fmt.Println("Error creating agent app", spinnerErr)
-					return
-				}
-				if cloneError != nil {
-					fmt.Println("Error creating agent app", cloneError)
-					_ = os.RemoveAll(opts.Directory)
-					return
-				}
+			// Clone template using the new reusable function
+			if err := core.CloneTemplateWithSpinner(opts, templates, noTTY, "Agent creation", "Creating your blaxel agent app..."); err != nil {
+				return
 			}
+
 			core.CleanTemplate(opts.Directory)
 			_ = core.EditBlaxelTomlInCurrentDir("agent", opts.ProjectName, opts.Directory)
-			fmt.Printf(`Your blaxel agent app has been created. Start working on it:
-cd %s;
-bl serve --hotreload;
+
+			// Success message with colors
+			core.PrintSuccess("Your blaxel agent app has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl serve --hotreload
 `, opts.Directory)
 		},
 	}

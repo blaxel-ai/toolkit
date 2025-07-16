@@ -12,6 +12,7 @@ import (
 	"slices"
 
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/charmbracelet/huh/spinner"
 )
 
 type Templates []Template
@@ -47,7 +48,12 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 		return nil, err
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("error: received non-200 response code")
+		fmt.Println(resp.StatusCode())
+		if resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden {
+			//nolint:staticcheck
+			return nil, fmt.Errorf("Authentication required. Please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
+		}
+		return nil, fmt.Errorf("server error: received HTTP %d response", resp.StatusCode())
 	}
 	for _, template := range *resp.JSON200 {
 		if template.Topics != nil {
@@ -67,6 +73,69 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 		}
 	}
 	return templates, nil
+}
+
+// RetrieveTemplatesWithSpinner retrieves templates with optional spinner based on noTTY flag
+func RetrieveTemplatesWithSpinner(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+	var templateError error
+	var templates Templates
+
+	if noTTY {
+		templates, templateError = RetrieveTemplates(templateType)
+		if templateError != nil {
+			PrintError(errorPrefix, templateError)
+			return nil, templateError
+		}
+	} else {
+		spinnerErr := spinner.New().
+			Title("Retrieving templates...").
+			Action(func() {
+				templates, templateError = RetrieveTemplates(templateType)
+			}).
+			Run()
+		if spinnerErr != nil {
+			PrintError(errorPrefix, spinnerErr)
+			return nil, spinnerErr
+		}
+		if templateError != nil {
+			PrintError(errorPrefix, templateError)
+			return nil, templateError
+		}
+	}
+
+	if len(templates) == 0 {
+		err := fmt.Errorf("no %s templates available. Please contact support", templateType)
+		PrintError(errorPrefix, err)
+		return nil, err
+	}
+
+	return templates, nil
+}
+
+// CloneTemplateWithSpinner clones a template with optional spinner based on noTTY flag
+func CloneTemplateWithSpinner(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+	template, err := templates.Find(opts.TemplateName)
+	if err != nil {
+		PrintError(errorPrefix, fmt.Errorf("template not found: %w", err))
+		return err
+	}
+
+	// Use different installation methods based on TTY
+	if noTTY {
+		// Use the simple Clone method for non-interactive environments
+		if err := template.Clone(opts); err != nil {
+			PrintError(errorPrefix, err)
+			return err
+		}
+	} else {
+		// Use the new Bubble Tea installation UI for interactive environments
+		if err := RunInstallationWithTea(template, opts); err != nil {
+			PrintError(errorPrefix, err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func CleanTemplate(dir string) {
@@ -115,7 +184,7 @@ func EditBlaxelTomlInCurrentDir(resourceType string, resourceName string, resour
 	if err != nil {
 		return fmt.Errorf("failed to open blaxel.toml for appending: %w", err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	// Append the new resource configuration
 	textToAppend := fmt.Sprintf("\n[%s.%s]\npath = \"%s\"\nport = %d\n", resourceType, resourceName, resourcePath, nextPort)
@@ -138,7 +207,7 @@ func findNextAvailablePort(content string) int {
 	for _, match := range matches {
 		if len(match) > 1 {
 			var port int
-			fmt.Sscanf(match[1], "%d", &port)
+			_, _ = fmt.Sscanf(match[1], "%d", &port)
 			usedPorts[port] = true
 		}
 	}
@@ -190,6 +259,9 @@ func (t Template) Clone(opts TemplateOptions) error {
 	branch := "main"
 	if env == "dev" {
 		branch = "develop"
+	}
+	if !isCommandAvailable("git") {
+		return fmt.Errorf("git is not available on your system. Please install git and try again")
 	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
 	cloneDirCmd := exec.Command("git", "clone", "-b", branch, *t.Url, opts.Directory)

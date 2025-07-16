@@ -272,8 +272,8 @@ var rootCmd = &cobra.Command{
 
 		credentials := sdk.LoadCredentials(workspace)
 		if !credentials.IsValid() && workspace != "" {
-			fmt.Printf("Invalid credentials for workspace %s\n", workspace)
-			fmt.Printf("Please run `bl login %s` to fix it credentials.\n", workspace)
+			PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
+			PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
 		}
 
 		os := runtime.GOOS

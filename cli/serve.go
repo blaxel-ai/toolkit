@@ -44,13 +44,13 @@ func ServeCmd() *cobra.Command {
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				fmt.Printf("Error getting current working directory: %v\n", err)
+				core.PrintError("Serve", fmt.Errorf("error getting current working directory: %w", err))
 				os.Exit(1)
 			}
 
 			err = core.SeedCache(cwd)
 			if err != nil {
-				fmt.Println("Error seeding cache:", err)
+				core.PrintError("Serve", fmt.Errorf("error seeding cache: %w", err))
 				os.Exit(1)
 			}
 
@@ -70,7 +70,7 @@ func ServeCmd() *cobra.Command {
 			case "go":
 				activeProc = server.StartGoServer(port, host, hotreload, folder, config)
 			default:
-				fmt.Println("Error: Neither pyproject.toml nor package.json found in current directory")
+				core.PrintError("Serve", fmt.Errorf("neither pyproject.toml nor package.json found in current directory"))
 				os.Exit(1)
 			}
 
@@ -80,10 +80,10 @@ func ServeCmd() *cobra.Command {
 			go func() {
 				<-c
 				if err := activeProc.Process.Signal(os.Interrupt); err != nil {
-					fmt.Printf("Error sending interrupt signal: %v\n", err)
+					core.PrintError("Serve", fmt.Errorf("error sending interrupt signal: %w", err))
 					// Fall back to Kill if Interrupt fails
 					if err := activeProc.Process.Kill(); err != nil {
-						fmt.Printf("Error killing process: %v\n", err)
+						core.PrintError("Serve", fmt.Errorf("error killing process: %w", err))
 					}
 				}
 			}()

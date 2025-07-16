@@ -12,6 +12,7 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/charmbracelet/huh"
 )
 
 func LoginDevice(workspace string) {
@@ -33,7 +34,7 @@ func LoginDevice(workspace string) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Printf("Error making request: %v\n", err)
+		core.PrintError("Login", fmt.Errorf("error making request: %w", err))
 		os.Exit(1)
 	}
 	defer func() { _ = res.Body.Close() }()
@@ -42,19 +43,17 @@ func LoginDevice(workspace string) {
 
 	var deviceLoginResponse sdk.DeviceLoginResponse
 	if err := json.Unmarshal(body, &deviceLoginResponse); err != nil {
-		fmt.Printf("Error unmarshalling response: %v\n", err)
+		core.PrintError("Login", fmt.Errorf("error unmarshalling response: %w", err))
 		os.Exit(1)
 	}
 
 	// Open the URL in the default browser
-	err = exec.Command("open", deviceLoginResponse.VerificationURIComplete+"&workspace="+workspace).Start()
+	err = exec.Command("open", deviceLoginResponse.VerificationURIComplete).Start()
 	if err != nil {
-		fmt.Printf("Please visit the following URL to finish logging in: %s\n", deviceLoginResponse.VerificationURIComplete)
+		core.PrintInfo(fmt.Sprintf("Please visit the following URL to finish logging in: %s", deviceLoginResponse.VerificationURIComplete))
 	} else {
-		fmt.Println("Opened URL in browser. If it's not working, please open it manually: ", deviceLoginResponse.VerificationURIComplete)
+		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLoginResponse.VerificationURIComplete))
 	}
-	fmt.Println("Waiting for user to finish login...")
-
 	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace, 3)
 }
 
@@ -78,7 +77,7 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Printf("Error making request: %v\n", err)
+		core.PrintError("Login", fmt.Errorf("error making request: %w", err))
 		os.Exit(1)
 	}
 	defer func() { _ = res.Body.Close() }()
@@ -93,8 +92,9 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	if res.StatusCode != http.StatusOK {
 		if retries > 0 {
 			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
+			return
 		} else {
-			fmt.Printf("Error logging in: %d -> %s\n", res.StatusCode, string(body))
+			core.PrintError("Login", fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)))
 			os.Exit(1)
 		}
 	}
@@ -106,12 +106,76 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 		DeviceCode:   deviceCode,
 	}
 
+	// If no workspace is provided, show a menu to select a workspace
+	if workspace == "" {
+		workspaces, err := listWorkspaces(creds)
+		if err != nil {
+			core.PrintError("Login", fmt.Errorf("failed to list workspaces: %w", err))
+			os.Exit(1)
+			return
+		}
+		if len(workspaces) == 0 {
+			core.PrintError("Login", fmt.Errorf("no workspaces are available for your account.\nVisit https://app.blaxel.ai to create one"))
+			os.Exit(1)
+			return
+		}
+
+		// Get workspaces the user is already connected to
+		connectedWorkspaces := sdk.ListWorkspaces()
+		connectedWorkspaceSet := make(map[string]bool)
+		for _, ws := range connectedWorkspaces {
+			connectedWorkspaceSet[ws] = true
+		}
+
+		// If only one workspace, use it directly
+		if len(workspaces) == 1 {
+			workspace = *workspaces[0].Name
+		} else {
+			// Create options for huh form
+			options := make([]huh.Option[string], 0, len(workspaces))
+			for _, ws := range workspaces {
+				if ws.Name == nil {
+					continue
+				}
+				displayName := *ws.Name
+				if connectedWorkspaceSet[*ws.Name] {
+					displayName = fmt.Sprintf("%s (already connected)", *ws.Name)
+				}
+				options = append(options, huh.NewOption(displayName, *ws.Name))
+			}
+
+			// Create huh form for workspace selection
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Choose a workspace").
+						Description("Select the workspace you want to connect to").
+						Options(options...).
+						Value(&workspace),
+				),
+			)
+
+			form.WithTheme(core.GetHuhTheme())
+
+			err := form.Run()
+			if err != nil {
+				core.PrintError("Login", fmt.Errorf("error selecting workspace: %w", err))
+				os.Exit(1)
+			}
+		}
+
+		sdk.SaveCredentials(workspace, creds)
+		sdk.SetCurrentWorkspace(workspace)
+		core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
+		return
+	}
+
 	err = validateWorkspace(workspace, creds)
 	if err != nil {
-		fmt.Printf("Error accessing workspace %s : %s\n", workspace, err)
+		core.PrintError("Login", fmt.Errorf("error accessing workspace %s : %w", workspace, err))
 	} else {
 		sdk.SaveCredentials(workspace, creds)
 		sdk.SetCurrentWorkspace(workspace)
-		fmt.Println("Successfully logged in")
+		core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 	}
 }
