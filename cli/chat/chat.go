@@ -362,7 +362,7 @@ func (m *ChatModel) View() string {
 
 	style := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("130")). // Changed from 202 to match
+		BorderForeground(lipgloss.Color("214")). // Changed from 202 to match
 		Padding(0)
 
 	return style.Render(s)

@@ -10,11 +10,11 @@ import (
 
 func (m *ChatModel) createWelcomeMessage(width int) string {
 	headerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("130")).
+		Foreground(lipgloss.Color("214")).
 		Bold(true).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
-		BorderForeground(lipgloss.Color("130")).
+		BorderForeground(lipgloss.Color("214")).
 		Width(width).
 		Align(lipgloss.Center).
 		PaddingBottom(1)

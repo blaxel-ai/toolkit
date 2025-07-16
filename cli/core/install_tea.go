@@ -71,7 +71,7 @@ type (
 var (
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("12"))
+			Foreground(lipgloss.Color("214")) // Changed from 12 to 214 (orange)
 
 	descStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("8"))
@@ -97,7 +97,7 @@ var (
 func NewInstallationModel() Model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // Changed from 12 to 214 (orange)
 
 	return Model{
 		steps: []Step{
@@ -248,7 +248,7 @@ func (m Model) View() string {
 	s.WriteString("\n")
 	s.WriteString(lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("12")).
+		Foreground(lipgloss.Color("214")). // Changed from 12 to 214 (orange)
 		MarginBottom(1).
 		Render("Installing your Blaxel project..."))
 	s.WriteString("\n\n")
