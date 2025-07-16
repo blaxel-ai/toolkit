@@ -36,17 +36,23 @@ func ChatCmd() *cobra.Command {
 		Short:   "Chat with an agent",
 		Example: `bl chat my-agent`,
 		Run: func(cmd *cobra.Command, args []string) {
+			resourceName := ""
 			if len(args) == 0 {
-				fmt.Println("Error: Agent name is required")
-				os.Exit(1)
+				if !local {
+					core.PrintError("Chat", fmt.Errorf("agent name is required"))
+					os.Exit(1)
+				} else {
+					resourceName = "local-agent"
+				}
+			} else {
+				resourceName = args[0]
 			}
 
 			resourceType := "agent"
-			resourceName := args[0]
 
 			err := Chat(context.Background(), core.GetWorkspace(), resourceType, resourceName, debug, local, headerFlags)
 			if err != nil {
-				fmt.Println("Error: Failed to chat", err)
+				core.PrintError("Chat", err)
 				os.Exit(1)
 			}
 		},

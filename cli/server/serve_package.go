@@ -27,7 +27,7 @@ type PackageCommand struct {
 func StartPackageServer(port int, host string, hotreload bool, config core.Config, envFiles []string, secrets []core.Env) bool {
 	commands, err := getServeCommands(port, host, hotreload, config, envFiles, secrets)
 	if err != nil {
-		fmt.Println("Error getting package commands:", err)
+		core.PrintError("Serve", fmt.Errorf("failed to get package commands: %w", err))
 		os.Exit(1)
 	}
 	if len(commands) == 1 {
@@ -54,7 +54,7 @@ func RunCommands(commands []PackageCommand, oneByOne bool) {
 		stderrPipe, _ := cmd.StderrPipe()
 
 		if err := cmd.Start(); err != nil {
-			fmt.Printf("Error starting command %s: %v\n", cmdInfo.Name, err)
+			core.PrintError("Serve", fmt.Errorf("failed to start command '%s': %w", cmdInfo.Name, err))
 			continue
 		}
 
@@ -64,13 +64,13 @@ func RunCommands(commands []PackageCommand, oneByOne bool) {
 		if oneByOne {
 			err := cmd.Wait() // Wait for the command to finish before starting the next one
 			if err != nil {
-				fmt.Printf("Error waiting for command %s: %v\n", cmdInfo.Name, err)
+				core.PrintError("Serve", fmt.Errorf("error waiting for command '%s': %w", cmdInfo.Name, err))
 			}
 		} else {
 			go func() {
 				err := cmd.Wait()
 				if err != nil {
-					fmt.Printf("Error waiting for command %s: %v\n", cmdInfo.Name, err)
+					core.PrintError("Serve", fmt.Errorf("error waiting for command '%s': %w", cmdInfo.Name, err))
 				}
 			}()
 		}

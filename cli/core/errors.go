@@ -16,7 +16,7 @@ type ErrorModel struct {
 func ErrorHandler(request *http.Request, kind string, name string, body string) error {
 	var errorModel ErrorModel
 	if err := json.Unmarshal([]byte(body), &errorModel); err != nil {
-		return fmt.Errorf("failed to unmarshal error: %w", err)
+		return fmt.Errorf("failed to parse error response: %w", err)
 	}
 
 	var err error
@@ -30,7 +30,7 @@ func ErrorHandler(request *http.Request, kind string, name string, body string) 
 			if name == "" {
 				resourceFullName = kind
 			}
-			err = fmt.Errorf("you are not authorized to access the resource %s on workspace %s. Please login again", resourceFullName, workspace)
+			err = fmt.Errorf("unauthorized access to resource '%s' in workspace '%s'. Please login again using 'bl login'", resourceFullName, workspace)
 		} else {
 			err = fmt.Errorf("Resource %s:%s:%s: %s (Code: %d)", kind, workspace, name, errorModel.Error, errorModel.Code)
 		}

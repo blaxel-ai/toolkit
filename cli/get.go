@@ -83,7 +83,7 @@ func GetFn(resource *core.Resource, name string) {
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
 	if funcValue.Kind() != reflect.Func {
-		fmt.Printf("%s%s", formattedError, "fn is not a valid function")
+		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
 		os.Exit(1)
 	}
 	// Create a slice for the arguments

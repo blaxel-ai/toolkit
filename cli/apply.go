@@ -66,7 +66,7 @@ func ApplyCmd() *cobra.Command {
 			core.ReadSecrets("", envFiles)
 			_, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
-				fmt.Println(err)
+				core.PrintError("Apply", err)
 				os.Exit(1)
 			}
 		},
@@ -78,7 +78,7 @@ func ApplyCmd() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	err := cmd.MarkFlagRequired("filename")
 	if err != nil {
-		fmt.Println(err)
+		core.PrintError("Apply", err)
 		os.Exit(1)
 	}
 

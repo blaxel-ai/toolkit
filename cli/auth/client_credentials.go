@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
 )
 
@@ -15,7 +16,7 @@ func LoginClientCredentials(workspace string, clientCredentials string) {
 
 	err := validateWorkspace(workspace, creds)
 	if err != nil {
-		fmt.Printf("Error accessing workspace %s : %s\n", workspace, err)
+		core.PrintError("Login", fmt.Errorf("failed to access workspace '%s': %s", workspace, err))
 		os.Exit(1)
 	}
 

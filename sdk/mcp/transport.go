@@ -65,7 +65,7 @@ func (t *WebSocketClientTransport) Start(ctx context.Context) error {
 
 	conn, _, err := dialer.DialContext(ctx, u.String(), requestHeader)
 	if err != nil {
-		return fmt.Errorf("failed to connect to WebSocket server: %v", err)
+		return fmt.Errorf("failed to establish WebSocket connection: %v", err)
 	}
 
 	t.mu.Lock()
@@ -87,7 +87,7 @@ func (t *WebSocketClientTransport) Send(ctx context.Context, message *transport.
 	t.mu.RUnlock()
 
 	if !connected || conn == nil {
-		return fmt.Errorf("not connected to server")
+		return fmt.Errorf("not connected to server. Please establish a connection first")
 	}
 
 	// Marshal and send the message

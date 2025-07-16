@@ -64,7 +64,7 @@ Examples:
 			currentContext := sdk.CurrentContext()
 			workspace := currentContext.Workspace
 			if workspace == "" {
-				fmt.Println("Error: No workspace found in current context. Please run 'bl auth login' first.")
+				core.PrintError("Connect", fmt.Errorf("no workspace found in current context. Please run 'bl login' first"))
 				os.Exit(1)
 			}
 
@@ -72,11 +72,11 @@ Examples:
 				client := core.GetClient()
 				response, err := client.ListSandboxesWithResponse(ctx)
 				if err != nil {
-					fmt.Printf("Error listing sandboxes: %v", err)
+					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %w", err))
 					os.Exit(1)
 				}
 				if response.StatusCode() != 200 {
-					fmt.Printf("Error listing sandboxes: %s", response.Status())
+					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %s", response.Status()))
 					os.Exit(1)
 				}
 				found := false
@@ -90,12 +90,12 @@ Examples:
 					names = append(names, *sandbox.Metadata.Name)
 				}
 				if !found {
-					fmt.Printf("\033[31mSandbox %s not found.\033[0m\n", sandboxName)
+					core.PrintError("Connect", fmt.Errorf("sandbox '%s' not found", sandboxName))
 					if len(names) > 0 {
-						fmt.Printf("Here is a list of available sandboxes: %s\n", strings.Join(names, ", "))
-						fmt.Printf("Or you can create a new Sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace)
+						core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
+						core.Print(fmt.Sprintf("Or create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
 					} else {
-						fmt.Printf("You can create a Sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace)
+						core.Print(fmt.Sprintf("Create a sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
 					}
 					os.Exit(1)
 				}
@@ -105,7 +105,7 @@ Examples:
 			// Load credentials for the workspace
 			credentials := sdk.LoadCredentials(workspace)
 			if !credentials.IsValid() {
-				fmt.Println("Error: No valid credentials found. Please run 'bl auth login' first.")
+				core.PrintError("Connect", fmt.Errorf("no valid credentials found. Please run 'bl login' first"))
 				os.Exit(1)
 			}
 			if credentials.APIKey != "" {
@@ -124,7 +124,7 @@ Examples:
 			// Create the MCP-based sandbox shell with custom URL
 			shell, err := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
 			if err != nil {
-				fmt.Printf("Error creating sandbox shell: %v\n", err)
+				core.PrintError("Connect", fmt.Errorf("failed to connect to sandbox: %w", err))
 				os.Exit(1)
 			}
 
@@ -136,7 +136,7 @@ Examples:
 			}
 
 			if _, err := p.Run(); err != nil {
-				fmt.Printf("Error running sandbox connect: %v\n", err)
+				core.PrintError("Connect", fmt.Errorf("failed to run sandbox connection: %w", err))
 				os.Exit(1)
 			}
 		},

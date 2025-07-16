@@ -52,7 +52,7 @@ func DeployCmd() *cobra.Command {
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				fmt.Printf("Error getting current working directory: %v\n", err)
+				core.PrintError("Deploy", fmt.Errorf("failed to get current working directory: %w", err))
 				os.Exit(1)
 			}
 
@@ -73,14 +73,14 @@ func DeployCmd() *cobra.Command {
 
 			err = deployment.Generate()
 			if err != nil {
-				fmt.Printf("Error generating blaxel deployment: %v\n", err)
+				core.PrintError("Deploy", fmt.Errorf("error generating blaxel deployment: %w", err))
 				os.Exit(1)
 			}
 
 			if dryRun {
 				err := deployment.Print()
 				if err != nil {
-					fmt.Printf("Error printing blaxel deployment: %v\n", err)
+					core.PrintError("Deploy", fmt.Errorf("error printing blaxel deployment: %w", err))
 					os.Exit(1)
 				}
 				return
@@ -88,7 +88,7 @@ func DeployCmd() *cobra.Command {
 
 			err = deployment.Apply()
 			if err != nil {
-				fmt.Printf("Error applying blaxel deployment: %v\n", err)
+				core.PrintError("Deploy", fmt.Errorf("error applying blaxel deployment: %w", err))
 				os.Exit(1)
 			}
 
@@ -219,11 +219,11 @@ func (d *Deployment) Apply() error {
 }
 
 func (d *Deployment) Ready() {
-	fmt.Println("Deployment applied successfully")
 	currentWorkspace := core.GetWorkspace()
 	config := core.GetConfig()
 	appUrl := core.GetAppURL()
-	fmt.Println("Your deployment is available at: " + appUrl + "/" + currentWorkspace + "/global-agentic-network/" + config.Type + "/" + d.name)
+	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
+	core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
 }
 
 func (d *Deployment) Upload(url string) error {
@@ -434,7 +434,7 @@ func (d *Deployment) PrintZip() error {
 func deployPackage(dryRun bool, name string) bool {
 	commands, err := getDeployCommands(dryRun, name)
 	if err != nil {
-		fmt.Println("Error getting package commands:", err)
+		core.PrintError("Deploy", fmt.Errorf("failed to get package commands: %w", err))
 		os.Exit(1)
 	}
 

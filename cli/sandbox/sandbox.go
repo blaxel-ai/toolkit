@@ -24,11 +24,11 @@ var (
 
 	inputStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("69")).
+			BorderForeground(lipgloss.Color("214")).
 			Padding(0, 1)
 
 	promptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("69")).
+			Foreground(lipgloss.Color("214")).
 			Bold(true)
 
 	completionItemStyle = lipgloss.NewStyle().

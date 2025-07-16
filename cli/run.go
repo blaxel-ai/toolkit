@@ -43,7 +43,7 @@ bl run model my-model --data '{"inputs": "Hello, world!"}'
 bl run job my-job --file myjob.json`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || len(args) == 1 {
-				fmt.Println("Error: Resource type and name are required")
+				core.PrintError("Run", fmt.Errorf("resource type and name are required"))
 				os.Exit(1)
 			}
 			core.LoadCommandSecrets(commandSecrets)
@@ -57,7 +57,7 @@ bl run job my-job --file myjob.json`,
 			for _, header := range headerFlags {
 				parts := strings.SplitN(header, ":", 2)
 				if len(parts) != 2 {
-					fmt.Printf("Error: Invalid header format '%s'. Must be 'Key: Value'\n", header)
+					core.PrintError("Run", fmt.Errorf("invalid header format '%s'. Must be 'Key: Value'", header))
 					os.Exit(1)
 				}
 				key := strings.TrimSpace(parts[0])
@@ -68,7 +68,7 @@ bl run job my-job --file myjob.json`,
 			if filePath != "" {
 				fileContent, err := os.ReadFile(filePath)
 				if err != nil {
-					fmt.Printf("Error reading file: %v\n", err)
+					core.PrintError("Run", fmt.Errorf("error reading file: %w", err))
 				}
 				data = string(fileContent)
 			}
@@ -77,7 +77,7 @@ bl run job my-job --file myjob.json`,
 			if uploadFilePath != "" {
 				fileContent, err := os.ReadFile(uploadFilePath)
 				if err != nil {
-					fmt.Printf("Error reading file: %v\n", err)
+					core.PrintError("Run", fmt.Errorf("error reading file: %w", err))
 					os.Exit(1)
 				}
 				data = string(fileContent)
@@ -117,7 +117,7 @@ bl run job my-job --file myjob.json`,
 				local,
 			)
 			if err != nil {
-				fmt.Printf("Error making request: %v\n", err)
+				core.PrintError("Run", fmt.Errorf("error making request: %w", err))
 				os.Exit(1)
 			}
 			defer func() { _ = res.Body.Close() }()
@@ -125,19 +125,19 @@ bl run job my-job --file myjob.json`,
 			// Read response body
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
-				fmt.Printf("Error reading response: %v\n", err)
+				core.PrintError("Run", fmt.Errorf("error reading response: %w", err))
 				os.Exit(1)
 			}
 			// Only print status code if it's an error
 			if res.StatusCode >= 400 {
-				fmt.Printf("Response Status: %s\n", res.Status)
+				core.PrintError("Run", fmt.Errorf("response status: %s", res.Status))
 			}
 
 			if debug {
-				fmt.Printf("Response Headers:\n")
+				core.Print("Response Headers:")
 				for key, values := range res.Header {
 					for _, value := range values {
-						fmt.Printf("  %s: %s\n", key, value)
+						core.Print(fmt.Sprintf("  %s: %s", key, value))
 					}
 				}
 				fmt.Println()
@@ -146,10 +146,10 @@ bl run job my-job --file myjob.json`,
 			// Try to pretty print JSON response
 			var prettyJSON bytes.Buffer
 			if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-				fmt.Println(prettyJSON.String())
+				core.Print(prettyJSON.String())
 			} else {
 				// If not JSON, print as string
-				fmt.Println(string(body))
+				core.Print(string(body))
 			}
 		},
 	}
@@ -213,7 +213,7 @@ func getModelDefaultPath(resourceName string) string {
 							}
 						}
 						if key != "" {
-							fmt.Printf("Using default path: %s, you can change it by specifying it with --path PATH\n", key)
+							core.PrintInfo(fmt.Sprintf("Using default path: %s, you can change it by specifying it with --path PATH", key))
 						}
 						return key
 					}
@@ -228,21 +228,21 @@ func runJobLocally(data string, folder string, config core.Config) {
 	batch := sdk.Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
-		fmt.Println("Error: Invalid JSON")
+		core.PrintError("Run", fmt.Errorf("invalid JSON: %w", err))
 		os.Exit(1)
 	}
 
 	for i, task := range batch.Tasks {
-		fmt.Printf("Task %d:\n", i+1)
+		core.PrintInfo(fmt.Sprintf("Task %d:", i+1))
 		jsonencoded, err := json.Marshal(task)
 		if err != nil {
-			fmt.Println("Error marshalling task:", err)
+			core.PrintError("Run", fmt.Errorf("error marshalling task: %w", err))
 			os.Exit(1)
 		}
-		fmt.Printf("Arguments: %s\n", string(jsonencoded))
+		core.PrintInfo(fmt.Sprintf("Arguments: %s", string(jsonencoded)))
 		cmd, err := server.FindJobCommand(task, folder, config)
 		if err != nil {
-			fmt.Println("Error finding root cmd:", err)
+			core.PrintError("Run", fmt.Errorf("error finding root cmd: %w", err))
 			os.Exit(1)
 		}
 
@@ -253,9 +253,9 @@ func runJobLocally(data string, folder string, config core.Config) {
 		// Run the command and wait for it to complete
 		err = cmd.Run()
 		if err != nil {
-			fmt.Printf("Error executing task %d: %v\n", i+1, err)
+			core.PrintError("Run", fmt.Errorf("error executing task %d: %w", i+1, err))
 			os.Exit(1)
 		}
-		fmt.Println()
+		core.Print("")
 	}
 }
