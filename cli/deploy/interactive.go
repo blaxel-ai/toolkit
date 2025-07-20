@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -241,7 +242,14 @@ func (m *InteractiveModel) View() string {
 
 		s.WriteString("\n")
 		if allSuccess {
-			s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
+			config := core.GetConfig()
+			appUrl := core.GetAppURL()
+			currentWorkspace := core.GetWorkspace()
+			availableAt := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
+			core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
+			s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully! Deployment available at: "))
+			s.WriteString(availableAt)
+			s.WriteString("\n")
 		} else {
 			s.WriteString(statusStyles[StatusFailed].Render("✗ Some resources failed to deploy"))
 		}

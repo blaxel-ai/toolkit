@@ -727,7 +727,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						}
 						model.UpdateResource(idx, deploy.StatusDeploying, "Deploying to cluster", nil)
 						model.AddBuildLog(idx, "Status changed to: DEPLOYING")
-					case "DEPLOYED", "UNKNOWN":
+					case "DEPLOYED":
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
@@ -793,7 +793,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 
 					if needsMonitoring {
 						// Wait for backend to update status after apply
-						time.Sleep(200 * time.Millisecond)
+						time.Sleep(500 * time.Millisecond)
 						model.AddBuildLog(idx, "Verifying deployment status...")
 
 						// Simple status monitoring for additional resources
@@ -819,7 +819,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 									model.AddBuildLog(idx, fmt.Sprintf("Status: %s", status))
 
 									switch status {
-									case "DEPLOYED", "UNKNOWN":
+									case "DEPLOYED":
 										model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
 										ticker.Stop()
 										return
