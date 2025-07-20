@@ -257,53 +257,42 @@ func GetHuhTheme() *huh.Theme {
 
 // PrintError prints a formatted error message with colors
 func PrintError(operation string, err error) {
-	if IsInteractiveMode() {
-		return
-	}
 	// Print error header with red color and bold
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed, color.Bold).Sprint("✗"),
-		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation))
+		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation)))
 
 	// Print reason with lighter red color
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed).Sprint("Reason:"),
-		color.New(color.FgWhite).Sprint(err.Error()))
+		color.New(color.FgWhite).Sprint(err.Error())))
 }
 
 // PrintWarning prints a formatted warning message with colors
 func PrintWarning(message string) {
-	if IsInteractiveMode() {
-		return
-	}
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgYellow, color.Bold).Sprint("⚠"),
-		color.New(color.FgYellow).Sprint(message))
+		color.New(color.FgYellow).Sprint(message)))
 }
 
 // PrintSuccess prints a formatted success message with colors
 func PrintSuccess(message string) {
-	if IsInteractiveMode() {
-		return
-	}
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgGreen, color.Bold).Sprint("✓"),
-		color.New(color.FgGreen).Sprint(message))
+		color.New(color.FgGreen).Sprint(message)))
 }
 
 func PrintInfo(message string) {
-	if IsInteractiveMode() {
-		return
-	}
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
-		color.New(color.FgBlue).Sprint(message))
+		color.New(color.FgBlue).Sprint(message)))
 }
 
 func Print(message string) {
 	if IsInteractiveMode() {
 		return
 	}
+	message = strings.TrimSuffix(message, "\n")
 	fmt.Println(message)
 }
 
