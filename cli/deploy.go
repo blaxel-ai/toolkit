@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +30,7 @@ func DeployCmd() *cobra.Command {
 	var folder string
 	var envFiles []string
 	var commandSecrets []string
+	var skipBuild bool
 	cmd := &cobra.Command{
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
@@ -71,14 +74,14 @@ func DeployCmd() *cobra.Command {
 				cwd:    cwd,
 			}
 
-			err = deployment.Generate()
+			err = deployment.Generate(skipBuild)
 			if err != nil {
 				core.PrintError("Deploy", fmt.Errorf("error generating blaxel deployment: %w", err))
 				os.Exit(1)
 			}
 
 			if dryRun {
-				err := deployment.Print()
+				err := deployment.Print(skipBuild)
 				if err != nil {
 					core.PrintError("Deploy", fmt.Errorf("error printing blaxel deployment: %w", err))
 					os.Exit(1)
@@ -101,6 +104,7 @@ func DeployCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Deployment app path, can be a sub directory")
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
+	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
 	return cmd
 }
 
@@ -113,7 +117,7 @@ type Deployment struct {
 	cwd               string
 }
 
-func (d *Deployment) Generate() error {
+func (d *Deployment) Generate(skipBuild bool) error {
 	if d.name == "" {
 		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
 		d.name = split[len(split)-1]
@@ -125,18 +129,20 @@ func (d *Deployment) Generate() error {
 	}
 
 	// Generate the blaxel deployment yaml
-	d.blaxelDeployments = []core.Result{d.GenerateDeployment()}
+	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
 
-	// Zip the directory
-	err = d.Zip()
-	if err != nil {
-		return fmt.Errorf("failed to zip file: %w", err)
+	if !skipBuild {
+		// Zip the directory
+		err = d.Zip()
+		if err != nil {
+			return fmt.Errorf("failed to zip file: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (d *Deployment) GenerateDeployment() core.Result {
+func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	var Spec map[string]interface{}
 	var Kind string
 
@@ -148,6 +154,25 @@ func (d *Deployment) GenerateDeployment() core.Result {
 	runtime["envs"] = core.GetUniqueEnvs()
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
+	}
+
+	if skipBuild {
+		resource, err := getResource(config.Type, d.name)
+		if err != nil {
+			core.PrintError("Deployment", err)
+			os.Exit(1)
+		}
+
+		if spec, ok := resource["spec"].(map[string]interface{}); ok {
+			if rt, ok := spec["runtime"].(map[string]interface{}); ok {
+				if image, ok := rt["image"].(string); ok && image != "" {
+					runtime["image"] = image
+				} else {
+					core.PrintError("Deployment", fmt.Errorf("no image found for %s. please deploy with a build first", d.name))
+					os.Exit(1)
+				}
+			}
+		}
 	}
 
 	switch config.Type {
@@ -179,17 +204,84 @@ func (d *Deployment) GenerateDeployment() core.Result {
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
+	labels := map[string]string{}
+	if !skipBuild {
+		labels["x-blaxel-auto-generated"] = "true"
+	}
 	return core.Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
 		Kind:       Kind,
 		Metadata: map[string]interface{}{
-			"name": d.name,
-			"labels": map[string]string{
-				"x-blaxel-auto-generated": "true",
-			},
+			"name":   d.name,
+			"labels": labels,
 		},
 		Spec: Spec,
 	}
+}
+
+func getResource(resourceType, name string) (map[string]interface{}, error) {
+	ctx := context.Background()
+	client := core.GetClient()
+
+	var body []byte
+	var statusCode int
+	var err error
+
+	switch resourceType {
+	case "agent":
+		resp, errGet := client.GetAgentWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "function":
+		resp, errGet := client.GetFunctionWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "job":
+		resp, errGet := client.GetJobWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "sandbox":
+		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	default:
+		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if statusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name)
+	}
+
+	if statusCode >= 400 {
+		return nil, fmt.Errorf("error getting %s %s: %d", resourceType, name, statusCode)
+	}
+
+	var resource map[string]interface{}
+	if err := json.Unmarshal(body, &resource); err != nil {
+		return nil, err
+	}
+
+	return resource, nil
 }
 
 func (d *Deployment) Apply() error {
@@ -393,14 +485,16 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 	return nil
 }
 
-func (d *Deployment) Print() error {
+func (d *Deployment) Print(skipBuild bool) error {
 	for _, deployment := range d.blaxelDeployments {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	err := d.PrintZip()
-	if err != nil {
-		return fmt.Errorf("failed to print zip: %w", err)
+	if !skipBuild {
+		err := d.PrintZip()
+		if err != nil {
+			return fmt.Errorf("failed to print zip: %w", err)
+		}
 	}
 	return nil
 }
