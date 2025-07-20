@@ -456,3 +456,13 @@ func GetCommit() string {
 func GetDate() string {
 	return date
 }
+
+var interactiveMode bool
+
+func SetInteractiveMode(interactive bool) {
+	interactiveMode = interactive
+}
+
+func IsInteractiveMode() bool {
+	return interactiveMode
+}

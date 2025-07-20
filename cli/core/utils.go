@@ -257,6 +257,9 @@ func GetHuhTheme() *huh.Theme {
 
 // PrintError prints a formatted error message with colors
 func PrintError(operation string, err error) {
+	if IsInteractiveMode() {
+		return
+	}
 	// Print error header with red color and bold
 	fmt.Printf("%s %s\n",
 		color.New(color.FgRed, color.Bold).Sprint("✗"),
@@ -270,6 +273,9 @@ func PrintError(operation string, err error) {
 
 // PrintWarning prints a formatted warning message with colors
 func PrintWarning(message string) {
+	if IsInteractiveMode() {
+		return
+	}
 	fmt.Printf("%s %s\n",
 		color.New(color.FgYellow, color.Bold).Sprint("⚠"),
 		color.New(color.FgYellow).Sprint(message))
@@ -277,18 +283,27 @@ func PrintWarning(message string) {
 
 // PrintSuccess prints a formatted success message with colors
 func PrintSuccess(message string) {
+	if IsInteractiveMode() {
+		return
+	}
 	fmt.Printf("%s %s\n",
 		color.New(color.FgGreen, color.Bold).Sprint("✓"),
 		color.New(color.FgGreen).Sprint(message))
 }
 
 func PrintInfo(message string) {
+	if IsInteractiveMode() {
+		return
+	}
 	fmt.Printf("%s %s\n",
 		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
 		color.New(color.FgBlue).Sprint(message))
 }
 
 func Print(message string) {
+	if IsInteractiveMode() {
+		return
+	}
 	fmt.Println(message)
 }
 
