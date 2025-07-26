@@ -12,6 +12,7 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -225,6 +226,14 @@ func getModelDefaultPath(resourceName string) string {
 }
 
 func runJobLocally(data string, folder string, config core.Config) {
+	// Load .env if it exists and merge into command environment
+	var dotenvVars map[string]string
+	if _, err := os.Stat(".env"); err == nil {
+		dotenvVars, err = godotenv.Read()
+		if err != nil {
+			core.PrintError("Run", fmt.Errorf("could not load .env file: %w", err))
+		}
+	}
 	batch := sdk.Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
@@ -244,6 +253,24 @@ func runJobLocally(data string, folder string, config core.Config) {
 		if err != nil {
 			core.PrintError("Run", fmt.Errorf("error finding root cmd: %w", err))
 			os.Exit(1)
+		}
+
+		// Merge .env variables into the command's environment
+		if dotenvVars != nil {
+			envMap := map[string]string{}
+			for _, env := range os.Environ() {
+				parts := strings.SplitN(env, "=", 2)
+				if len(parts) == 2 {
+					envMap[parts[0]] = parts[1]
+				}
+			}
+			for k, v := range dotenvVars {
+				envMap[k] = v
+			}
+			cmd.Env = []string{}
+			for k, v := range envMap {
+				cmd.Env = append(cmd.Env, k+"="+v)
+			}
 		}
 
 		// Capture stdout and stderr
