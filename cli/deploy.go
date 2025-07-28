@@ -315,7 +315,7 @@ func (d *Deployment) Ready() {
 	config := core.GetConfig()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
-	core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
+	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
 }
 
 func (d *Deployment) Upload(url string) error {
