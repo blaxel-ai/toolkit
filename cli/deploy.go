@@ -371,6 +371,7 @@ func (d *Deployment) IgnoredPaths() []string {
 			"venv",
 			"node_modules",
 			".env",
+			".next",
 			"__pycache__",
 		}
 	}
