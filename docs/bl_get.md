@@ -33,4 +33,5 @@ Get a resource
 * [bl get models](bl_get_models.md)	 - Get a Model
 * [bl get policies](bl_get_policies.md)	 - Get a Policy
 * [bl get sandboxes](bl_get_sandboxes.md)	 - Get a Sandbox
+* [bl get volumes](bl_get_volumes.md)	 - Get a Volume
 
