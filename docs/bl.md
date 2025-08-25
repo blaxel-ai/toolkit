@@ -32,6 +32,7 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl get](bl_get.md)	 - Get a resource
 * [bl login](bl_login.md)	 - Login to Blaxel
 * [bl logout](bl_logout.md)	 - Logout from Blaxel
+* [bl new](bl_new.md)	 - Create a new blaxel resource (agent, mcp, sandbox, job)
 * [bl run](bl_run.md)	 - Run a resource on blaxel
 * [bl serve](bl_serve.md)	 - Serve a blaxel project
 * [bl version](bl_version.md)	 - Print the version number
