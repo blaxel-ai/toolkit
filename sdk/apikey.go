@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -26,8 +27,16 @@ func (s *ApiKeyAuth) Intercept(ctx context.Context, req *http.Request) error {
 }
 
 func (s *ApiKeyAuth) GetHeaders() (map[string]string, error) {
-	return map[string]string{
+	osArch := GetOsArch()
+	commitHash := GetCommitHash()
+	headers := map[string]string{
 		"X-Blaxel-Authorization": "Bearer " + s.credentials.APIKey,
 		"X-Blaxel-Workspace":     s.workspaceName,
-	}, nil
+		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
+	}
+
+	// Temporary logging for testing
+	fmt.Printf("[DEBUG] ApiKeyAuth headers: %+v\n", headers)
+
+	return headers, nil
 }
