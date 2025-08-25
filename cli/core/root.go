@@ -238,6 +238,8 @@ var outputFormat string
 var client *sdk.ClientWithResponses
 var verbose bool
 var version string
+
+// commit can be set at build time via ldflags: -ldflags "-X github.com/blaxel-ai/toolkit/cli/core.commit=abc1234"
 var commit string
 var date string
 var utc bool
@@ -276,21 +278,30 @@ var rootCmd = &cobra.Command{
 			PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
 		}
 
-		os := runtime.GOOS
-		arch := runtime.GOARCH
-		commitShort := "unknown"
-		if commit != "" && len(commit) > 7 {
-			commitShort = commit[:7]
+		// Get OS/arch and commit info for User-Agent
+		osArch := runtime.GOOS + "/" + runtime.GOARCH
+		commitHash := "unknown"
+
+		// Check if commit was injected at build time via ldflags
+		if commit != "" {
+			if len(commit) > 7 {
+				commitHash = commit[:7]
+			} else {
+				commitHash = commit
+			}
 		}
+
+		headers := map[string]string{
+			"User-Agent": fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash),
+		}
+
 		c, err := sdk.NewClientWithCredentials(
 			sdk.RunClientWithCredentials{
 				ApiURL:      BASE_URL,
 				RunURL:      RUN_URL,
 				Credentials: credentials,
 				Workspace:   workspace,
-				Headers: map[string]string{
-					"User-Agent": fmt.Sprintf("blaxel/v%s (%s/%s) blaxel/%s", version, os, arch, commitShort),
-				},
+				Headers:     headers,
 			},
 		)
 		if err != nil {
