@@ -48,4 +48,5 @@ cat file.yaml | blaxel delete -f -
 * [bl delete model](bl_delete_model.md)	 - Delete model
 * [bl delete policy](bl_delete_policy.md)	 - Delete policy
 * [bl delete sandbox](bl_delete_sandbox.md)	 - Delete sandbox
+* [bl delete volume](bl_delete_volume.md)	 - Delete volume
 

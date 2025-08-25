@@ -258,7 +258,8 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		return &failedResponse
 	}
 
-	if response.StatusCode == 404 {
+	// We handle not found, and also not implemented to know we need to create
+	if response.StatusCode == 404 || response.StatusCode == 405 {
 		// Need to create the resource
 		return PostFn(resource, resourceName, name, resourceObject)
 	}

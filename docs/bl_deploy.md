@@ -30,6 +30,7 @@ bl deploy
   -n, --name string        Optional name for the deployment
   -r, --recursive          Deploy recursively (default true)
   -s, --secrets strings    Secrets to deploy
+      --skip-build         Skip the build step
 ```
 
 ### Options inherited from parent commands
