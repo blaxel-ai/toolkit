@@ -37,26 +37,7 @@ bl create-job my-job --template template-jobs-ts -y`,
 				dirArg = args[0]
 			}
 
-			core.RunCreateFlow(
-				dirArg,
-				templateName,
-				core.CreateFlowConfig{
-					TemplateType: "job",
-					NoTTY:        noTTY,
-					ErrorPrefix:  "Job creation",
-					SpinnerTitle: "Creating your blaxel job...",
-				},
-				func(directory string, templates core.Templates) core.TemplateOptions {
-					return promptCreateJob(directory, templates)
-				},
-				func(opts core.TemplateOptions) {
-					core.PrintSuccess("Your blaxel job has been created successfully!")
-					fmt.Printf(`Start working on it:
-  cd %s
-  bl run job %s --local --file batches/sample-batch.json
-`, opts.Directory, opts.Directory)
-				},
-			)
+			RunJobCreation(dirArg, templateName, noTTY)
 		},
 	}
 
@@ -70,4 +51,28 @@ bl create-job my-job --template template-jobs-ts -y`,
 // Takes a directory string parameter and returns a CreateJobOptions struct with the user's selections.
 func promptCreateJob(directory string, templates core.Templates) core.TemplateOptions {
 	return core.PromptTemplateOptions(directory, templates, "job", true, 5)
+}
+
+// RunJobCreation is a reusable wrapper that executes the job creation flow.
+func RunJobCreation(dirArg string, templateName string, noTTY bool) {
+	core.RunCreateFlow(
+		dirArg,
+		templateName,
+		core.CreateFlowConfig{
+			TemplateType: "job",
+			NoTTY:        noTTY,
+			ErrorPrefix:  "Job creation",
+			SpinnerTitle: "Creating your blaxel job...",
+		},
+		func(directory string, templates core.Templates) core.TemplateOptions {
+			return promptCreateJob(directory, templates)
+		},
+		func(opts core.TemplateOptions) {
+			core.PrintSuccess("Your blaxel job has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl run job %s --local --file batches/sample-batch.json
+`, opts.Directory, opts.Directory)
+		},
+	)
 }

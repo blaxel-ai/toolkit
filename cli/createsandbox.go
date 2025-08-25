@@ -37,26 +37,7 @@ bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 				dirArg = args[0]
 			}
 
-			core.RunCreateFlow(
-				dirArg,
-				templateName,
-				core.CreateFlowConfig{
-					TemplateType: "sandbox",
-					NoTTY:        noTTY,
-					ErrorPrefix:  "Sandbox creation",
-					SpinnerTitle: "Creating your blaxel sandbox...",
-				},
-				func(directory string, templates core.Templates) core.TemplateOptions {
-					return promptCreateSandbox(directory, templates)
-				},
-				func(opts core.TemplateOptions) {
-					core.PrintSuccess("Your blaxel sandbox has been created successfully!")
-					fmt.Printf(`Start working on it:
-  cd %s
-  bl deploy
-`, opts.Directory)
-				},
-			)
+			RunSandboxCreation(dirArg, templateName, noTTY)
 		},
 	}
 
@@ -70,4 +51,28 @@ bl create-sandbox my-sandbox --template template-sandbox-ts -y`,
 // Takes a directory string parameter and returns a TemplateOptions struct with the user's selections.
 func promptCreateSandbox(directory string, templates core.Templates) core.TemplateOptions {
 	return core.PromptTemplateOptions(directory, templates, "sandbox", false, 5)
+}
+
+// RunSandboxCreation is a reusable wrapper that executes the sandbox creation flow.
+func RunSandboxCreation(dirArg string, templateName string, noTTY bool) {
+	core.RunCreateFlow(
+		dirArg,
+		templateName,
+		core.CreateFlowConfig{
+			TemplateType: "sandbox",
+			NoTTY:        noTTY,
+			ErrorPrefix:  "Sandbox creation",
+			SpinnerTitle: "Creating your blaxel sandbox...",
+		},
+		func(directory string, templates core.Templates) core.TemplateOptions {
+			return promptCreateSandbox(directory, templates)
+		},
+		func(opts core.TemplateOptions) {
+			core.PrintSuccess("Your blaxel sandbox has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
+		},
+	)
 }

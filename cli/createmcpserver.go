@@ -37,27 +37,7 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 				dirArg = args[0]
 			}
 
-			core.RunCreateFlow(
-				dirArg,
-				templateName,
-				core.CreateFlowConfig{
-					TemplateType:           "mcp",
-					NoTTY:                  noTTY,
-					ErrorPrefix:            "MCP Server creation",
-					SpinnerTitle:           "Creating your blaxel mcp server...",
-					BlaxelTomlResourceType: "function",
-				},
-				func(directory string, templates core.Templates) core.TemplateOptions {
-					return promptCreateMCPServer(directory, templates)
-				},
-				func(opts core.TemplateOptions) {
-					core.PrintSuccess("Your blaxel MCP server has been created successfully!")
-					fmt.Printf(`Start working on it:
-  cd %s
-  bl serve --hotreload
-`, opts.Directory)
-				},
-			)
+			RunMCPCreation(dirArg, templateName, noTTY)
 		},
 	}
 
@@ -71,4 +51,29 @@ bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
 // Takes a directory string parameter and templates, returns a CreateMCPServerOptions struct with the user's selections.
 func promptCreateMCPServer(directory string, templates core.Templates) core.TemplateOptions {
 	return core.PromptTemplateOptions(directory, templates, "mcp server", true, 5)
+}
+
+// RunMCPCreation is a reusable wrapper that executes the MCP server creation flow.
+func RunMCPCreation(dirArg string, templateName string, noTTY bool) {
+	core.RunCreateFlow(
+		dirArg,
+		templateName,
+		core.CreateFlowConfig{
+			TemplateType:           "mcp",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "MCP Server creation",
+			SpinnerTitle:           "Creating your blaxel mcp server...",
+			BlaxelTomlResourceType: "function",
+		},
+		func(directory string, templates core.Templates) core.TemplateOptions {
+			return promptCreateMCPServer(directory, templates)
+		},
+		func(opts core.TemplateOptions) {
+			core.PrintSuccess("Your blaxel MCP server has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl serve --hotreload
+`, opts.Directory)
+		},
+	)
 }

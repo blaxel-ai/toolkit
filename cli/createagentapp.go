@@ -37,27 +37,7 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 				dirArg = args[0]
 			}
 
-			core.RunCreateFlow(
-				dirArg,
-				templateName,
-				core.CreateFlowConfig{
-					TemplateType:           "agent",
-					NoTTY:                  noTTY,
-					ErrorPrefix:            "Agent creation",
-					SpinnerTitle:           "Creating your blaxel agent app...",
-					BlaxelTomlResourceType: "agent",
-				},
-				func(directory string, templates core.Templates) core.TemplateOptions {
-					return promptCreateAgentApp(directory, templates)
-				},
-				func(opts core.TemplateOptions) {
-					core.PrintSuccess("Your blaxel agent app has been created successfully!")
-					fmt.Printf(`Start working on it:
-  cd %s
-  bl serve --hotreload
-`, opts.Directory)
-				},
-			)
+			RunAgentAppCreation(dirArg, templateName, noTTY)
 		},
 	}
 
@@ -71,4 +51,30 @@ bl create-agent-app my-agent-app --template template-google-adk-py -y`,
 // Takes a directory string parameter and returns a CreateAgentAppOptions struct with the user's selections.
 func promptCreateAgentApp(directory string, templates core.Templates) core.TemplateOptions {
 	return core.PromptTemplateOptions(directory, templates, "agent app", true, 12)
+}
+
+// RunAgentAppCreation is a reusable wrapper that executes the agent creation flow.
+// It can be called by both the dedicated command and the unified `bl new` command.
+func RunAgentAppCreation(dirArg string, templateName string, noTTY bool) {
+	core.RunCreateFlow(
+		dirArg,
+		templateName,
+		core.CreateFlowConfig{
+			TemplateType:           "agent",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "Agent creation",
+			SpinnerTitle:           "Creating your blaxel agent app...",
+			BlaxelTomlResourceType: "agent",
+		},
+		func(directory string, templates core.Templates) core.TemplateOptions {
+			return promptCreateAgentApp(directory, templates)
+		},
+		func(opts core.TemplateOptions) {
+			core.PrintSuccess("Your blaxel agent app has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl serve --hotreload
+`, opts.Directory)
+		},
+	)
 }
