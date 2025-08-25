@@ -295,9 +295,6 @@ var rootCmd = &cobra.Command{
 			"User-Agent": fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash),
 		}
 
-		// Temporary logging for testing
-		fmt.Printf("[DEBUG] CLI headers: %+v\n", headers)
-
 		c, err := sdk.NewClientWithCredentials(
 			sdk.RunClientWithCredentials{
 				ApiURL:      BASE_URL,

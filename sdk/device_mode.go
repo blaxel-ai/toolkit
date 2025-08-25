@@ -109,15 +109,12 @@ func (s *BearerToken) GetHeaders() (map[string]string, error) {
 	}
 	osArch := GetOsArch()
 	commitHash := GetCommitHash()
-	headers := map[string]string{
+		headers := map[string]string{
 		"X-Blaxel-Authorization": fmt.Sprintf("Bearer %s", s.credentials.AccessToken),
 		"X-Blaxel-Workspace":     s.workspaceName,
 		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
 	}
-
-	// Temporary logging for testing
-	fmt.Printf("[DEBUG] BearerToken headers: %+v\n", headers)
-
+	
 	return headers, nil
 }
 
