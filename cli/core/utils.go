@@ -144,6 +144,8 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 
 			if value, exists := os.LookupEnv(varName); exists {
 				return value
+			} else if secretValue := LookupSecret(varName); secretValue != "" {
+				return secretValue
 			}
 			return match // Keep original if env var not found
 		})
