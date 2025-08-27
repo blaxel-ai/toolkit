@@ -294,6 +294,35 @@ func Print(message string) {
 	fmt.Println(message)
 }
 
+// Slugify converts a string to a URL-safe slug format
+// Example: "My Agent 123!" -> "my-agent-123"
+func Slugify(s string) string {
+	// Convert to lowercase
+	s = strings.ToLower(s)
+
+	// Replace spaces and underscores with hyphens
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+
+	// Remove any character that's not alphanumeric or hyphen
+	re := regexp.MustCompile(`[^a-z0-9\-]+`)
+	s = re.ReplaceAllString(s, "")
+
+	// Remove consecutive hyphens
+	re = regexp.MustCompile(`\-+`)
+	s = re.ReplaceAllString(s, "-")
+
+	// Trim hyphens from start and end
+	s = strings.Trim(s, "-")
+
+	// If empty after slugification, generate a default
+	if s == "" {
+		s = "resource"
+	}
+
+	return s
+}
+
 // GetResults is a public wrapper for getResults
 func GetResults(action string, filePath string, recursive bool) ([]Result, error) {
 	return getResults(action, filePath, recursive)

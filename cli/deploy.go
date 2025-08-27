@@ -67,6 +67,11 @@ func DeployCmd() *cobra.Command {
 				name = config.Name
 			}
 
+			// Slugify the name to ensure it's URL-safe
+			if name != "" {
+				name = core.Slugify(name)
+			}
+
 			deployment := Deployment{
 				dir:    deployDir,
 				folder: folder,
@@ -122,6 +127,9 @@ func (d *Deployment) Generate(skipBuild bool) error {
 		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
 		d.name = split[len(split)-1]
 	}
+
+	// Slugify the name to ensure it's URL-safe
+	d.name = core.Slugify(d.name)
 
 	err := core.SeedCache(d.cwd)
 	if err != nil {
