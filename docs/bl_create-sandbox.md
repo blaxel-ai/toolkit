@@ -11,7 +11,7 @@ Create a new blaxel sandbox
 Create a new blaxel sandbox
 
 ```
-bl create-sandbox directory [flags]
+bl create-sandbox [directory] [flags]
 ```
 
 ### Examples

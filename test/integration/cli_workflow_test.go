@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -946,6 +947,13 @@ func cleanupMultiAgentProjects(t *testing.T, env *RealCLITestEnvironment, projec
 
 // SetupRealCLIEnvironment creates a test environment that executes real CLI commands
 func SetupRealCLIEnvironment(t *testing.T) *RealCLITestEnvironment {
+	// Load .env from project root if available, then read env vars
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(originalDir, "..", "..")
+	_ = godotenv.Load(filepath.Join(rootDir, ".env"))
+	_ = godotenv.Load()
+
 	// Check required environment variables
 	apiKey := os.Getenv("BL_API_KEY")
 	if apiKey == "" {
@@ -961,12 +969,7 @@ func SetupRealCLIEnvironment(t *testing.T) *RealCLITestEnvironment {
 	tempDir, err := os.MkdirTemp("", "blaxel-cli-integration-*")
 	require.NoError(t, err)
 
-	// Get current directory to restore later
-	originalDir, err := os.Getwd()
-	require.NoError(t, err)
-
 	// Build the CLI binary
-	rootDir := filepath.Join(originalDir, "..", "..")
 	cliBinary := filepath.Join(tempDir, "bl-test")
 
 	buildCmd := exec.Command("go", "build", "-o", cliBinary, "main.go")
