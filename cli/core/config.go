@@ -89,6 +89,14 @@ var resources = []*Resource{
 		WithStatus: true,
 		WithImage:  true,
 	},
+	{
+		Kind:       "Volume",
+		Short:      "vol",
+		Plural:     "volumes",
+		Singular:   "volume",
+		SpecType:   reflect.TypeOf(sdk.Volume{}),
+		WithStatus: true,
+	},
 }
 
 type Package struct {
