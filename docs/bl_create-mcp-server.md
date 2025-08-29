@@ -11,7 +11,7 @@ Create a new blaxel mcp server
 Create a new blaxel mcp server
 
 ```
-bl create-mcp-server directory [flags]
+bl create-mcp-server [directory] [flags]
 ```
 
 ### Examples
