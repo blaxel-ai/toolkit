@@ -1,0 +1,11 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: eu-west-3
+  displayName: eu west 3
+spec:
+  region: eu-west-3
+  runtime:
+    image: blaxel/dev-base:latest
+    generation: mk3
+    memory: 2048
