@@ -9,3 +9,15 @@ spec:
     image: blaxel/prod-base:latest
     generation: mk3
     memory: 2048
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: eu-west-2
+  displayName: eu-west-2
+spec:
+  region: eu-west-2
+  runtime:
+    image: blaxel/prod-base:latest
+    generation: mk3
+    memory: 2048
