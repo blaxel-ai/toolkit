@@ -109,10 +109,15 @@ func (c *ClientCredentials) GetHeaders() (map[string]string, error) {
 	if err := c.RefreshIfNeeded(); err != nil {
 		return nil, err
 	}
-	return map[string]string{
+	osArch := GetOsArch()
+	commitHash := GetCommitHash()
+		headers := map[string]string{
 		"X-Blaxel-Authorization": fmt.Sprintf("Bearer %s", c.credentials.AccessToken),
 		"X-Blaxel-Workspace":     c.workspaceName,
-	}, nil
+		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
+	}
+	
+	return headers, nil
 }
 
 func (c *ClientCredentials) DoRefresh() error {
