@@ -1,0 +1,11 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: eu-dub-1
+  displayName: eu-dub-1
+spec:
+  region: eu-dub-1
+  runtime:
+    image: blaxel/dev-base:latest
+    generation: mk3
+    memory: 2048
