@@ -1243,7 +1243,7 @@ type SandboxSpec struct {
 	// PrivateClusters Private cluster where the model deployment is deployed
 	PrivateClusters *ModelPrivateCluster `json:"privateClusters,omitempty"`
 
-	// Region AWS region where the sandbox should be created (e.g. us-west-2, eu-west-1)
+	// Region Region where the sandbox should be created (e.g. us-pdx-1, eu-west-1)
 	Region *string `json:"region,omitempty"`
 
 	// Revision Revision configuration
@@ -1430,7 +1430,7 @@ type VolumeAttachments = []VolumeAttachment
 
 // VolumeSpec Volume specification - immutable configuration
 type VolumeSpec struct {
-	// Region AWS region where the volume should be created (e.g. us-west-2, eu-west-1)
+	// Region Region where the volume should be created (e.g. us-pdx-1, eu-west-1)
 	Region *string `json:"region,omitempty"`
 
 	// Size Size of the volume in MB

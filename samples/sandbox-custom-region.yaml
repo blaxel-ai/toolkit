@@ -1,10 +1,10 @@
 apiVersion: blaxel.ai/v1alpha1
 kind: Sandbox
 metadata:
-  name: us-east-1
-  displayName: us-east-1
+  name: us-pdx-1
+  displayName: us-pdx-1
 spec:
-  region: us-east-1
+  region: us-pdx-1
   runtime:
     image: blaxel/prod-base:latest
     generation: mk3
@@ -13,10 +13,22 @@ spec:
 apiVersion: blaxel.ai/v1alpha1
 kind: Sandbox
 metadata:
-  name: eu-west-2
-  displayName: eu-west-2
+  name: eu-lon-1
+  displayName: eu-lon-1
 spec:
-  region: eu-west-2
+  region: eu-lon-1
+  runtime:
+    image: blaxel/prod-base:latest
+    generation: mk3
+    memory: 2048
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: us-was-1
+  displayName: us-was-1
+spec:
+  region: us-was-1
   runtime:
     image: blaxel/prod-base:latest
     generation: mk3
