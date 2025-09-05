@@ -136,6 +136,10 @@ func Apply(filePath string, opts ...ApplyOption) ([]ApplyResult, error) {
 func handleResourceOperation(resource *core.Resource, name string, resourceObject interface{}, operation string) (*http.Response, error) {
 	ctx := context.Background()
 
+	if resource.Put == nil && operation == "put" {
+		operation = "post"
+	}
+
 	// Get the appropriate function based on operation
 	var fn reflect.Value
 	if operation == "put" {
