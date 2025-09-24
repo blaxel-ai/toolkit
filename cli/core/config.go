@@ -123,6 +123,7 @@ type Config struct {
 	Runtime    *map[string]interface{}   `toml:"runtime"`
 	Triggers   *[]map[string]interface{} `toml:"triggers"`
 	Policies   []string                  `toml:"policies,omitempty"`
+	Region     string                    `toml:"region,omitempty"`
 }
 
 func readConfigToml(folder string) {

@@ -212,6 +212,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
+	if config.Region != "" {
+		Spec["region"] = config.Region
+	}
 	labels := map[string]string{}
 	if !skipBuild {
 		labels["x-blaxel-auto-generated"] = "true"

@@ -9,3 +9,15 @@ spec:
     image: blaxel/dev-base:latest
     generation: mk3
     memory: 2048
+---
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: us-was-1
+  displayName: us-was-1
+spec:
+  region: us-was-1
+  runtime:
+    image: blaxel/dev-expo:latest
+    generation: mk3
+    memory: 1024
