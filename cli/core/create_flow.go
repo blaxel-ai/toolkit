@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/huh/spinner"
 )
 
 // CreateFlowConfig captures the knobs that differ between create commands.
@@ -38,6 +40,14 @@ func RunCreateFlow(
 	promptFunc func(directory string, templates Templates) TemplateOptions,
 	successFunc func(opts TemplateOptions),
 ) {
+	// Accept shorthand template names without the "template-" prefix
+	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
+		templateNameFlag = "template-" + templateNameFlag
+	}
+	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
+		templateNameFlag = "template-" + templateNameFlag
+	}
+
 	// If directory arg provided, ensure it doesn't already exist
 	if dirArg != "" {
 		if _, err := os.Stat(dirArg); !os.IsNotExist(err) {
@@ -69,9 +79,23 @@ func RunCreateFlow(
 		if opts.TemplateName == "" {
 			PrintError(cfg.ErrorPrefix, fmt.Errorf("template '%s' not found", templateNameFlag))
 			fmt.Println("Available templates:")
-			for _, t := range templates {
-				key := templateDisplayName(t)
-				fmt.Printf("  %s (%s)\n", key, t.Language)
+			langs := templates.GetLanguages()
+			for _, lang := range langs {
+				names := []string{}
+				for _, t := range templates {
+					if t.Language != lang {
+						continue
+					}
+					name := strings.TrimPrefix(templateDisplayName(t), "template-")
+					names = append(names, name)
+				}
+				if len(names) == 0 {
+					continue
+				}
+				fmt.Printf("- %s:\n", lang)
+				for _, n := range names {
+					fmt.Printf("  - %s\n", n)
+				}
 			}
 			return
 		}
@@ -135,76 +159,145 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 		options.Author = "blaxel"
 	}
 
-	fields := []huh.Field{}
+	stripRe := regexp.MustCompile(`^\d+-`)
+	isBlank := func(t Template) bool {
+		name := strings.ToLower(stripRe.ReplaceAllString(*t.Name, ""))
+		return strings.Contains(name, "template-blank") || strings.HasPrefix(name, "blank-") || name == "blank"
+	}
+
+	totalTemplates := len(templates)
+	languages := templates.GetLanguages()
+
+	// If there is only one template overall, we can auto-select everything
+	if totalTemplates == 1 {
+		// Ask for name if needed
+		if directory == "" {
+			form := huh.NewForm(huh.NewGroup(
+				huh.NewInput().
+					Title("Name").
+					Description("Name of your " + resource).
+					Value(&options.Directory),
+			))
+			form.WithTheme(GetHuhTheme())
+			if err := form.Run(); err != nil {
+				os.Exit(0)
+			}
+		}
+		options.Language = templates[0].Language
+		options.TemplateName = *templates[0].Name
+		options.ProjectName = options.Directory
+		return options
+	}
+
+	// First form: name (if needed) and language if multiple languages
+	initialFields := []huh.Field{}
 	if directory == "" {
-		fields = append(fields, huh.NewInput().
+		initialFields = append(initialFields, huh.NewInput().
 			Title("Name").
 			Description("Name of your "+resource).
 			Value(&options.Directory),
 		)
 	}
-
-	if includeLanguage {
-		languagesOptions := []huh.Option[string]{}
-		for _, language := range templates.GetLanguages() {
-			languagesOptions = append(languagesOptions, huh.NewOption(language, language))
+	if includeLanguage && len(languages) > 1 {
+		langOptions := []huh.Option[string]{}
+		for _, lang := range languages {
+			langOptions = append(langOptions, huh.NewOption(lang, lang))
 		}
-		fields = append(fields,
-			huh.NewSelect[string]().
-				Title("Language").
-				Description("Language to use for your "+resource).
-				Height(5).
-				Options(languagesOptions...).
-				Value(&options.Language),
-		)
-		fields = append(fields,
-			huh.NewSelect[string]().
-				Title("Template").
-				Description("Template to use for your "+resource).
-				Height(templateHeight).
-				OptionsFunc(func() []huh.Option[string] {
-					filtered := templates.FilterByLanguage(options.Language)
-					if len(filtered) == 0 {
-						return []huh.Option[string]{}
-					}
-					result := []huh.Option[string]{}
-					for _, t := range filtered {
-						key := regexp.MustCompile(`^\\d+-`).ReplaceAllString(*t.Name, "")
-						result = append(result, huh.NewOption(key, *t.Name))
-					}
-					return result
-				}, &options).
-				Value(&options.TemplateName),
-		)
-	} else {
-		fields = append(fields,
-			huh.NewSelect[string]().
-				Title("Template").
-				Description("Template to use for your "+resource).
-				Height(templateHeight).
-				OptionsFunc(func() []huh.Option[string] {
-					if len(templates) == 0 {
-						return []huh.Option[string]{}
-					}
-					result := []huh.Option[string]{}
-					for _, t := range templates {
-						key := regexp.MustCompile(`^\\d+-`).ReplaceAllString(*t.Name, "")
-						result = append(result, huh.NewOption(key, *t.Name))
-					}
-					return result
-				}, &options).
-				Value(&options.TemplateName),
+		initialFields = append(initialFields, huh.NewSelect[string]().
+			Title("Language").
+			Description("Language to use for your "+resource).
+			Height(5).
+			Options(langOptions...).
+			Value(&options.Language),
 		)
 	}
 
-	form := huh.NewForm(huh.NewGroup(fields...))
-	form.WithTheme(GetHuhTheme())
-	err = form.Run()
-	if err != nil {
-		fmt.Println("Cancel create blaxel " + resource)
+	// Decide if any blank exists globally to include start choice in the first form
+	anyHasBlank := false
+	for _, t := range templates {
+		if isBlank(t) {
+			anyHasBlank = true
+			break
+		}
+	}
+	startChoice := "template"
+	if anyHasBlank {
+		startChoice = "plain"
+		initialFields = append(initialFields, huh.NewSelect[string]().
+			Title("Start from").
+			Description("Choose how to create your "+resource).
+			Options(
+				huh.NewOption("From scratch", "plain"),
+				huh.NewOption("From a template", "template"),
+			).
+			Value(&startChoice),
+		)
+	}
+
+	if len(initialFields) > 0 {
+		form := huh.NewForm(huh.NewGroup(initialFields...))
+		form.WithTheme(GetHuhTheme())
+		if err := form.Run(); err != nil {
+			os.Exit(0)
+		}
+	}
+
+	if options.Language == "" && len(languages) > 0 {
+		options.Language = languages[0]
+	}
+
+	// Determine templates for selected language
+	filtered := templates.FilterByLanguage(options.Language)
+
+	// If exactly one template for language, auto-select it
+	if len(filtered) == 1 {
+		options.TemplateName = *filtered[0].Name
+		options.ProjectName = options.Directory
+		return options
+	}
+
+	// Multiple templates for language
+	var blankTemplate *Template
+	for idx := range filtered {
+		if isBlank(filtered[idx]) {
+			blankTemplate = &filtered[idx]
+			break
+		}
+	}
+
+	if startChoice == "plain" && blankTemplate != nil {
+		options.TemplateName = *blankTemplate.Name
+		options.ProjectName = options.Directory
+		return options
+	}
+
+	// Second form: pick a non-blank template with loader
+	var templateOptions []huh.Option[string]
+	_ = spinner.New().
+		Title("Loading templates...").
+		Action(func() {
+			for _, t := range filtered {
+				if isBlank(t) {
+					continue
+				}
+				key := stripRe.ReplaceAllString(*t.Name, "")
+				key = strings.TrimPrefix(key, "template-")
+				templateOptions = append(templateOptions, huh.NewOption(key, *t.Name))
+			}
+		}).
+		Run()
+	pick := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Template").
+			Description("Template to use for your " + resource).
+			Height(templateHeight).
+			Options(templateOptions...).
+			Value(&options.TemplateName),
+	))
+	pick.WithTheme(GetHuhTheme())
+	if err := pick.Run(); err != nil {
 		os.Exit(0)
 	}
-
 	options.ProjectName = options.Directory
 	return options
 }

@@ -74,7 +74,6 @@ func NewCmd() *cobra.Command {
 				)
 				form.WithTheme(core.GetHuhTheme())
 				if err := form.Run(); err != nil {
-					fmt.Println("Cancel create blaxel resource")
 					return
 				}
 				t = parseNewType(selected)
