@@ -139,14 +139,6 @@ func (m *InteractiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			m.showLogs = !m.showLogs
 			m.updateContent()
-		case "pgup":
-			m.viewport.ViewUp()
-		case "pgdown":
-			m.viewport.ViewDown()
-		case "home":
-			m.viewport.GotoTop()
-		case "end":
-			m.viewport.GotoBottom()
 		}
 
 	case tea.WindowSizeMsg:
@@ -262,6 +254,8 @@ func (m *InteractiveModel) View() string {
 	var s strings.Builder
 	s.WriteString("\n")
 	s.WriteString(titleStyle.Render("Interactive Deployment"))
+	s.WriteString("\n")
+	s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("To deploy in the background, use: bl deploy -y"))
 	s.WriteString("\n\n")
 
 	// Resource list
@@ -292,11 +286,7 @@ func (m *InteractiveModel) View() string {
 	s.WriteString("\n")
 
 	// Footer
-	footer := "↑/↓: Navigate | l: Toggle logs"
-	if m.showLogs {
-		footer += " | PgUp/PgDn: Scroll logs | Home/End: Top/Bottom"
-	}
-	footer += " | q: Quit"
+	footer := "↑/↓: Navigate | l: Toggle logs | q: Quit"
 	s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(footer))
 
 	return s.String()
@@ -323,6 +313,13 @@ func (m *InteractiveModel) updateContent() {
 	if selected.Error != nil {
 		content.WriteString(fmt.Sprintf("Error: %s\n", selected.Error))
 	}
+
+	// Add console page URL
+	currentWorkspace := core.GetWorkspace()
+	appUrl := core.GetAppURL()
+	resourceType := strings.ToLower(selected.Kind)
+	consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, selected.Name)
+	content.WriteString(fmt.Sprintf("Console page: %s\n", consoleUrl))
 
 	if m.showLogs && len(selected.BuildLogs) > 0 {
 		content.WriteString("\nLogs:\n")

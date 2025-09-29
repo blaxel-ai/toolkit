@@ -37,6 +37,8 @@ build-sdk:
 build-dev:
 	@echo "🔨 Development build with commit: $(GIT_COMMIT_SHORT)"
 	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o ./bin/blaxel ./
+	cp ./bin/blaxel ~/.local/bin/blaxel;
+	cp ~/.local/bin/blaxel ~/.local/bin/bl;
 	@echo "✅ Binary built: ./bin/blaxel"
 
 doc:
@@ -67,11 +69,16 @@ test-integration:
 	go test -count=1 -v -timeout=30m -run TestCLIWorkflow_CompleteFlow ./test/integration/
 
 install:
+	brew install goreleaser
 	uv pip install openapi-python-client
 
 tag:
 	git tag -a v$(ARGS) -m "Release v$(ARGS)"
 	git push origin v$(ARGS)
+
+clean:
+	rm -rf ./dist
+	rm -rf ./bin
 
 %:
 	@:
