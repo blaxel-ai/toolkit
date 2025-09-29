@@ -11,7 +11,7 @@ Create a new blaxel agent app
 Create a new blaxel agent app
 
 ```
-bl create-agent-app directory [flags]
+bl create-agent-app [directory] [flags]
 ```
 
 ### Examples

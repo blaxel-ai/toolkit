@@ -1,0 +1,7 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Volume
+metadata:
+  displayName: My Volume
+  name: my-volume
+spec:
+  size: 1024

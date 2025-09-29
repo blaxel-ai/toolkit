@@ -73,6 +73,11 @@ func DeployCmd() *cobra.Command {
 				name = config.Name
 			}
 
+			// Slugify the name to ensure it's URL-safe
+			if name != "" {
+				name = core.Slugify(name)
+			}
+
 			deployment := Deployment{
 				dir:    deployDir,
 				folder: folder,
@@ -137,6 +142,9 @@ func (d *Deployment) Generate(skipBuild bool) error {
 		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
 		d.name = split[len(split)-1]
 	}
+
+	// Slugify the name to ensure it's URL-safe
+	d.name = core.Slugify(d.name)
 
 	err := core.SeedCache(d.cwd)
 	if err != nil {
@@ -855,7 +863,7 @@ func (d *Deployment) Ready() {
 	config := core.GetConfig()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
-	core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
+	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
 }
 
 func (d *Deployment) Upload(url string) error {
@@ -911,6 +919,7 @@ func (d *Deployment) IgnoredPaths() []string {
 			"venv",
 			"node_modules",
 			".env",
+			".next",
 			"__pycache__",
 		}
 	}

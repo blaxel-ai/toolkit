@@ -59,7 +59,7 @@ func (s *BearerToken) GetCredentials() Credentials {
 }
 
 func (s *BearerToken) RefreshIfNeeded() error {
-	// Need to refresh the token if access token expires in less than 10 minutes
+	// Parse JWT to extract expiration time
 	parts := strings.Split(s.credentials.AccessToken, ".")
 	if len(parts) != 3 {
 		return fmt.Errorf("invalid JWT token format")
@@ -76,8 +76,16 @@ func (s *BearerToken) RefreshIfNeeded() error {
 	}
 
 	expTime := time.Unix(int64(claims["exp"].(float64)), 0)
-	// Refresh if token expires in less than 10 minutes
-	if time.Now().Add(10 * time.Minute).After(expTime) {
+	iatTime := time.Unix(int64(claims["iat"].(float64)), 0)
+
+	// Calculate token lifetime and refresh when 20% or less remains
+	// For a 30s token: refreshes 6s before expiry
+	// For a 2h token: refreshes 24min before expiry
+	tokenLifetime := expTime.Sub(iatTime)
+	refreshThreshold := tokenLifetime.Seconds() * 0.2
+	timeUntilExpiry := time.Until(expTime).Seconds()
+
+	if timeUntilExpiry <= refreshThreshold {
 		return s.DoRefresh()
 	}
 
@@ -99,10 +107,15 @@ func (s *BearerToken) GetHeaders() (map[string]string, error) {
 	if err := s.RefreshIfNeeded(); err != nil {
 		return nil, err
 	}
-	return map[string]string{
+	osArch := GetOsArch()
+	commitHash := GetCommitHash()
+		headers := map[string]string{
 		"X-Blaxel-Authorization": fmt.Sprintf("Bearer %s", s.credentials.AccessToken),
 		"X-Blaxel-Workspace":     s.workspaceName,
-	}, nil
+		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
+	}
+	
+	return headers, nil
 }
 
 func (s *BearerToken) DoRefresh() error {

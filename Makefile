@@ -12,7 +12,12 @@ sdk:
 		-templates=./templates/go \
 		definition.yml
 
+# Get git commit hash automatically
+GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+GIT_COMMIT_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
 build:
+	@echo "🔨 Building with commit: $(GIT_COMMIT_SHORT)"
 	goreleaser release --snapshot --clean --skip homebrew
 	@if [ "$(shell uname -s)" = "Darwin" ]; then \
 		if [ -d "./dist/blaxel_darwin_arm64" ]; then \
@@ -22,6 +27,17 @@ build:
 		fi; \
 		cp ~/.local/bin/blaxel ~/.local/bin/bl; \
 	fi
+
+# Build SDK examples/tests with commit hash
+build-sdk:
+	@echo "🔨 Building SDK with commit: $(GIT_COMMIT_SHORT)"
+	go build -ldflags "-X github.com/blaxel-ai/toolkit/sdk.commitHash=$(GIT_COMMIT)" ./sdk/...
+
+# Development build without goreleaser
+build-dev:
+	@echo "🔨 Development build with commit: $(GIT_COMMIT_SHORT)"
+	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o ./bin/blaxel ./
+	@echo "✅ Binary built: ./bin/blaxel"
 
 doc:
 	rm -rf docs

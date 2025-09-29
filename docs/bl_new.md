@@ -1,33 +1,24 @@
 ---
-title: "bl create-job"
-slug: bl_create-job
+title: "bl new"
+slug: bl_new
 ---
-## bl create-job
+## bl new
 
-Create a new blaxel job
+Create a new blaxel resource (agent, mcp, sandbox, job)
 
 ### Synopsis
 
-Create a new blaxel job
+Create a new blaxel resource (agent, mcp, sandbox, job) with a unified command
 
 ```
-bl create-job [directory] [flags]
-```
-
-### Examples
-
-```
-
-bl create-job my-job
-bl create-job my-job --template template-jobs-ts
-bl create-job my-job --template template-jobs-ts -y
+bl new [type] [directory] [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help              help for create-job
-  -t, --template string   Template to use for the job (skips interactive prompt)
+  -h, --help              help for new
+  -t, --template string   Template to use (skips interactive prompt)
   -y, --yes               Skip interactive prompts and use defaults
 ```
 
