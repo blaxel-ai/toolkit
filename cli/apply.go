@@ -239,7 +239,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
 		if err == nil && response.StatusCode() == 200 {
 			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", core.GetAppURL(), core.GetWorkspace(), *response.JSON200.Spec.Integration)
-			fmt.Printf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl)
+			core.Print(fmt.Sprintf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl))
 			return &ResourceOperationResult{
 				Status: "skipped",
 			}
@@ -248,7 +248,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := handleResourceOperation(resource, name, resourceObject, "put")
 	if err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 	if response == nil {
@@ -258,7 +258,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 
@@ -269,14 +269,14 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, buf.String()))
 		os.Exit(1)
 		return &failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 	result := ResourceOperationResult{
@@ -285,7 +285,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
-	fmt.Printf("Resource %s:%s configured\n", resourceName, name)
+	core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 	return &result
 }
 
@@ -296,7 +296,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := handleResourceOperation(resource, name, resourceObject, "post")
 	if err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 	if response == nil {
@@ -306,19 +306,19 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, buf.String()))
 		os.Exit(1)
 		return &failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 	result := ResourceOperationResult{
@@ -327,6 +327,6 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
-	fmt.Printf("Resource %s:%s created\n", resourceName, name)
+	core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 	return &result
 }

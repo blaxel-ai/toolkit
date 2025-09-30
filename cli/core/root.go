@@ -16,6 +16,7 @@ import (
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var BASE_URL = "https://api.blaxel.ai/v0"
@@ -466,4 +467,37 @@ func GetCommit() string {
 
 func GetDate() string {
 	return date
+}
+
+var interactiveMode bool
+
+func SetInteractiveMode(interactive bool) {
+	interactiveMode = interactive
+}
+
+func IsInteractiveMode() bool {
+	return interactiveMode
+}
+
+// IsCIEnvironment returns true when running in a known CI environment.
+// It checks common CI environment variables used by providers like GitHub and GitLab.
+func IsCIEnvironment() bool {
+	if os.Getenv("CI") == "true" || os.Getenv("CI") == "1" {
+		return true
+	}
+	if os.Getenv("GITHUB_ACTIONS") == "true" || os.Getenv("GITLAB_CI") == "true" {
+		return true
+	}
+	if os.Getenv("BUILDKITE") == "true" || os.Getenv("CIRCLECI") == "true" || os.Getenv("TRAVIS") == "true" {
+		return true
+	}
+	if os.Getenv("JENKINS_URL") != "" || os.Getenv("TEAMCITY_VERSION") != "" {
+		return true
+	}
+	return false
+}
+
+// IsTerminalInteractive returns true if both stdin and stdout are terminals (TTY).
+func IsTerminalInteractive() bool {
+	return term.IsTerminal(int(os.Stdout.Fd())) && term.IsTerminal(int(os.Stdin.Fd()))
 }

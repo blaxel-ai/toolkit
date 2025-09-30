@@ -132,13 +132,16 @@ Examples:
 			p := tea.NewProgram(shell, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 			if debug {
-				fmt.Println("Debug: Starting shell interface...")
+				core.Print("Debug: Starting shell interface...")
 			}
 
+			core.SetInteractiveMode(true)
 			if _, err := p.Run(); err != nil {
+				core.SetInteractiveMode(false)
 				core.PrintError("Connect", fmt.Errorf("failed to run sandbox connection: %w", err))
 				os.Exit(1)
 			}
+			core.SetInteractiveMode(false)
 		},
 	}
 
