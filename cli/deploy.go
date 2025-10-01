@@ -567,7 +567,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 
 	if needsStatusMonitoring {
 		// Wait for backend to update status after apply/upload
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 		model.AddBuildLog(idx, "Verifying deployment status...")
 
 		// Start monitoring the resource status
@@ -577,9 +577,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 
 		var logWatcher interface{ Stop() }
 		buildLogStarted := false
-		uploadingSeen := false // Track if UPLOADING status has been seen (indicates build is needed)
-		buildingSeen := false  // Track if BUILDING status has been seen
-		lastStatus := ""       // Track last status to avoid duplicate logs
+		lastStatus := "" // Track last status to avoid duplicate logs
 
 		for {
 			select {
@@ -603,11 +601,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 					// Map API status to our UI status and update
 					switch status {
 					case "UPLOADING":
-						uploadingSeen = true
 						model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 						model.AddBuildLog(idx, "Status changed to: UPLOADING")
 					case "BUILDING":
-						buildingSeen = true
 						model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
 						model.AddBuildLog(idx, "Status changed to: BUILDING")
 
@@ -640,12 +636,6 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 					case "DEPLOYED":
 						if logWatcher != nil {
 							logWatcher.Stop()
-						}
-						// If we saw UPLOADING, we must see BUILDING before accepting DEPLOYED
-						// If we never saw UPLOADING, it's a skip-build deployment and we can accept DEPLOYED
-						if uploadingSeen && !buildingSeen {
-							model.AddBuildLog(idx, "Warning: DEPLOYED after UPLOADING but before BUILDING, continuing to monitor...")
-							continue
 						}
 						model.UpdateResource(idx, deploy.StatusComplete, "Deployed successfully", nil)
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
@@ -718,8 +708,6 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						lastStatus := "" // Track last status to avoid duplicate logs
 						var logWatcher interface{ Stop() }
 						buildLogStarted := false
-						uploadingSeen := false // Track if UPLOADING status has been seen (indicates build is needed)
-						buildingSeen := false  // Track if BUILDING status has been seen
 
 						for {
 							select {
@@ -740,10 +728,8 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 
 									switch status {
 									case "UPLOADING":
-										uploadingSeen = true
 										model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 									case "BUILDING":
-										buildingSeen = true
 										model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
 
 										// Start build log watcher if not already started
@@ -774,12 +760,6 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										// If we saw UPLOADING, we must see BUILDING before accepting DEPLOYED
-										// If we never saw UPLOADING, it's a skip-build deployment and we can accept DEPLOYED
-										if uploadingSeen && !buildingSeen {
-											model.AddBuildLog(idx, "Warning: DEPLOYED after UPLOADING but before BUILDING, continuing to monitor...")
-											continue
-										}
 										model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
 										ticker.Stop()
 										return
@@ -787,26 +767,16 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										// Only fail if BUILDING was not seen yet
-										if !buildingSeen {
-											model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
-											ticker.Stop()
-											return
-										}
-										// If BUILDING was seen, log but continue monitoring
-										model.AddBuildLog(idx, "Status: FAILED (continuing to monitor after build started)")
+										model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
+										ticker.Stop()
+										return
 									case "DEACTIVATED", "DEACTIVATING", "DELETING":
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										// Only exit if BUILDING was not seen yet
-										if !buildingSeen {
-											model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
-											ticker.Stop()
-											return
-										}
-										// If BUILDING was seen, log but continue monitoring
-										model.AddBuildLog(idx, fmt.Sprintf("Status: %s (continuing to monitor after build started)", status))
+										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+										ticker.Stop()
+										return
 									default:
 										// Continue monitoring for unknown statuses
 										model.UpdateResource(idx, deploy.StatusDeploying, fmt.Sprintf("Status: %s", status), nil)
