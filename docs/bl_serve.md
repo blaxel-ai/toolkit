@@ -8,7 +8,32 @@ Serve a blaxel project
 
 ### Synopsis
 
-Serve a blaxel project
+Start a local development server for your Blaxel project.
+
+This runs your agent, MCP server, or job locally on your machine for rapid
+development and testing. Perfect for the inner development loop where you
+want to iterate quickly without deploying to the cloud.
+
+Supported Languages:
+- Python (requires pyproject.toml or requirements.txt)
+- TypeScript/JavaScript (requires package.json)
+- Go (requires go.mod)
+
+Hot Reload:
+Enable --hotreload to automatically restart your server when code changes
+are detected. This dramatically speeds up development by eliminating manual
+restarts.
+
+Testing Locally:
+While your server is running, test it with:
+- bl chat agent-name --local   (for agents)
+- bl run agent agent-name --local --data '{}'   (for agents/jobs)
+
+Workflow:
+1. bl serve --hotreload        Start local server with auto-reload
+2. Edit your code               Make changes
+3. Test immediately             Server reloads automatically
+4. bl deploy                    Deploy when ready
 
 ```
 bl serve [flags]
@@ -17,7 +42,24 @@ bl serve [flags]
 ### Examples
 
 ```
-bl serve --remote --hotreload --port 1338
+  # Basic serve with hot reload (recommended)
+  bl serve --hotreload
+
+  # Serve on custom port
+  bl serve --port 8080
+
+  # Serve specific subdirectory in monorepo
+  bl serve -d packages/my-agent
+
+  # Serve with environment variables
+  bl serve -e .env.local
+
+  # Serve with secrets (for testing)
+  bl serve -s API_KEY=test-key -s DB_PASSWORD=secret
+
+  # Full development workflow
+  bl serve --hotreload          # Terminal 1: Run server
+  bl chat my-agent --local      # Terminal 2: Test agent
 ```
 
 ### Options
