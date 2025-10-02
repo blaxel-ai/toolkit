@@ -17,6 +17,17 @@ This command provides a terminal-like interface for:
 
 The shell connects to your sandbox via MCP (Model Control Protocol) over WebSocket.
 
+Limitations:
+- Interactive commands (vim, nano, less, top) are not supported
+- Long-running commands may experience timeouts or interruptions
+- Use non-interactive alternatives (cat, echo, ps) instead
+
+Keyboard Shortcuts:
+- Enter: Execute command
+- ↑/↓: Navigate command history
+- Ctrl+L: Clear screen
+- Ctrl+C: Exit sandbox shell
+
 Examples:
   bl connect sandbox my-sandbox
   bl connect sb my-sandbox
