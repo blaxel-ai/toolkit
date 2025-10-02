@@ -43,8 +43,53 @@ func DeployCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(0),
 		Aliases: []string{"d", "dp"},
 		Short:   "Deploy on blaxel",
-		Long:    "Deploy agent, mcp or job on blaxel, you must be in a blaxel directory.",
-		Example: `bl deploy`,
+		Long: `Deploy your Blaxel project to the cloud.
+
+This command packages your code, builds a container image, and deploys it
+to your workspace. The deployment process includes:
+1. Reading configuration from blaxel.toml
+2. Packaging source code (respects .blaxelignore)
+3. Building container image with your runtime and dependencies
+4. Uploading to Blaxel's container registry
+5. Creating or updating the resource in your workspace
+6. Streaming build and deployment logs (interactive mode)
+
+You must run this command from a directory containing a blaxel.toml file.
+
+Interactive vs Non-Interactive:
+- Interactive (default): Shows live logs and deployment progress with TUI
+- Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation
+
+Environment Variables and Secrets:
+Use -e to load .env files or -s to pass secrets directly via command line.
+Secrets are injected into your container at runtime and never stored in images.
+
+Monorepo Support:
+Use -d to deploy a specific subdirectory, or -R to recursively deploy
+all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
+		Example: `  # Basic deployment (interactive mode with live logs)
+  bl deploy
+
+  # Non-interactive deployment (for CI/CD)
+  bl deploy --yes
+
+  # Deploy with environment variables
+  bl deploy -e .env.production
+
+  # Deploy with command-line secrets
+  bl deploy -s API_KEY=xxx -s DB_PASSWORD=yyy
+
+  # Deploy without rebuilding (reuse existing image)
+  bl deploy --skip-build
+
+  # Dry run to validate configuration
+  bl deploy --dryrun
+
+  # Deploy specific subdirectory in monorepo
+  bl deploy -d ./packages/my-agent
+
+  # Recursively deploy all projects in monorepo
+  bl deploy -R`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets(folder, envFiles)

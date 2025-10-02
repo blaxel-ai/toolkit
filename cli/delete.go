@@ -26,11 +26,46 @@ func DeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a resource",
-		Example: `
-bl delete -f ./my-resource.yaml
-# Or using stdin
-cat file.yaml | blaxel delete -f -
-		`,
+		Long: `Delete Blaxel resources from your workspace.
+
+WARNING: Deletion is permanent and cannot be undone. Resources are immediately
+deactivated and removed along with their configurations.
+
+Two deletion modes:
+1. By name: Use subcommands like 'bl delete agent my-agent'
+2. By file: Use 'bl delete -f resource.yaml' for declarative management
+
+What Happens:
+- Resource is immediately stopped and deactivated
+- Configuration and metadata are removed
+- Associated logs and metrics may be retained (check workspace policy)
+- Data volumes are NOT automatically deleted (use 'bl delete volume')
+
+Before Deleting:
+- Backup any important configuration or data
+- Check dependencies (other resources using this one)
+- Consider stopping instead of deleting for temporary disablement
+
+Note: Deleting an agent/job stops it immediately but may not delete associated
+storage volumes. Use 'bl get volumes' to see persistent storage and delete
+separately if needed.`,
+		Example: `  # Delete by name (using subcommands)
+  bl delete agent my-agent
+  bl delete job my-job
+  bl delete sandbox my-sandbox
+
+  # Delete from YAML file
+  bl delete -f my-resource.yaml
+
+  # Delete multiple resources from directory
+  bl delete -f ./resources/ -R
+
+  # Delete from stdin (useful in pipelines)
+  cat resource.yaml | bl delete -f -
+
+  # Safe deletion workflow
+  bl get agent my-agent    # Review resource first
+  bl delete agent my-agent # Delete after confirmation`,
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
