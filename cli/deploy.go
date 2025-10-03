@@ -237,7 +237,6 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	fmt.Println(config.Transport)
 	if skipBuild {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
