@@ -228,11 +228,16 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	if config.Runtime != nil {
 		runtime = *config.Runtime
 	}
+	if config.Transport == "" {
+		config.Transport = "websocket"
+	}
+
 	runtime["envs"] = core.GetUniqueEnvs()
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
 	}
 
+	fmt.Println(config.Transport)
 	if skipBuild {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
@@ -256,8 +261,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	case "function":
 		Kind = "Function"
 		Spec = map[string]interface{}{
-			"runtime":  runtime,
-			"triggers": config.Triggers,
+			"runtime":   runtime,
+			"triggers":  config.Triggers,
+			"transport": config.Transport,
 		}
 	case "agent":
 		Kind = "Agent"
