@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -121,13 +120,10 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	workspace := w.workspace
 
 	// Build URL with proper encoding
-	baseURL := strings.TrimSuffix(os.Getenv("BL_API_URL"), "/")
-	if baseURL == "" {
-		baseURL = "https://api.blaxel.ai"
-	}
+	baseURL := core.GetBaseURL()
 
 	// Create URL with query parameters
-	u, err := url.Parse(baseURL + "/v0/observability/logs")
+	u, err := url.Parse(baseURL + "/observability/logs")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
