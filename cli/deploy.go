@@ -208,7 +208,9 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	// Generate the blaxel deployment yaml
 	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
 
-	if !skipBuild {
+	// Volume-template needs zip even without build (for file upload)
+	config := core.GetConfig()
+	if !skipBuild || config.Type == "volume-template" {
 		// Zip the directory
 		err = d.Zip()
 		if err != nil {
@@ -237,7 +239,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	if skipBuild {
+	// Skip image resolution for volume-template as it doesn't use runtime/image
+	if skipBuild && config.Type != "volume-template" {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
@@ -282,12 +285,19 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+	case "volume-template":
+		Kind = "VolumeTemplate"
+		Spec = map[string]interface{}{}
+		if config.DefaultSize != nil {
+			Spec["defaultSize"] = *config.DefaultSize
+		}
 	}
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
 	labels := map[string]interface{}{}
-	if !skipBuild {
+	// Volume-template needs upload even without build
+	if !skipBuild || config.Type == "volume-template" {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	return core.Result{
@@ -336,6 +346,14 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 		}
 	case "sandbox":
 		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "volume-template":
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -401,6 +419,14 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		}
 	case "sandbox":
 		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "volume-template":
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -613,6 +639,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	switch strings.ToLower(resource.Kind) {
 	case "agent", "function", "job", "sandbox":
 		needsStatusMonitoring = true
+	case "volumetemplate":
+		needsStatusMonitoring = false
 	}
 
 	if needsStatusMonitoring {
@@ -752,6 +780,8 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 					switch strings.ToLower(resource.Kind) {
 					case "agent", "function", "job", "sandbox":
 						needsMonitoring = true
+					case "volumetemplate":
+						needsMonitoring = false
 					}
 
 					if needsMonitoring {

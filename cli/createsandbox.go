@@ -24,7 +24,7 @@ func CreateSandboxCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create-sandbox [directory]",
 		Args:    cobra.MaximumNArgs(1),
-		Aliases: []string{"cs"},
+		Aliases: []string{"cs", "sbx"},
 		Short:   "Create a new blaxel sandbox",
 		Long:    "Create a new blaxel sandbox",
 		Example: `

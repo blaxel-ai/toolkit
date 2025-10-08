@@ -12,10 +12,11 @@ import (
 type newType string
 
 const (
-	newTypeAgent   newType = "agent"
-	newTypeMCP     newType = "mcp"
-	newTypeSandbox newType = "sandbox"
-	newTypeJob     newType = "job"
+	newTypeAgent          newType = "agent"
+	newTypeMCP            newType = "mcp"
+	newTypeSandbox        newType = "sandbox"
+	newTypeJob            newType = "job"
+	newTypeVolumeTemplate newType = "volume-template"
 )
 
 func init() {
@@ -39,7 +40,7 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new [type] [directory]",
 		Args:  cobra.RangeArgs(0, 2),
-		Short: "Create a new blaxel resource (agent, mcp, sandbox, job)",
+		Short: "Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)",
 		Long: `Create a new Blaxel resource from templates.
 
 This command scaffolds a new project with the necessary configuration files,
@@ -57,6 +58,9 @@ Resource Types:
 
   job       - Batch processing task that runs on-demand or on schedule
               Use cases: ETL pipelines, data processing, scheduled workflows
+
+  volume-template - Pre-configured volume template for creating volumes
+              Use cases: Persistent storage templates, data volume configurations
 
 Interactive Mode (Recommended):
 When called without arguments, the CLI guides you through:
@@ -87,7 +91,7 @@ After Creation:
 
 			if t == "" {
 				if noTTY {
-					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job"))
+					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volume-template"))
 					return
 				}
 				// Prompt for type using huh
@@ -101,6 +105,7 @@ After Creation:
 								huh.NewOption("MCP server", string(newTypeMCP)),
 								huh.NewOption("Sandbox", string(newTypeSandbox)),
 								huh.NewOption("Job", string(newTypeJob)),
+								huh.NewOption("Volume template", string(newTypeVolumeTemplate)),
 							).
 							Value(&selected),
 					),
@@ -122,8 +127,10 @@ After Creation:
 				RunSandboxCreation(dirArg, templateName, noTTY)
 			case newTypeJob:
 				RunJobCreation(dirArg, templateName, noTTY)
+			case newTypeVolumeTemplate:
+				RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
-				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job", t))
+				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volume-template", t))
 			}
 		},
 	}
@@ -157,14 +164,16 @@ After Creation:
 
 func parseNewType(s string) newType {
 	switch strings.ToLower(s) {
-	case string(newTypeAgent):
+	case string(newTypeAgent), "ag":
 		return newTypeAgent
 	case string(newTypeMCP):
 		return newTypeMCP
-	case string(newTypeSandbox):
+	case string(newTypeSandbox), "sbx":
 		return newTypeSandbox
-	case string(newTypeJob):
+	case string(newTypeJob), "jb":
 		return newTypeJob
+	case string(newTypeVolumeTemplate), "vt":
+		return newTypeVolumeTemplate
 	default:
 		return ""
 	}

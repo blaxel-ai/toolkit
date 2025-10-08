@@ -24,7 +24,7 @@ func CreateAgentAppCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create-agent-app [directory]",
 		Args:    cobra.MaximumNArgs(1),
-		Aliases: []string{"ca", "caa"},
+		Aliases: []string{"ca", "caa", "ag"},
 		Short:   "Create a new blaxel agent app",
 		Long: `Create a new AI agent application from templates.
 

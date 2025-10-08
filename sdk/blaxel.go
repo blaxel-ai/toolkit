@@ -115,16 +115,25 @@ type ApiKey struct {
 // Configuration Configuration
 type Configuration struct {
 	// Continents Continents
-	Continents *[]interface{} `json:"continents,omitempty"`
+	Continents *[]Continent `json:"continents,omitempty"`
 
 	// Countries Countries
-	Countries *[]interface{} `json:"countries,omitempty"`
+	Countries *[]Country `json:"countries,omitempty"`
 
 	// PrivateLocations Private locations managed with blaxel operator
-	PrivateLocations *[]interface{} `json:"privateLocations,omitempty"`
+	PrivateLocations *[]PrivateLocation `json:"privateLocations,omitempty"`
 
 	// Regions Regions
-	Regions *[]interface{} `json:"regions,omitempty"`
+	Regions *[]Region `json:"regions,omitempty"`
+}
+
+// Continent Continent
+type Continent struct {
+	// DisplayName Continent display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name Continent code
+	Name *string `json:"name,omitempty"`
 }
 
 // CoreEvent Core event
@@ -175,6 +184,15 @@ type CoreSpec struct {
 
 	// Sandbox Sandbox mode
 	Sandbox *bool `json:"sandbox,omitempty"`
+}
+
+// Country Configuration
+type Country struct {
+	// DisplayName Country display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name Country code
+	Name *string `json:"name,omitempty"`
 }
 
 // CustomDomain Custom domain for preview deployments
@@ -999,6 +1017,12 @@ type PrivateCluster struct {
 	Workspace *string `json:"workspace,omitempty"`
 }
 
+// PrivateLocation Private location available for policies
+type PrivateLocation struct {
+	// Name Location name
+	Name *string `json:"name,omitempty"`
+}
+
 // PublicIp defines model for PublicIp.
 type PublicIp struct {
 	// Description Description of the region/location
@@ -1013,6 +1037,27 @@ type PublicIp struct {
 
 // PublicIps defines model for PublicIps.
 type PublicIps map[string]PublicIp
+
+// Region Region
+type Region struct {
+	// Allowed Region display name
+	Allowed *string `json:"allowed,omitempty"`
+
+	// Continent Region display name
+	Continent *string `json:"continent,omitempty"`
+
+	// Country Region display name
+	Country *string `json:"country,omitempty"`
+
+	// InfoGeneration Region display name
+	InfoGeneration *string `json:"infoGeneration,omitempty"`
+
+	// Location Region display name
+	Location *string `json:"location,omitempty"`
+
+	// Name Region name
+	Name *string `json:"name,omitempty"`
+}
 
 // Repository Repository
 type Repository struct {
@@ -1414,12 +1459,81 @@ type VolumeSpec struct {
 
 	// Size Size of the volume in MB
 	Size *int `json:"size,omitempty"`
+
+	// Template Volume template with revision (e.g. "mytemplate:1" or "mytemplate:latest")
+	Template *string `json:"template,omitempty"`
 }
 
 // VolumeState Volume state - mutable runtime state
 type VolumeState struct {
 	// AttachedTo Resource this volume is attached to (e.g. "sandbox:my-sandbox", "model:my-model")
 	AttachedTo *string `json:"attachedTo,omitempty"`
+}
+
+// VolumeTemplate Volume template for creating pre-configured volumes
+type VolumeTemplate struct {
+	// Metadata Metadata
+	Metadata *Metadata `json:"metadata,omitempty"`
+
+	// Spec Volume template specification
+	Spec *VolumeTemplateSpec `json:"spec,omitempty"`
+
+	// State Volume template state
+	State *VolumeTemplateState `json:"state,omitempty"`
+
+	// Versions List of versions for this template
+	Versions *[]VolumeTemplateVersion `json:"versions,omitempty"`
+}
+
+// VolumeTemplateSpec Volume template specification
+type VolumeTemplateSpec struct {
+	// DefaultSize Default size of the volume in MB
+	DefaultSize *int `json:"defaultSize,omitempty"`
+
+	// Description Description of the volume template
+	Description *string `json:"description,omitempty"`
+}
+
+// VolumeTemplateState Volume template state
+type VolumeTemplateState struct {
+	// LastVersionUploadedAt Timestamp of last version upload
+	LastVersionUploadedAt *string `json:"lastVersionUploadedAt,omitempty"`
+
+	// LatestVersion Current/latest S3 version ID
+	LatestVersion *string `json:"latestVersion,omitempty"`
+
+	// Status Status of the volume template (created, ready, error)
+	Status *string `json:"status,omitempty"`
+
+	// VersionCount Total number of versions for this template
+	VersionCount *int `json:"versionCount,omitempty"`
+}
+
+// VolumeTemplateVersion Volume template version tracking individual versions of template content
+type VolumeTemplateVersion struct {
+	// Bucket S3 bucket name where this version is stored
+	Bucket *string `json:"bucket,omitempty"`
+
+	// ContentSize Size of the template content in bytes
+	ContentSize *int `json:"contentSize,omitempty"`
+
+	// Name Name of the template version
+	Name *string `json:"name,omitempty"`
+
+	// Region AWS region where this version is stored
+	Region *string `json:"region,omitempty"`
+
+	// Status Status of the version (CREATED, READY, FAILED)
+	Status *string `json:"status,omitempty"`
+
+	// TemplateName Template name this version belongs to
+	TemplateName *string `json:"templateName,omitempty"`
+
+	// VersionId S3 version ID for this template version
+	VersionId *string `json:"versionId,omitempty"`
+
+	// Workspace Workspace name
+	Workspace *string `json:"workspace,omitempty"`
 }
 
 // Workspace defines model for Workspace.
@@ -1450,6 +1564,12 @@ type Workspace struct {
 
 	// Runtime Workspace runtime
 	Runtime *WorkspaceRuntime `json:"runtime,omitempty"`
+
+	// Status Workspace status (created, account_binded, account_configured, workspace_configured, ready, error)
+	Status *string `json:"status,omitempty"`
+
+	// StatusReason Reason for current status (only set for error status)
+	StatusReason *string `json:"statusReason,omitempty"`
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updatedAt,omitempty"`
@@ -1524,6 +1644,24 @@ type InviteWorkspaceUserJSONBody struct {
 type UpdateWorkspaceUserRoleJSONBody struct {
 	// Role The new role to assign to the user
 	Role string `json:"role"`
+}
+
+// CreateVolumeTemplateParams defines parameters for CreateVolumeTemplate.
+type CreateVolumeTemplateParams struct {
+	// Upload If true, returns a presigned URL for uploading the template content
+	Upload *bool `form:"upload,omitempty" json:"upload,omitempty"`
+
+	// Version Version name for the template version being created
+	Version *string `form:"version,omitempty" json:"version,omitempty"`
+}
+
+// UpdateVolumeTemplateParams defines parameters for UpdateVolumeTemplate.
+type UpdateVolumeTemplateParams struct {
+	// Upload If true, returns a presigned URL for uploading the template content
+	Upload *bool `form:"upload,omitempty" json:"upload,omitempty"`
+
+	// Version Version name for the template version being created
+	Version *string `form:"version,omitempty" json:"version,omitempty"`
 }
 
 // CheckWorkspaceAvailabilityJSONBody defines parameters for CheckWorkspaceAvailability.
@@ -1602,6 +1740,12 @@ type InviteWorkspaceUserJSONRequestBody InviteWorkspaceUserJSONBody
 
 // UpdateWorkspaceUserRoleJSONRequestBody defines body for UpdateWorkspaceUserRole for application/json ContentType.
 type UpdateWorkspaceUserRoleJSONRequestBody UpdateWorkspaceUserRoleJSONBody
+
+// CreateVolumeTemplateJSONRequestBody defines body for CreateVolumeTemplate for application/json ContentType.
+type CreateVolumeTemplateJSONRequestBody = VolumeTemplate
+
+// UpdateVolumeTemplateJSONRequestBody defines body for UpdateVolumeTemplate for application/json ContentType.
+type UpdateVolumeTemplateJSONRequestBody = VolumeTemplate
 
 // CreateVolumeJSONRequestBody defines body for CreateVolume for application/json ContentType.
 type CreateVolumeJSONRequestBody = Volume
@@ -2009,6 +2153,25 @@ type ClientInterface interface {
 
 	UpdateWorkspaceUserRole(ctx context.Context, subOrEmail string, body UpdateWorkspaceUserRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListVolumeTemplates request
+	ListVolumeTemplates(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVolumeTemplateWithBody request with any body
+	CreateVolumeTemplateWithBody(ctx context.Context, params *CreateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateVolumeTemplate(ctx context.Context, params *CreateVolumeTemplateParams, body CreateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteVolumeTemplate request
+	DeleteVolumeTemplate(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetVolumeTemplate request
+	GetVolumeTemplate(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVolumeTemplateWithBody request with any body
+	UpdateVolumeTemplateWithBody(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateVolumeTemplate(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, body UpdateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListVolumes request
 	ListVolumes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2314,6 +2477,21 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for UpdateWorkspaceUserRole
 	reg.CliCommand(ctx, "UpdateWorkspaceUserRole", c.UpdateWorkspaceUserRole)
+
+	// Register CLI commands for ListVolumeTemplates
+	reg.CliCommand(ctx, "ListVolumeTemplates", c.ListVolumeTemplates)
+
+	// Register CLI commands for CreateVolumeTemplate
+	reg.CliCommand(ctx, "CreateVolumeTemplate", c.CreateVolumeTemplate)
+
+	// Register CLI commands for DeleteVolumeTemplate
+	reg.CliCommand(ctx, "DeleteVolumeTemplate", c.DeleteVolumeTemplate)
+
+	// Register CLI commands for GetVolumeTemplate
+	reg.CliCommand(ctx, "GetVolumeTemplate", c.GetVolumeTemplate)
+
+	// Register CLI commands for UpdateVolumeTemplate
+	reg.CliCommand(ctx, "UpdateVolumeTemplate", c.UpdateVolumeTemplate)
 
 	// Register CLI commands for ListVolumes
 	reg.CliCommand(ctx, "ListVolumes", c.ListVolumes)
@@ -3654,6 +3832,90 @@ func (c *Client) UpdateWorkspaceUserRoleWithBody(ctx context.Context, subOrEmail
 
 func (c *Client) UpdateWorkspaceUserRole(ctx context.Context, subOrEmail string, body UpdateWorkspaceUserRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateWorkspaceUserRoleRequest(c.Server, subOrEmail, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListVolumeTemplates(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVolumeTemplatesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateVolumeTemplateWithBody(ctx context.Context, params *CreateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVolumeTemplateRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateVolumeTemplate(ctx context.Context, params *CreateVolumeTemplateParams, body CreateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVolumeTemplateRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteVolumeTemplate(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVolumeTemplateRequest(c.Server, volumeTemplateName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetVolumeTemplate(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVolumeTemplateRequest(c.Server, volumeTemplateName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateVolumeTemplateWithBody(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVolumeTemplateRequestWithBody(c.Server, volumeTemplateName, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateVolumeTemplate(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, body UpdateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVolumeTemplateRequest(c.Server, volumeTemplateName, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6930,6 +7192,264 @@ func NewUpdateWorkspaceUserRoleRequestWithBody(server string, subOrEmail string,
 	return req, nil
 }
 
+// NewListVolumeTemplatesRequest generates requests for ListVolumeTemplates
+func NewListVolumeTemplatesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volume_templates")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVolumeTemplateRequest calls the generic CreateVolumeTemplate builder with application/json body
+func NewCreateVolumeTemplateRequest(server string, params *CreateVolumeTemplateParams, body CreateVolumeTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVolumeTemplateRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateVolumeTemplateRequestWithBody generates requests for CreateVolumeTemplate with any type of body
+func NewCreateVolumeTemplateRequestWithBody(server string, params *CreateVolumeTemplateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volume_templates")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Upload != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "upload", runtime.ParamLocationQuery, *params.Upload); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Version != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "version", runtime.ParamLocationQuery, *params.Version); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteVolumeTemplateRequest generates requests for DeleteVolumeTemplate
+func NewDeleteVolumeTemplateRequest(server string, volumeTemplateName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "volumeTemplateName", runtime.ParamLocationPath, volumeTemplateName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volume_templates/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetVolumeTemplateRequest generates requests for GetVolumeTemplate
+func NewGetVolumeTemplateRequest(server string, volumeTemplateName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "volumeTemplateName", runtime.ParamLocationPath, volumeTemplateName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volume_templates/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateVolumeTemplateRequest calls the generic UpdateVolumeTemplate builder with application/json body
+func NewUpdateVolumeTemplateRequest(server string, volumeTemplateName string, params *UpdateVolumeTemplateParams, body UpdateVolumeTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVolumeTemplateRequestWithBody(server, volumeTemplateName, params, "application/json", bodyReader)
+}
+
+// NewUpdateVolumeTemplateRequestWithBody generates requests for UpdateVolumeTemplate with any type of body
+func NewUpdateVolumeTemplateRequestWithBody(server string, volumeTemplateName string, params *UpdateVolumeTemplateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "volumeTemplateName", runtime.ParamLocationPath, volumeTemplateName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volume_templates/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Upload != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "upload", runtime.ParamLocationQuery, *params.Upload); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Version != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "version", runtime.ParamLocationQuery, *params.Version); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListVolumesRequest generates requests for ListVolumes
 func NewListVolumesRequest(server string) (*http.Request, error) {
 	var err error
@@ -7734,6 +8254,25 @@ type ClientWithResponsesInterface interface {
 	UpdateWorkspaceUserRoleWithBodyWithResponse(ctx context.Context, subOrEmail string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWorkspaceUserRoleResponse, error)
 
 	UpdateWorkspaceUserRoleWithResponse(ctx context.Context, subOrEmail string, body UpdateWorkspaceUserRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWorkspaceUserRoleResponse, error)
+
+	// ListVolumeTemplatesWithResponse request
+	ListVolumeTemplatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVolumeTemplatesResponse, error)
+
+	// CreateVolumeTemplateWithBodyWithResponse request with any body
+	CreateVolumeTemplateWithBodyWithResponse(ctx context.Context, params *CreateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVolumeTemplateResponse, error)
+
+	CreateVolumeTemplateWithResponse(ctx context.Context, params *CreateVolumeTemplateParams, body CreateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVolumeTemplateResponse, error)
+
+	// DeleteVolumeTemplateWithResponse request
+	DeleteVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*DeleteVolumeTemplateResponse, error)
+
+	// GetVolumeTemplateWithResponse request
+	GetVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*GetVolumeTemplateResponse, error)
+
+	// UpdateVolumeTemplateWithBodyWithResponse request with any body
+	UpdateVolumeTemplateWithBodyWithResponse(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVolumeTemplateResponse, error)
+
+	UpdateVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, body UpdateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVolumeTemplateResponse, error)
 
 	// ListVolumesWithResponse request
 	ListVolumesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVolumesResponse, error)
@@ -9712,6 +10251,116 @@ func (r UpdateWorkspaceUserRoleResponse) StatusCode() int {
 	return 0
 }
 
+type ListVolumeTemplatesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]VolumeTemplate
+}
+
+// Status returns HTTPResponse.Status
+func (r ListVolumeTemplatesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListVolumeTemplatesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateVolumeTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VolumeTemplate
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVolumeTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVolumeTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteVolumeTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VolumeTemplate
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVolumeTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVolumeTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetVolumeTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VolumeTemplate
+}
+
+// Status returns HTTPResponse.Status
+func (r GetVolumeTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetVolumeTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateVolumeTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *VolumeTemplate
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVolumeTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVolumeTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListVolumesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10953,6 +11602,67 @@ func (c *ClientWithResponses) UpdateWorkspaceUserRoleWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseUpdateWorkspaceUserRoleResponse(rsp)
+}
+
+// ListVolumeTemplatesWithResponse request returning *ListVolumeTemplatesResponse
+func (c *ClientWithResponses) ListVolumeTemplatesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListVolumeTemplatesResponse, error) {
+	rsp, err := c.ListVolumeTemplates(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListVolumeTemplatesResponse(rsp)
+}
+
+// CreateVolumeTemplateWithBodyWithResponse request with arbitrary body returning *CreateVolumeTemplateResponse
+func (c *ClientWithResponses) CreateVolumeTemplateWithBodyWithResponse(ctx context.Context, params *CreateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVolumeTemplateResponse, error) {
+	rsp, err := c.CreateVolumeTemplateWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVolumeTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateVolumeTemplateWithResponse(ctx context.Context, params *CreateVolumeTemplateParams, body CreateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVolumeTemplateResponse, error) {
+	rsp, err := c.CreateVolumeTemplate(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVolumeTemplateResponse(rsp)
+}
+
+// DeleteVolumeTemplateWithResponse request returning *DeleteVolumeTemplateResponse
+func (c *ClientWithResponses) DeleteVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*DeleteVolumeTemplateResponse, error) {
+	rsp, err := c.DeleteVolumeTemplate(ctx, volumeTemplateName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVolumeTemplateResponse(rsp)
+}
+
+// GetVolumeTemplateWithResponse request returning *GetVolumeTemplateResponse
+func (c *ClientWithResponses) GetVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, reqEditors ...RequestEditorFn) (*GetVolumeTemplateResponse, error) {
+	rsp, err := c.GetVolumeTemplate(ctx, volumeTemplateName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetVolumeTemplateResponse(rsp)
+}
+
+// UpdateVolumeTemplateWithBodyWithResponse request with arbitrary body returning *UpdateVolumeTemplateResponse
+func (c *ClientWithResponses) UpdateVolumeTemplateWithBodyWithResponse(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVolumeTemplateResponse, error) {
+	rsp, err := c.UpdateVolumeTemplateWithBody(ctx, volumeTemplateName, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVolumeTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateVolumeTemplateWithResponse(ctx context.Context, volumeTemplateName string, params *UpdateVolumeTemplateParams, body UpdateVolumeTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVolumeTemplateResponse, error) {
+	rsp, err := c.UpdateVolumeTemplate(ctx, volumeTemplateName, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVolumeTemplateResponse(rsp)
 }
 
 // ListVolumesWithResponse request returning *ListVolumesResponse
@@ -13310,6 +14020,136 @@ func ParseUpdateWorkspaceUserRoleResponse(rsp *http.Response) (*UpdateWorkspaceU
 	return response, nil
 }
 
+// ParseListVolumeTemplatesResponse parses an HTTP response from a ListVolumeTemplatesWithResponse call
+func ParseListVolumeTemplatesResponse(rsp *http.Response) (*ListVolumeTemplatesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListVolumeTemplatesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []VolumeTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVolumeTemplateResponse parses an HTTP response from a CreateVolumeTemplateWithResponse call
+func ParseCreateVolumeTemplateResponse(rsp *http.Response) (*CreateVolumeTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVolumeTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VolumeTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteVolumeTemplateResponse parses an HTTP response from a DeleteVolumeTemplateWithResponse call
+func ParseDeleteVolumeTemplateResponse(rsp *http.Response) (*DeleteVolumeTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVolumeTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VolumeTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetVolumeTemplateResponse parses an HTTP response from a GetVolumeTemplateWithResponse call
+func ParseGetVolumeTemplateResponse(rsp *http.Response) (*GetVolumeTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetVolumeTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VolumeTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVolumeTemplateResponse parses an HTTP response from a UpdateVolumeTemplateWithResponse call
+func ParseUpdateVolumeTemplateResponse(rsp *http.Response) (*UpdateVolumeTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVolumeTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VolumeTemplate
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListVolumesResponse parses an HTTP response from a ListVolumesWithResponse call
 func ParseListVolumesResponse(rsp *http.Response) (*ListVolumesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13651,172 +14491,185 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"5MvvX/5/AAAA//+QGjhP7UABAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

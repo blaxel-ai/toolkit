@@ -97,6 +97,15 @@ var resources = []*Resource{
 		SpecType:   reflect.TypeOf(sdk.Volume{}),
 		WithStatus: true,
 	},
+	{
+		Kind:       "VolumeTemplate",
+		Short:      "vt",
+		Plural:     "volumetemplates",
+		Singular:   "volumetemplate",
+		SpecType:   reflect.TypeOf(sdk.VolumeTemplate{}),
+		WithStatus: false,
+		WithImage:  false,
+	},
 }
 
 type Package struct {
@@ -107,23 +116,24 @@ type Package struct {
 
 // readConfigToml reads the config.toml file and upgrade config according to content
 type Config struct {
-	Name       string                    `toml:"name"`
-	Workspace  string                    `toml:"workspace"`
-	Type       string                    `toml:"type"`
-	Protocol   string                    `toml:"protocol"`
-	Functions  []string                  `toml:"functions"`
-	Models     []string                  `toml:"models"`
-	Agents     []string                  `toml:"agents"`
-	Entrypoint Entrypoints               `toml:"entrypoint"`
-	Env        Envs                      `toml:"env"`
-	Function   map[string]Package        `toml:"function"`
-	Agent      map[string]Package        `toml:"agent"`
-	Job        map[string]Package        `toml:"job"`
-	SkipRoot   bool                      `toml:"skipRoot"`
-	Runtime    *map[string]interface{}   `toml:"runtime"`
-	Triggers   *[]map[string]interface{} `toml:"triggers"`
-	Transport  string                    `toml:"transport"`
-	Policies   []string                  `toml:"policies,omitempty"`
+	Name        string                    `toml:"name"`
+	Workspace   string                    `toml:"workspace"`
+	Type        string                    `toml:"type"`
+	Protocol    string                    `toml:"protocol"`
+	Functions   []string                  `toml:"functions"`
+	Models      []string                  `toml:"models"`
+	Agents      []string                  `toml:"agents"`
+	Entrypoint  Entrypoints               `toml:"entrypoint"`
+	Env         Envs                      `toml:"env"`
+	Function    map[string]Package        `toml:"function"`
+	Agent       map[string]Package        `toml:"agent"`
+	Job         map[string]Package        `toml:"job"`
+	SkipRoot    bool                      `toml:"skipRoot"`
+	Runtime     *map[string]interface{}   `toml:"runtime"`
+	Triggers    *[]map[string]interface{} `toml:"triggers"`
+	Transport   string                    `toml:"transport"`
+	Policies    []string                  `toml:"policies,omitempty"`
+	DefaultSize *int                      `toml:"defaultSize,omitempty"`
 }
 
 func readConfigToml(folder string) {

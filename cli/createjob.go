@@ -24,7 +24,7 @@ func CreateJobCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create-job [directory]",
 		Args:    cobra.MaximumNArgs(1),
-		Aliases: []string{"cj", "cjob"},
+		Aliases: []string{"cj", "cjob", "jb"},
 		Short:   "Create a new blaxel job",
 		Long:    "Create a new blaxel job",
 		Example: `
