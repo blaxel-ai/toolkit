@@ -234,8 +234,12 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
-			reflect.ValueOf(destBody).Elem(),
 		}
+		if resource.Kind == "VolumeTemplate" {
+			params := sdk.UpdateVolumeTemplateParams{}
+			values = append(values, reflect.ValueOf(&params))
+		}
+		values = append(values, reflect.ValueOf(destBody).Elem())
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
@@ -243,8 +247,12 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 	case "post":
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
-			reflect.ValueOf(destBody).Elem(),
 		}
+		if resource.Kind == "VolumeTemplate" {
+			params := sdk.CreateVolumeTemplateParams{}
+			values = append(values, reflect.ValueOf(&params))
+		}
+		values = append(values, reflect.ValueOf(destBody).Elem())
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}

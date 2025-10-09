@@ -39,6 +39,7 @@ build-dev:
 	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o ./bin/blaxel ./
 	cp ./bin/blaxel ~/.local/bin/blaxel;
 	cp ~/.local/bin/blaxel ~/.local/bin/bl;
+	rm -r ./bin;
 	@echo "✅ Binary built: ./bin/blaxel"
 
 doc:

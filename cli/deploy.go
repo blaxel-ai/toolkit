@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"archive/tar"
 	"archive/zip"
 	"net/http"
 
@@ -187,7 +188,7 @@ type Deployment struct {
 	name              string
 	folder            string
 	blaxelDeployments []core.Result
-	zip               *os.File
+	archive           *os.File
 	cwd               string
 }
 
@@ -208,11 +209,20 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	// Generate the blaxel deployment yaml
 	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
 
-	if !skipBuild {
-		// Zip the directory
-		err = d.Zip()
-		if err != nil {
-			return fmt.Errorf("failed to zip file: %w", err)
+	// Volume-template needs archive even without build (for file upload)
+	config := core.GetConfig()
+	if !skipBuild || config.Type == "volume-template" {
+		// Create archive (tar for volume-template, zip for others)
+		if config.Type == "volume-template" {
+			err = d.Tar()
+			if err != nil {
+				return fmt.Errorf("failed to tar file: %w", err)
+			}
+		} else {
+			err = d.Zip()
+			if err != nil {
+				return fmt.Errorf("failed to zip file: %w", err)
+			}
 		}
 	}
 
@@ -237,7 +247,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	if skipBuild {
+	// Skip image resolution for volume-template as it doesn't use runtime/image
+	if skipBuild && config.Type != "volume-template" {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
@@ -282,12 +293,19 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+	case "volume-template":
+		Kind = "VolumeTemplate"
+		Spec = map[string]interface{}{}
+		if config.DefaultSize != nil {
+			Spec["defaultSize"] = *config.DefaultSize
+		}
 	}
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
 	labels := map[string]interface{}{}
-	if !skipBuild {
+	// Volume-template needs upload even without build
+	if !skipBuild || config.Type == "volume-template" {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	return core.Result{
@@ -336,6 +354,14 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 		}
 	case "sandbox":
 		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "volume-template":
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -401,6 +427,14 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		}
 	case "sandbox":
 		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		if errGet != nil {
+			err = errGet
+		} else {
+			body = resp.Body
+			statusCode = resp.StatusCode()
+		}
+	case "volume-template":
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -613,6 +647,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	switch strings.ToLower(resource.Kind) {
 	case "agent", "function", "job", "sandbox":
 		needsStatusMonitoring = true
+	case "volumetemplate":
+		needsStatusMonitoring = false
 	}
 
 	if needsStatusMonitoring {
@@ -752,6 +788,8 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 					switch strings.ToLower(resource.Kind) {
 					case "agent", "function", "job", "sandbox":
 						needsMonitoring = true
+					case "volumetemplate":
+						needsMonitoring = false
 					}
 
 					if needsMonitoring {
@@ -865,29 +903,36 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 }
 
 func (d *Deployment) Ready() {
-	currentWorkspace := core.GetWorkspace()
 	config := core.GetConfig()
+
+	// Don't show URL for volume-template deployments
+	if config.Type == "volume-template" {
+		core.PrintSuccess("Deployment applied successfully")
+		return
+	}
+
+	currentWorkspace := core.GetWorkspace()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
 	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
 }
 
 func (d *Deployment) Upload(url string) error {
-	// Open the zip file
-	zipFile, err := os.Open(d.zip.Name())
+	// Open the archive file
+	archiveFile, err := os.Open(d.archive.Name())
 	if err != nil {
-		return fmt.Errorf("failed to open zip file: %w", err)
+		return fmt.Errorf("failed to open archive file: %w", err)
 	}
-	defer func() { _ = zipFile.Close() }()
+	defer func() { _ = archiveFile.Close() }()
 
 	// Get the file size
-	fileInfo, err := zipFile.Stat()
+	fileInfo, err := archiveFile.Stat()
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
 
 	// Create a new HTTP request
-	req, err := http.NewRequest("PUT", url, zipFile)
+	req, err := http.NewRequest("PUT", url, archiveFile)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -895,8 +940,13 @@ func (d *Deployment) Upload(url string) error {
 	// Set the content length
 	req.ContentLength = fileInfo.Size()
 
-	// Set the content type to application/zip
-	req.Header.Set("Content-Type", "application/zip")
+	// Set the content type based on file extension
+	config := core.GetConfig()
+	if config.Type == "volume-template" {
+		req.Header.Set("Content-Type", "application/x-tar")
+	} else {
+		req.Header.Set("Content-Type", "application/zip")
+	}
 
 	// Perform the request
 	client := &http.Client{}
@@ -932,8 +982,118 @@ func (d *Deployment) IgnoredPaths() []string {
 	return strings.Split(string(content), "\n")
 }
 
+func (d *Deployment) shouldIgnorePath(path string, ignoredPaths []string) bool {
+	for _, ignoredPath := range ignoredPaths {
+		if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
+			return true
+		}
+		if strings.Contains(path, "/"+ignoredPath+"/") {
+			return true
+		}
+		if strings.HasSuffix(path, "/"+ignoredPath) {
+			return true
+		}
+	}
+	return false
+}
+
+type archiveWriter interface {
+	addFile(filePath string, headerName string) error
+	close() error
+}
+
+type zipArchiveWriter struct {
+	writer     *zip.Writer
+	deployment *Deployment
+}
+
+func (z *zipArchiveWriter) addFile(filePath string, headerName string) error {
+	return z.deployment.addFileToZip(z.writer, filePath, headerName)
+}
+
+func (z *zipArchiveWriter) close() error {
+	return z.writer.Close()
+}
+
+type tarArchiveWriter struct {
+	writer     *tar.Writer
+	deployment *Deployment
+}
+
+func (t *tarArchiveWriter) addFile(filePath string, headerName string) error {
+	return t.deployment.addFileToTar(t.writer, filePath, headerName)
+}
+
+func (t *tarArchiveWriter) close() error {
+	return t.writer.Close()
+}
+
+func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
+	config := core.GetConfig()
+
+	// For volume-template, don't apply ignore logic
+	var ignoredPaths []string
+	if config.Type != "volume-template" {
+		ignoredPaths = d.IgnoredPaths()
+	}
+
+	// Determine the root directory to archive
+	archiveRoot := d.cwd
+	if config.Type == "volume-template" {
+		// Use the directory from config, default to "." if not specified
+		volumeDir := config.Directory
+		if volumeDir == "" {
+			volumeDir = "."
+		}
+		archiveRoot = filepath.Join(d.cwd, volumeDir)
+
+		// Validate that the directory exists
+		if _, err := os.Stat(archiveRoot); err != nil {
+			return fmt.Errorf("volume template directory does not exist: %s", volumeDir)
+		}
+	}
+
+	err := filepath.Walk(archiveRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Only apply ignore logic for non-volume-template types
+		if config.Type != "volume-template" && d.shouldIgnorePath(path, ignoredPaths) {
+			return nil
+		}
+
+		if path == archiveRoot {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(archiveRoot, path)
+		if err != nil {
+			return err
+		}
+
+		return writer.addFile(path, relPath)
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create archive: %w", err)
+	}
+
+	if d.folder != "" {
+		blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
+		if err := writer.addFile(blaxelTomlPath, "blaxel.toml"); err != nil {
+			return err
+		}
+		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
+		if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *Deployment) Zip() error {
-	ignoredPaths := d.IgnoredPaths()
 	zipFile, err := os.CreateTemp("", ".blaxel.zip")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
@@ -943,58 +1103,31 @@ func (d *Deployment) Zip() error {
 	zipWriter := zip.NewWriter(zipFile)
 	defer func() { _ = zipWriter.Close() }()
 
-	err = filepath.Walk(d.cwd, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	writer := &zipArchiveWriter{writer: zipWriter, deployment: d}
+	if err := d.createArchive(".zip", writer); err != nil {
+		return err
+	}
 
-		for _, ignoredPath := range ignoredPaths {
-			if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
-				return nil
-			}
-			if strings.Contains(path, "/"+ignoredPath+"/") {
-				return nil
-			}
-			if strings.HasSuffix(path, "/"+ignoredPath) {
-				return nil
-			}
-		}
-		if path == d.cwd {
-			return nil
-		}
+	d.archive = zipFile
+	return nil
+}
 
-		relPath, err := filepath.Rel(d.cwd, path)
-		if err != nil {
-			return err
-		}
-
-		err = d.addFileToZip(zipWriter, path, relPath)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-
+func (d *Deployment) Tar() error {
+	tarFile, err := os.CreateTemp("", ".blaxel.tar")
 	if err != nil {
-		return fmt.Errorf("failed to zip directory: %w", err)
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer func() { _ = tarFile.Close() }()
+
+	tarWriter := tar.NewWriter(tarFile)
+	defer func() { _ = tarWriter.Close() }()
+
+	writer := &tarArchiveWriter{writer: tarWriter, deployment: d}
+	if err := d.createArchive(".tar", writer); err != nil {
+		return err
 	}
 
-	if d.folder != "" {
-		blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
-		err := d.addFileToZip(zipWriter, blaxelTomlPath, "blaxel.toml")
-		if err != nil {
-			return err
-		}
-		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
-		err = d.addFileToZip(zipWriter, dockerfilePath, "Dockerfile")
-		if err != nil {
-			return err
-		}
-	}
-
-	d.zip = zipFile
-
+	d.archive = tarFile
 	return nil
 }
 
@@ -1040,15 +1173,64 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 	return nil
 }
 
+func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, headerName string) error {
+	if _, err := os.Stat(filePath); err == nil {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to stat %s: %w", headerName, err)
+		}
+
+		header, err := tar.FileInfoHeader(fileInfo, "")
+		if err != nil {
+			return fmt.Errorf("failed to create tar header: %w", err)
+		}
+
+		// Set the header name to the specified headerName
+		if fileInfo.IsDir() {
+			header.Name = headerName + "/" // Add trailing slash for directories
+		} else {
+			header.Name = headerName
+		}
+
+		err = tarWriter.WriteHeader(header)
+		if err != nil {
+			return fmt.Errorf("failed to write tar header: %w", err)
+		}
+
+		// If it's a file, write its content to the tar
+		if !fileInfo.IsDir() {
+			file, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to open %s: %w", headerName, err)
+			}
+			defer func() { _ = file.Close() }()
+
+			_, err = io.Copy(tarWriter, file)
+			if err != nil {
+				return fmt.Errorf("failed to copy %s to tar: %w", headerName, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (d *Deployment) Print(skipBuild bool) error {
 	for _, deployment := range d.blaxelDeployments {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
 	if !skipBuild {
-		err := d.PrintZip()
-		if err != nil {
-			return fmt.Errorf("failed to print zip: %w", err)
+		config := core.GetConfig()
+		if config.Type == "volume-template" {
+			err := d.PrintTar()
+			if err != nil {
+				return fmt.Errorf("failed to print tar: %w", err)
+			}
+		} else {
+			err := d.PrintZip()
+			if err != nil {
+				return fmt.Errorf("failed to print zip: %w", err)
+			}
 		}
 	}
 	return nil
@@ -1056,7 +1238,7 @@ func (d *Deployment) Print(skipBuild bool) error {
 
 func (d *Deployment) PrintZip() error {
 	// Reopen the file to get the reader
-	zipFile, err := os.Open(d.zip.Name())
+	zipFile, err := os.Open(d.archive.Name())
 	if err != nil {
 		return fmt.Errorf("failed to reopen zip file: %w", err)
 	}
@@ -1075,6 +1257,31 @@ func (d *Deployment) PrintZip() error {
 
 	for _, file := range zipReader.File {
 		fmt.Printf("File: %s, Size: %d bytes\n", file.Name, file.FileInfo().Size())
+	}
+
+	return nil
+}
+
+func (d *Deployment) PrintTar() error {
+	// Reopen the file to get the reader
+	tarFile, err := os.Open(d.archive.Name())
+	if err != nil {
+		return fmt.Errorf("failed to reopen tar file: %w", err)
+	}
+	defer func() { _ = tarFile.Close() }()
+
+	// Print the content of the tar file
+	tarReader := tar.NewReader(tarFile)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+		fmt.Printf("File: %s, Size: %d bytes\n", header.Name, header.Size)
 	}
 
 	return nil

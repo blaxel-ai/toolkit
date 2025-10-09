@@ -235,13 +235,20 @@ func (m *InteractiveModel) View() string {
 		s.WriteString("\n")
 		if allSuccess {
 			config := core.GetConfig()
-			appUrl := core.GetAppURL()
-			currentWorkspace := core.GetWorkspace()
-			availableAt := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
-			core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
-			s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully! Deployment available at: "))
-			s.WriteString(availableAt)
-			s.WriteString("\n")
+
+			// Don't show URL for volume-template deployments
+			if config.Type == "volume-template" {
+				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
+				s.WriteString("\n")
+			} else {
+				appUrl := core.GetAppURL()
+				currentWorkspace := core.GetWorkspace()
+				availableAt := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
+				core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
+				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully! Deployment available at: "))
+				s.WriteString(availableAt)
+				s.WriteString("\n")
+			}
 		} else {
 			s.WriteString(statusStyles[StatusFailed].Render("✗ Some resources failed to deploy"))
 		}
@@ -314,12 +321,15 @@ func (m *InteractiveModel) updateContent() {
 		content.WriteString(fmt.Sprintf("Error: %s\n", selected.Error))
 	}
 
-	// Add console page URL
-	currentWorkspace := core.GetWorkspace()
-	appUrl := core.GetAppURL()
-	resourceType := strings.ToLower(selected.Kind)
-	consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, selected.Name)
-	content.WriteString(fmt.Sprintf("Console page: %s\n", consoleUrl))
+	// Add console page URL (skip for volume-template)
+	config := core.GetConfig()
+	if config.Type != "volume-template" {
+		currentWorkspace := core.GetWorkspace()
+		appUrl := core.GetAppURL()
+		resourceType := strings.ToLower(selected.Kind)
+		consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, selected.Name)
+		content.WriteString(fmt.Sprintf("Console page: %s\n", consoleUrl))
+	}
 
 	if m.showLogs && len(selected.BuildLogs) > 0 {
 		content.WriteString("\nLogs:\n")
