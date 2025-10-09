@@ -1022,14 +1022,21 @@ func (t *tarArchiveWriter) close() error {
 }
 
 func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
-	ignoredPaths := d.IgnoredPaths()
+	config := core.GetConfig()
+
+	// For volume-template, don't apply ignore logic
+	var ignoredPaths []string
+	if config.Type != "volume-template" {
+		ignoredPaths = d.IgnoredPaths()
+	}
 
 	err := filepath.Walk(d.cwd, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if d.shouldIgnorePath(path, ignoredPaths) {
+		// Only apply ignore logic for non-volume-template types
+		if config.Type != "volume-template" && d.shouldIgnorePath(path, ignoredPaths) {
 			return nil
 		}
 
