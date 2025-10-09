@@ -134,6 +134,7 @@ type Config struct {
 	Transport   string                    `toml:"transport"`
 	Policies    []string                  `toml:"policies,omitempty"`
 	DefaultSize *int                      `toml:"defaultSize,omitempty"`
+	Directory   string                    `toml:"directory,omitempty"`
 }
 
 func readConfigToml(folder string) {

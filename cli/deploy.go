@@ -903,8 +903,15 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 }
 
 func (d *Deployment) Ready() {
-	currentWorkspace := core.GetWorkspace()
 	config := core.GetConfig()
+
+	// Don't show URL for volume-template deployments
+	if config.Type == "volume-template" {
+		core.PrintSuccess("Deployment applied successfully")
+		return
+	}
+
+	currentWorkspace := core.GetWorkspace()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
 	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
@@ -1030,7 +1037,23 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 		ignoredPaths = d.IgnoredPaths()
 	}
 
-	err := filepath.Walk(d.cwd, func(path string, info os.FileInfo, err error) error {
+	// Determine the root directory to archive
+	archiveRoot := d.cwd
+	if config.Type == "volume-template" {
+		// Use the directory from config, default to "." if not specified
+		volumeDir := config.Directory
+		if volumeDir == "" {
+			volumeDir = "."
+		}
+		archiveRoot = filepath.Join(d.cwd, volumeDir)
+
+		// Validate that the directory exists
+		if _, err := os.Stat(archiveRoot); err != nil {
+			return fmt.Errorf("volume template directory does not exist: %s", volumeDir)
+		}
+	}
+
+	err := filepath.Walk(archiveRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1040,11 +1063,11 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 			return nil
 		}
 
-		if path == d.cwd {
+		if path == archiveRoot {
 			return nil
 		}
 
-		relPath, err := filepath.Rel(d.cwd, path)
+		relPath, err := filepath.Rel(archiveRoot, path)
 		if err != nil {
 			return err
 		}
