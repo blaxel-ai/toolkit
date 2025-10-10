@@ -237,7 +237,7 @@ func (m *InteractiveModel) View() string {
 			config := core.GetConfig()
 
 			// Don't show URL for volume-template deployments
-			if config.Type == "volume-template" {
+			if core.IsVolumeTemplate(config.Type) {
 				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
 				s.WriteString("\n")
 			} else {
@@ -323,7 +323,7 @@ func (m *InteractiveModel) updateContent() {
 
 	// Add console page URL (skip for volume-template)
 	config := core.GetConfig()
-	if config.Type != "volume-template" {
+	if !core.IsVolumeTemplate(config.Type) {
 		currentWorkspace := core.GetWorkspace()
 		appUrl := core.GetAppURL()
 		resourceType := strings.ToLower(selected.Kind)

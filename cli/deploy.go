@@ -211,9 +211,9 @@ func (d *Deployment) Generate(skipBuild bool) error {
 
 	// Volume-template needs archive even without build (for file upload)
 	config := core.GetConfig()
-	if !skipBuild || config.Type == "volume-template" {
+	if !skipBuild || core.IsVolumeTemplate(config.Type) {
 		// Create archive (tar for volume-template, zip for others)
-		if config.Type == "volume-template" {
+		if core.IsVolumeTemplate(config.Type) {
 			err = d.Tar()
 			if err != nil {
 				return fmt.Errorf("failed to tar file: %w", err)
@@ -248,7 +248,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	}
 
 	// Skip image resolution for volume-template as it doesn't use runtime/image
-	if skipBuild && config.Type != "volume-template" {
+	if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
@@ -293,7 +293,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
-	case "volume-template":
+	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
 		Spec = map[string]interface{}{}
 		if config.DefaultSize != nil {
@@ -305,7 +305,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	}
 	labels := map[string]interface{}{}
 	// Volume-template needs upload even without build
-	if !skipBuild || config.Type == "volume-template" {
+	if !skipBuild || core.IsVolumeTemplate(config.Type) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	return core.Result{
@@ -360,7 +360,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			body = resp.Body
 			statusCode = resp.StatusCode()
 		}
-	case "volume-template":
+	case "volume-template", "volumetemplate", "vt":
 		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
@@ -433,7 +433,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			body = resp.Body
 			statusCode = resp.StatusCode()
 		}
-	case "volume-template":
+	case "volume-template", "volumetemplate", "vt":
 		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
 		if errGet != nil {
 			err = errGet
@@ -906,7 +906,7 @@ func (d *Deployment) Ready() {
 	config := core.GetConfig()
 
 	// Don't show URL for volume-template deployments
-	if config.Type == "volume-template" {
+	if core.IsVolumeTemplate(config.Type) {
 		core.PrintSuccess("Deployment applied successfully")
 		return
 	}
@@ -942,7 +942,7 @@ func (d *Deployment) Upload(url string) error {
 
 	// Set the content type based on file extension
 	config := core.GetConfig()
-	if config.Type == "volume-template" {
+	if core.IsVolumeTemplate(config.Type) {
 		req.Header.Set("Content-Type", "application/x-tar")
 	} else {
 		req.Header.Set("Content-Type", "application/zip")
@@ -1033,13 +1033,13 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 
 	// For volume-template, don't apply ignore logic
 	var ignoredPaths []string
-	if config.Type != "volume-template" {
+	if !core.IsVolumeTemplate(config.Type) {
 		ignoredPaths = d.IgnoredPaths()
 	}
 
 	// Determine the root directory to archive
 	archiveRoot := d.cwd
-	if config.Type == "volume-template" {
+	if core.IsVolumeTemplate(config.Type) {
 		// Use the directory from config, default to "." if not specified
 		volumeDir := config.Directory
 		if volumeDir == "" {
@@ -1059,7 +1059,7 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 		}
 
 		// Only apply ignore logic for non-volume-template types
-		if config.Type != "volume-template" && d.shouldIgnorePath(path, ignoredPaths) {
+		if !core.IsVolumeTemplate(config.Type) && d.shouldIgnorePath(path, ignoredPaths) {
 			return nil
 		}
 
@@ -1221,7 +1221,7 @@ func (d *Deployment) Print(skipBuild bool) error {
 	}
 	if !skipBuild {
 		config := core.GetConfig()
-		if config.Type == "volume-template" {
+		if core.IsVolumeTemplate(config.Type) {
 			err := d.PrintTar()
 			if err != nil {
 				return fmt.Errorf("failed to print tar: %w", err)

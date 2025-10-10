@@ -350,3 +350,16 @@ func GetResults(action string, filePath string, recursive bool) ([]Result, error
 func GetResources() []*Resource {
 	return resources
 }
+
+func IsVolumeTemplate(resourceType string) bool {
+	if resourceType == "volumetemplate" {
+		return true
+	}
+	if resourceType == "volume-template" {
+		return true
+	}
+	if resourceType == "vt" {
+		return true
+	}
+	return false
+}
