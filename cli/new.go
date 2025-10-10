@@ -16,7 +16,7 @@ const (
 	newTypeMCP            newType = "mcp"
 	newTypeSandbox        newType = "sandbox"
 	newTypeJob            newType = "job"
-	newTypeVolumeTemplate newType = "volume-template"
+	newTypeVolumeTemplate newType = "volumetemplate"
 )
 
 func init() {
@@ -59,8 +59,8 @@ Resource Types:
   job       - Batch processing task that runs on-demand or on schedule
               Use cases: ETL pipelines, data processing, scheduled workflows
 
-  volume-template - Pre-configured volume template for creating volumes
-              Use cases: Persistent storage templates, data volume configurations
+  volumetemplate - Pre-configured volume template for creating volumes
+              		Use cases: Persistent storage templates, data volume configurations
 
 Interactive Mode (Recommended):
 When called without arguments, the CLI guides you through:
@@ -91,7 +91,7 @@ After Creation:
 
 			if t == "" {
 				if noTTY {
-					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volume-template"))
+					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volumetemplate"))
 					return
 				}
 				// Prompt for type using huh
@@ -172,7 +172,7 @@ func parseNewType(s string) newType {
 		return newTypeSandbox
 	case string(newTypeJob), "jb":
 		return newTypeJob
-	case string(newTypeVolumeTemplate), "vt":
+	case string(newTypeVolumeTemplate), "vt", "volume-template":
 		return newTypeVolumeTemplate
 	default:
 		return ""
