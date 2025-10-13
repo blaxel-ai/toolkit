@@ -52,3 +52,18 @@ func NewClientWithCredentials(config RunClientWithCredentials) (*ClientWithRespo
 		return nil
 	}))
 }
+
+// NewClientWithAuth creates a new client with API key authentication
+func NewClientWithAuth(apiURL, runURL, workspace, apiKey string) (*ClientWithResponses, error) {
+	credentials := Credentials{
+		APIKey: apiKey,
+	}
+
+	return NewClientWithCredentials(RunClientWithCredentials{
+		ApiURL:      apiURL,
+		RunURL:      runURL,
+		Credentials: credentials,
+		Workspace:   workspace,
+		Headers:     map[string]string{},
+	})
+}
