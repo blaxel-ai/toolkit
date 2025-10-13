@@ -218,6 +218,272 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	return messages, nil
 }
 
+// LogEntry represents a single log entry with timestamp
+type LogEntry struct {
+	Timestamp string
+	Message   string
+}
+
+// LogFetcher fetches logs for a resource with custom time ranges
+type LogFetcher struct {
+	workspace    string
+	resourceType string
+	resourceName string
+	startTime    time.Time
+	endTime      time.Time
+	severity     string
+	search       string
+	taskID       string
+	executionID  string
+}
+
+// NewLogFetcher creates a new log fetcher
+func NewLogFetcher(workspace, resourceType, resourceName string, startTime, endTime time.Time, severity, search, taskID, executionID string) *LogFetcher {
+	return &LogFetcher{
+		workspace:    workspace,
+		resourceType: resourceType,
+		resourceName: resourceName,
+		startTime:    startTime,
+		endTime:      endTime,
+		severity:     severity,
+		search:       search,
+		taskID:       taskID,
+		executionID:  executionID,
+	}
+}
+
+// FetchLogs fetches logs for the configured time range
+func (lf *LogFetcher) FetchLogs() ([]LogEntry, error) {
+	return lf.fetchLogsFromAPI(0)
+}
+
+// fetchLogsFromAPI fetches logs from the Blaxel API
+func (lf *LogFetcher) fetchLogsFromAPI(offset int) ([]LogEntry, error) {
+	baseURL := core.GetBaseURL()
+
+	// Create URL with query parameters
+	u, err := url.Parse(baseURL + "/observability/logs")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+
+	// Format times in UTC (matching the curl format)
+	start := lf.startTime.UTC().Format("2006-01-02T15:04:05")
+	end := lf.endTime.UTC().Format("2006-01-02T15:04:05")
+
+	// Add query parameters
+	q := u.Query()
+	q.Set("start", start)
+	q.Set("end", end)
+	q.Set("resourceType", pluralizeResourceType(lf.resourceType))
+	q.Set("workloadIds", lf.resourceName)
+	q.Set("type", "all")
+	q.Set("traceId", "")
+	q.Set("limit", "1000")
+	q.Set("offset", fmt.Sprintf("%d", offset))
+
+	// Set severity - use user-provided or default to all
+	severityFilter := lf.severity
+	if severityFilter == "" {
+		severityFilter = "FATAL,ERROR,WARNING,INFO,DEBUG,TRACE,UNKNOWN"
+	}
+	q.Set("severity", severityFilter)
+
+	// Set search filter
+	q.Set("search", lf.search)
+
+	// Set job-specific filters
+	q.Set("taskId", lf.taskID)
+	q.Set("executionId", lf.executionID)
+
+	// Set interval (required by API)
+	q.Set("interval", "14400")
+
+	q.Set("workspace", lf.workspace)
+	u.RawQuery = q.Encode()
+
+	// Create request
+	req, err := http.NewRequestWithContext(context.Background(), "GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication headers
+	credentials := sdk.LoadCredentials(lf.workspace)
+	if !credentials.IsValid() {
+		return nil, fmt.Errorf("no valid credentials found for workspace '%s'", lf.workspace)
+	}
+
+	authProvider := sdk.GetAuthProvider(credentials, lf.workspace, core.GetBaseURL())
+	headers, err := authProvider.GetHeaders()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get authentication headers: %v", err)
+	}
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	// Make the request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch logs: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Parse the response
+	var response map[string]struct {
+		Logs []struct {
+			Timestamp string `json:"timestamp"`
+			Message   string `json:"message"`
+			Severity  int    `json:"severity"`
+			TraceID   string `json:"trace_id"`
+		} `json:"logs"`
+		TotalCount int `json:"totalCount"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Extract log entries from the specific resource
+	var logEntries []LogEntry
+	if resourceData, ok := response[lf.resourceName]; ok {
+		for _, log := range resourceData.Logs {
+			logEntries = append(logEntries, LogEntry{
+				Timestamp: log.Timestamp,
+				Message:   log.Message,
+			})
+		}
+	}
+
+	// Reverse the order so logs are chronological (oldest first)
+	// API returns newest first, but we want to display oldest first
+	for i, j := 0, len(logEntries)-1; i < j; i, j = i+1, j-1 {
+		logEntries[i], logEntries[j] = logEntries[j], logEntries[i]
+	}
+
+	return logEntries, nil
+}
+
+// LogFollower follows logs in real-time
+type LogFollower struct {
+	workspace    string
+	resourceType string
+	resourceName string
+	startTime    time.Time
+	severity     string
+	search       string
+	taskID       string
+	executionID  string
+	onLog        func(LogEntry)
+	ctx          context.Context
+	cancel       context.CancelFunc
+	seenLogs     map[string]bool
+	mu           sync.Mutex
+}
+
+// NewLogFollower creates a new log follower
+func NewLogFollower(workspace, resourceType, resourceName string, startTime time.Time, severity, search, taskID, executionID string, onLog func(LogEntry)) *LogFollower {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &LogFollower{
+		workspace:    workspace,
+		resourceType: resourceType,
+		resourceName: resourceName,
+		startTime:    startTime,
+		severity:     severity,
+		search:       search,
+		taskID:       taskID,
+		executionID:  executionID,
+		onLog:        onLog,
+		ctx:          ctx,
+		cancel:       cancel,
+		seenLogs:     make(map[string]bool),
+	}
+}
+
+// Start begins following logs
+func (lf *LogFollower) Start() {
+	go lf.followLogs()
+}
+
+// Stop stops following logs
+func (lf *LogFollower) Stop() {
+	if lf.cancel != nil {
+		lf.cancel()
+	}
+}
+
+func (lf *LogFollower) followLogs() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	// Initial fetch - get existing logs from the specified start time
+	// Use a far future end time to get all available logs
+	futureTime := time.Now().UTC().Add(24 * time.Hour)
+	fetcher := NewLogFetcher(lf.workspace, lf.resourceType, lf.resourceName, lf.startTime, futureTime, lf.severity, lf.search, lf.taskID, lf.executionID)
+	logs, err := fetcher.FetchLogs()
+	if err == nil {
+		lf.mu.Lock()
+		for _, log := range logs {
+			// Use timestamp + message as unique key for deduplication
+			key := fmt.Sprintf("%s:%s", log.Timestamp, log.Message)
+			lf.onLog(log)
+			lf.seenLogs[key] = true
+		}
+		lf.mu.Unlock()
+	}
+
+	// Set start time for subsequent fetches to current time minus a buffer
+	// We need a large buffer (30s) because logs have a delay in appearing in the observability system
+	lastFetchTime := time.Now().UTC().Add(-60 * time.Second)
+
+	for {
+		select {
+		case <-lf.ctx.Done():
+			return
+		case <-ticker.C:
+			// Fetch logs from last fetch time to a future time
+			// This ensures we get all new logs without an artificial cutoff
+			currentTime := time.Now().UTC()
+			futureTime := currentTime.Add(24 * time.Hour)
+
+			fetcher := NewLogFetcher(lf.workspace, lf.resourceType, lf.resourceName, lastFetchTime, futureTime, lf.severity, lf.search, lf.taskID, lf.executionID)
+			logs, err := fetcher.FetchLogs()
+			if err != nil {
+				// Continue on error but don't update last fetch time
+				continue
+			}
+
+			lf.mu.Lock()
+			for _, log := range logs {
+				// Use timestamp + message as unique key for deduplication
+				key := fmt.Sprintf("%s:%s", log.Timestamp, log.Message)
+				if !lf.seenLogs[key] {
+					lf.onLog(log)
+					lf.seenLogs[key] = true
+				}
+			}
+			lf.mu.Unlock()
+
+			// Update last fetch time - keep a 30 second overlap to catch logs at boundaries
+			// This large overlap accounts for delays in logs appearing in the observability system
+			lastFetchTime = currentTime.Add(-30 * time.Second)
+		}
+	}
+}
+
+// PluralizeResourceType converts singular resource types to plural
+func PluralizeResourceType(resourceType string) string {
+	return pluralizeResourceType(resourceType)
+}
+
 // StreamBuildLogs streams build logs from an HTTP response
 func StreamBuildLogs(resp *http.Response, onLog func(string)) error {
 	defer resp.Body.Close()
