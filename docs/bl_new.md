@@ -4,7 +4,7 @@ slug: bl_new
 ---
 ## bl new
 
-Create a new blaxel resource (agent, mcp, sandbox, job)
+Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)
 
 ### Synopsis
 
@@ -25,6 +25,9 @@ Resource Types:
 
   job       - Batch processing task that runs on-demand or on schedule
               Use cases: ETL pipelines, data processing, scheduled workflows
+
+  volumetemplate - Pre-configured volume template for creating volumes
+              		Use cases: Persistent storage templates, data volume configurations
 
 Interactive Mode (Recommended):
 When called without arguments, the CLI guides you through:

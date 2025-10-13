@@ -90,4 +90,5 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get policies](bl_get_policies.md)	 - Get a Policy
 * [bl get sandboxes](bl_get_sandboxes.md)	 - Get a Sandbox
 * [bl get volumes](bl_get_volumes.md)	 - Get a Volume
+* [bl get volumetemplates](bl_get_volumetemplates.md)	 - Get a VolumeTemplate
 

@@ -7,7 +7,7 @@ slug: bl_delete_sandbox
 Delete sandbox
 
 ```
-bl delete sandbox name [flags]
+bl delete sandbox name [name...] [flags]
 ```
 
 ### Options

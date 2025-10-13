@@ -7,7 +7,7 @@ slug: bl_delete_function
 Delete function
 
 ```
-bl delete function name [flags]
+bl delete function name [name...] [flags]
 ```
 
 ### Options

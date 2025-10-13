@@ -7,7 +7,7 @@ slug: bl_delete_volume
 Delete volume
 
 ```
-bl delete volume name [flags]
+bl delete volume name [name...] [flags]
 ```
 
 ### Options
