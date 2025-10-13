@@ -65,14 +65,15 @@ To list all authenticated workspaces, run without arguments.`,
 				return
 			}
 
+			// If workspace name is provided, set it as current and return
 			if len(args) > 0 {
-				if len(args) > 1 {
-					sdk.SetCurrentWorkspace(args[0])
-				} else {
-					sdk.SetCurrentWorkspace(args[0])
-				}
+				workspaceName := args[0]
+				sdk.SetCurrentWorkspace(workspaceName)
+				fmt.Printf("Current workspace set to %s.\n", workspaceName)
+				return
 			}
 
+			// Otherwise, list all workspaces
 			workspaces := sdk.ListWorkspaces()
 
 			// En-têtes avec largeurs fixes

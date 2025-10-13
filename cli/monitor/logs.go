@@ -142,7 +142,7 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	q.Set("search", "")
 	q.Set("taskId", "")
 	q.Set("executionId", "")
-	q.Set("interval", "14400")
+	q.Set("interval", "60")
 	q.Set("workspace", workspace)
 	u.RawQuery = q.Encode()
 
@@ -297,7 +297,7 @@ func (lf *LogFetcher) fetchLogsFromAPI(offset int) ([]LogEntry, error) {
 	q.Set("executionId", lf.executionID)
 
 	// Set interval (required by API)
-	q.Set("interval", "14400")
+	q.Set("interval", "60")
 
 	q.Set("workspace", lf.workspace)
 	u.RawQuery = q.Encode()
