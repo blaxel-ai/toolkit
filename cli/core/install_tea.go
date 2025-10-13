@@ -389,7 +389,7 @@ func runInstallationSteps(p *tea.Program, t Template, opts TemplateOptions) erro
 
 	env := os.Getenv("BL_ENV")
 	branch := "main"
-	if env == "dev" {
+	if env == "dev" || env == "local" {
 		branch = "develop"
 	}
 

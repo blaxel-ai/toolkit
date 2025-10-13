@@ -44,6 +44,10 @@ bl delete [flags]
   bl delete job my-job
   bl delete sandbox my-sandbox
 
+  # Delete multiple resources by name
+  bl delete volume vol1 vol2 vol3
+  bl delete agent agent1 agent2
+
   # Delete from YAML file
   bl delete -f my-resource.yaml
 
@@ -87,4 +91,5 @@ bl delete [flags]
 * [bl delete policy](bl_delete_policy.md)	 - Delete policy
 * [bl delete sandbox](bl_delete_sandbox.md)	 - Delete sandbox
 * [bl delete volume](bl_delete_volume.md)	 - Delete volume
+* [bl delete volumetemplate](bl_delete_volumetemplate.md)	 - Delete volumetemplate
 

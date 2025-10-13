@@ -7,7 +7,7 @@ slug: bl_delete_agent
 Delete agent
 
 ```
-bl delete agent name [flags]
+bl delete agent name [name...] [flags]
 ```
 
 ### Options

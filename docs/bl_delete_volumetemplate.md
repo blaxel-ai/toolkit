@@ -1,19 +1,19 @@
 ---
-title: "bl delete model"
-slug: bl_delete_model
+title: "bl delete volumetemplate"
+slug: bl_delete_volumetemplate
 ---
-## bl delete model
+## bl delete volumetemplate
 
-Delete model
+Delete volumetemplate
 
 ```
-bl delete model name [name...] [flags]
+bl delete volumetemplate name [name...] [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for model
+  -h, --help   help for volumetemplate
 ```
 
 ### Options inherited from parent commands

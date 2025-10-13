@@ -41,6 +41,9 @@ bl workspaces [workspace] [flags]
   # Use specific workspace for one command (doesn't switch current)
   bl get agents --workspace staging
 
+  # Get only the current workspace name
+  bl workspaces --current
+
   # Common multi-workspace workflow
   bl workspaces dev        # Switch to dev
   bl deploy                # Deploy to dev
@@ -51,7 +54,8 @@ bl workspaces [workspace] [flags]
 ### Options
 
 ```
-  -h, --help   help for workspaces
+      --current   Display only the current workspace name
+  -h, --help      help for workspaces
 ```
 
 ### Options inherited from parent commands

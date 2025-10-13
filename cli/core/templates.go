@@ -257,7 +257,7 @@ func (t Template) Clone(opts TemplateOptions) error {
 	}
 	env := os.Getenv("BL_ENV")
 	branch := "main"
-	if env == "dev" {
+	if env == "dev" || env == "local" {
 		branch = "develop"
 	}
 	if !isCommandAvailable("git") {

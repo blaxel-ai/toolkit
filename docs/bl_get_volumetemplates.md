@@ -1,19 +1,19 @@
 ---
-title: "bl delete model"
-slug: bl_delete_model
+title: "bl get volumetemplates"
+slug: bl_get_volumetemplates
 ---
-## bl delete model
+## bl get volumetemplates
 
-Delete model
+Get a VolumeTemplate
 
 ```
-bl delete model name [name...] [flags]
+bl get volumetemplates [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help   help for model
+  -h, --help   help for volumetemplates
 ```
 
 ### Options inherited from parent commands
@@ -23,10 +23,11 @@ bl delete model name [name...] [flags]
       --skip-version-warning   Skip version warning
   -u, --utc                    Enable UTC timezone
   -v, --verbose                Enable verbose output
+      --watch                  After listing/getting the requested object, watch for changes.
   -w, --workspace string       Specify the workspace name
 ```
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl get](bl_get.md)	 - Get a resource
 
