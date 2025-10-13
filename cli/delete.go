@@ -54,6 +54,10 @@ separately if needed.`,
   bl delete job my-job
   bl delete sandbox my-sandbox
 
+  # Delete multiple resources by name
+  bl delete volume vol1 vol2 vol3
+  bl delete agent agent1 agent2
+
   # Delete from YAML file
   bl delete -f my-resource.yaml
 
@@ -95,7 +99,7 @@ separately if needed.`,
 
 	for _, resource := range core.GetResources() {
 		subcmd := &cobra.Command{
-			Use:     fmt.Sprintf("%s name [flags]", resource.Singular),
+			Use:     fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
 			Aliases: []string{resource.Plural, resource.Short},
 			Short:   fmt.Sprintf("Delete %s", resource.Singular),
 			Run: func(cmd *cobra.Command, args []string) {
@@ -103,8 +107,8 @@ separately if needed.`,
 					fmt.Println("no resource name provided")
 					os.Exit(1)
 				}
-				if len(args) == 1 {
-					DeleteFn(resource, args[0])
+				for _, name := range args {
+					DeleteFn(resource, name)
 				}
 			},
 		}

@@ -17,7 +17,9 @@ func init() {
 }
 
 func ListOrSetWorkspacesCmd() *cobra.Command {
-	return &cobra.Command{
+	var current bool
+
+	cmd := &cobra.Command{
 		Use:     "workspaces [workspace]",
 		Aliases: []string{"ws", "workspace"},
 		Short:   "List all workspaces with the current workspace highlighted, set optionally a new current workspace",
@@ -46,12 +48,23 @@ To list all authenticated workspaces, run without arguments.`,
   # Use specific workspace for one command (doesn't switch current)
   bl get agents --workspace staging
 
+  # Get only the current workspace name
+  bl workspaces --current
+
   # Common multi-workspace workflow
   bl workspaces dev        # Switch to dev
   bl deploy                # Deploy to dev
   bl workspaces prod       # Switch to prod
   bl deploy                # Deploy to prod`,
 		Run: func(cmd *cobra.Command, args []string) {
+			currentWorkspace := sdk.CurrentContext().Workspace
+
+			// If --current flag is set, only print the current workspace name
+			if current {
+				fmt.Println(currentWorkspace)
+				return
+			}
+
 			if len(args) > 0 {
 				if len(args) > 1 {
 					sdk.SetCurrentWorkspace(args[0])
@@ -61,7 +74,6 @@ To list all authenticated workspaces, run without arguments.`,
 			}
 
 			workspaces := sdk.ListWorkspaces()
-			currentWorkspace := sdk.CurrentContext().Workspace
 
 			// En-têtes avec largeurs fixes
 			fmt.Printf("%-30s %-20s\n", "NAME", "CURRENT")
@@ -76,6 +88,10 @@ To list all authenticated workspaces, run without arguments.`,
 			}
 		},
 	}
+
+	cmd.Flags().BoolVar(&current, "current", false, "Display only the current workspace name")
+
+	return cmd
 }
 
 func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sdk.Workspace, error) {
