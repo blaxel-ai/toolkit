@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -17,6 +18,7 @@ type DeployStatus int
 
 const (
 	StatusPending DeployStatus = iota
+	StatusCompressing
 	StatusUploading
 	StatusBuilding
 	StatusDeploying
@@ -47,6 +49,7 @@ type InteractiveModel struct {
 	width       int
 	height      int
 	mu          sync.RWMutex
+	program     *tea.Program
 }
 
 // Messages for updating the model
@@ -76,12 +79,13 @@ var (
 			Foreground(lipgloss.Color("255"))
 
 	statusStyles = map[DeployStatus]lipgloss.Style{
-		StatusPending:   lipgloss.NewStyle().Foreground(lipgloss.Color("241")),
-		StatusUploading: lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
-		StatusBuilding:  lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
-		StatusDeploying: lipgloss.NewStyle().Foreground(lipgloss.Color("12")),
-		StatusComplete:  lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
-		StatusFailed:    lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
+		StatusPending:     lipgloss.NewStyle().Foreground(lipgloss.Color("241")),
+		StatusCompressing: lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		StatusUploading:   lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		StatusBuilding:    lipgloss.NewStyle().Foreground(lipgloss.Color("214")),
+		StatusDeploying:   lipgloss.NewStyle().Foreground(lipgloss.Color("12")),
+		StatusComplete:    lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
+		StatusFailed:      lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
 	}
 
 	logStyle = lipgloss.NewStyle().
@@ -161,7 +165,9 @@ func (m *InteractiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			r.mu.Unlock()
 		}
 		m.mu.Unlock()
-		m.updateContent()
+		if m.width > 0 && m.height > 0 {
+			m.updateContent()
+		}
 
 	case buildLogMsg:
 		m.mu.Lock()
@@ -181,7 +187,9 @@ func (m *InteractiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			r.mu.Unlock()
 		}
 		m.mu.Unlock()
-		m.updateContent()
+		if m.width > 0 && m.height > 0 {
+			m.updateContent()
+		}
 
 	case deployCompleteMsg:
 		m.complete = true
@@ -218,6 +226,8 @@ func (m *InteractiveModel) View() string {
 			status := r.Status
 			name := r.Name
 			kind := r.Kind
+			statusText := r.StatusText
+			err := r.Error
 			r.mu.RUnlock()
 
 			statusIcon := getStatusIcon(status, m.spinner)
@@ -226,10 +236,22 @@ func (m *InteractiveModel) View() string {
 			if status == StatusFailed {
 				allSuccess = false
 				line = statusStyles[StatusFailed].Render(line)
+				s.WriteString(line + "\n")
+
+				// Show error details
+				if statusText != "" {
+					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(statusText)))
+				}
+				if err != nil {
+					s.WriteString(fmt.Sprintf("     Error: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(err.Error())))
+				}
 			} else {
 				line = statusStyles[StatusComplete].Render(line)
+				s.WriteString(line + "\n")
+				if statusText != "" {
+					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(statusText)))
+				}
 			}
-			s.WriteString(line + "\n")
 		}
 
 		s.WriteString("\n")
@@ -251,6 +273,8 @@ func (m *InteractiveModel) View() string {
 			}
 		} else {
 			s.WriteString(statusStyles[StatusFailed].Render("✗ Some resources failed to deploy"))
+			s.WriteString("\n")
+			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Tip: Check the error details above or view logs with 'bl logs <resource-name>'"))
 		}
 		s.WriteString("\n\n")
 		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Press any key to exit..."))
@@ -270,15 +294,12 @@ func (m *InteractiveModel) View() string {
 	for i, r := range m.resources {
 		r.mu.RLock()
 		status := r.Status
-		statusText := r.StatusText
 		name := r.Name
 		kind := r.Kind
 		r.mu.RUnlock()
 
-		line := fmt.Sprintf("  %s %s/%s", getStatusIcon(status, m.spinner), kind, name)
-		if statusText != "" {
-			line += fmt.Sprintf(" - %s", statusText)
-		}
+		// Show simple status text, not the detailed statusText (that's shown in viewport below)
+		line := fmt.Sprintf("  %s %s/%s - %s", getStatusIcon(status, m.spinner), kind, name, getStatusText(status))
 
 		if i == m.selectedIdx {
 			line = selectedStyle.Render(line)
@@ -304,6 +325,11 @@ func (m *InteractiveModel) updateContent() {
 	defer m.mu.RUnlock()
 
 	if m.selectedIdx >= len(m.resources) {
+		return
+	}
+
+	// Don't update if viewport isn't properly sized yet
+	if m.viewport.Width <= 0 || m.viewport.Height <= 0 {
 		return
 	}
 
@@ -354,15 +380,17 @@ func (m *InteractiveModel) updateContent() {
 	}
 
 	m.viewport.SetContent(content.String())
-	// Auto-scroll to bottom to show latest logs
-	m.viewport.GotoBottom()
+	// Auto-scroll to bottom to show latest logs (only if viewport is properly sized)
+	if m.viewport.Height > 0 {
+		m.viewport.GotoBottom()
+	}
 }
 
 func getStatusIcon(status DeployStatus, spinner spinner.Model) string {
 	switch status {
 	case StatusPending:
 		return "○"
-	case StatusUploading, StatusBuilding, StatusDeploying:
+	case StatusCompressing, StatusUploading, StatusBuilding, StatusDeploying:
 		return spinner.View()
 	case StatusComplete:
 		return "✓"
@@ -377,6 +405,8 @@ func getStatusText(status DeployStatus) string {
 	switch status {
 	case StatusPending:
 		return "Pending"
+	case StatusCompressing:
+		return "Compressing"
 	case StatusUploading:
 		return "Uploading"
 	case StatusBuilding:
@@ -394,36 +424,60 @@ func getStatusText(status DeployStatus) string {
 
 // UpdateResource updates the status of a resource
 func (m *InteractiveModel) UpdateResource(idx int, status DeployStatus, statusText string, err error) {
-	if m != nil {
-		// Send update message to the model
-		go func() {
-			m.Update(resourceUpdateMsg{
-				idx:        idx,
-				status:     status,
-				statusText: statusText,
-				err:        err,
-			})
-		}()
+	if m == nil {
+		return
 	}
+	if m.program == nil {
+		// Program not set yet, wait a bit for it to be initialized
+		time.Sleep(10 * time.Millisecond)
+		if m.program == nil {
+			return
+		}
+	}
+	m.program.Send(resourceUpdateMsg{
+		idx:        idx,
+		status:     status,
+		statusText: statusText,
+		err:        err,
+	})
 }
 
 // AddBuildLog adds a build log line for a resource
 func (m *InteractiveModel) AddBuildLog(idx int, log string) {
-	if m != nil {
-		go func() {
-			m.Update(buildLogMsg{
-				idx: idx,
-				log: log,
-			})
-		}()
+	if m == nil {
+		return
 	}
+	if m.program == nil {
+		// Program not set yet, wait a bit for it to be initialized
+		time.Sleep(10 * time.Millisecond)
+		if m.program == nil {
+			return
+		}
+	}
+	m.program.Send(buildLogMsg{
+		idx: idx,
+		log: log,
+	})
 }
 
 // Complete marks the deployment as complete
 func (m *InteractiveModel) Complete() {
+	if m == nil {
+		return
+	}
+	if m.program == nil {
+		// Program not set yet, wait a bit for it to be initialized
+		time.Sleep(10 * time.Millisecond)
+		if m.program == nil {
+			return
+		}
+	}
+	m.program.Send(deployCompleteMsg{})
+}
+
+// SetProgram sets the tea.Program reference for sending messages
+func (m *InteractiveModel) SetProgram(p *tea.Program) {
 	if m != nil {
-		go func() {
-			m.Update(deployCompleteMsg{})
-		}()
+		m.program = p
 	}
 }
