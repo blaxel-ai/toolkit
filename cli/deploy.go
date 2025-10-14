@@ -184,12 +184,14 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 }
 
 type Deployment struct {
-	dir               string
-	name              string
-	folder            string
-	blaxelDeployments []core.Result
-	archive           *os.File
-	cwd               string
+	dir                    string
+	name                   string
+	folder                 string
+	blaxelDeployments      []core.Result
+	archive                *os.File
+	cwd                    string
+	progressCallback       func(status string, progress int)
+	uploadProgressCallback func(bytesUploaded, totalBytes int64)
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -214,9 +216,15 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	if !skipBuild || core.IsVolumeTemplate(config.Type) {
 		// Create archive (tar for volume-template, zip for others)
 		if core.IsVolumeTemplate(config.Type) {
-			err = d.Tar()
-			if err != nil {
-				return fmt.Errorf("failed to tar file: %w", err)
+			// For interactive mode, skip compression here - it will be done during deployment
+			// to show progress to the user
+			if !core.IsInteractiveMode() {
+				fmt.Println("Compressing volume template files...")
+				err = d.Tar()
+				if err != nil {
+					return fmt.Errorf("failed to tar file: %w", err)
+				}
+				fmt.Println("Compression completed")
 			}
 		} else {
 			err = d.Zip()
@@ -485,9 +493,16 @@ func (d *Deployment) Apply() error {
 
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
+			config := core.GetConfig()
+			if core.IsVolumeTemplate(config.Type) {
+				fmt.Println("Uploading volume template...")
+			}
 			err := d.Upload(result.Result.UploadURL)
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
+			}
+			if core.IsVolumeTemplate(config.Type) {
+				fmt.Println("Upload completed")
 			}
 		}
 	}
@@ -564,6 +579,9 @@ func (d *Deployment) ApplyInteractive() error {
 	// Start the interactive UI
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
+	// Set program reference so model can send messages
+	model.SetProgram(p)
+
 	// Run deployment in background
 	go d.runInteractiveDeployment(resources, additionalResources, model)
 
@@ -583,6 +601,18 @@ func (d *Deployment) ApplyInteractive() error {
 }
 
 func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, additionalResources []*deploy.Resource, model *deploy.InteractiveModel) {
+	// Add recovery to catch panics
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("PANIC in deployment: %v\n", r)
+			// Try to mark all resources as failed
+			for i := range resources {
+				model.UpdateResource(i, deploy.StatusFailed, fmt.Sprintf("Panic: %v", r), fmt.Errorf("%v", r))
+			}
+			model.Complete()
+		}
+	}()
+
 	// Determine where main resources end and additional resources begin
 	mainResourceCount := len(resources) - len(additionalResources)
 
@@ -594,6 +624,12 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("PANIC in additional resource deployment: %v\n", r)
+					model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Panic: %v", r), fmt.Errorf("%v", r))
+				}
+			}()
 
 			resource := resources[idx]
 			model.UpdateResource(idx, deploy.StatusDeploying, "Applying resource", nil)
@@ -608,6 +644,12 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 		wg.Add(1)
 		go func(idx int, depl core.Result) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("PANIC in main resource deployment: %v\n", r)
+					model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Panic: %v", r), fmt.Errorf("%v", r))
+				}
+			}()
 			d.deployResourceInteractive(resources[idx], model, idx, depl)
 		}(i, d.blaxelDeployments[i])
 	}
@@ -617,13 +659,40 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 }
 
 func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model *deploy.InteractiveModel, idx int, deployment core.Result) {
+	config := core.GetConfig()
+
+	// For volume templates, handle compression first
+	if core.IsVolumeTemplate(config.Type) {
+		model.UpdateResource(idx, deploy.StatusCompressing, "Compressing files", nil)
+		model.AddBuildLog(idx, "Starting compression of volume template files...")
+
+		// Set up progress callback for compression
+		var lastLoggedProgress int
+		d.progressCallback = func(status string, progress int) {
+			model.UpdateResource(idx, deploy.StatusCompressing, status, nil)
+			// Log every 10% to avoid log spam
+			if progress > 0 && progress%10 == 0 && progress != lastLoggedProgress {
+				model.AddBuildLog(idx, fmt.Sprintf("Compression progress: %d%%", progress))
+				lastLoggedProgress = progress
+			}
+		}
+
+		// Create the tar archive
+		err := d.Tar()
+		if err != nil {
+			model.UpdateResource(idx, deploy.StatusFailed, "Compression failed", err)
+			model.AddBuildLog(idx, fmt.Sprintf("Failed to compress files: %v", err))
+			return
+		}
+		model.AddBuildLog(idx, "Compression completed (100%)")
+	}
+
 	// Start deployment
 	model.UpdateResource(idx, deploy.StatusDeploying, "Applying resource", nil)
 	model.AddBuildLog(idx, fmt.Sprintf("Starting deployment of %s/%s", resource.Kind, resource.Name))
 
-	// mock mode removed
-
 	// Real deployment
+	model.AddBuildLog(idx, "Applying resource to platform...")
 	applyResults, err := ApplyResources([]core.Result{deployment})
 	if err != nil {
 		model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", err)
@@ -631,10 +700,118 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		return
 	}
 
+	// Check if apply failed (ApplyResources doesn't return errors, but the result might indicate failure)
+	if len(applyResults) == 0 {
+		model.UpdateResource(idx, deploy.StatusFailed, "No results from apply", fmt.Errorf("apply returned no results"))
+		model.AddBuildLog(idx, "Apply operation returned no results - check if the API call succeeded")
+		return
+	}
+
+	if applyResults[0].Result.Status == "failed" {
+		errorDetails := "apply operation failed"
+		if applyResults[0].Result.ErrorMsg != "" {
+			errorDetails = applyResults[0].Result.ErrorMsg
+			model.AddBuildLog(idx, fmt.Sprintf("API Error: %s", errorDetails))
+		}
+		model.UpdateResource(idx, deploy.StatusFailed, "Apply failed", fmt.Errorf("%s", errorDetails))
+		return
+	}
+
 	// Handle upload if there's an upload URL
 	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
-		model.AddBuildLog(idx, "Uploading code to registry...")
+
+		// For volume templates, set up upload progress callback
+		if core.IsVolumeTemplate(config.Type) {
+			model.AddBuildLog(idx, "Starting upload of volume template...")
+
+			var lastLoggedPercentage int
+			var lastUpdatePercentage int
+			startTime := time.Now()
+
+			d.uploadProgressCallback = func(bytesUploaded, totalBytes int64) {
+				percentage := int((bytesUploaded * 100) / totalBytes)
+				now := time.Now()
+
+				// Update status every 1% to keep UI responsive
+				if percentage != lastUpdatePercentage {
+					sizeMB := float64(totalBytes) / (1024 * 1024)
+					uploadedMB := float64(bytesUploaded) / (1024 * 1024)
+
+					// Calculate speed and ETA
+					elapsed := now.Sub(startTime).Seconds()
+					var speedStr string
+					var etaStr string
+					if bytesUploaded > 0 && elapsed > 0 {
+						bytesPerSecond := float64(bytesUploaded) / elapsed
+						mbPerSecond := bytesPerSecond / (1024 * 1024)
+
+						// Format speed
+						if mbPerSecond >= 1.0 {
+							speedStr = fmt.Sprintf("%.2f MB/s", mbPerSecond)
+						} else {
+							kbPerSecond := bytesPerSecond / 1024
+							speedStr = fmt.Sprintf("%.2f KB/s", kbPerSecond)
+						}
+
+						// Calculate ETA
+						remainingBytes := totalBytes - bytesUploaded
+						etaSeconds := int(float64(remainingBytes) / bytesPerSecond)
+
+						if etaSeconds < 60 {
+							etaStr = fmt.Sprintf(" - ETA %ds", etaSeconds)
+						} else if etaSeconds < 3600 {
+							etaStr = fmt.Sprintf(" - ETA %dm %ds", etaSeconds/60, etaSeconds%60)
+						} else {
+							etaStr = fmt.Sprintf(" - ETA %dh %dm", etaSeconds/3600, (etaSeconds%3600)/60)
+						}
+					}
+
+					status := fmt.Sprintf("Uploading (%.2f/%.2f MB - %d%% - %s%s)", uploadedMB, sizeMB, percentage, speedStr, etaStr)
+					model.UpdateResource(idx, deploy.StatusUploading, status, nil)
+					lastUpdatePercentage = percentage
+				}
+
+				// Log progress every 10% to avoid log spam
+				if percentage > 0 && percentage%10 == 0 && percentage != lastLoggedPercentage {
+					sizeMB := float64(totalBytes) / (1024 * 1024)
+					uploadedMB := float64(bytesUploaded) / (1024 * 1024)
+
+					// Calculate speed and ETA for logs
+					elapsed := now.Sub(startTime).Seconds()
+					speedStr := ""
+					etaStr := ""
+					if bytesUploaded > 0 && elapsed > 0 {
+						bytesPerSecond := float64(bytesUploaded) / elapsed
+						mbPerSecond := bytesPerSecond / (1024 * 1024)
+
+						// Format speed
+						if mbPerSecond >= 1.0 {
+							speedStr = fmt.Sprintf(" @ %.2f MB/s", mbPerSecond)
+						} else {
+							kbPerSecond := bytesPerSecond / 1024
+							speedStr = fmt.Sprintf(" @ %.2f KB/s", kbPerSecond)
+						}
+
+						remainingBytes := totalBytes - bytesUploaded
+						etaSeconds := int(float64(remainingBytes) / bytesPerSecond)
+
+						if etaSeconds < 60 {
+							etaStr = fmt.Sprintf(", ETA %ds", etaSeconds)
+						} else if etaSeconds < 3600 {
+							etaStr = fmt.Sprintf(", ETA %dm %ds", etaSeconds/60, etaSeconds%60)
+						} else {
+							etaStr = fmt.Sprintf(", ETA %dh %dm", etaSeconds/3600, (etaSeconds%3600)/60)
+						}
+					}
+
+					model.AddBuildLog(idx, fmt.Sprintf("Upload progress: %d%% (%.2f/%.2f MB%s%s)", percentage, uploadedMB, sizeMB, speedStr, etaStr))
+					lastLoggedPercentage = percentage
+				}
+			}
+		} else {
+			model.AddBuildLog(idx, "Uploading code to registry...")
+		}
 
 		err := d.Upload(applyResults[0].Result.UploadURL)
 		if err != nil {
@@ -759,9 +936,10 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 			}
 		}
 	} else {
-		// For resources that don't need monitoring (Model, Policy, etc.), just mark as complete
-		model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
-		model.AddBuildLog(idx, "Resource applied successfully")
+		// For resources that don't need monitoring (VolumeTemplate, Model, Policy, etc.), just mark as complete
+		model.AddBuildLog(idx, fmt.Sprintf("Resource type %s does not require status monitoring", resource.Kind))
+		model.UpdateResource(idx, deploy.StatusComplete, "Deployed successfully", nil)
+		model.AddBuildLog(idx, "✓ Volume template deployed successfully!")
 	}
 }
 
@@ -920,6 +1098,23 @@ func (d *Deployment) Ready() {
 	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
 }
 
+// progressReader wraps an io.Reader and reports progress
+type progressReader struct {
+	reader   io.Reader
+	total    int64
+	read     int64
+	callback func(bytesUploaded, totalBytes int64)
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	pr.read += int64(n)
+	if pr.callback != nil {
+		pr.callback(pr.read, pr.total)
+	}
+	return n, err
+}
+
 func (d *Deployment) Upload(url string) error {
 	// Open the archive file
 	archiveFile, err := os.Open(d.archive.Name())
@@ -934,8 +1129,18 @@ func (d *Deployment) Upload(url string) error {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
 
+	// Wrap the file reader with progress tracking
+	var reader io.Reader = archiveFile
+	if d.uploadProgressCallback != nil {
+		reader = &progressReader{
+			reader:   archiveFile,
+			total:    fileInfo.Size(),
+			callback: d.uploadProgressCallback,
+		}
+	}
+
 	// Create a new HTTP request
-	req, err := http.NewRequest("PUT", url, archiveFile)
+	req, err := http.NewRequest("PUT", url, reader)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1056,7 +1261,20 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 		}
 	}
 
-	err := filepath.Walk(archiveRoot, func(path string, info os.FileInfo, err error) error {
+	// Count total files for progress tracking (only for volume-template)
+	var totalFiles int
+	var processedFiles int
+	if core.IsVolumeTemplate(config.Type) && d.progressCallback != nil {
+		_ = filepath.WalkDir(archiveRoot, func(path string, info os.DirEntry, err error) error {
+			if err != nil || path == archiveRoot {
+				return nil
+			}
+			totalFiles++
+			return nil
+		})
+	}
+
+	err := filepath.WalkDir(archiveRoot, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1075,7 +1293,22 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 			return err
 		}
 
-		return writer.addFile(path, relPath)
+		err = writer.addFile(path, relPath)
+		if err != nil {
+			return err
+		}
+
+		// Report progress for volume-template
+		if core.IsVolumeTemplate(config.Type) && d.progressCallback != nil {
+			processedFiles++
+			progress := 0
+			if totalFiles > 0 {
+				progress = (processedFiles * 100) / totalFiles
+			}
+			d.progressCallback(fmt.Sprintf("Compressing files (%d/%d)", processedFiles, totalFiles), progress)
+		}
+
+		return nil
 	})
 
 	if err != nil {
@@ -1120,14 +1353,25 @@ func (d *Deployment) Tar() error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer func() { _ = tarFile.Close() }()
 
 	tarWriter := tar.NewWriter(tarFile)
-	defer func() { _ = tarWriter.Close() }()
 
 	writer := &tarArchiveWriter{writer: tarWriter, deployment: d}
 	if err := d.createArchive(".tar", writer); err != nil {
+		_ = tarWriter.Close()
+		_ = tarFile.Close()
 		return err
+	}
+
+	// Close tar writer to flush all data
+	if err := tarWriter.Close(); err != nil {
+		_ = tarFile.Close()
+		return fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	// Close the file
+	if err := tarFile.Close(); err != nil {
+		return fmt.Errorf("failed to close tar file: %w", err)
 	}
 
 	d.archive = tarFile

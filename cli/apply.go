@@ -24,6 +24,7 @@ func init() {
 type ResourceOperationResult struct {
 	Status    string
 	UploadURL string
+	ErrorMsg  string
 }
 
 type ApplyResult struct {
@@ -316,8 +317,13 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	}
 
 	if response.StatusCode >= 400 {
-		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, buf.String()))
-		os.Exit(1)
+		errorMsg := buf.String()
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
+		// Don't exit in interactive mode - let the caller handle the failure
+		if !core.IsInteractiveMode() {
+			os.Exit(1)
+		}
+		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
 
@@ -358,8 +364,13 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	}
 
 	if response.StatusCode >= 400 {
-		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, buf.String()))
-		os.Exit(1)
+		errorMsg := buf.String()
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
+		// Don't exit in interactive mode - let the caller handle the failure
+		if !core.IsInteractiveMode() {
+			os.Exit(1)
+		}
+		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
 
