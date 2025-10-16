@@ -131,7 +131,6 @@ type Config struct {
 	SkipRoot    bool                      `toml:"skipRoot"`
 	Runtime     *map[string]interface{}   `toml:"runtime"`
 	Triggers    *[]map[string]interface{} `toml:"triggers"`
-	Transport   string                    `toml:"transport"`
 	Policies    []string                  `toml:"policies,omitempty"`
 	DefaultSize *int                      `toml:"defaultSize,omitempty"`
 	Directory   string                    `toml:"directory,omitempty"`

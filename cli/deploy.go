@@ -246,9 +246,6 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	if config.Runtime != nil {
 		runtime = *config.Runtime
 	}
-	if config.Transport == "" {
-		config.Transport = "websocket"
-	}
 
 	runtime["envs"] = core.GetUniqueEnvs()
 	if config.Type == "function" {
@@ -279,9 +276,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	case "function":
 		Kind = "Function"
 		Spec = map[string]interface{}{
-			"runtime":   runtime,
-			"triggers":  config.Triggers,
-			"transport": config.Transport,
+			"runtime":  runtime,
+			"triggers": config.Triggers,
 		}
 	case "agent":
 		Kind = "Agent"

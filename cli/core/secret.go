@@ -17,13 +17,13 @@ var secrets Secrets
 func loadCommandSecrets() {
 	for _, secret := range commandSecrets {
 		parts := strings.Split(secret, "=")
-		if len(parts) != 2 {
+		if len(parts) < 2 {
 			fmt.Println("Invalid secret format", secret)
 			continue
 		}
 		secrets = append(secrets, Env{
 			Name:  parts[0],
-			Value: parts[1],
+			Value: strings.Join(parts[1:], "="),
 		})
 	}
 }
