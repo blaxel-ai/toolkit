@@ -307,8 +307,8 @@ func runJobLocally(data string, folder string, config core.Config) {
 			envMap := map[string]string{}
 			for _, env := range os.Environ() {
 				parts := strings.SplitN(env, "=", 2)
-				if len(parts) == 2 {
-					envMap[parts[0]] = parts[1]
+				if len(parts) >= 2 {
+					envMap[parts[0]] = strings.Join(parts[1:], "=")
 				}
 			}
 			for k, v := range dotenvVars {
