@@ -93,9 +93,14 @@ Examples:
 				found := false
 				sandboxes := response.JSON200
 				names := []string{}
+				var sandboxURL string
 				for _, sandbox := range *sandboxes {
 					if *sandbox.Metadata.Name == sandboxName {
 						found = true
+						// Get the direct URL from sandbox metadata
+						if sandbox.Metadata.Url != nil && *sandbox.Metadata.Url != "" {
+							sandboxURL = *sandbox.Metadata.Url
+						}
 						break
 					}
 					names = append(names, *sandbox.Metadata.Name)
@@ -109,6 +114,10 @@ Examples:
 						core.Print(fmt.Sprintf("Create a sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
 					}
 					os.Exit(1)
+				}
+				// Use the URL from metadata if available
+				if sandboxURL != "" {
+					url = sandboxURL
 				}
 			}
 			// Prepare authentication headers based on available credentials

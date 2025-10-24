@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	mcp_golang "github.com/agentuity/mcp-golang/v2"
 	"github.com/blaxel-ai/toolkit/sdk/mcp"
+	officialMcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type SandboxClient struct {
@@ -16,7 +16,7 @@ type SandboxClient struct {
 }
 
 func NewSandboxClientWithURL(workspace, sandboxName, serverURL string, authHeaders map[string]string) (*SandboxClient, error) {
-	// Create MCP client with WebSocket transport
+	// Create MCP client with auto-detected transport (WebSocket or HTTP Stream)
 	mcpClient, err := mcp.NewMCPClient(serverURL, authHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
@@ -92,18 +92,39 @@ func (c *SandboxClient) ListDirectory(ctx context.Context, path string) (*Direct
 }
 
 // Helper method to parse process response with error handling
-func (c *SandboxClient) parseProcessResponse(response *mcp_golang.ToolResponse) (*ProcessResponseWithLogs, error) {
+func (c *SandboxClient) parseProcessResponse(response *officialMcp.CallToolResult) (*ProcessResponseWithLogs, error) {
 
 	// Check for MCP errors
-	if response == nil || len(response.Content) == 0 {
+	if response == nil || response.IsError || len(response.Content) == 0 {
+		if response != nil && response.IsError && len(response.Content) > 0 {
+			// Extract error message
+			if textContent, ok := response.Content[0].(*officialMcp.TextContent); ok {
+				return nil, fmt.Errorf("tool error: %s", textContent.Text)
+			}
+		}
 		return nil, fmt.Errorf("unexpected response format from processExecute")
 	}
 
 	// Extract the process information from the MCP response
-	if response.Content[0].Type == mcp_golang.ContentTypeText {
-		text := response.Content[0].TextContent.Text
+	if textContent, ok := response.Content[0].(*officialMcp.TextContent); ok {
+		// Try to parse as a map first to check structure
+		var rawResponse map[string]interface{}
+		if err := json.Unmarshal([]byte(textContent.Text), &rawResponse); err == nil {
+			// Check if this is an HTTP Stream response with "withLogs" field
+			if withLogs, hasWithLogs := rawResponse["withLogs"]; hasWithLogs {
+				// HTTP Stream format: data is nested under "withLogs"
+				withLogsBytes, _ := json.Marshal(withLogs)
+				var processWithLogs ProcessResponseWithLogs
+				if err := json.Unmarshal(withLogsBytes, &processWithLogs); err != nil {
+					return nil, fmt.Errorf("failed to parse withLogs response: %w", err)
+				}
+				return &processWithLogs, nil
+			}
+		}
+
+		// Try direct parsing for WebSocket format
 		var processWithLogs ProcessResponseWithLogs
-		if err := json.Unmarshal([]byte(text), &processWithLogs); err != nil {
+		if err := json.Unmarshal([]byte(textContent.Text), &processWithLogs); err != nil {
 			return nil, fmt.Errorf("failed to parse process response: %w", err)
 		}
 		return &processWithLogs, nil
@@ -113,16 +134,21 @@ func (c *SandboxClient) parseProcessResponse(response *mcp_golang.ToolResponse) 
 }
 
 // Helper method to parse directory response with error handling
-func (c *SandboxClient) parseDirectoryResponse(response *mcp_golang.ToolResponse) (*Directory, error) {
+func (c *SandboxClient) parseDirectoryResponse(response *officialMcp.CallToolResult) (*Directory, error) {
 
-	if response == nil || len(response.Content) == 0 {
+	if response == nil || response.IsError || len(response.Content) == 0 {
+		if response != nil && response.IsError && len(response.Content) > 0 {
+			// Extract error message
+			if textContent, ok := response.Content[0].(*officialMcp.TextContent); ok {
+				return nil, fmt.Errorf("tool error: %s", textContent.Text)
+			}
+		}
 		return nil, fmt.Errorf("unexpected response format from fsListDirectory")
 	}
 
-	if response.Content[0].Type == mcp_golang.ContentTypeText {
-		text := response.Content[0].TextContent.Text
+	if textContent, ok := response.Content[0].(*officialMcp.TextContent); ok {
 		var dir Directory
-		if err := json.Unmarshal([]byte(text), &dir); err != nil {
+		if err := json.Unmarshal([]byte(textContent.Text), &dir); err != nil {
 			return nil, fmt.Errorf("failed to parse directory response: %w", err)
 		}
 		return &dir, nil
