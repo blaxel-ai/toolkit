@@ -300,6 +300,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if config.Region != "" {
 			Spec["region"] = config.Region
 		}
+		if config.Volumes != nil {
+			Spec["volumes"] = *config.Volumes
+		}
 	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
 		Spec = map[string]interface{}{}
