@@ -58,13 +58,13 @@ The command can list all resources of a type or get details for a specific one.`
   bl get agent my-agent
 
   # Get in JSON format (useful for scripting)
-  bl get agent my-agent -o json
+  bl get agent my-agent -ojson
 
   # Watch agent status in real-time
   bl get agent my-agent --watch
 
   # List all resources with table output
-  bl get agents -o table
+  bl get agents -otable
 
   # Get MCP servers (also called functions)
   bl get functions
@@ -73,23 +73,42 @@ The command can list all resources of a type or get details for a specific one.`
   # List jobs
   bl get jobs
 
+  # Get specific job
+  bl get job my-job
+
+  # List executions for a job (nested resource)
+  bl get job my-job executions
+
+  # Get specific execution for a job
+  bl get job my-job execution <execution-id>
+
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch`,
 	}
 	var watch bool
 	resources := core.GetResources()
 	for _, resource := range resources {
+		// Capture resource in closure
+		res := resource
 		subcmd := &cobra.Command{
-			Use:     resource.Plural,
-			Aliases: []string{resource.Singular, resource.Short},
-			Short:   fmt.Sprintf("Get a %s", resource.Kind),
+			Use:     res.Plural,
+			Aliases: []string{res.Singular, res.Short},
+			Short:   fmt.Sprintf("Get a %s", res.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
+				// Special handling for nested resources (e.g., job executions)
+				if res.Kind == "Job" && len(args) >= 2 {
+					// Check if this is a nested resource request
+					if HandleJobNestedResource(args) {
+						return
+					}
+				}
+
 				if watch {
 					seconds := 2
 					duration := time.Duration(seconds) * time.Second
 
 					// Execute immediately before starting the ticker
-					executeAndDisplayWatch(args, *resource, seconds)
+					executeAndDisplayWatch(args, *res, seconds)
 
 					// Create a ticker to periodically fetch updates
 					ticker := time.NewTicker(duration)
@@ -102,7 +121,7 @@ The command can list all resources of a type or get details for a specific one.`
 					for {
 						select {
 						case <-ticker.C:
-							executeAndDisplayWatch(args, *resource, seconds)
+							executeAndDisplayWatch(args, *res, seconds)
 						case <-sigChan:
 							fmt.Println("\nStopped watching.")
 							return
@@ -110,11 +129,11 @@ The command can list all resources of a type or get details for a specific one.`
 					}
 				} else {
 					if len(args) == 0 {
-						ListFn(resource)
+						ListFn(res)
 						return
 					}
 					if len(args) == 1 {
-						GetFn(resource, args[0])
+						GetFn(res, args[0])
 					}
 				}
 			},
@@ -134,8 +153,31 @@ func GetFn(resource *core.Resource, name string) {
 		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
 		os.Exit(1)
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)} // Add the context and the resource name
+
+	// Check the function signature to determine if it requires params
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+
+	var fnargs []reflect.Value
+	if numIn == 2 {
+		// Old signature: (ctx, name)
+		fnargs = []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+	} else if funcType.IsVariadic() && numIn == 3 {
+		// New signature: (ctx, name, ...reqEditors)
+		// Just pass ctx and name, variadic parameter is optional
+		fnargs = []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+	} else if numIn >= 3 {
+		// Signature with params: (ctx, name, params, ...)
+		// Create an empty params struct - we need to determine the type
+		fnargs = []reflect.Value{
+			reflect.ValueOf(ctx),
+			reflect.ValueOf(name),
+			reflect.New(funcType.In(2)).Elem(), // Empty params struct
+		}
+	} else {
+		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "unexpected function signature"))
+		os.Exit(1)
+	}
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -197,8 +239,29 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	if funcValue.Kind() != reflect.Func {
 		return nil, fmt.Errorf("fn is not a valid function")
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx)} // Add the context
+
+	// Check the function signature to determine if it requires params
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+
+	var fnargs []reflect.Value
+	if numIn == 1 {
+		// Old signature: (ctx)
+		fnargs = []reflect.Value{reflect.ValueOf(ctx)}
+	} else if funcType.IsVariadic() && numIn == 2 {
+		// New signature: (ctx, ...reqEditors)
+		// Just pass ctx, variadic parameter is optional
+		fnargs = []reflect.Value{reflect.ValueOf(ctx)}
+	} else if numIn >= 2 {
+		// Signature with params: (ctx, params, ...)
+		// Create an empty params struct
+		fnargs = []reflect.Value{
+			reflect.ValueOf(ctx),
+			reflect.New(funcType.In(1)).Elem(), // Empty params struct
+		}
+	} else {
+		return nil, fmt.Errorf("unexpected function signature")
+	}
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)

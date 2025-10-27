@@ -148,6 +148,10 @@ func printTable(resource Resource, slices []interface{}) {
 		if itemMap, ok := item.(map[string]interface{}); ok {
 			workspace := retrieveKey(itemMap, "workspace")
 			name := retrieveKey(itemMap, "name")
+			// Fallback to 'id' if 'name' is not available (e.g., for JobExecutions)
+			if name == "-" {
+				name = retrieveKey(itemMap, "id")
+			}
 			createdAt := retrieveDate(itemMap, "createdAt")
 
 			if resource.WithImage && resource.WithStatus {

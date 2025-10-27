@@ -19,6 +19,7 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/blaxel-ai/toolkit/cli/server"
+	"github.com/blaxel-ai/toolkit/sdk"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
@@ -339,7 +340,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name)
+		resp, errGet := client.GetAgentWithResponse(ctx, name, &sdk.GetAgentParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -347,7 +348,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name)
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, &sdk.GetFunctionParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -355,7 +356,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name)
+		resp, errGet := client.GetJobWithResponse(ctx, name, &sdk.GetJobParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -363,7 +364,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, &sdk.GetSandboxParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -412,7 +413,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name)
+		resp, errGet := client.GetAgentWithResponse(ctx, name, &sdk.GetAgentParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -420,7 +421,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name)
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, &sdk.GetFunctionParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -428,7 +429,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name)
+		resp, errGet := client.GetJobWithResponse(ctx, name, &sdk.GetJobParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -436,7 +437,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, &sdk.GetSandboxParams{})
 		if errGet != nil {
 			err = errGet
 		} else {
