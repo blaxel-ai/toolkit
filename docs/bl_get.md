@@ -43,13 +43,13 @@ The command can list all resources of a type or get details for a specific one.
   bl get agent my-agent
 
   # Get in JSON format (useful for scripting)
-  bl get agent my-agent -o json
+  bl get agent my-agent -ojson
 
   # Watch agent status in real-time
   bl get agent my-agent --watch
 
   # List all resources with table output
-  bl get agents -o table
+  bl get agents -otable
 
   # Get MCP servers (also called functions)
   bl get functions
@@ -57,6 +57,15 @@ The command can list all resources of a type or get details for a specific one.
 
   # List jobs
   bl get jobs
+
+  # Get specific job
+  bl get job my-job
+
+  # List executions for a job (nested resource)
+  bl get job my-job executions
+
+  # Get specific execution for a job
+  bl get job my-job execution <execution-id>
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
