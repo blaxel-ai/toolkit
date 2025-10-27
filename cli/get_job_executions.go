@@ -22,8 +22,15 @@ func HandleJobNestedResource(args []string) bool {
 
 	switch nestedResource {
 	case "executions":
-		// List all executions for this job
-		listJobExecutions(jobName)
+		// Check if execution ID is provided
+		if len(args) >= 3 {
+			// Get specific execution
+			executionID := args[2]
+			getJobExecution(jobName, executionID)
+		} else {
+			// List all executions for this job
+			listJobExecutions(jobName)
+		}
 		return true
 
 	case "execution":
