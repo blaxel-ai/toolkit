@@ -47,6 +47,17 @@ This command provides a terminal-like interface for:
 
 The shell connects to your sandbox via MCP (Model Control Protocol) over WebSocket.
 
+Limitations:
+- Interactive commands (vim, nano, less, top) are not supported
+- Long-running commands may experience timeouts or interruptions
+- Use non-interactive alternatives (cat, echo, ps) instead
+
+Keyboard Shortcuts:
+- Enter: Execute command
+- ↑/↓: Navigate command history
+- Ctrl+L: Clear screen
+- Ctrl+C: Exit sandbox shell
+
 Examples:
   bl connect sandbox my-sandbox
   bl connect sb my-sandbox
@@ -82,9 +93,14 @@ Examples:
 				found := false
 				sandboxes := response.JSON200
 				names := []string{}
+				var sandboxURL string
 				for _, sandbox := range *sandboxes {
 					if *sandbox.Metadata.Name == sandboxName {
 						found = true
+						// Get the direct URL from sandbox metadata
+						if sandbox.Metadata.Url != nil && *sandbox.Metadata.Url != "" {
+							sandboxURL = *sandbox.Metadata.Url
+						}
 						break
 					}
 					names = append(names, *sandbox.Metadata.Name)
@@ -98,6 +114,10 @@ Examples:
 						core.Print(fmt.Sprintf("Create a sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
 					}
 					os.Exit(1)
+				}
+				// Use the URL from metadata if available
+				if sandboxURL != "" {
+					url = sandboxURL
 				}
 			}
 			// Prepare authentication headers based on available credentials
@@ -132,13 +152,16 @@ Examples:
 			p := tea.NewProgram(shell, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 			if debug {
-				fmt.Println("Debug: Starting shell interface...")
+				core.Print("Debug: Starting shell interface...")
 			}
 
+			core.SetInteractiveMode(true)
 			if _, err := p.Run(); err != nil {
+				core.SetInteractiveMode(false)
 				core.PrintError("Connect", fmt.Errorf("failed to run sandbox connection: %w", err))
 				os.Exit(1)
 			}
+			core.SetInteractiveMode(false)
 		},
 	}
 

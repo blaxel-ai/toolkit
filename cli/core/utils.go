@@ -260,37 +260,41 @@ func GetHuhTheme() *huh.Theme {
 // PrintError prints a formatted error message with colors
 func PrintError(operation string, err error) {
 	// Print error header with red color and bold
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed, color.Bold).Sprint("✗"),
-		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation))
+		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation)))
 
 	// Print reason with lighter red color
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed).Sprint("Reason:"),
-		color.New(color.FgWhite).Sprint(err.Error()))
+		color.New(color.FgWhite).Sprint(err.Error())))
 }
 
 // PrintWarning prints a formatted warning message with colors
 func PrintWarning(message string) {
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgYellow, color.Bold).Sprint("⚠"),
-		color.New(color.FgYellow).Sprint(message))
+		color.New(color.FgYellow).Sprint(message)))
 }
 
 // PrintSuccess prints a formatted success message with colors
 func PrintSuccess(message string) {
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgGreen, color.Bold).Sprint("✓"),
-		color.New(color.FgGreen).Sprint(message))
+		color.New(color.FgGreen).Sprint(message)))
 }
 
 func PrintInfo(message string) {
-	fmt.Printf("%s %s\n",
+	Print(fmt.Sprintf("%s %s\n",
 		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
-		color.New(color.FgBlue).Sprint(message))
+		color.New(color.FgBlue).Sprint(message)))
 }
 
 func Print(message string) {
+	if IsInteractiveMode() {
+		return
+	}
+	message = strings.TrimSuffix(message, "\n")
 	fmt.Println(message)
 }
 
@@ -323,6 +327,20 @@ func Slugify(s string) string {
 	return s
 }
 
+// Pluralize returns a basic English plural of a given singular noun
+func Pluralize(word string) string {
+	lower := strings.ToLower(word)
+
+	switch {
+	case strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") || strings.HasSuffix(lower, "z") || strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "sh"):
+		return word + "es"
+	case strings.HasSuffix(lower, "y") && !strings.HasSuffix(lower, "ay") && !strings.HasSuffix(lower, "ey") && !strings.HasSuffix(lower, "iy") && !strings.HasSuffix(lower, "oy") && !strings.HasSuffix(lower, "uy"):
+		return word[:len(word)-1] + "ies"
+	default:
+		return word + "s"
+	}
+}
+
 // GetResults is a public wrapper for getResults
 func GetResults(action string, filePath string, recursive bool) ([]Result, error) {
 	return getResults(action, filePath, recursive)
@@ -331,4 +349,17 @@ func GetResults(action string, filePath string, recursive bool) ([]Result, error
 // GetResources returns the resources slice
 func GetResources() []*Resource {
 	return resources
+}
+
+func IsVolumeTemplate(resourceType string) bool {
+	if resourceType == "volumetemplate" {
+		return true
+	}
+	if resourceType == "volume-template" {
+		return true
+	}
+	if resourceType == "vt" {
+		return true
+	}
+	return false
 }

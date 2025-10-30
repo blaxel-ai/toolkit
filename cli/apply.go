@@ -24,6 +24,7 @@ func init() {
 type ResourceOperationResult struct {
 	Status    string
 	UploadURL string
+	ErrorMsg  string
 }
 
 type ApplyResult struct {
@@ -55,12 +56,51 @@ func ApplyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply a configuration to a resource by file",
-		Long:  "Apply a configuration to a resource by file",
-		Example: `
-			bl apply -f ./my-deployment.yaml
-			# Or using stdin
-			cat file.yaml | bl apply -f -
-		`,
+		Long: `Apply configuration changes to resources declaratively using YAML files.
+
+This command is similar to Kubernetes 'kubectl apply' - it creates resources
+if they don't exist, or updates them if they do (idempotent operation).
+
+Use 'apply' for Infrastructure as Code workflows where you:
+- Manage resources via configuration files
+- Version control your infrastructure
+- Deploy multiple related resources together
+- Implement GitOps practices
+
+Difference from 'deploy':
+- 'apply' manages resource configuration (metadata, settings, specs)
+- 'deploy' builds and uploads code as container images
+
+For deploying code changes to agents/jobs, use 'bl deploy'.
+For managing resource configuration, use 'bl apply'.
+
+The command respects environment variables and secrets, which can be injected
+via -e flag for .env files or -s flag for command-line secrets.`,
+		Example: `  # Apply a single resource
+  bl apply -f agent.yaml
+
+  # Apply all resources in directory
+  bl apply -f ./resources/ -R
+
+  # Apply with environment variable substitution
+  bl apply -f deployment.yaml -e .env.production
+
+  # Apply from stdin (useful for CI/CD)
+  cat config.yaml | bl apply -f -
+
+  # Apply with secrets
+  bl apply -f config.yaml -s API_KEY=xxx -s DB_PASSWORD=yyy
+
+  # Example YAML structure:
+  # apiVersion: blaxel.ai/v1alpha1
+  # kind: Agent
+  # metadata:
+  #   name: my-agent
+  # spec:
+  #   runtime:
+	#     generation: mk3
+	#     image: agent/my-template-agent:latest
+  #     memory: 4096`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets("", envFiles)
@@ -136,6 +176,10 @@ func Apply(filePath string, opts ...ApplyOption) ([]ApplyResult, error) {
 func handleResourceOperation(resource *core.Resource, name string, resourceObject interface{}, operation string) (*http.Response, error) {
 	ctx := context.Background()
 
+	if resource.Put == nil && operation == "put" {
+		operation = "post"
+	}
+
 	// Get the appropriate function based on operation
 	var fn reflect.Value
 	if operation == "put" {
@@ -191,8 +235,12 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
-			reflect.ValueOf(destBody).Elem(),
 		}
+		if resource.Kind == "VolumeTemplate" {
+			params := sdk.UpdateVolumeTemplateParams{}
+			values = append(values, reflect.ValueOf(&params))
+		}
+		values = append(values, reflect.ValueOf(destBody).Elem())
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
@@ -200,8 +248,12 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 	case "post":
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
-			reflect.ValueOf(destBody).Elem(),
 		}
+		if resource.Kind == "VolumeTemplate" {
+			params := sdk.CreateVolumeTemplateParams{}
+			values = append(values, reflect.ValueOf(&params))
+		}
+		values = append(values, reflect.ValueOf(destBody).Elem())
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
@@ -235,7 +287,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
 		if err == nil && response.StatusCode() == 200 {
 			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", core.GetAppURL(), core.GetWorkspace(), *response.JSON200.Spec.Integration)
-			fmt.Printf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl)
+			core.Print(fmt.Sprintf("Resource %s:%s already exists, skipping update\nTo edit, go to %s\n", resourceName, name, editUrl))
 			return &ResourceOperationResult{
 				Status: "skipped",
 			}
@@ -244,7 +296,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := handleResourceOperation(resource, name, resourceObject, "put")
 	if err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 	if response == nil {
@@ -254,7 +306,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 
@@ -265,14 +317,19 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
-		os.Exit(1)
+		errorMsg := buf.String()
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
+		// Don't exit in interactive mode - let the caller handle the failure
+		if !core.IsInteractiveMode() {
+			os.Exit(1)
+		}
+		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v", formattedError, err))
 		return &failedResponse
 	}
 	result := ResourceOperationResult{
@@ -281,7 +338,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
-	fmt.Printf("Resource %s:%s configured\n", resourceName, name)
+	core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 	return &result
 }
 
@@ -292,7 +349,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	response, err := handleResourceOperation(resource, name, resourceObject, "post")
 	if err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 	if response == nil {
@@ -302,19 +359,24 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	defer func() { _ = response.Body.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resourceName, name, buf.String())
-		os.Exit(1)
+		errorMsg := buf.String()
+		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
+		// Don't exit in interactive mode - let the caller handle the failure
+		if !core.IsInteractiveMode() {
+			os.Exit(1)
+		}
+		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
 
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v\n", formattedError, err)
+		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
 		return &failedResponse
 	}
 	result := ResourceOperationResult{
@@ -323,6 +385,6 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
-	fmt.Printf("Resource %s:%s created\n", resourceName, name)
+	core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 	return &result
 }

@@ -12,10 +12,11 @@ import (
 type newType string
 
 const (
-	newTypeAgent   newType = "agent"
-	newTypeMCP     newType = "mcp"
-	newTypeSandbox newType = "sandbox"
-	newTypeJob     newType = "job"
+	newTypeAgent          newType = "agent"
+	newTypeMCP            newType = "mcp"
+	newTypeSandbox        newType = "sandbox"
+	newTypeJob            newType = "job"
+	newTypeVolumeTemplate newType = "volumetemplate"
 )
 
 func init() {
@@ -39,8 +40,44 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new [type] [directory]",
 		Args:  cobra.RangeArgs(0, 2),
-		Short: "Create a new blaxel resource (agent, mcp, sandbox, job)",
-		Long:  "Create a new blaxel resource (agent, mcp, sandbox, job) with a unified command",
+		Short: "Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)",
+		Long: `Create a new Blaxel resource from templates.
+
+This command scaffolds a new project with the necessary configuration files,
+dependencies, and example code to get you started quickly.
+
+Resource Types:
+  agent     - AI agent application that can chat, use tools, and access data
+              Use cases: Customer support bots, coding assistants, data analysts
+
+  mcp       - Model Context Protocol server that extends agent capabilities
+              Use cases: Custom tools, API integrations, database connectors
+
+  sandbox   - Isolated execution environment for testing and running code
+              Use cases: Code execution, testing, isolated workloads
+
+  job       - Batch processing task that runs on-demand or on schedule
+              Use cases: ETL pipelines, data processing, scheduled workflows
+
+  volumetemplate - Pre-configured volume template for creating volumes
+              		Use cases: Persistent storage templates, data volume configurations
+
+Interactive Mode (Recommended):
+When called without arguments, the CLI guides you through:
+1. Choosing a resource type
+2. Selecting a template (language/framework)
+3. Naming your project directory
+4. Setting up initial configuration
+
+Non-Interactive Mode:
+Use --template and --yes flags for automation and CI/CD workflows.
+
+After Creation:
+1. cd into your new directory
+2. Review and customize the generated blaxel.toml configuration
+3. Develop your resource locally with 'bl serve --hotreload'
+4. Test it works as expected
+5. Deploy to Blaxel with 'bl deploy'`,
 		Run: func(cmd *cobra.Command, args []string) {
 			var t newType
 			dirArg := ""
@@ -54,7 +91,7 @@ func NewCmd() *cobra.Command {
 
 			if t == "" {
 				if noTTY {
-					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job"))
+					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volumetemplate"))
 					return
 				}
 				// Prompt for type using huh
@@ -68,13 +105,13 @@ func NewCmd() *cobra.Command {
 								huh.NewOption("MCP server", string(newTypeMCP)),
 								huh.NewOption("Sandbox", string(newTypeSandbox)),
 								huh.NewOption("Job", string(newTypeJob)),
+								huh.NewOption("Volume template", string(newTypeVolumeTemplate)),
 							).
 							Value(&selected),
 					),
 				)
 				form.WithTheme(core.GetHuhTheme())
 				if err := form.Run(); err != nil {
-					fmt.Println("Cancel create blaxel resource")
 					return
 				}
 				t = parseNewType(selected)
@@ -90,27 +127,53 @@ func NewCmd() *cobra.Command {
 				RunSandboxCreation(dirArg, templateName, noTTY)
 			case newTypeJob:
 				RunJobCreation(dirArg, templateName, noTTY)
+			case newTypeVolumeTemplate:
+				RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
-				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job", t))
+				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volume-template", t))
 			}
 		},
 	}
 
 	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template to use (skips interactive prompt)")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive prompts and use defaults")
+
+	cmd.Example = `  # Interactive creation (recommended for beginners)
+  bl new
+
+  # Create agent interactively
+  bl new agent
+
+  # Create agent with specific template
+  bl new agent my-agent -t template-google-adk-py
+
+  # Create MCP server with default template (non-interactive)
+  bl new mcp my-mcp-server -y
+
+  # Create job with specific template
+  bl new job my-batch-job -t template-job-py
+
+  # Full workflow example:
+  bl new agent my-assistant
+  cd my-assistant
+  bl serve --hotreload    # Test locally
+  bl deploy               # Deploy to Blaxel
+  bl chat my-assistant    # Chat with deployed agent`
 	return cmd
 }
 
 func parseNewType(s string) newType {
 	switch strings.ToLower(s) {
-	case string(newTypeAgent):
+	case string(newTypeAgent), "ag":
 		return newTypeAgent
 	case string(newTypeMCP):
 		return newTypeMCP
-	case string(newTypeSandbox):
+	case string(newTypeSandbox), "sbx":
 		return newTypeSandbox
-	case string(newTypeJob):
+	case string(newTypeJob), "jb":
 		return newTypeJob
+	case string(newTypeVolumeTemplate), "vt", "volume-template":
+		return newTypeVolumeTemplate
 	default:
 		return ""
 	}

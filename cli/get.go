@@ -27,6 +27,54 @@ func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get a resource",
+		Long: `Retrieve information about Blaxel resources in your workspace.
+
+A "resource" in Blaxel refers to any deployable or manageable entity:
+- agents: AI agent applications
+- functions/mcp: Model Context Protocol servers (tool providers)
+- jobs: Batch processing tasks
+- sandboxes: Isolated execution environments
+- models: AI model configurations
+- policies: Access control policies
+- volumes: Persistent storage
+- integrationconnections: External service integrations
+
+Output Formats:
+Use -o flag to control output format:
+- pretty: Human-readable colored output (default)
+- json: Machine-readable JSON (for scripting)
+- yaml: YAML format
+- table: Tabular format with columns
+
+Watch Mode:
+Use --watch to continuously monitor a resource and see updates in real-time.
+Useful for tracking deployment status or watching for changes.
+
+The command can list all resources of a type or get details for a specific one.`,
+		Example: `  # List all agents
+  bl get agents
+
+  # Get specific agent details
+  bl get agent my-agent
+
+  # Get in JSON format (useful for scripting)
+  bl get agent my-agent -o json
+
+  # Watch agent status in real-time
+  bl get agent my-agent --watch
+
+  # List all resources with table output
+  bl get agents -o table
+
+  # Get MCP servers (also called functions)
+  bl get functions
+  bl get mcp
+
+  # List jobs
+  bl get jobs
+
+  # Monitor sandbox status
+  bl get sandbox my-sandbox --watch`,
 	}
 	var watch bool
 	resources := core.GetResources()

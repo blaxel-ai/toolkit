@@ -7,7 +7,7 @@ slug: bl_delete_model
 Delete model
 
 ```
-bl delete model name [flags]
+bl delete model name [name...] [flags]
 ```
 
 ### Options

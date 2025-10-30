@@ -36,6 +36,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          LDFLAGS: "-X github.com/blaxel-ai/toolkit/cli/core.commit=${{ github.sha }}"
       - name: Upload assets
         uses: actions/upload-artifact@v4
         with:

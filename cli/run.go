@@ -39,9 +39,56 @@ func RunCmd() *cobra.Command {
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
 		Short: "Run a resource on blaxel",
-		Example: `bl run agent my-agent --data '{"inputs": "Hello, world!"}'
-bl run model my-model --data '{"inputs": "Hello, world!"}'
-bl run job my-job --file myjob.json`,
+		Long: `Execute a Blaxel resource with custom input data.
+
+Different resource types behave differently when run:
+
+- agent: Send a single request (non-interactive, unlike 'bl chat')
+         Returns agent response for the given input
+
+- model: Make an inference request to an AI model
+         Calls the model's API endpoint with your data
+
+- job: Start a job execution with batch input
+       Processes multiple tasks defined in JSON batch file
+
+- function/mcp: Invoke an MCP server function
+                Calls a specific tool or method
+
+Local vs Remote:
+- Remote (default): Runs against deployed resources in your workspace
+- Local (--local): Runs against locally served resources (requires 'bl serve')
+
+Input Formats:
+- Inline JSON with --data '{"key": "value"}'
+- From file with --file path/to/input.json
+
+Advanced Usage:
+Use --path, --method, and --params for custom HTTP requests to your resources.
+This is useful for testing specific endpoints or non-standard API calls.`,
+		Example: `  # Run agent with inline data
+  bl run agent my-agent --data '{"inputs": "Summarize this text"}'
+
+  # Run agent with file input
+  bl run agent my-agent --file request.json
+
+  # Run job with batch file
+  bl run job my-job --file batches/process-users.json
+
+  # Run job locally for testing (requires 'bl serve' in another terminal)
+  bl run job my-job --local --file batch.json
+
+  # Run model with custom endpoint
+  bl run model my-model --path /v1/chat/completions --data '{"messages": [...]}'
+
+  # Run with query parameters
+  bl run agent my-agent --data '{}' --params "stream=true" --params "max_tokens=100"
+
+  # Run with custom headers
+  bl run agent my-agent --data '{}' --header "X-User-ID: 123"
+
+  # Debug mode (see full request/response details)
+  bl run agent my-agent --data '{}' --debug`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || len(args) == 1 {
 				core.PrintError("Run", fmt.Errorf("resource type and name are required"))
@@ -260,8 +307,8 @@ func runJobLocally(data string, folder string, config core.Config) {
 			envMap := map[string]string{}
 			for _, env := range os.Environ() {
 				parts := strings.SplitN(env, "=", 2)
-				if len(parts) == 2 {
-					envMap[parts[0]] = parts[1]
+				if len(parts) >= 2 {
+					envMap[parts[0]] = strings.Join(parts[1:], "=")
 				}
 			}
 			for k, v := range dotenvVars {

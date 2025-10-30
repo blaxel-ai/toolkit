@@ -7,7 +7,7 @@ slug: bl_delete_integrationconnection
 Delete integrationconnection
 
 ```
-bl delete integrationconnection name [flags]
+bl delete integrationconnection name [name...] [flags]
 ```
 
 ### Options

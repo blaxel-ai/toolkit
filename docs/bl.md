@@ -27,14 +27,17 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl create-job](bl_create-job.md)	 - Create a new blaxel job
 * [bl create-mcp-server](bl_create-mcp-server.md)	 - Create a new blaxel mcp server
 * [bl create-sandbox](bl_create-sandbox.md)	 - Create a new blaxel sandbox
+* [bl create-volume-template](bl_create-volume-template.md)	 - Create a new blaxel volume template
 * [bl delete](bl_delete.md)	 - Delete a resource
 * [bl deploy](bl_deploy.md)	 - Deploy on blaxel
 * [bl get](bl_get.md)	 - Get a resource
 * [bl login](bl_login.md)	 - Login to Blaxel
 * [bl logout](bl_logout.md)	 - Logout from Blaxel
-* [bl new](bl_new.md)	 - Create a new blaxel resource (agent, mcp, sandbox, job)
+* [bl logs](bl_logs.md)	 - View logs for a resource
+* [bl new](bl_new.md)	 - Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)
 * [bl run](bl_run.md)	 - Run a resource on blaxel
 * [bl serve](bl_serve.md)	 - Serve a blaxel project
+* [bl token](bl_token.md)	 - Retrieve authentication token for a workspace
 * [bl version](bl_version.md)	 - Print the version number
 * [bl workspaces](bl_workspaces.md)	 - List all workspaces with the current workspace highlighted, set optionally a new current workspace
 

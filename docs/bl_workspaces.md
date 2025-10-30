@@ -6,14 +6,56 @@ slug: bl_workspaces
 
 List all workspaces with the current workspace highlighted, set optionally a new current workspace
 
+### Synopsis
+
+List and manage Blaxel workspaces.
+
+A workspace is an isolated environment within Blaxel that contains your
+resources (agents, jobs, models, sandboxes, etc.). Workspaces provide:
+
+- Isolation between projects or environments (dev/staging/prod)
+- Separate billing and resource quotas
+- Team collaboration boundaries
+- Independent access control and permissions
+
+The current workspace (marked with *) determines where commands operate.
+All commands like 'bl deploy', 'bl get', 'bl run' use the current workspace
+unless you override with the --workspace flag.
+
+To switch workspaces, provide the workspace name as an argument.
+To list all authenticated workspaces, run without arguments.
+
 ```
 bl workspaces [workspace] [flags]
+```
+
+### Examples
+
+```
+  # List all authenticated workspaces
+  bl workspaces
+
+  # Switch to different workspace
+  bl workspaces production
+
+  # Use specific workspace for one command (doesn't switch current)
+  bl get agents --workspace staging
+
+  # Get only the current workspace name
+  bl workspaces --current
+
+  # Common multi-workspace workflow
+  bl workspaces dev        # Switch to dev
+  bl deploy                # Deploy to dev
+  bl workspaces prod       # Switch to prod
+  bl deploy                # Deploy to prod
 ```
 
 ### Options
 
 ```
-  -h, --help   help for workspaces
+      --current   Display only the current workspace name
+  -h, --help      help for workspaces
 ```
 
 ### Options inherited from parent commands

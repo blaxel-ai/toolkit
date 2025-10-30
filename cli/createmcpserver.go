@@ -26,11 +26,44 @@ func CreateMCPServerCmd() *cobra.Command {
 		Args:    cobra.MaximumNArgs(1),
 		Aliases: []string{"cm", "cms"},
 		Short:   "Create a new blaxel mcp server",
-		Long:    "Create a new blaxel mcp server",
-		Example: `
-bl create-mcp-server my-mcp-server
-bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py
-bl create-mcp-server my-mcp-server --template template-mcp-hello-world-py -y`,
+		Long: `Create a new Model Context Protocol (MCP) server.
+
+MCP servers extend agent capabilities by providing custom tools, data sources,
+and integrations. They expose functions that agents can call to perform actions
+or retrieve information.
+
+Common use cases:
+- Custom API integrations (GitHub, Jira, CRM systems)
+- Database connectors and query tools
+- File system operations
+- Data transformation and analysis tools
+- External service orchestration
+
+MCP is a standard protocol for agent-tool communication. Your MCP server can
+be used by any agent that supports the protocol, making it reusable across
+multiple agents and projects.
+
+The command scaffolds a complete MCP server project with:
+- Server setup and configuration
+- Example tool implementations
+- Protocol handling code
+- Testing utilities
+
+After creation: cd into the directory, implement your tools, test with
+'bl serve --hotreload', then 'bl deploy' to make available to agents.
+
+Note: Prefer using 'bl new mcp' which provides a unified creation experience.`,
+		Example: `  # Interactive creation
+  bl create-mcp-server my-tools
+
+  # With specific template
+  bl create-mcp-server my-tools --template template-mcp-hello-world-py
+
+  # Non-interactive with defaults
+  bl create-mcp-server my-tools -y
+
+  # Recommended: Use unified 'new' command instead
+  bl new mcp my-tools`,
 		Run: func(cmd *cobra.Command, args []string) {
 			dirArg := ""
 			if len(args) >= 1 {

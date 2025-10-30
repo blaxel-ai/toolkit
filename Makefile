@@ -18,7 +18,7 @@ GIT_COMMIT_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unkn
 
 build:
 	@echo "🔨 Building with commit: $(GIT_COMMIT_SHORT)"
-	LDFLAGS="-X github.com/blaxel-ai/toolkit/cli/core.commit=$(GIT_COMMIT)" goreleaser release --snapshot --clean --skip homebrew
+	goreleaser release --snapshot --clean --skip homebrew
 	@if [ "$(shell uname -s)" = "Darwin" ]; then \
 		if [ -d "./dist/blaxel_darwin_arm64" ]; then \
 			cp ./dist/blaxel_darwin_arm64/blaxel ~/.local/bin/blaxel; \
@@ -36,7 +36,10 @@ build-sdk:
 # Development build without goreleaser
 build-dev:
 	@echo "🔨 Development build with commit: $(GIT_COMMIT_SHORT)"
-	go build -ldflags "-X github.com/blaxel-ai/toolkit/cli/core.commit=$(GIT_COMMIT)" -o ./bin/blaxel ./
+	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o ./bin/blaxel ./
+	cp ./bin/blaxel ~/.local/bin/blaxel;
+	cp ~/.local/bin/blaxel ~/.local/bin/bl;
+	rm -r ./bin;
 	@echo "✅ Binary built: ./bin/blaxel"
 
 doc:
@@ -67,11 +70,16 @@ test-integration:
 	go test -count=1 -v -timeout=30m -run TestCLIWorkflow_CompleteFlow ./test/integration/
 
 install:
+	brew install goreleaser
 	uv pip install openapi-python-client
 
 tag:
 	git tag -a v$(ARGS) -m "Release v$(ARGS)"
 	git push origin v$(ARGS)
+
+clean:
+	rm -rf ./dist
+	rm -rf ./bin
 
 %:
 	@:

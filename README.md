@@ -1,102 +1,113 @@
 # Blaxel Toolkit
 
-This repository contains the Blaxel CLI toolkit for interacting with Blaxel APIs.
+> A powerful CLI and Go SDK for building, deploying, and managing AI agents on the Blaxel platform.
+
+## What is Blaxel?
+
+Blaxel is a platform for deploying production-ready AI agents, MCP servers, sandboxes, and jobs. The Blaxel Toolkit provides everything you need to interact with the Blaxel platform from your command line or Go applications.
 
 ## Installation
 
-Follow the installation instructions at [docs.blaxel.ai](https://docs.blaxel.ai/cli-reference/introduction).
-
-## Commands
-
-### Explore Sandbox
-
-The `peek sandbox` command provides an interactive shell interface for executing commands in sandbox environments using MCP (Model Control Protocol) over WebSocket. It works like a terminal where you can:
-
-- Execute any shell command in the sandbox
-- View command output in real-time
-- Navigate through command history
-- Use built-in shell features like `cd`, `pwd`, etc.
-- Browse files and directories
-- Manage the sandbox environment
-
-#### Usage
+### macOS (Homebrew)
 
 ```bash
-bl peek sandbox [sandbox-name] [flags]
-```
-
-#### Examples
-
-```bash
-# Open an interactive shell for a sandbox
-bl peek sandbox my-sandbox
-
-# Open sandbox shell with debug mode enabled
-bl peek sandbox my-sandbox --debug
-
-# Connect to a custom WebSocket URL
-bl peek sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox
-```
-
-#### Flags
-
-- `--debug`: Enable debug mode for verbose output and connection details
-- `--url string`: Custom WebSocket URL for MCP connection (defaults to `wss://run.blaxel.ai/$WORKSPACE/sandboxes/$SANDBOX_NAME`)
-
-#### Interactive Controls
-
-**Shell Interface:**
-- Type any command and press `Enter` to execute
-- `↑/↓`: Navigate through command history
-- `Ctrl+L`: Clear screen
-- `Ctrl+C`: Exit sandbox shell
-
-**Built-in Commands:**
-- `help`: Show available commands and usage
-- `clear` or `cls`: Clear the screen
-- `pwd`: Show current directory
-- `cd <path>`: Change directory
-- `cat <file>`: Display file contents
-- `echo <text>`: Display text
-- `exit` or `quit`: Exit the sandbox shell
-
-**Standard Shell Commands:**
-All standard Unix/Linux commands are available and executed in the sandbox environment:
-- `ls`, `ll`, `find`, `grep`: File operations and search
-- `mkdir`, `touch`, `rm`: File/directory management
-- `ps`, `top`, `kill`: Process management
-- `git`, `npm`, `python`, etc.: Development tools (if available in sandbox)
-- And many more...
-
-#### How it Works
-
-1. **Health Check**: Before connecting, the CLI converts the WebSocket URL to HTTP and checks the `/health` endpoint to verify the service is available
-2. **MCP Connection**: Establishes a WebSocket connection to `wss://run.blaxel.ai/$WORKSPACE/sandboxes/$SANDBOX_NAME`
-3. **Command Execution**: Uses MCP tools (`processExecute`) to run commands in the sandbox
-4. **Real-time Output**: Retrieves command output directly from the execute response with `includeLogs: true`
-5. **File Operations**: Browse and manage files using MCP tools (`get_file_or_directory`, `create_file`, etc.)
-6. **Directory Tracking**: Automatically tracks current directory for navigation commands
-
-#### Authentication
-
-The command uses the same authentication system as other Blaxel CLI commands. Make sure you're logged in to the appropriate workspace:
-
-```bash
-bl login my-workspace
-```
-
-The MCP connection uses your stored credentials (API key, access token, or client credentials) for authentication.
-
-## Other Commands
-
-For a full list of available commands, run:
-
-```bash
-bl --help
-```
-
-## Install cli on MacOS
-```sh
 brew tap blaxel-ai/blaxel
 brew install blaxel
 ```
+
+### Other Platforms
+
+Download the latest release from [GitHub Releases](https://github.com/blaxel-ai/toolkit/releases) or see [docs.blaxel.ai](https://docs.blaxel.ai/cli-reference/introduction) for detailed installation instructions.
+
+## Quick Start
+
+```bash
+# Login to your workspace
+bl login my-workspace
+
+# Create a new agent
+bl new agent my-agent
+
+# Deploy your agent
+bl deploy
+
+# Connect to a sandbox
+bl connect sandbox my-sandbox
+
+# Chat with your agent
+bl chat my-agent
+```
+
+## Key Features
+
+- **🤖 Agent Management**: Create, deploy, and chat with AI agents
+- **🔌 MCP Servers**: Build Model Context Protocol servers for tool integration
+- **📦 Sandboxes**: Interactive shell environments for remote execution
+- **⚙️ Jobs**: Schedule and run background tasks
+- **🚀 Deployment**: Interactive deployment with real-time logs
+- **📊 Resource Management**: Get, delete, and manage all your Blaxel resources
+- **🔐 Authentication**: Multiple auth methods (API key, device flow, client credentials)
+
+## Core Commands
+
+| Command | Description |
+|---------|-------------|
+| `bl login` | Authenticate with Blaxel workspace |
+| `bl new` | Create agents, MCP servers, sandboxes, or jobs |
+| `bl deploy` | Deploy your projects to Blaxel |
+| `bl get` | List resources (agents, sandboxes, models, etc.) |
+| `bl connect sandbox` | Interactive shell for sandbox environments |
+| `bl chat` | Chat with deployed agents |
+| `bl run` | Execute jobs or agents |
+| `bl serve` | Run projects locally |
+
+Run `bl --help` or `bl <command> --help` for detailed usage.
+
+## Documentation
+
+- 📖 [Full CLI Reference](https://docs.blaxel.ai/cli-reference)
+- 🔧 [Command Examples](./docs/bl.md)
+- 🚀 [Getting Started Guide](https://docs.blaxel.ai)
+- 📦 [Sample Configurations](./samples)
+
+## Repository Structure
+
+```
+.
+├── cli/          # CLI command implementations
+├── sdk/          # Go SDK for Blaxel APIs
+├── vscode/       # VSCode extension
+├── docs/         # Auto-generated command documentation
+├── samples/      # Example configurations
+└── templates/    # Code generation templates
+```
+
+## Development
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
+
+```bash
+# Build the CLI
+make build
+
+# Run tests
+make test
+
+# Generate SDK from OpenAPI spec
+make sdk
+```
+
+## Go SDK
+
+The toolkit includes a Go SDK for programmatic access to Blaxel APIs:
+
+```go
+import "github.com/blaxel-ai/toolkit/sdk"
+
+// Use the SDK in your Go applications
+client := sdk.NewClient(apiKey)
+```
+
+## License
+
+See [LICENSE](./LICENSE) for details.

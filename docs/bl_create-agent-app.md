@@ -8,7 +8,26 @@ Create a new blaxel agent app
 
 ### Synopsis
 
-Create a new blaxel agent app
+Create a new AI agent application from templates.
+
+An agent is a conversational AI system that can interact with users, access tools,
+maintain context across conversations, and integrate with external services.
+
+Common use cases:
+- Customer support chatbots
+- Data analysis assistants
+- Code review helpers
+- Personal productivity assistants
+- Domain-specific expert systems
+
+The command scaffolds a complete agent project with configuration, dependencies,
+and example code. You can choose from multiple templates supporting different
+frameworks (Google ADK, LangChain, custom, etc.) and languages (Python, TypeScript).
+
+After creation: cd into the directory, run 'bl serve --hotreload' for local
+development, then 'bl deploy' when ready to deploy.
+
+Note: Prefer using 'bl new agent' which provides a unified creation experience.
 
 ```
 bl create-agent-app [directory] [flags]
@@ -17,10 +36,17 @@ bl create-agent-app [directory] [flags]
 ### Examples
 
 ```
+  # Interactive creation
+  bl create-agent-app my-agent
 
-bl create-agent-app my-agent-app
-bl create-agent-app my-agent-app --template template-google-adk-py
-bl create-agent-app my-agent-app --template template-google-adk-py -y
+  # With specific template
+  bl create-agent-app my-agent --template template-google-adk-py
+
+  # Non-interactive with defaults
+  bl create-agent-app my-agent --template template-google-adk-py -y
+
+  # Recommended: Use unified 'new' command instead
+  bl new agent my-agent
 ```
 
 ### Options
