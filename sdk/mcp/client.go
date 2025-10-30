@@ -53,6 +53,7 @@ func NewMCPClientWithTransport(serverURL string, headers map[string]string, tran
 		}
 	}
 
+	fmt.Println("transportType", transportType)
 	// Create MCP client implementation
 	impl := &mcp.Implementation{
 		Name:    "mcp-client",
@@ -251,6 +252,38 @@ func (c *MCPClient) reconnect() error {
 	return nil
 }
 
+// isConnectionError checks if an error indicates a connection problem that should trigger reconnection
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := strings.ToLower(err.Error())
+
+	// Check for various connection error patterns
+	errorPatterns := []string{
+		"connection closed",
+		"session not found",
+		"use of closed network connection",
+		"eof",
+		"broken pipe",
+		"hanging get",
+		"failed to reconnect",
+		"connection reset",
+		"connection refused",
+		"network is unreachable",
+		"no such host",
+		"i/o timeout",
+		"context deadline exceeded",
+	}
+
+	for _, pattern := range errorPatterns {
+		if strings.Contains(errMsg, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // ListTools returns the list of available tools from the server
 func (c *MCPClient) ListTools(ctx context.Context) (*mcp.ListToolsResult, error) {
 	c.mu.Lock()
@@ -259,11 +292,8 @@ func (c *MCPClient) ListTools(ctx context.Context) (*mcp.ListToolsResult, error)
 
 	result, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
-		// Check if the error indicates a closed connection
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "connection closed") || strings.Contains(errMsg, "session not found") ||
-			strings.Contains(errMsg, "use of closed network connection") || strings.Contains(errMsg, "EOF") ||
-			strings.Contains(errMsg, "broken pipe") {
+		// Check if the error indicates a connection problem
+		if isConnectionError(err) {
 			// Try to reconnect once
 			if reconnectErr := c.reconnect(); reconnectErr != nil {
 				return nil, fmt.Errorf("failed to reconnect after connection error: %w", reconnectErr)
@@ -312,11 +342,8 @@ func (c *MCPClient) CallTool(ctx context.Context, toolName string, params any) (
 		Arguments: arguments,
 	})
 	if err != nil {
-		// Check if the error indicates a closed connection
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "connection closed") || strings.Contains(errMsg, "session not found") ||
-			strings.Contains(errMsg, "use of closed network connection") || strings.Contains(errMsg, "EOF") ||
-			strings.Contains(errMsg, "broken pipe") {
+		// Check if the error indicates a connection problem
+		if isConnectionError(err) {
 			// Try to reconnect once
 			if reconnectErr := c.reconnect(); reconnectErr != nil {
 				return nil, fmt.Errorf("failed to reconnect after connection error: %w", reconnectErr)
