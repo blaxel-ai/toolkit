@@ -65,7 +65,6 @@ type (
 		log string
 	}
 	deployCompleteMsg struct{}
-	tickMsg           struct{}
 )
 
 // Styles

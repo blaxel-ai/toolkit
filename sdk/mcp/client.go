@@ -53,7 +53,6 @@ func NewMCPClientWithTransport(serverURL string, headers map[string]string, tran
 		}
 	}
 
-	fmt.Println("transportType", transportType)
 	// Create MCP client implementation
 	impl := &mcp.Implementation{
 		Name:    "mcp-client",

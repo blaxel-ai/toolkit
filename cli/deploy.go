@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -954,13 +955,19 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 			if metadata, ok := result.Metadata.(map[string]interface{}); ok {
 				if name, exists := metadata["name"]; exists && fmt.Sprintf("%v", name) == resource.Name {
 					// Apply this specific resource
-					_, err := ApplyResources([]core.Result{result})
+					results, err := ApplyResources([]core.Result{result})
 					if err != nil {
 						model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", err)
 						model.AddBuildLog(idx, fmt.Sprintf("Failed to apply resource: %v", err))
 						return
 					}
-
+					for _, result := range results {
+						if result.Result.Status == "failed" {
+							model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", errors.New(result.Result.ErrorMsg))
+							model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %v", result.Name, result.Result.ErrorMsg))
+							return
+						}
+					}
 					model.AddBuildLog(idx, "Resource applied, monitoring status...")
 
 					// For resources that need monitoring, start status polling
