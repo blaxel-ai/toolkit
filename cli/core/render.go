@@ -108,6 +108,35 @@ func truncateString(s string, maxLength int) string {
 	return s[:maxLength-3] + "..."
 }
 
+// formatVolumeSize formats volume size in MB to human-readable format
+func formatVolumeSize(sizeInMB int) string {
+	if sizeInMB >= 1024 {
+		sizeInGB := float64(sizeInMB) / 1024.0
+		return fmt.Sprintf("%.2f GB", sizeInGB)
+	}
+	return fmt.Sprintf("%d MB", sizeInMB)
+}
+
+// retrieveVolumeSize retrieves and formats the volume size from spec.size
+func retrieveVolumeSize(itemMap map[string]interface{}) string {
+	// Navigate to spec.size
+	if spec, ok := itemMap["spec"].(map[string]interface{}); ok {
+		if size, ok := spec["size"]; ok {
+			switch v := size.(type) {
+			case int:
+				return formatVolumeSize(v)
+			case float64:
+				return formatVolumeSize(int(v))
+			case *int:
+				if v != nil {
+					return formatVolumeSize(*v)
+				}
+			}
+		}
+	}
+	return "-"
+}
+
 // navigateToKey recursively navigates through nested maps using the provided keys
 func navigateToKey(m map[string]interface{}, keys []string) interface{} {
 	if len(keys) == 0 {
@@ -134,6 +163,10 @@ func printTable(resource Resource, slices []interface{}) {
 		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "IMAGE", "CREATED_AT"})
 	} else if resource.WithImage {
 		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "IMAGE", "CREATED_AT"})
+	} else if resource.WithVolumeSize && resource.WithStatus {
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "SIZE", "CREATED_AT"})
+	} else if resource.WithVolumeSize {
+		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "SIZE", "CREATED_AT"})
 	} else if resource.WithStatus {
 		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "CREATED_AT"})
 	} else {
@@ -157,6 +190,13 @@ func printTable(resource Resource, slices []interface{}) {
 			} else if resource.WithImage {
 				image := truncateString(retrieveKey(itemMap, "spec.runtime.image"), imageWidth)
 				t.AppendRow(table.Row{workspace, name, image, createdAt})
+			} else if resource.WithVolumeSize && resource.WithStatus {
+				status := retrieveKey(itemMap, "status")
+				size := retrieveVolumeSize(itemMap)
+				t.AppendRow(table.Row{workspace, name, status, size, createdAt})
+			} else if resource.WithVolumeSize {
+				size := retrieveVolumeSize(itemMap)
+				t.AppendRow(table.Row{workspace, name, size, createdAt})
 			} else if resource.WithStatus {
 				status := retrieveKey(itemMap, "status")
 				t.AppendRow(table.Row{workspace, name, status, createdAt})
