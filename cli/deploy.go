@@ -1475,11 +1475,27 @@ func (d *Deployment) Print(skipBuild bool) error {
 	if !skipBuild {
 		config := core.GetConfig()
 		if core.IsVolumeTemplate(config.Type) {
+			// Ensure archive is created before trying to print it
+			if d.archive == nil {
+				fmt.Println("Compressing volume template files for dry run...")
+				err := d.Tar()
+				if err != nil {
+					return fmt.Errorf("failed to create tar: %w", err)
+				}
+				fmt.Println("Compression completed")
+			}
 			err := d.PrintTar()
 			if err != nil {
 				return fmt.Errorf("failed to print tar: %w", err)
 			}
 		} else {
+			// Ensure archive is created before trying to print it
+			if d.archive == nil {
+				err := d.Zip()
+				if err != nil {
+					return fmt.Errorf("failed to create zip: %w", err)
+				}
+			}
 			err := d.PrintZip()
 			if err != nil {
 				return fmt.Errorf("failed to print zip: %w", err)
