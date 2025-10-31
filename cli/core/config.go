@@ -11,18 +11,19 @@ import (
 )
 
 type Resource struct {
-	Kind       string
-	Short      string
-	Plural     string
-	Singular   string
-	SpecType   reflect.Type
-	List       interface{}
-	Get        interface{}
-	Delete     interface{}
-	Put        interface{}
-	Post       interface{}
-	WithStatus bool
-	WithImage  bool
+	Kind           string
+	Short          string
+	Plural         string
+	Singular       string
+	SpecType       reflect.Type
+	List           interface{}
+	Get            interface{}
+	Delete         interface{}
+	Put            interface{}
+	Post           interface{}
+	WithStatus     bool
+	WithImage      bool
+	WithVolumeSize bool
 }
 
 var resources = []*Resource{
@@ -90,12 +91,13 @@ var resources = []*Resource{
 		WithImage:  true,
 	},
 	{
-		Kind:       "Volume",
-		Short:      "vol",
-		Plural:     "volumes",
-		Singular:   "volume",
-		SpecType:   reflect.TypeOf(sdk.Volume{}),
-		WithStatus: true,
+		Kind:           "Volume",
+		Short:          "vol",
+		Plural:         "volumes",
+		Singular:       "volume",
+		SpecType:       reflect.TypeOf(sdk.Volume{}),
+		WithStatus:     true,
+		WithVolumeSize: true,
 	},
 	{
 		Kind:       "VolumeTemplate",
