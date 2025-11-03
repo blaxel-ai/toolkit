@@ -78,13 +78,20 @@ separately if needed.`,
 			}
 
 			// À ce stade, results contient tous vos documents YAML
+			hasFailures := false
 			for _, result := range results {
 				for _, resource := range core.GetResources() {
 					if resource.Kind == result.Kind {
 						name := result.Metadata.(map[string]interface{})["name"].(string)
-						DeleteFn(resource, name)
+						if err := DeleteFn(resource, name); err != nil {
+							hasFailures = true
+						}
 					}
 				}
+			}
+
+			if hasFailures {
+				os.Exit(1)
 			}
 		},
 	}
@@ -107,8 +114,14 @@ separately if needed.`,
 					fmt.Println("no resource name provided")
 					os.Exit(1)
 				}
+				hasFailures := false
 				for _, name := range args {
-					DeleteFn(resource, name)
+					if err := DeleteFn(resource, name); err != nil {
+						hasFailures = true
+					}
+				}
+				if hasFailures {
+					os.Exit(1)
 				}
 			},
 		}
@@ -118,13 +131,14 @@ separately if needed.`,
 	return cmd
 }
 
-func DeleteFn(resource *core.Resource, name string) {
+func DeleteFn(resource *core.Resource, name string) error {
 	ctx := context.Background()
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Delete)
 	if funcValue.Kind() != reflect.Func {
-		fmt.Println("fn is not a valid function")
-		os.Exit(1)
+		err := fmt.Errorf("fn is not a valid function")
+		fmt.Println(err)
+		return err
 	}
 	// Create a slice for the arguments
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)} // Add the context and the resource name
@@ -134,39 +148,41 @@ func DeleteFn(resource *core.Resource, name string) {
 
 	// Handle the results based on your needs
 	if len(results) <= 1 {
-		return
+		return nil
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	// Check if the first result is a pointer to http.Response
 	response, ok := results[0].Interface().(*http.Response)
 	if !ok {
-		fmt.Println("the result is not a pointer to http.Response")
-		return
+		err := fmt.Errorf("the result is not a pointer to http.Response")
+		fmt.Println(err)
+		return err
 	}
 	// Read the content of http.Response.Body
 	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Println(core.ErrorHandler(response.Request, resource.Kind, name, buf.String()))
-		os.Exit(1)
-		return
+		err := core.ErrorHandler(response.Request, resource.Kind, name, buf.String())
+		fmt.Println(err)
+		return err
 	}
 
 	// Check if the content is an array or an object
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
 	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
+	return nil
 }
