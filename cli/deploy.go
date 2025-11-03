@@ -1427,13 +1427,23 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 }
 
 func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, headerName string) error {
-	if _, err := os.Stat(filePath); err == nil {
-		fileInfo, err := os.Stat(filePath)
+	if _, err := os.Lstat(filePath); err == nil {
+		// Use Lstat instead of Stat to not follow symlinks
+		fileInfo, err := os.Lstat(filePath)
 		if err != nil {
 			return fmt.Errorf("failed to stat %s: %w", headerName, err)
 		}
 
-		header, err := tar.FileInfoHeader(fileInfo, "")
+		// For symlinks, we need to read the link target
+		linkTarget := ""
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err = os.Readlink(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to read symlink %s: %w", headerName, err)
+			}
+		}
+
+		header, err := tar.FileInfoHeader(fileInfo, linkTarget)
 		if err != nil {
 			return fmt.Errorf("failed to create tar header: %w", err)
 		}
@@ -1450,8 +1460,8 @@ func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, header
 			return fmt.Errorf("failed to write tar header: %w", err)
 		}
 
-		// If it's a file, write its content to the tar
-		if !fileInfo.IsDir() {
+		// If it's a regular file (not a directory or symlink), write its content to the tar
+		if !fileInfo.IsDir() && fileInfo.Mode()&os.ModeSymlink == 0 {
 			file, err := os.Open(filePath)
 			if err != nil {
 				return fmt.Errorf("failed to open %s: %w", headerName, err)
