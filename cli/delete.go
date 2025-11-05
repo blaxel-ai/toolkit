@@ -105,9 +105,13 @@ separately if needed.`,
 	}
 
 	for _, resource := range core.GetResources() {
+		aliases := []string{resource.Plural, resource.Short}
+		if len(resource.Aliases) > 0 {
+			aliases = append(aliases, resource.Aliases...)
+		}
 		subcmd := &cobra.Command{
 			Use:     fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
-			Aliases: []string{resource.Plural, resource.Short},
+			Aliases: aliases,
 			Short:   fmt.Sprintf("Delete %s", resource.Singular),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {

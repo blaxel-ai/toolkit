@@ -79,9 +79,13 @@ The command can list all resources of a type or get details for a specific one.`
 	var watch bool
 	resources := core.GetResources()
 	for _, resource := range resources {
+		aliases := []string{resource.Singular, resource.Short}
+		if len(resource.Aliases) > 0 {
+			aliases = append(aliases, resource.Aliases...)
+		}
 		subcmd := &cobra.Command{
 			Use:     resource.Plural,
-			Aliases: []string{resource.Singular, resource.Short},
+			Aliases: aliases,
 			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if watch {
