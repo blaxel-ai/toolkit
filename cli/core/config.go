@@ -15,6 +15,7 @@ type Resource struct {
 	Short          string
 	Plural         string
 	Singular       string
+	Aliases        []string
 	SpecType       reflect.Type
 	List           interface{}
 	Get            interface{}
@@ -50,6 +51,7 @@ var resources = []*Resource{
 		Short:      "fn",
 		Plural:     "functions",
 		Singular:   "function",
+		Aliases:    []string{"mcp", "mcps"},
 		SpecType:   reflect.TypeOf(sdk.Function{}),
 		WithStatus: true,
 		WithImage:  true,

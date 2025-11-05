@@ -104,9 +104,22 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets("", envFiles)
-			_, err := Apply(filePath, WithRecursive(recursive))
+			applyResults, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
 				core.PrintError("Apply", err)
+				os.Exit(1)
+			}
+
+			// Check if any resources failed
+			hasFailures := false
+			for _, result := range applyResults {
+				if result.Result.Status == "failed" {
+					hasFailures = true
+					break
+				}
+			}
+
+			if hasFailures {
 				os.Exit(1)
 			}
 		},
@@ -319,10 +332,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	if response.StatusCode >= 400 {
 		errorMsg := buf.String()
 		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
-		// Don't exit in interactive mode - let the caller handle the failure
-		if !core.IsInteractiveMode() {
-			os.Exit(1)
-		}
+		// Don't exit - let the caller handle the failure and continue processing
 		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
@@ -366,10 +376,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	if response.StatusCode >= 400 {
 		errorMsg := buf.String()
 		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
-		// Don't exit in interactive mode - let the caller handle the failure
-		if !core.IsInteractiveMode() {
-			os.Exit(1)
-		}
+		// Don't exit - let the caller handle the failure and continue processing
 		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
