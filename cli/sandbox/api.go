@@ -32,7 +32,7 @@ func GetSandboxURL(ctx context.Context, workspace, sandboxName string) (string, 
 	}
 
 	// Get the sandbox by name
-	response, err := client.GetSandboxWithResponse(ctx, sandboxName)
+	response, err := client.GetSandboxWithResponse(ctx, sandboxName, nil)
 	if err != nil {
 		return "", fmt.Errorf("error getting sandbox: %w", err)
 	}

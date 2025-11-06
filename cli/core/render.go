@@ -261,9 +261,37 @@ func retrieveFieldValue(itemMap map[string]interface{}, fieldName, fieldPath str
 			return formatSizeValue(value)
 		}
 		return "-"
+	case "LAST_DEPLOYED_AT":
+		return formatTimestamp(rawValue)
 	default:
 		return rawValue
 	}
+}
+
+// formatTimestamp formats a timestamp to a simple date format (YYYY-MM-DD)
+func formatTimestamp(timestamp string) string {
+	if timestamp == "" || timestamp == "-" {
+		return "-"
+	}
+
+	// Parse the timestamp
+	parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+	if err != nil {
+		// Try RFC3339 format as fallback
+		parsedTime, err = time.Parse(time.RFC3339, timestamp)
+		if err != nil {
+			return timestamp
+		}
+	}
+
+	// Convert to local time
+	localTime := parsedTime.Local()
+	if utc {
+		localTime = parsedTime.UTC()
+	}
+
+	// Format as date only (YYYY-MM-DD)
+	return localTime.Format("2006-01-02")
 }
 
 func retrieveDate(itemMap map[string]interface{}, key string) string {

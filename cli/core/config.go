@@ -123,6 +123,17 @@ var resources = []*Resource{
 			"VERSION": "state.latestVersion",
 		},
 	},
+	{
+		Kind:     "Image",
+		Short:    "img",
+		Plural:   "images",
+		Singular: "image",
+		SpecType: reflect.TypeOf(sdk.Image{}),
+		AdditionalFields: map[string]string{
+			"SIZE":             "spec.size",
+			"LAST_DEPLOYED_AT": "metadata.lastDeployedAt",
+		},
+	},
 }
 
 type Package struct {
