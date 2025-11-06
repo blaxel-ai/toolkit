@@ -85,6 +85,7 @@ bl delete [flags]
 * [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl delete agent](bl_delete_agent.md)	 - Delete agent
 * [bl delete function](bl_delete_function.md)	 - Delete function
+* [bl delete image](bl_delete_image.md)	 - Delete image
 * [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete integrationconnection
 * [bl delete job](bl_delete_job.md)	 - Delete job
 * [bl delete model](bl_delete_model.md)	 - Delete model
