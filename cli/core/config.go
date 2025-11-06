@@ -118,7 +118,9 @@ var resources = []*Resource{
 		Singular: "volumetemplate",
 		SpecType: reflect.TypeOf(sdk.VolumeTemplate{}),
 		AdditionalFields: map[string]string{
-			"SIZE": "spec.defaultSize",
+			"STATUS":  "state.status",
+			"SIZE":    "spec.defaultSize",
+			"VERSION": "state.latestVersion",
 		},
 	},
 }
