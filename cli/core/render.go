@@ -117,22 +117,24 @@ func formatVolumeSize(sizeInMB int) string {
 	return fmt.Sprintf("%d MB", sizeInMB)
 }
 
-// retrieveVolumeSize retrieves and formats the volume size from spec.size
-func retrieveVolumeSize(itemMap map[string]interface{}) string {
-	// Navigate to spec.size
-	if spec, ok := itemMap["spec"].(map[string]interface{}); ok {
-		if size, ok := spec["size"]; ok {
-			switch v := size.(type) {
-			case int:
-				return formatVolumeSize(v)
-			case float64:
-				return formatVolumeSize(int(v))
-			case *int:
-				if v != nil {
-					return formatVolumeSize(*v)
-				}
-			}
+// formatSizeValue formats a size value (from any path) into human-readable format
+func formatSizeValue(value interface{}) string {
+	switch v := value.(type) {
+	case int:
+		return formatVolumeSize(v)
+	case float64:
+		return formatVolumeSize(int(v))
+	case *int:
+		if v != nil {
+			return formatVolumeSize(*v)
 		}
+	case string:
+		// Try to parse string as int
+		var size int
+		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
+			return formatVolumeSize(size)
+		}
+		return v
 	}
 	return "-"
 }
@@ -158,20 +160,9 @@ func printTable(resource Resource, slices []interface{}) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 
-	// Set header based on what columns are enabled
-	if resource.WithImage && resource.WithStatus {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "IMAGE", "CREATED_AT"})
-	} else if resource.WithImage {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "IMAGE", "CREATED_AT"})
-	} else if resource.WithVolumeSize && resource.WithStatus {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "SIZE", "CREATED_AT"})
-	} else if resource.WithVolumeSize {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "SIZE", "CREATED_AT"})
-	} else if resource.WithStatus {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "CREATED_AT"})
-	} else {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "CREATED_AT"})
-	}
+	// Build header dynamically from AdditionalFields
+	header := buildTableHeader(resource)
+	t.AppendHeader(header)
 
 	// Calculate dynamic image width once for all rows
 	imageWidth := getImageColumnWidth()
@@ -179,34 +170,100 @@ func printTable(resource Resource, slices []interface{}) {
 	// Add rows to the table
 	for _, item := range slices {
 		if itemMap, ok := item.(map[string]interface{}); ok {
-			workspace := retrieveKey(itemMap, "workspace")
-			name := retrieveKey(itemMap, "name")
-			createdAt := retrieveDate(itemMap, "createdAt")
-
-			if resource.WithImage && resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				image := truncateString(retrieveKey(itemMap, "spec.runtime.image"), imageWidth)
-				t.AppendRow(table.Row{workspace, name, status, image, createdAt})
-			} else if resource.WithImage {
-				image := truncateString(retrieveKey(itemMap, "spec.runtime.image"), imageWidth)
-				t.AppendRow(table.Row{workspace, name, image, createdAt})
-			} else if resource.WithVolumeSize && resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				size := retrieveVolumeSize(itemMap)
-				t.AppendRow(table.Row{workspace, name, status, size, createdAt})
-			} else if resource.WithVolumeSize {
-				size := retrieveVolumeSize(itemMap)
-				t.AppendRow(table.Row{workspace, name, size, createdAt})
-			} else if resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				t.AppendRow(table.Row{workspace, name, status, createdAt})
-			} else {
-				t.AppendRow(table.Row{workspace, name, createdAt})
-			}
+			row := buildTableRow(resource, itemMap, imageWidth)
+			t.AppendRow(row)
 		}
 	}
 	// Render the table - this automatically sizes columns based on content
 	t.Render()
+}
+
+// getFieldOrder returns a consistent ordering for additional fields
+func getFieldOrder(additionalFields map[string]string) []string {
+	// Define preferred order for common fields
+	preferredOrder := []string{"STATUS", "IMAGE", "SIZE", "REGION"}
+
+	// Collect fields that exist in AdditionalFields
+	var orderedFields []string
+
+	// First add fields in preferred order
+	for _, field := range preferredOrder {
+		if _, exists := additionalFields[field]; exists {
+			orderedFields = append(orderedFields, field)
+		}
+	}
+
+	// Then add any remaining fields not in preferred order
+	for field := range additionalFields {
+		found := false
+		for _, existing := range orderedFields {
+			if existing == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			orderedFields = append(orderedFields, field)
+		}
+	}
+
+	return orderedFields
+}
+
+// buildTableHeader builds the table header dynamically based on AdditionalFields
+func buildTableHeader(resource Resource) table.Row {
+	header := table.Row{"WORKSPACE", "NAME"}
+
+	// Add additional fields in a consistent order
+	fieldOrder := getFieldOrder(resource.AdditionalFields)
+	for _, field := range fieldOrder {
+		header = append(header, field)
+	}
+
+	header = append(header, "CREATED_AT")
+	return header
+}
+
+// buildTableRow builds a table row dynamically based on AdditionalFields
+func buildTableRow(resource Resource, itemMap map[string]interface{}, imageWidth int) table.Row {
+	workspace := retrieveKey(itemMap, "workspace")
+	name := retrieveKey(itemMap, "name")
+	createdAt := retrieveDate(itemMap, "createdAt")
+
+	row := table.Row{workspace, name}
+
+	// Add additional fields in a consistent order
+	fieldOrder := getFieldOrder(resource.AdditionalFields)
+	for _, field := range fieldOrder {
+		if fieldPath, exists := resource.AdditionalFields[field]; exists {
+			value := retrieveFieldValue(itemMap, field, fieldPath, imageWidth)
+			row = append(row, value)
+		}
+	}
+
+	row = append(row, createdAt)
+	return row
+}
+
+// retrieveFieldValue retrieves and formats a field value based on its type
+func retrieveFieldValue(itemMap map[string]interface{}, fieldName, fieldPath string, imageWidth int) string {
+	// First retrieve the raw value using the fieldPath
+	rawValue := retrieveKey(itemMap, fieldPath)
+
+	// Then apply formatting based on field name
+	switch fieldName {
+	case "IMAGE":
+		return truncateString(rawValue, imageWidth)
+	case "SIZE":
+		// For SIZE, we need the actual value not the string, so navigate directly
+		value := navigateToKey(itemMap, strings.Split(fieldPath, "."))
+		if value != nil {
+			return formatSizeValue(value)
+		}
+		return "-"
+	default:
+		return rawValue
+	}
 }
 
 func retrieveDate(itemMap map[string]interface{}, key string) string {

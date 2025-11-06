@@ -11,104 +11,115 @@ import (
 )
 
 type Resource struct {
-	Kind           string
-	Short          string
-	Plural         string
-	Singular       string
-	Aliases        []string
-	SpecType       reflect.Type
-	List           interface{}
-	Get            interface{}
-	Delete         interface{}
-	Put            interface{}
-	Post           interface{}
-	WithStatus     bool
-	WithImage      bool
-	WithVolumeSize bool
+	Kind             string
+	Short            string
+	Plural           string
+	Singular         string
+	Aliases          []string
+	SpecType         reflect.Type
+	List             interface{}
+	Get              interface{}
+	Delete           interface{}
+	Put              interface{}
+	Post             interface{}
+	AdditionalFields map[string]string // map[columnName]fieldPath - e.g., "STATUS": "status", "IMAGE": "spec.runtime.image"
 }
 
 var resources = []*Resource{
 	{
-		Kind:       "Policy",
-		Short:      "pol",
-		Plural:     "policies",
-		Singular:   "policy",
-		SpecType:   reflect.TypeOf(sdk.Policy{}),
-		WithStatus: false,
-		WithImage:  false,
+		Kind:             "Policy",
+		Short:            "pol",
+		Plural:           "policies",
+		Singular:         "policy",
+		SpecType:         reflect.TypeOf(sdk.Policy{}),
+		AdditionalFields: map[string]string{},
 	},
 	{
-		Kind:       "Model",
-		Short:      "ml",
-		Plural:     "models",
-		Singular:   "model",
-		SpecType:   reflect.TypeOf(sdk.Model{}),
-		WithStatus: true,
-		WithImage:  false,
+		Kind:     "Model",
+		Short:    "ml",
+		Plural:   "models",
+		Singular: "model",
+		SpecType: reflect.TypeOf(sdk.Model{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+		},
 	},
 	{
-		Kind:       "Function",
-		Short:      "fn",
-		Plural:     "functions",
-		Singular:   "function",
-		Aliases:    []string{"mcp", "mcps"},
-		SpecType:   reflect.TypeOf(sdk.Function{}),
-		WithStatus: true,
-		WithImage:  true,
+		Kind:     "Function",
+		Short:    "fn",
+		Plural:   "functions",
+		Singular: "function",
+		Aliases:  []string{"mcp", "mcps"},
+		SpecType: reflect.TypeOf(sdk.Function{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+			"IMAGE":  "spec.runtime.image",
+		},
 	},
 	{
-		Kind:       "Agent",
-		Short:      "ag",
-		Plural:     "agents",
-		Singular:   "agent",
-		SpecType:   reflect.TypeOf(sdk.Agent{}),
-		WithStatus: true,
-		WithImage:  true,
+		Kind:     "Agent",
+		Short:    "ag",
+		Plural:   "agents",
+		Singular: "agent",
+		SpecType: reflect.TypeOf(sdk.Agent{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+			"IMAGE":  "spec.runtime.image",
+		},
 	},
 	{
-		Kind:       "IntegrationConnection",
-		Short:      "ic",
-		Plural:     "integrationconnections",
-		Singular:   "integrationconnection",
-		SpecType:   reflect.TypeOf(sdk.IntegrationConnection{}),
-		WithStatus: false,
-		WithImage:  false,
+		Kind:             "IntegrationConnection",
+		Short:            "ic",
+		Plural:           "integrationconnections",
+		Singular:         "integrationconnection",
+		SpecType:         reflect.TypeOf(sdk.IntegrationConnection{}),
+		AdditionalFields: map[string]string{},
 	},
 	{
-		Kind:       "Sandbox",
-		Short:      "sbx",
-		Plural:     "sandboxes",
-		Singular:   "sandbox",
-		SpecType:   reflect.TypeOf(sdk.Sandbox{}),
-		WithStatus: true,
-		WithImage:  true,
+		Kind:     "Sandbox",
+		Short:    "sbx",
+		Plural:   "sandboxes",
+		Singular: "sandbox",
+		SpecType: reflect.TypeOf(sdk.Sandbox{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+			"IMAGE":  "spec.runtime.image",
+			"REGION": "spec.region",
+		},
 	},
 	{
-		Kind:       "Job",
-		Short:      "jb",
-		Plural:     "jobs",
-		Singular:   "job",
-		SpecType:   reflect.TypeOf(sdk.Job{}),
-		WithStatus: true,
-		WithImage:  true,
+		Kind:     "Job",
+		Short:    "jb",
+		Plural:   "jobs",
+		Singular: "job",
+		SpecType: reflect.TypeOf(sdk.Job{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+			"IMAGE":  "spec.runtime.image",
+			"REGION": "spec.region",
+		},
 	},
 	{
-		Kind:           "Volume",
-		Short:          "vol",
-		Plural:         "volumes",
-		Singular:       "volume",
-		SpecType:       reflect.TypeOf(sdk.Volume{}),
-		WithStatus:     true,
-		WithVolumeSize: true,
+		Kind:     "Volume",
+		Short:    "vol",
+		Plural:   "volumes",
+		Singular: "volume",
+		SpecType: reflect.TypeOf(sdk.Volume{}),
+		AdditionalFields: map[string]string{
+			"STATUS": "status",
+			"SIZE":   "spec.size",
+			"REGION": "spec.region",
+		},
 	},
 	{
-		Kind:       "VolumeTemplate",
-		Short:      "vt",
-		Plural:     "volumetemplates",
-		Singular:   "volumetemplate",
-		SpecType:   reflect.TypeOf(sdk.VolumeTemplate{}),
-		WithStatus: false,
-		WithImage:  false,
+		Kind:     "VolumeTemplate",
+		Short:    "vt",
+		Plural:   "volumetemplates",
+		Singular: "volumetemplate",
+		SpecType: reflect.TypeOf(sdk.VolumeTemplate{}),
+		AdditionalFields: map[string]string{
+			"SIZE": "spec.defaultSize",
+		},
 	},
 }
 
