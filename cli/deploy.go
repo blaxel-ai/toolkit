@@ -340,7 +340,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name)
+		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -348,7 +348,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name)
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -356,7 +356,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name)
+		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -364,7 +364,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -372,7 +372,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -413,7 +413,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name)
+		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -421,7 +421,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name)
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -429,7 +429,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name)
+		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -437,7 +437,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name)
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -445,7 +445,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {

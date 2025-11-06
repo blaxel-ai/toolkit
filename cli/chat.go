@@ -31,9 +31,9 @@ func ChatCmd() *cobra.Command {
 	var headerFlags []string
 
 	cmd := &cobra.Command{
-		Use:     "chat [agent-name]",
-		Args:    cobra.ExactArgs(1),
-		Short:   "Chat with an agent",
+		Use:   "chat [agent-name]",
+		Args:  cobra.ExactArgs(1),
+		Short: "Chat with an agent",
 		Long: `Start an interactive chat session with a deployed agent.
 
 This command opens a terminal-based chat interface where you can send messages
@@ -164,7 +164,7 @@ func CheckResource(
 
 	// Call GetAgent with the required parameters
 	client := core.GetClient()
-	resp, err := client.GetAgent(ctx, resourceName)
+	resp, err := client.GetAgent(ctx, resourceName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
