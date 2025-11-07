@@ -117,6 +117,29 @@ func formatVolumeSize(sizeInMB int) string {
 	return fmt.Sprintf("%d MB", sizeInMB)
 }
 
+// formatBytesSize formats size in bytes to human-readable format
+func formatBytesSize(sizeInBytes int64) string {
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+		TB = 1024 * GB
+	)
+
+	switch {
+	case sizeInBytes >= TB:
+		return fmt.Sprintf("%.2f TB", float64(sizeInBytes)/float64(TB))
+	case sizeInBytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(sizeInBytes)/float64(GB))
+	case sizeInBytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(sizeInBytes)/float64(MB))
+	case sizeInBytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(sizeInBytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", sizeInBytes)
+	}
+}
+
 // formatSizeValue formats a size value (from any path) into human-readable format
 func formatSizeValue(value interface{}) string {
 	switch v := value.(type) {
@@ -133,6 +156,26 @@ func formatSizeValue(value interface{}) string {
 		var size int
 		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
 			return formatVolumeSize(size)
+		}
+		return v
+	}
+	return "-"
+}
+
+// formatImageSizeValue formats image size (in bytes) to human-readable format
+func formatImageSizeValue(value interface{}) string {
+	switch v := value.(type) {
+	case int:
+		return formatBytesSize(int64(v))
+	case int64:
+		return formatBytesSize(v)
+	case float64:
+		return formatBytesSize(int64(v))
+	case string:
+		// Try to parse string as int64
+		var size int64
+		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
+			return formatBytesSize(size)
 		}
 		return v
 	}
@@ -230,6 +273,15 @@ func buildTableRow(resource Resource, itemMap map[string]interface{}, imageWidth
 	name := retrieveKey(itemMap, "name")
 	createdAt := retrieveDate(itemMap, "createdAt")
 
+	// For images, display resourceType/name instead of just name
+	if resource.Kind == "Image" {
+		if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+			if resourceType, ok := metadata["resourceType"].(string); ok {
+				name = resourceType + "/" + name
+			}
+		}
+	}
+
 	row := table.Row{workspace, name}
 
 	// Add additional fields in a consistent order
@@ -258,6 +310,18 @@ func retrieveFieldValue(itemMap map[string]interface{}, fieldName, fieldPath str
 		// For SIZE, we need the actual value not the string, so navigate directly
 		value := navigateToKey(itemMap, strings.Split(fieldPath, "."))
 		if value != nil {
+			// Check if this is an image resource (size in bytes) or volume (size in MB)
+			// Images have metadata.name, volumes have spec.size
+			if _, hasMetadata := itemMap["metadata"].(map[string]interface{}); hasMetadata {
+				// Check if spec.size exists and it's for an image (has displayName in metadata)
+				if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+					if _, hasDisplayName := metadata["displayName"]; hasDisplayName {
+						// This is an image, format as bytes
+						return formatImageSizeValue(value)
+					}
+				}
+			}
+			// Default to volume size formatting (MB)
 			return formatSizeValue(value)
 		}
 		return "-"

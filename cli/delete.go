@@ -109,6 +109,14 @@ separately if needed.`,
 		if len(resource.Aliases) > 0 {
 			aliases = append(aliases, resource.Aliases...)
 		}
+
+		// Special handling for images - use custom command
+		if resource.Kind == "Image" {
+			imageCmd := DeleteImagesCmd()
+			cmd.AddCommand(imageCmd)
+			continue
+		}
+
 		subcmd := &cobra.Command{
 			Use:     fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
 			Aliases: aliases,
