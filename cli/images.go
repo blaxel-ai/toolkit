@@ -258,7 +258,6 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 	minNameWidth := 4 // minimum width for "NAME" header
 	maxNameWidth := 0
 	type tagRow struct {
-		active    string
 		fullName  string
 		size      string
 		createdAt string
@@ -267,11 +266,6 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 
 	for _, tagInterface := range tags {
 		if tagMap, ok := tagInterface.(map[string]interface{}); ok {
-			active := "-"
-			if activeVal, ok := tagMap["active"].(bool); ok && activeVal {
-				active = "✓"
-			}
-
 			// Display as resourceType/imageName:tag
 			fullName := fmt.Sprintf("%s/%s", resourceType, imageName)
 			if nameVal, ok := tagMap["name"].(string); ok {
@@ -303,7 +297,6 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 			}
 
 			rows = append(rows, tagRow{
-				active:    active,
 				fullName:  fullName,
 				size:      size,
 				createdAt: createdAt,
@@ -319,16 +312,16 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 
 	// Create dynamic table format
 	fmt.Println("Tags:")
-	separatorFormat := fmt.Sprintf("+--------+-%s-+------------+------------+", strings.Repeat("-", nameWidth))
-	headerFormat := fmt.Sprintf("| ACTIVE | %-*s | SIZE       | CREATED_AT |", nameWidth, "NAME")
-	rowFormat := fmt.Sprintf("| %%-%ds | %%-%ds | %%-10s | %%-10s |", 6, nameWidth)
+	separatorFormat := fmt.Sprintf("+-%s-+------------+------------+", strings.Repeat("-", nameWidth))
+	headerFormat := fmt.Sprintf("| %-*s | SIZE       | CREATED_AT |", nameWidth, "NAME")
+	rowFormat := fmt.Sprintf("| %%-%ds | %%-10s | %%-10s |", nameWidth)
 
 	fmt.Println(separatorFormat)
 	fmt.Println(headerFormat)
 	fmt.Println(separatorFormat)
 
 	for _, row := range rows {
-		fmt.Printf(rowFormat+"\n", row.active, row.fullName, row.size, row.createdAt)
+		fmt.Printf(rowFormat+"\n", row.fullName, row.size, row.createdAt)
 	}
 	fmt.Println(separatorFormat)
 }
