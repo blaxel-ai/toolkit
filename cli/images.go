@@ -415,7 +415,7 @@ func deleteImage(resourceType, imageName, tag string) error {
 	if tag != "" {
 		// Delete specific tag
 		identifier = fmt.Sprintf("%s/%s:%s", resourceType, imageName, tag)
-		fmt.Printf("[DEBUG] Calling DeleteImageTag(ctx, '%s', '%s', '%s')\n", resourceType, imageName, tag)
+		// fmt.Printf("[DEBUG] Calling DeleteImageTag(ctx, '%s', '%s', '%s')\n", resourceType, imageName, tag)
 		response, err = client.DeleteImageTag(ctx, resourceType, imageName, tag)
 	} else {
 		// Delete entire image (all tags)
