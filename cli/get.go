@@ -83,6 +83,15 @@ The command can list all resources of a type or get details for a specific one.`
 		if len(resource.Aliases) > 0 {
 			aliases = append(aliases, resource.Aliases...)
 		}
+
+		// Special handling for images - use custom command
+		if resource.Kind == "Image" {
+			imageCmd := GetImagesCmd()
+			// Add both singular and plural
+			cmd.AddCommand(imageCmd)
+			continue
+		}
+
 		subcmd := &cobra.Command{
 			Use:     resource.Plural,
 			Aliases: aliases,
