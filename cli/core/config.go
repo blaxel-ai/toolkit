@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/charmbracelet/huh"
 )
 
 type Resource struct {
@@ -175,9 +176,21 @@ func readConfigToml(folder string) {
 
 	content, err := os.ReadFile(filepath.Join(cwd, folder, "blaxel.toml"))
 	if err != nil {
+		// No blaxel.toml file found
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}
-		config.Type = "agent"
+
+		// If in interactive mode, prompt user for what they want to deploy
+		if IsInteractiveMode() {
+			selectedType := promptForDeploymentType()
+			if selectedType != "" {
+				config.Type = selectedType
+			} else {
+				config.Type = "agent"
+			}
+		} else {
+			config.Type = "agent"
+		}
 		return
 	}
 
@@ -194,6 +207,32 @@ func readConfigToml(folder string) {
 	if config.Workspace != "" {
 		workspace = config.Workspace
 	}
+}
+
+// promptForDeploymentType prompts the user to select what they want to deploy
+// when no blaxel.toml file is found
+func promptForDeploymentType() string {
+	var selected string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What are you trying to deploy ?").
+				Options(
+					huh.NewOption("Agent", "agent"),
+					huh.NewOption("MCP (Function)", "function"),
+					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Job", "job"),
+					huh.NewOption("Volume Template", "volumetemplate"),
+				).
+				Value(&selected),
+		),
+	)
+	form.WithTheme(GetHuhTheme())
+	if err := form.Run(); err != nil {
+		// User cancelled or error occurred
+		return ""
+	}
+	return selected
 }
 
 // Add missing methods for Resource struct
