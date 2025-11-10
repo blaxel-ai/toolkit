@@ -58,13 +58,13 @@ The image reference format is: resourceType/imageName[:tag]
 - tag: Optional tag to filter for a specific version`,
 		Example: `  # List all images
   bl get images
-  
+
   # Get all tags for a specific image
   bl get image agent/my-agent
-  
+
   # Get a specific tag
   bl get image agent/my-agent:latest
-  
+
   # Use different output formats
   bl get images -o json
   bl get image agent/my-agent -o pretty`,
@@ -104,7 +104,7 @@ func ListAllImages() {
 		fmt.Printf("Error listing images: %v\n", err)
 		os.Exit(1)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
@@ -156,7 +156,7 @@ func getImage(resourceType, imageName, tag string) {
 		fmt.Printf("Error getting image %s/%s: %v\n", resourceType, imageName, err)
 		os.Exit(1)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
@@ -368,10 +368,10 @@ The image reference format is: resourceType/imageName[:tag]
 WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 		Example: `  # Delete an entire image (all tags)
   bl delete image agent/my-agent
-  
+
   # Delete only a specific tag
   bl delete image agent/my-agent:v1.0
-  
+
   # Delete multiple images/tags
   bl delete image agent/img1:v1 agent/img2:v2`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -427,7 +427,7 @@ func deleteImage(resourceType, imageName, tag string) error {
 		fmt.Printf("Error deleting image %s: %v\n", identifier, err)
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {

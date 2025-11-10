@@ -109,12 +109,12 @@ func (s *BearerToken) GetHeaders() (map[string]string, error) {
 	}
 	osArch := GetOsArch()
 	commitHash := GetCommitHash()
-		headers := map[string]string{
+	headers := map[string]string{
 		"X-Blaxel-Authorization": fmt.Sprintf("Bearer %s", s.credentials.AccessToken),
 		"X-Blaxel-Workspace":     s.workspaceName,
 		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
 	}
-	
+
 	return headers, nil
 }
 
@@ -157,7 +157,13 @@ func (s *BearerToken) DoRefresh() error {
 		var errorResponse AuthErrorResponse
 		if err := json.Unmarshal(buf.Bytes(), &errorResponse); err != nil {
 			// If JSON parsing fails, return the raw response
+			if res.StatusCode == 401 || res.StatusCode == 403 {
+				return fmt.Errorf("authentication failed (HTTP %d): %s\nFor more information on authentication, visit: https://docs.blaxel.ai/sdk-reference/introduction#how-authentication-works", res.StatusCode, buf.String())
+			}
 			return fmt.Errorf("failed to refresh token: %s", buf.String())
+		}
+		if errorResponse.Code == 401 || errorResponse.Code == 403 {
+			return fmt.Errorf("authentication failed: %v\nFor more information on authentication, visit: https://docs.blaxel.ai/sdk-reference/introduction#how-authentication-works", errorResponse.Error)
 		}
 		return fmt.Errorf("failed to refresh token: %v", errorResponse.Error)
 	}
