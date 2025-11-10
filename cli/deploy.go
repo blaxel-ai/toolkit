@@ -104,12 +104,15 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 					noTTY = true
 				}
 			}
+			core.SetInteractiveMode(!noTTY)
 			if folder != "" {
 				recursive = false
 				core.ReadSecrets("", envFiles)
 				core.ReadConfigToml(folder)
+			} else {
+				// Always read config from current directory to trigger prompt if no blaxel.toml
+				core.ReadConfigToml("")
 			}
-			core.SetInteractiveMode(!noTTY)
 			if recursive {
 				if deployPackage(dryRun, name) {
 					return
