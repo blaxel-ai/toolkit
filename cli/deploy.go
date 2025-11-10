@@ -494,16 +494,27 @@ func (d *Deployment) Apply() error {
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
 			config := core.GetConfig()
-			if core.IsVolumeTemplate(config.Type) {
-				fmt.Println("Uploading volume template...")
+			// Print upload message for all resource types
+			resourceLabel := "code"
+			switch strings.ToLower(config.Type) {
+			case "volumetemplate":
+				resourceLabel = "volume template"
+			case "agent":
+				resourceLabel = "agent code"
+			case "function":
+				resourceLabel = "function code"
+			case "job":
+				resourceLabel = "job code"
+			case "sandbox":
+				resourceLabel = "sandbox code"
 			}
+			fmt.Printf("Uploading %s...\n", resourceLabel)
+
 			err := d.Upload(result.Result.UploadURL)
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
 			}
-			if core.IsVolumeTemplate(config.Type) {
-				fmt.Println("Upload completed")
-			}
+			fmt.Println("Upload completed")
 		}
 	}
 
@@ -721,9 +732,30 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 
-		// For volume templates, set up upload progress callback
-		if core.IsVolumeTemplate(config.Type) {
-			model.AddBuildLog(idx, "Starting upload of volume template...")
+		// Check if resource type supports detailed upload progress
+		needsUploadProgress := false
+		var uploadLabel string
+		switch strings.ToLower(resource.Kind) {
+		case "volumetemplate":
+			needsUploadProgress = true
+			uploadLabel = "volume template"
+		case "agent":
+			needsUploadProgress = true
+			uploadLabel = "agent code"
+		case "function":
+			needsUploadProgress = true
+			uploadLabel = "function code"
+		case "job":
+			needsUploadProgress = true
+			uploadLabel = "job code"
+		case "sandbox":
+			needsUploadProgress = true
+			uploadLabel = "sandbox code"
+		}
+
+		// Set up upload progress callback for supported resources
+		if needsUploadProgress {
+			model.AddBuildLog(idx, fmt.Sprintf("Starting upload of %s...", uploadLabel))
 
 			var lastLoggedPercentage int
 			var lastUpdatePercentage int
