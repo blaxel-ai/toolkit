@@ -57,6 +57,16 @@ func (c *ClientCredentials) RefreshIfNeeded() error {
 		}
 		defer func() { _ = res.Body.Close() }()
 
+		if res.StatusCode == 401 || res.StatusCode == 403 {
+			body, _ := io.ReadAll(res.Body)
+			return fmt.Errorf("authentication failed (HTTP %d): %s\nFor more information on authentication, visit: https://docs.blaxel.ai/sdk-reference/introduction#how-authentication-works", res.StatusCode, string(body))
+		}
+
+		if res.StatusCode >= 400 {
+			body, _ := io.ReadAll(res.Body)
+			return fmt.Errorf("request failed (HTTP %d): %s", res.StatusCode, string(body))
+		}
+
 		var response DeviceLoginFinalizeResponse
 		if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 			return fmt.Errorf("failed to decode response: %v", err)
@@ -116,7 +126,7 @@ func (c *ClientCredentials) GetHeaders() (map[string]string, error) {
 		"X-Blaxel-Workspace":     c.workspaceName,
 		"User-Agent":             fmt.Sprintf("blaxel/sdk/golang/%s (%s) blaxel/%s", GetVersion(), osArch, commitHash),
 	}
-	
+
 	return headers, nil
 }
 
@@ -150,9 +160,17 @@ func (c *ClientCredentials) DoRefresh() error {
 	defer func() { _ = res.Body.Close() }()
 	body, _ := io.ReadAll(res.Body)
 
+	if res.StatusCode == 401 || res.StatusCode == 403 {
+		return fmt.Errorf("authentication failed (HTTP %d): %s\nFor more information on authentication, visit: https://docs.blaxel.ai/sdk-reference/introduction#how-authentication-works", res.StatusCode, string(body))
+	}
+
+	if res.StatusCode >= 400 {
+		return fmt.Errorf("failed to refresh token (HTTP %d): %s", res.StatusCode, string(body))
+	}
+
 	var finalizeResponse DeviceLoginFinalizeResponse
 	if err := json.Unmarshal(body, &finalizeResponse); err != nil {
-		panic(err)
+		return fmt.Errorf("failed to parse refresh response: %v", err)
 	}
 	if finalizeResponse.RefreshToken == "" {
 		finalizeResponse.RefreshToken = c.credentials.RefreshToken

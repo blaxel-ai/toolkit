@@ -48,7 +48,6 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 		return nil, err
 	}
 	if resp.StatusCode() != http.StatusOK {
-		fmt.Println(resp.StatusCode())
 		if resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden {
 			//nolint:staticcheck
 			return nil, fmt.Errorf("Authentication required. Please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
