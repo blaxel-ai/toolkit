@@ -40,16 +40,17 @@ type Resource struct {
 
 // InteractiveModel represents the interactive deployment UI
 type InteractiveModel struct {
-	resources   []*Resource
-	viewport    viewport.Model
-	spinner     spinner.Model
-	selectedIdx int
-	showLogs    bool
-	complete    bool
-	width       int
-	height      int
-	mu          sync.RWMutex
-	program     *tea.Program
+	resources             []*Resource
+	viewport              viewport.Model
+	spinner               spinner.Model
+	selectedIdx           int
+	showLogs              bool
+	complete              bool
+	waitingForQuitConfirm bool
+	width                 int
+	height                int
+	mu                    sync.RWMutex
+	program               *tea.Program
 }
 
 // Messages for updating the model
@@ -126,8 +127,44 @@ func (m *InteractiveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		// Handle quit confirmation
+		if m.waitingForQuitConfirm {
+			switch msg.String() {
+			case "y", "Y":
+				return m, tea.Quit
+			case "n", "N":
+				m.waitingForQuitConfirm = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
+			// Ctrl+C always quits immediately
+			return m, tea.Quit
+		case "q":
+			// Check if any resource is currently uploading
+			m.mu.RLock()
+			isUploading := false
+			for _, r := range m.resources {
+				r.mu.RLock()
+				if r.Status == StatusUploading {
+					isUploading = true
+				}
+				r.mu.RUnlock()
+				if isUploading {
+					break
+				}
+			}
+			m.mu.RUnlock()
+
+			// If uploading, ask for confirmation
+			if isUploading {
+				m.waitingForQuitConfirm = true
+				return m, nil
+			}
+			// Otherwise quit immediately
 			return m, tea.Quit
 		case "up", "k":
 			if m.selectedIdx > 0 {
@@ -313,8 +350,16 @@ func (m *InteractiveModel) View() string {
 	s.WriteString("\n")
 
 	// Footer
-	footer := "↑/↓: Navigate | l: Toggle logs | q: Quit"
-	s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(footer))
+	if m.waitingForQuitConfirm {
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Bold(true).
+			Render("⚠ Upload in progress! Are you sure you want to quit? (y/n)")
+		s.WriteString(footer)
+	} else {
+		footer := "↑/↓: Navigate | l: Toggle logs | q: Quit"
+		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(footer))
+	}
 
 	return s.String()
 }
