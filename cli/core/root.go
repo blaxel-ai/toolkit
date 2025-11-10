@@ -469,6 +469,10 @@ func GetDate() string {
 	return date
 }
 
+func GetVerbose() bool {
+	return verbose
+}
+
 var interactiveMode bool
 
 func SetInteractiveMode(interactive bool) {

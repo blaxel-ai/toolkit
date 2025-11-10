@@ -4,10 +4,38 @@ slug: bl_delete_image
 ---
 ## bl delete image
 
-Delete image
+Delete images or image tags
+
+### Synopsis
+
+Delete container images or specific tags.
+
+Usage patterns:
+  bl delete image agent/my-image          Delete image with all its tags
+  bl delete image agent/my-image:v1.0     Delete only the specified tag
+
+The image reference format is: resourceType/imageName[:tag]
+- resourceType: The type of resource (e.g., agent, function, job)
+- imageName: The name of the image
+- tag: Optional tag to delete only that specific version
+
+WARNING: Deleting an image without specifying a tag will remove ALL tags.
 
 ```
-bl delete image name [name...] [flags]
+bl delete image resourceType/imageName[:tag] [resourceType/imageName[:tag]...] [flags]
+```
+
+### Examples
+
+```
+  # Delete an entire image (all tags)
+  bl delete image agent/my-agent
+  
+  # Delete only a specific tag
+  bl delete image agent/my-agent:v1.0
+  
+  # Delete multiple images/tags
+  bl delete image agent/img1:v1 agent/img2:v2
 ```
 
 ### Options
