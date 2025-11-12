@@ -30,10 +30,10 @@ bl delete image resourceType/imageName[:tag] [resourceType/imageName[:tag]...] [
 ```
   # Delete an entire image (all tags)
   bl delete image agent/my-agent
-  
+
   # Delete only a specific tag
   bl delete image agent/my-agent:v1.0
-  
+
   # Delete multiple images/tags
   bl delete image agent/img1:v1 agent/img2:v2
 ```

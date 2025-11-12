@@ -29,13 +29,13 @@ bl get image [resourceType/imageName[:tag]] [flags]
 ```
   # List all images
   bl get images
-  
+
   # Get all tags for a specific image
   bl get image agent/my-agent
-  
+
   # Get a specific tag
   bl get image agent/my-agent:latest
-  
+
   # Use different output formats
   bl get images -o json
   bl get image agent/my-agent -o pretty
