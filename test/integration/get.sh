@@ -4,6 +4,8 @@ echo "========================================="
 echo "Testing GET command for all resources"
 echo "========================================="
 
+go run main.go login $BL_WORKSPACE
+
 # Counters for test results
 TOTAL_TESTS=0
 PASSED_TESTS=0
