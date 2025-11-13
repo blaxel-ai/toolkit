@@ -243,30 +243,56 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 			return nil
 		})
 	}
+
+	// Get function signature information
+	funcType := fn.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
 	switch operation {
 	case "put":
+		// Build arguments: ctx, name, [params if needed], body
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
 		}
-		if resource.Kind == "VolumeTemplate" {
-			params := sdk.UpdateVolumeTemplateParams{}
-			values = append(values, reflect.ValueOf(&params))
+
+		// Fill in any additional required parameters with zero values before the body
+		// Body should be the last required parameter before variadic
+		for i := len(values); i < requiredParams-1; i++ {
+			values = append(values, reflect.Zero(funcType.In(i)))
 		}
+
+		// Add the body parameter
 		values = append(values, reflect.ValueOf(destBody).Elem())
+
+		// Add variadic opts if present
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
 		results = fn.Call(values)
 	case "post":
+		// Build arguments: ctx, [params if needed], body
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 		}
-		if resource.Kind == "VolumeTemplate" {
-			params := sdk.CreateVolumeTemplateParams{}
-			values = append(values, reflect.ValueOf(&params))
+
+		// Fill in any additional required parameters with zero values before the body
+		// Body should be the last required parameter before variadic
+		for i := len(values); i < requiredParams-1; i++ {
+			values = append(values, reflect.Zero(funcType.In(i)))
 		}
+
+		// Add the body parameter
 		values = append(values, reflect.ValueOf(destBody).Elem())
+
+		// Add variadic opts if present
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}

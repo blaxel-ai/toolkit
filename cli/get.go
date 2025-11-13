@@ -147,8 +147,26 @@ func GetFn(resource *core.Resource, name string) {
 		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
 		os.Exit(1)
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)} // Add the context and the resource name
+
+	// Determine the number of parameters the function expects
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
+	// Build arguments - start with the ones we have
+	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -210,8 +228,26 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	if funcValue.Kind() != reflect.Func {
 		return nil, fmt.Errorf("fn is not a valid function")
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx)} // Add the context
+
+	// Determine the number of parameters the function expects
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
+	// Build arguments - start with context
+	fnargs := []reflect.Value{reflect.ValueOf(ctx)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)

@@ -152,8 +152,26 @@ func DeleteFn(resource *core.Resource, name string) error {
 		fmt.Println(err)
 		return err
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)} // Add the context and the resource name
+
+	// Determine the number of parameters the function expects
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
+	// Build arguments - start with the ones we have
+	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
