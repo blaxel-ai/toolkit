@@ -250,7 +250,16 @@ var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
+		// Skip version warning for specific commands/conditions
+		shouldSkipWarning := skipVersionWarning ||
+			cmd.Name() == "__complete" ||
+			cmd.Name() == "completion" ||
+			cmd.Name() == "token" ||
+			(cmd.Name() == "workspaces" && cmd.Flag("current") != nil && cmd.Flag("current").Changed) ||
+			outputFormat == "json" ||
+			outputFormat == "yaml"
+
+		if !shouldSkipWarning {
 			checkForUpdates(version)
 		}
 
