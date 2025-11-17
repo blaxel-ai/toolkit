@@ -82,5 +82,10 @@ func GetServerEnvironment(port int, host string, hotreload bool, config core.Con
 	for _, secret := range secrets {
 		env.Set(secret.Name, secret.Value)
 	}
+	if config.Env != nil {
+		for key, value := range config.Env {
+			env.Set(key, value)
+		}
+	}
 	return env
 }
