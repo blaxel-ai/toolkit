@@ -280,7 +280,11 @@ var rootCmd = &cobra.Command{
 		}
 
 		setEnvs()
-		readConfigToml("")
+
+		// Skip config reading for deploy command as it handles its own config logic with special type prompting
+		if cmd.Name() != "deploy" {
+			readConfigToml("", true)
+		}
 
 		credentials := sdk.LoadCredentials(workspace)
 		if !credentials.IsValid() && workspace != "" {
@@ -430,12 +434,17 @@ func setEnvFiles(files []string) {
 	envFiles = files
 }
 
-func ReadConfigToml(folder string) {
-	readConfigToml(folder)
+func ReadConfigToml(folder string, setDefaultType bool) {
+	readConfigToml(folder, setDefaultType)
 }
 
 func GetConfig() Config {
 	return config
+}
+
+// SetConfigType sets the config type
+func SetConfigType(t string) {
+	config.Type = t
 }
 
 // GetClient returns the current client
