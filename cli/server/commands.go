@@ -149,6 +149,8 @@ func GetServerEnvironment(port int, host string, hotreload bool, config core.Con
 	env.AddClientEnv()
 	env.Set("BL_SERVER_PORT", fmt.Sprintf("%d", port))
 	env.Set("BL_SERVER_HOST", host)
+	env.Set("HOST", host)
+	env.Set("PORT", fmt.Sprintf("%d", port))
 	workspace := config.Workspace
 	if workspace == "" {
 		workspace = core.GetWorkspace()
