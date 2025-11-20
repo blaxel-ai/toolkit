@@ -2,7 +2,7 @@ import { blModel, blTools } from "@blaxel/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { sharedFunction } from "../shared";
+import { sharedFunction } from ".";
 
 import { z } from "zod";
 

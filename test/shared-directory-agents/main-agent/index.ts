@@ -2,7 +2,7 @@ import { env } from "@blaxel/core";
 import '@blaxel/langgraph';
 import '@blaxel/telemetry';
 import Fastify from "fastify";
-import { sharedFunction } from "../shared";
+import { sharedFunction } from ".";
 import agent from "./agent.js";
 
 sharedFunction();
