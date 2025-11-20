@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/blaxel-ai/toolkit/cli/server"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -104,19 +106,15 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 					noTTY = true
 				}
 			}
+
 			core.SetInteractiveMode(!noTTY)
 			if folder != "" {
 				recursive = false
 				core.ReadSecrets("", envFiles)
-				core.ReadConfigToml(folder)
+				core.ReadConfigToml(folder, false)
 			} else {
-				// Always read config from current directory to trigger prompt if no blaxel.toml
-				core.ReadConfigToml("")
-			}
-			if recursive {
-				if deployPackage(dryRun, name) {
-					return
-				}
+				// Read config without setting default type, we'll handle that below
+				core.ReadConfigToml("", false)
 			}
 
 			cwd, err := os.Getwd()
@@ -127,7 +125,6 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
-
 			config := core.GetConfig()
 			if config.Name != "" {
 				name = config.Name
@@ -143,6 +140,79 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				folder: folder,
 				name:   name,
 				cwd:    cwd,
+			}
+
+			if !skipBuild {
+				validationWarning := deployment.validateDeploymentConfig(config)
+				if validationWarning != "" {
+					// Print the warning
+					fmt.Println(validationWarning)
+
+					// In non-interactive mode, just show warning and continue
+					if noTTY {
+						core.PrintWarning("Continuing with deployment despite configuration warning...")
+					} else {
+						// In interactive mode, ask for confirmation with Ctrl+C support
+						// Set up signal handler for Ctrl+C
+						sigChan := make(chan os.Signal, 1)
+						signal.Notify(sigChan, os.Interrupt)
+
+						// Create channel for response
+						responseChan := make(chan string, 1)
+
+						go func() {
+							fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
+							var response string
+							fmt.Scanln(&response)
+							responseChan <- response
+						}()
+
+						// Wait for either response or interrupt
+						select {
+						case <-sigChan:
+							fmt.Println("\nDeployment cancelled.")
+							os.Exit(0)
+						case response := <-responseChan:
+							response = strings.ToLower(strings.TrimSpace(response))
+
+							if response == "q" || response == "quit" {
+								fmt.Println("Deployment cancelled.")
+								os.Exit(0)
+							}
+
+							if response != "y" && response != "yes" {
+								fmt.Println("Deployment cancelled.")
+								os.Exit(0)
+							}
+						}
+
+						// Clean up signal handler
+						signal.Stop(sigChan)
+						fmt.Println()
+					}
+				}
+			}
+
+			// Check if type is empty and prompt user if in interactive mode
+			if config.Type == "" {
+				if core.IsInteractiveMode() {
+					selectedType := core.PromptForDeploymentType()
+					if selectedType != "" {
+						core.SetConfigType(selectedType)
+					} else {
+						// User cancelled (Ctrl+C or ESC) - exit instead of defaulting
+						fmt.Println("Deployment cancelled.")
+						os.Exit(0)
+					}
+				} else {
+					core.SetConfigType("agent")
+				}
+			}
+
+			if recursive {
+				if deployPackage(dryRun, name) {
+					return
+				}
 			}
 
 			err = deployment.Generate(skipBuild)
@@ -239,6 +309,79 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	}
 
 	return nil
+}
+
+// validateDeploymentConfig checks if the project has proper configuration for deployment
+// Returns a warning message if configuration is missing, empty string if all is good
+func (d *Deployment) validateDeploymentConfig(config core.Config) string {
+	projectDir := filepath.Join(d.cwd, d.folder)
+
+	// Check for Dockerfile
+	dockerfilePath := filepath.Join(projectDir, "Dockerfile")
+	hasDockerfile := false
+	if _, err := os.Stat(dockerfilePath); err == nil {
+		hasDockerfile = true
+	}
+
+	// Check for language-specific files
+	language := core.ModuleLanguage(d.folder)
+	hasLanguage := language != ""
+	hasEntrypoint := true
+
+	if hasLanguage && config.Entrypoint.Production == "" {
+		switch language {
+		case "python":
+			hasEntrypoint = core.HasPythonEntryFile(projectDir)
+		case "go":
+			hasEntrypoint = core.HasGoEntryFile(projectDir)
+		case "typescript":
+			hasEntrypoint = core.HasTypeScriptEntryFile(projectDir)
+		}
+	}
+
+	// If everything is fine, return early
+	if hasDockerfile || (hasLanguage && hasEntrypoint) {
+		return ""
+	}
+
+	// Build concise warning message
+	var warningMsg strings.Builder
+	warningMsg.WriteString("⚠️  Configuration Warning\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	codeColor := color.New(color.FgCyan)
+	languageColor := color.New(color.FgGreen)
+
+	if !hasLanguage {
+		warningMsg.WriteString(fmt.Sprintf("No language detected. Missing %s or language files.\n\n", codeColor.Sprint("Dockerfile")))
+		warningMsg.WriteString(fmt.Sprintf("To fix: Add a %s OR auto-detect language files:\n", codeColor.Sprint("Dockerfile")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s or %s (Python)\n", codeColor.Sprint("pyproject.toml"), codeColor.Sprint("requirements.txt")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s (TypeScript/Node)\n", codeColor.Sprint("package.json")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s (Go)\n\n", codeColor.Sprint("go.mod")))
+	} else {
+		warningMsg.WriteString(fmt.Sprintf("Detected %s project, but missing entrypoint.\n\n", languageColor.Sprint(language)))
+		warningMsg.WriteString("To fix:\n")
+		entrypointSection := fmt.Sprintf("  • Set entrypoint in %s by adding the following section:\n\n%s\n\n", codeColor.Sprint("blaxel.toml"), codeColor.Sprint("[entrypoint]\nprod = \"your-command\""))
+		switch language {
+		case "python":
+			pythonFiles := codeColor.Sprint("main.py, app.py, api.py, src/main.py, src/app.py, src/api.py, app/main.py, app/app.py, app/api.py")
+			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", pythonFiles))
+			warningMsg.WriteString(entrypointSection)
+		case "go":
+			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go")
+			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", goFiles))
+			warningMsg.WriteString(entrypointSection)
+		case "typescript":
+			warningMsg.WriteString(fmt.Sprintf("  • Add start script in %s OR\n", codeColor.Sprint("package.json")))
+			warningMsg.WriteString(entrypointSection)
+		}
+	}
+
+	warningMsg.WriteString("Learn more: https://docs.blaxel.ai/Agents/Deploy-an-agent\n\n")
+	warningMsg.WriteString("⚠️  Blaxel will attempt to build with default settings, but this may fail.\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	return warningMsg.String()
 }
 
 func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
@@ -596,7 +739,6 @@ func (d *Deployment) ApplyInteractive() error {
 	// Set program reference so model can send messages
 	model.SetProgram(p)
 
-	// Run deployment in background
 	go d.runInteractiveDeployment(resources, additionalResources, model)
 
 	// Run the UI

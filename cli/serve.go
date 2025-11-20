@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
@@ -80,7 +81,7 @@ Workflow:
 			core.ReadSecrets(folder, envFiles)
 			if folder != "" {
 				core.ReadSecrets("", envFiles)
-				core.ReadConfigToml(folder)
+				core.ReadConfigToml(folder, true)
 			}
 			config := core.GetConfig()
 
@@ -102,18 +103,68 @@ Workflow:
 					return
 				}
 			}
-			// Check for pyproject.toml or package.json
-			language := core.ModuleLanguage(folder)
-			switch language {
-			case "python":
-				activeProc = server.StartPythonServer(port, host, hotreload, folder, config)
-			case "typescript":
-				activeProc = server.StartTypescriptServer(port, host, hotreload, folder, config)
-			case "go":
-				activeProc = server.StartGoServer(port, host, hotreload, folder, config)
-			default:
-				core.PrintError("Serve", fmt.Errorf("neither pyproject.toml nor package.json found in current directory"))
-				os.Exit(1)
+
+			// First, check if entrypoint is configured
+			useEntrypoint := (config.Entrypoint.Production != "" && !hotreload) || (config.Entrypoint.Development != "" && hotreload)
+
+			if useEntrypoint {
+				activeProc = server.StartEntrypoint(port, host, hotreload, folder, config)
+			} else {
+				// Fall back to language detection
+				language := core.ModuleLanguage(folder)
+				switch language {
+				case "python":
+					activeProc = server.StartPythonServer(port, host, hotreload, folder, config)
+				case "typescript":
+					activeProc = server.StartTypescriptServer(port, host, hotreload, folder, config)
+				case "go":
+					activeProc = server.StartGoServer(port, host, hotreload, folder, config)
+				default:
+					// Neither entrypoint nor language detected
+					// Check if blaxel.toml exists
+					blaxelTomlPath := filepath.Join(cwd, folder, "blaxel.toml")
+					blaxelTomlExists := false
+					if _, err := os.Stat(blaxelTomlPath); err == nil {
+						blaxelTomlExists = true
+					}
+
+					if hotreload {
+						core.PrintError("Serve", fmt.Errorf("cannot start server with hotreload: no dev entrypoint configured and no language detected"))
+						if blaxelTomlExists {
+							core.PrintInfo("To fix this issue, configure a dev entrypoint in blaxel.toml:")
+							core.Print("[entrypoint]")
+							core.Print("dev = \"your-command\"")
+						} else {
+							core.PrintInfo("To fix this issue, create a blaxel.toml file with a dev entrypoint:")
+							core.Print("[entrypoint]")
+							core.Print("dev = \"your-command\"")
+						}
+						core.PrintInfo("\nOr execute this command:")
+						if blaxelTomlExists {
+							core.Print("echo '[entrypoint]\\ndev = \"your-command\"' >> blaxel.toml")
+						} else {
+							core.Print("echo '[entrypoint]\\ndev = \"your-command\"' > blaxel.toml")
+						}
+					} else {
+						core.PrintError("Serve", fmt.Errorf("cannot start server: no prod entrypoint configured and no language detected"))
+						if blaxelTomlExists {
+							core.PrintInfo("To fix this issue, configure a prod entrypoint in blaxel.toml:")
+							core.Print("[entrypoint]")
+							core.Print("prod = \"your-command\"")
+						} else {
+							core.PrintInfo("To fix this issue, create a blaxel.toml file with a prod entrypoint:")
+							core.Print("[entrypoint]")
+							core.Print("prod = \"your-command\"")
+						}
+						core.PrintInfo("\nOr execute this command:")
+						if blaxelTomlExists {
+							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' >> blaxel.toml")
+						} else {
+							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' > blaxel.toml")
+						}
+					}
+					os.Exit(1)
+				}
 			}
 
 			// Handle graceful shutdown on interrupt

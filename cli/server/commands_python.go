@@ -10,13 +10,73 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
+// FindPythonEntryFile searches for common Python entry files in the given folder
+// Returns the relative path to the entry file if found, empty string otherwise
+func FindPythonEntryFile(folder string) string {
+	files := []string{
+		"app.py",
+		"main.py",
+		"api.py",
+		"app/main.py",
+		"app/app.py",
+		"app/api.py",
+		"src/main.py",
+		"src/app.py",
+		"src/api.py",
+	}
+	for _, f := range files {
+		if _, err := os.Stat(filepath.Join(folder, f)); err == nil {
+			return f
+		}
+	}
+	return ""
+}
+
+// HasPythonEntryFile checks if common Python entry files exist in the given folder
+func HasPythonEntryFile(folder string) bool {
+	return FindPythonEntryFile(folder) != ""
+}
+
+// FindPythonExecutable checks for python or python3 in PATH and returns the executable name
+// Returns an error if neither python nor python3 is available
+func FindPythonExecutable() (string, error) {
+	// First try "python"
+	if _, err := exec.LookPath("python"); err == nil {
+		return "python", nil
+	}
+	// Then try "python3"
+	if _, err := exec.LookPath("python3"); err == nil {
+		return "python3", nil
+	}
+	// Neither found
+	return "", fmt.Errorf("python is not available on this system")
+}
+
 func StartPythonServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
-	python, err := FindRootCmd(port, host, hotreload, folder, config)
+	// Check if Python is available before attempting to start
+	pythonExec, err := FindPythonExecutable()
 	if err != nil {
-		fmt.Println(err)
+		core.PrintError("Serve", err)
+		core.PrintInfo("Please install Python:")
+		core.PrintInfo("  - macOS: brew install python3")
+		core.PrintInfo("  - Linux: sudo apt-get install python3 (or use your distribution's package manager)")
+		core.PrintInfo("  - Windows: Download from https://www.python.org/downloads/")
+		core.PrintInfo("After installation, ensure Python is in your PATH.")
 		os.Exit(1)
 	}
-	fmt.Printf("Starting server : %s\n", strings.Join(python.Args, " "))
+	_ = pythonExec // Will be used by findPythonRootCmdAsString
+	python, err := FindRootCmd(port, host, hotreload, folder, config)
+	if err != nil {
+		core.PrintError("Serve", err)
+		os.Exit(1)
+	}
+	// Extract the actual command, hiding "sh -c" wrapper if present
+	cmdDisplay := strings.Join(python.Args, " ")
+	if len(python.Args) >= 3 && python.Args[0] == "sh" && python.Args[1] == "-c" {
+		// Extract just the command after "sh -c"
+		cmdDisplay = python.Args[2]
+	}
+	fmt.Printf("Starting server : %s\n", cmdDisplay)
 	if os.Getenv("COMMAND") != "" {
 		command := strings.Split(os.Getenv("COMMAND"), " ")
 		if len(command) > 1 {
@@ -35,7 +95,7 @@ func StartPythonServer(port int, host string, hotreload bool, folder string, con
 
 	err = python.Start()
 	if err != nil {
-		fmt.Println(err)
+		core.PrintError("Serve", fmt.Errorf("failed to start Python server: %w", err))
 		os.Exit(1)
 	}
 
@@ -50,31 +110,33 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		return strings.Split(cfg.Entrypoint.Production, " "), nil
 	}
 	fmt.Println("Entrypoint not found in config, using auto-detection")
-	files := []string{
-		"app.py",
-		"main.py",
-		"api.py",
-		"app/main.py",
-		"app/app.py",
-		"app/api.py",
-		"src/main.py",
-		"src/app.py",
-		"src/api.py",
-	}
-	file := ""
-	for _, f := range files {
-		if _, err := os.Stat(filepath.Join(cfg.Folder, f)); err == nil {
-			file = f
-			break
-		}
-	}
+
+	file := FindPythonEntryFile(cfg.Folder)
 	if file == "" {
 		return nil, fmt.Errorf("app.py or main.py not found in current directory")
 	}
+
 	venv := ".venv"
 	if _, err := os.Stat(filepath.Join(cfg.Folder, venv)); err == nil {
-		cmd := []string{filepath.Join(venv, "bin", "python"), file}
-		return cmd, nil
+		// Check if venv python exists, otherwise fall back to system python
+		venvPython := filepath.Join(venv, "bin", "python")
+		if _, err := os.Stat(filepath.Join(cfg.Folder, venvPython)); err == nil {
+			cmd := []string{venvPython, file}
+			return cmd, nil
+		}
+		// Venv exists but python binary not found, try python3
+		venvPython3 := filepath.Join(venv, "bin", "python3")
+		if _, err := os.Stat(filepath.Join(cfg.Folder, venvPython3)); err == nil {
+			cmd := []string{venvPython3, file}
+			return cmd, nil
+		}
+		// Fall through to system python
 	}
-	return []string{"python", file}, nil
+
+	// Use system python (python or python3)
+	pythonExec, err := FindPythonExecutable()
+	if err != nil {
+		return nil, err
+	}
+	return []string{pythonExec, file}, nil
 }

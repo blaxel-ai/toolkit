@@ -167,7 +167,7 @@ type Config struct {
 	Region      string                    `toml:"region,omitempty"`
 }
 
-func readConfigToml(folder string) {
+func readConfigToml(folder string, setDefaultType bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
@@ -180,15 +180,8 @@ func readConfigToml(folder string) {
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}
 
-		// If in interactive mode, prompt user for what they want to deploy
-		if IsInteractiveMode() {
-			selectedType := promptForDeploymentType()
-			if selectedType != "" {
-				config.Type = selectedType
-			} else {
-				config.Type = "agent"
-			}
-		} else {
+		// Set default type only if requested
+		if setDefaultType {
 			config.Type = "agent"
 		}
 		return
@@ -200,7 +193,7 @@ func readConfigToml(folder string) {
 		return
 	}
 
-	if config.Type == "" {
+	if config.Type == "" && setDefaultType {
 		config.Type = "agent"
 	}
 
@@ -211,7 +204,7 @@ func readConfigToml(folder string) {
 
 // promptForDeploymentType prompts the user to select what they want to deploy
 // when no blaxel.toml file is found
-func promptForDeploymentType() string {
+func PromptForDeploymentType() string {
 	var selected string
 	form := huh.NewForm(
 		huh.NewGroup(

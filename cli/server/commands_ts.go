@@ -15,13 +15,57 @@ type PackageJson struct {
 	Scripts map[string]string `json:"scripts"`
 }
 
+// FindNodeExecutable checks for node in PATH and returns the executable name
+// Returns an error if node is not available
+func FindNodeExecutable() (string, error) {
+	if _, err := exec.LookPath("node"); err == nil {
+		return "node", nil
+	}
+	return "", fmt.Errorf("node is not available on this system")
+}
+
+// FindPackageManagerExecutable checks for npm, yarn, or pnpm in PATH
+// Returns the executable name and an error if none are available
+func FindPackageManagerExecutable() (string, error) {
+	// Check in order: pnpm, yarn, npm
+	if _, err := exec.LookPath("pnpm"); err == nil {
+		return "pnpm", nil
+	}
+	if _, err := exec.LookPath("yarn"); err == nil {
+		return "yarn", nil
+	}
+	if _, err := exec.LookPath("npm"); err == nil {
+		return "npm", nil
+	}
+	return "", fmt.Errorf("no package manager found (npm, yarn, or pnpm)")
+}
+
 func StartTypescriptServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
-	ts, err := FindRootCmd(port, host, hotreload, folder, config)
+	// Check if Node.js is available before attempting to start
+	nodeExec, err := FindNodeExecutable()
 	if err != nil {
-		fmt.Println(err)
+		core.PrintError("Serve", err)
+		core.PrintInfo("Please install Node.js:")
+		core.PrintInfo("  - macOS: brew install node")
+		core.PrintInfo("  - Linux: sudo apt-get install nodejs npm (or use your distribution's package manager)")
+		core.PrintInfo("  - Windows: Download from https://nodejs.org/")
+		core.PrintInfo("After installation, ensure Node.js is in your PATH.")
 		os.Exit(1)
 	}
-	fmt.Printf("Starting server : %s\n", strings.Join(ts.Args, " "))
+	_ = nodeExec // Will be used by findTSRootCmdAsString
+
+	ts, err := FindRootCmd(port, host, hotreload, folder, config)
+	if err != nil {
+		core.PrintError("Serve", err)
+		os.Exit(1)
+	}
+	// Extract the actual command, hiding "sh -c" wrapper if present
+	cmdDisplay := strings.Join(ts.Args, " ")
+	if len(ts.Args) >= 3 && ts.Args[0] == "sh" && ts.Args[1] == "-c" {
+		// Extract just the command after "sh -c"
+		cmdDisplay = ts.Args[2]
+	}
+	fmt.Printf("Starting server : %s\n", cmdDisplay)
 	if os.Getenv("COMMAND") != "" {
 		command := strings.Split(os.Getenv("COMMAND"), " ")
 		if len(command) > 1 {
@@ -40,7 +84,7 @@ func StartTypescriptServer(port int, host string, hotreload bool, folder string,
 
 	err = ts.Start()
 	if err != nil {
-		fmt.Println(err)
+		core.PrintError("Serve", fmt.Errorf("failed to start TypeScript server: %w", err))
 		os.Exit(1)
 	}
 
@@ -101,10 +145,22 @@ func findStartCommand(script string) ([]string, error) {
 	packageManager := findTSPackageManager()
 	switch packageManager {
 	case "pnpm":
+		// Check if pnpm is available
+		if _, err := exec.LookPath("pnpm"); err != nil {
+			return nil, fmt.Errorf("pnpm is not available - please install it with: npm install -g pnpm")
+		}
 		return []string{"npx", "pnpm", "run", script}, nil
 	case "yarn":
+		// Check if yarn is available
+		if _, err := exec.LookPath("yarn"); err != nil {
+			return nil, fmt.Errorf("yarn is not available - please install it with: npm install -g yarn")
+		}
 		return []string{"yarn", "run", script}, nil
 	default:
+		// Check if npm is available
+		if _, err := exec.LookPath("npm"); err != nil {
+			return nil, fmt.Errorf("npm is not available - please install Node.js which includes npm")
+		}
 		return []string{"npm", "run", script}, nil
 	}
 }
@@ -151,7 +207,11 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 
 	for _, file := range files {
 		if _, err := os.Stat(filepath.Join(config.Folder, file)); err == nil {
-			return []string{"node", file}, nil
+			nodeExec, err := FindNodeExecutable()
+			if err != nil {
+				return nil, err
+			}
+			return []string{nodeExec, file}, nil
 		}
 	}
 	return nil, fmt.Errorf("index.js, index.ts, app.js or app.ts not found in current directory")
