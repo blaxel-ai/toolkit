@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -249,7 +250,9 @@ func HasGoEntryFile(directory string) bool {
 }
 
 // HasTypeScriptEntryFile checks if common TypeScript/JavaScript entry files exist in the given directory
+// or if package.json has a start script defined
 func HasTypeScriptEntryFile(directory string) bool {
+	// Check for common entry files
 	files := []string{
 		"index.js",
 		"app.js",
@@ -269,6 +272,23 @@ func HasTypeScriptEntryFile(directory string) bool {
 			return true
 		}
 	}
+
+	// Check if package.json has a start script
+	packageJsonPath := filepath.Join(directory, "package.json")
+	if _, err := os.Stat(packageJsonPath); err == nil {
+		content, err := os.ReadFile(packageJsonPath)
+		if err == nil {
+			var packageJson map[string]interface{}
+			if err := json.Unmarshal(content, &packageJson); err == nil {
+				if scripts, ok := packageJson["scripts"].(map[string]interface{}); ok {
+					if _, hasStart := scripts["start"]; hasStart {
+						return true
+					}
+				}
+			}
+		}
+	}
+
 	return false
 }
 

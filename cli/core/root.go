@@ -29,6 +29,9 @@ var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#upda
 // ANSI color codes
 const (
 	colorYellow = "\033[33m"
+	colorCyan   = "\033[36m"
+	colorGreen  = "\033[32m"
+	colorBold   = "\033[1m"
 	colorReset  = "\033[0m"
 )
 
@@ -104,8 +107,10 @@ func writeVersionCache(cache versionCache) error {
 }
 
 func notifyNewVersionAvailable(latestVersion, currentVersion string) {
-	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s (current: %s)\nTo update follow the instructions at %s\n\n%s",
-		colorYellow, latestVersion, currentVersion, UPDATE_CLI_DOC_URL, colorReset)
+	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
+		colorYellow, colorBold+colorGreen, latestVersion, colorReset, colorYellow, colorBold, currentVersion, colorReset+colorYellow,
+		colorYellow, colorBold+colorGreen, colorReset+colorYellow,
+		colorYellow, colorCyan, UPDATE_CLI_DOC_URL, colorReset+colorYellow, colorReset)
 }
 
 func checkForUpdates(currentVersion string) {
@@ -259,6 +264,7 @@ var rootCmd = &cobra.Command{
 			outputFormat == "json" ||
 			outputFormat == "yaml"
 
+		notifyNewVersionAvailable(version, version)
 		if !shouldSkipWarning {
 			checkForUpdates(version)
 		}
