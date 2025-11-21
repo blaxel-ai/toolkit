@@ -323,6 +323,53 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 		hasDockerfile = true
 	}
 
+	// Special validation for sandbox type
+	if config.Type == "sandbox" {
+		if !hasDockerfile {
+			// No Dockerfile for sandbox - show warning with sample
+			var warningMsg strings.Builder
+			warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
+			warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+			codeColor := color.New(color.FgCyan)
+			warningMsg.WriteString(fmt.Sprintf("Sandbox deployments require a %s.\n\n", codeColor.Sprint("Dockerfile")))
+			warningMsg.WriteString("Quick sample Dockerfile:\n\n")
+			warningMsg.WriteString(codeColor.Sprint("FROM debian:bookworm-slim\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("WORKDIR /app\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
+			warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+			return warningMsg.String()
+		}
+
+		// Dockerfile exists, check if it contains sandbox-api
+		dockerfileContent, err := os.ReadFile(dockerfilePath)
+		if err == nil {
+			content := string(dockerfileContent)
+			hasSandboxAPI := strings.Contains(content, "sandbox-api")
+			hasBlaxelSandboxImage := strings.Contains(content, "ghcr.io/blaxel-ai/sandbox-")
+
+			if !hasSandboxAPI && !hasBlaxelSandboxImage {
+				// Dockerfile exists but doesn't have sandbox-api
+				var warningMsg strings.Builder
+				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
+				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+				codeColor := color.New(color.FgCyan)
+				warningMsg.WriteString(fmt.Sprintf("Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
+					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel")))
+				warningMsg.WriteString("Your Dockerfile should come from a sandbox image or at least include sandbox-api:\n\n")
+				warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
+				warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
+				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+				return warningMsg.String()
+			}
+		}
+		return ""
+	}
+
 	// Check for language-specific files
 	language := core.ModuleLanguage(d.folder)
 	hasLanguage := language != ""
