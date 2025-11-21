@@ -264,7 +264,6 @@ var rootCmd = &cobra.Command{
 			outputFormat == "json" ||
 			outputFormat == "yaml"
 
-		notifyNewVersionAvailable(version, version)
 		if !shouldSkipWarning {
 			checkForUpdates(version)
 		}
