@@ -33,7 +33,7 @@ func ServeCmd() *cobra.Command {
 		Short:   "Serve a blaxel project",
 		Long: `Start a local development server for your Blaxel project.
 
-This runs your agent, MCP server, or job locally on your machine for rapid
+This runs your agent or MCP server locally on your machine for rapid
 development and testing. Perfect for the inner development loop where you
 want to iterate quickly without deploying to the cloud.
 
@@ -50,7 +50,7 @@ restarts.
 Testing Locally:
 While your server is running, test it with:
 - bl chat agent-name --local   (for agents)
-- bl run agent agent-name --local --data '{}'   (for agents/jobs)
+- bl run agent agent-name --local --data '{}'   (for agents)
 
 Workflow:
 1. bl serve --hotreload        Start local server with auto-reload
