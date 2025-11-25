@@ -81,43 +81,44 @@ Examples:
 
 			if url == "" {
 				client := core.GetClient()
-				response, err := client.ListSandboxesWithResponse(ctx)
+				// First, try to get the specific sandbox directly (more efficient)
+				response, err := client.GetSandboxWithResponse(ctx, sandboxName, &sdk.GetSandboxParams{})
 				if err != nil {
-					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %w", err))
+					core.PrintError("Connect", fmt.Errorf("error getting sandbox: %w", err))
 					os.Exit(1)
 				}
-				if response.StatusCode() != 200 {
-					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %s", response.Status()))
-					os.Exit(1)
-				}
-				found := false
-				sandboxes := response.JSON200
-				names := []string{}
-				var sandboxURL string
-				for _, sandbox := range *sandboxes {
-					if *sandbox.Metadata.Name == sandboxName {
-						found = true
-						// Get the direct URL from sandbox metadata
-						if sandbox.Metadata.Url != nil && *sandbox.Metadata.Url != "" {
-							sandboxURL = *sandbox.Metadata.Url
-						}
-						break
+
+				if response.StatusCode() == 200 {
+					// Sandbox found, get the URL from metadata
+					if response.JSON200.Metadata.Url != nil && *response.JSON200.Metadata.Url != "" {
+						url = *response.JSON200.Metadata.Url
 					}
-					names = append(names, *sandbox.Metadata.Name)
-				}
-				if !found {
+				} else if response.StatusCode() == 404 {
+					// Sandbox not found, provide helpful error message with available sandboxes
 					core.PrintError("Connect", fmt.Errorf("sandbox '%s' not found", sandboxName))
-					if len(names) > 0 {
-						core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
-						core.Print(fmt.Sprintf("Or create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
-					} else {
-						core.Print(fmt.Sprintf("Create a sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
+
+					// Now list sandboxes to show available options
+					listResponse, listErr := client.ListSandboxesWithResponse(ctx)
+					if listErr == nil && listResponse.StatusCode() == 200 && listResponse.JSON200 != nil {
+						sandboxes := *listResponse.JSON200
+						if len(sandboxes) > 0 {
+							names := make([]string, 0, len(sandboxes))
+							for _, sandbox := range sandboxes {
+								if sandbox.Metadata != nil && sandbox.Metadata.Name != nil {
+									names = append(names, *sandbox.Metadata.Name)
+								}
+							}
+							if len(names) > 0 {
+								core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
+							}
+						}
 					}
+					core.Print(fmt.Sprintf("Create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
 					os.Exit(1)
-				}
-				// Use the URL from metadata if available
-				if sandboxURL != "" {
-					url = sandboxURL
+				} else {
+					// Other error
+					core.PrintError("Connect", fmt.Errorf("error getting sandbox: %s", response.Status()))
+					os.Exit(1)
 				}
 			}
 			// Prepare authentication headers based on available credentials
