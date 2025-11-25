@@ -90,7 +90,6 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	// Check for pending authorization (HTTP 202 or authorization_pending error)
 	if res.StatusCode == http.StatusAccepted {
 		// HTTP 202 Accepted means authorization is pending
-		core.PrintInfo("Waiting for you to confirm the login in your browser...")
 		if retries > 0 {
 			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
 			return
