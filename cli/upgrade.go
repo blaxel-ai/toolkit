@@ -71,16 +71,57 @@ func detectInstallationMethod() (string, error) {
 	}
 
 	// Check if installed via Homebrew
-	// Common Homebrew paths: /opt/homebrew/*, /usr/local/Cellar/*, /usr/local/opt/*
-	if strings.Contains(realPath, "/opt/homebrew") ||
-		strings.Contains(realPath, "/usr/local/Cellar") ||
-		strings.Contains(realPath, "/usr/local/opt") ||
-		strings.Contains(realPath, "/home/linuxbrew") {
+	if isInstalledViaHomebrew(realPath) {
 		return "brew", nil
 	}
 
 	// Otherwise, assume curl installation
 	return "curl", nil
+}
+
+// isInstalledViaHomebrew checks if the CLI was installed via Homebrew
+func isInstalledViaHomebrew(execPath string) bool {
+	// First, check if brew is installed
+	brewPath, err := exec.LookPath("brew")
+	if err != nil {
+		// brew is not installed
+		return false
+	}
+
+	// Get the Homebrew prefix
+	cmd := exec.Command(brewPath, "--prefix")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	brewPrefix := strings.TrimSpace(string(output))
+	if brewPrefix == "" {
+		return false
+	}
+
+	// Check if the executable path is under the Homebrew prefix
+	if !strings.HasPrefix(execPath, brewPrefix) {
+		return false
+	}
+
+	// Check if the blaxel-ai/blaxel tap exists
+	cmd = exec.Command(brewPath, "tap")
+	output, err = cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	taps := strings.Split(string(output), "\n")
+	for _, tap := range taps {
+		if strings.TrimSpace(tap) == "blaxel-ai/blaxel" {
+			return true
+		}
+	}
+
+	// If tap doesn't exist but binary is in brew prefix, still consider it a brew installation
+	// This handles the case where the tap might be removed but the binary still exists
+	return true
 }
 
 // runUpgrade executes the appropriate upgrade command based on installation method
@@ -104,6 +145,29 @@ func runUpgrade(targetVersion string, force bool) error {
 
 // upgradeViaBrew upgrades the CLI using Homebrew
 func upgradeViaBrew(force bool) error {
+	core.PrintInfo("Updating Blaxel tap...")
+
+	// Get the tap repository path
+	tapPathCmd := exec.Command("brew", "--repository", "blaxel-ai/blaxel")
+	tapPathOutput, err := tapPathCmd.Output()
+	if err == nil {
+		tapPath := strings.TrimSpace(string(tapPathOutput))
+
+		// Checkout main branch
+		gitCheckoutCmd := exec.Command("git", "checkout", "main")
+		gitCheckoutCmd.Dir = tapPath
+		if err := gitCheckoutCmd.Run(); err != nil {
+			core.PrintWarning("Failed to checkout main branch, continuing with upgrade...")
+		}
+
+		// Pull latest changes from the tap
+		gitPullCmd := exec.Command("git", "pull")
+		gitPullCmd.Dir = tapPath
+		if err := gitPullCmd.Run(); err != nil {
+			core.PrintWarning("Failed to update tap, continuing with upgrade...")
+		}
+	}
+
 	core.PrintInfo("Upgrading Blaxel CLI via Homebrew...")
 
 	var cmd *exec.Cmd
