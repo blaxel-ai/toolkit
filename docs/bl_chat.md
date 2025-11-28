@@ -14,7 +14,7 @@ This command opens a terminal-based chat interface where you can send messages
 to your agent and see responses in real-time. Perfect for testing agent behavior,
 exploring capabilities, or debugging conversational flows.
 
-The agent must be deployed and in DEPLOYED status. Use 'bl get agent <name>'
+The agent must be deployed and in DEPLOYED status. Use 'bl get agent NAME'
 to check deployment status before chatting.
 
 Local Testing:
