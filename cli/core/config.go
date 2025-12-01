@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/charmbracelet/huh"
+	"github.com/fatih/color"
 )
 
 type Resource struct {
@@ -167,6 +169,9 @@ type Config struct {
 	Region      string                    `toml:"region,omitempty"`
 }
 
+// blaxelTomlWarning stores any warning from parsing blaxel.toml
+var blaxelTomlWarning string
+
 func readConfigToml(folder string, setDefaultType bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -189,7 +194,8 @@ func readConfigToml(folder string, setDefaultType bool) {
 
 	err = toml.Unmarshal(content, &config)
 	if err != nil {
-		fmt.Println(err)
+		// Store the warning for the caller to handle
+		blaxelTomlWarning = buildBlaxelTomlWarning(err)
 		return
 	}
 
@@ -200,6 +206,119 @@ func readConfigToml(folder string, setDefaultType bool) {
 	if config.Workspace != "" {
 		workspace = config.Workspace
 	}
+}
+
+// GetBlaxelTomlWarning returns any warning from parsing blaxel.toml
+func GetBlaxelTomlWarning() string {
+	return blaxelTomlWarning
+}
+
+// ClearBlaxelTomlWarning clears the blaxel.toml warning
+func ClearBlaxelTomlWarning() {
+	blaxelTomlWarning = ""
+}
+
+// buildBlaxelTomlWarning detects common blaxel.toml configuration errors and builds
+// a warning message with sample configurations
+func buildBlaxelTomlWarning(err error) string {
+	errStr := err.Error()
+
+	// Check for common field type errors
+	// The TOML library returns errors like "type mismatch for core.Entrypoints: expected table but found string"
+	if strings.Contains(errStr, "entrypoint") && (strings.Contains(errStr, "expected table") || strings.Contains(errStr, "expected struct")) {
+		return formatBlaxelTomlWarning("entrypoint", "The 'entrypoint' field must be a table with 'prod' and/or 'dev' keys, not a string.")
+	}
+
+	if strings.Contains(errStr, "runtime") && strings.Contains(errStr, "expected") {
+		return formatBlaxelTomlWarning("runtime", "The 'runtime' field must be a table, not a simple value.")
+	}
+
+	if strings.Contains(errStr, "triggers") && strings.Contains(errStr, "expected") {
+		return formatBlaxelTomlWarning("triggers", "The 'triggers' field must be an array of tables.")
+	}
+
+	if strings.Contains(errStr, "volumes") && strings.Contains(errStr, "expected") {
+		return formatBlaxelTomlWarning("volumes", "The 'volumes' field must be an array of tables.")
+	}
+
+	// Generic TOML parse error - show the error and a sample
+	return formatBlaxelTomlWarning("", errStr)
+}
+
+// formatBlaxelTomlWarning formats a warning message with a sample blaxel.toml
+func formatBlaxelTomlWarning(field string, reason string) string {
+	codeColor := color.New(color.FgCyan)
+	warningColor := color.New(color.FgYellow)
+
+	var warningMsg strings.Builder
+
+	warningMsg.WriteString("⚠️  blaxel.toml Configuration Warning\n")
+	warningMsg.WriteString(strings.Repeat("━", 60) + "\n\n")
+
+	if field != "" {
+		warningMsg.WriteString(fmt.Sprintf("%s Invalid '%s' field\n", warningColor.Sprint("⚠"), codeColor.Sprint(field)))
+	}
+	warningMsg.WriteString(fmt.Sprintf("%s %s\n\n", warningColor.Sprint("Reason:"), reason))
+
+	warningMsg.WriteString("Here is a complete sample of a valid blaxel.toml:\n\n")
+
+	sample := getBlaxelTomlSample()
+	for _, line := range strings.Split(sample, "\n") {
+		warningMsg.WriteString(codeColor.Sprint(line) + "\n")
+	}
+
+	warningMsg.WriteString("\n" + strings.Repeat("━", 60) + "\n")
+	warningMsg.WriteString("Learn more: https://docs.blaxel.ai/Agents/Deploy-an-agent\n\n")
+	warningMsg.WriteString("⚠️  Blaxel will attempt to deploy with default settings, but this may fail.\n")
+	warningMsg.WriteString(strings.Repeat("━", 60))
+
+	return warningMsg.String()
+}
+
+// getBlaxelTomlSample returns a complete sample of a valid blaxel.toml
+func getBlaxelTomlSample() string {
+	return `# Basic configuration
+type = "agent"  # Can be: agent, function, job, sandbox, volume-template
+name = "my-resource" # Optional, default to the directory name
+
+# Entrypoint configuration (optional)
+[entrypoint]
+prod = "python main.py"
+dev = "python main.py --dev"
+
+# Environment variables (optional)
+[env]
+MY_VAR = "my-value"
+
+# Runtime configuration (optional)
+[runtime]
+memory = 4096
+# Job configuration (optional)
+# maxConcurrentTasks = 10
+# timeout = 900
+# maxRetries=0
+
+# Volumes for Sandbox (optional)
+# [[volumes]]
+# name = "my-volume"
+# mountPath = "/data"
+
+# Volume templates (optional)
+# directory = "."
+# defaultSize = 1024
+
+# Job triggers - for scheduled jobs (type = "job")
+# [[triggers]]
+# type = "schedule"
+# schedule = "0 * * * *"  # Cron expression (every hour)
+
+# HTTP triggers - for agents/functions
+# [[triggers]]
+# id = "my-trigger"
+# type = "http"
+# [triggers.configuration]
+# path = "/webhook"
+# authenticationType = "public"`
 }
 
 // promptForDeploymentType prompts the user to select what they want to deploy

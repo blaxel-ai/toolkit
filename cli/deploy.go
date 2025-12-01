@@ -142,54 +142,17 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				cwd:    cwd,
 			}
 
+			// Check for blaxel.toml validation warnings first
+			blaxelTomlWarning := core.GetBlaxelTomlWarning()
+			if blaxelTomlWarning != "" {
+				handleConfigWarning(blaxelTomlWarning, noTTY)
+				core.ClearBlaxelTomlWarning()
+			}
+
 			if !skipBuild {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
-					// Print the warning
-					fmt.Println(validationWarning)
-
-					// In non-interactive mode, just show warning and continue
-					if noTTY {
-						core.PrintWarning("Continuing with deployment despite configuration warning...")
-					} else {
-						// In interactive mode, ask for confirmation with Ctrl+C support
-						// Set up signal handler for Ctrl+C
-						sigChan := make(chan os.Signal, 1)
-						signal.Notify(sigChan, os.Interrupt)
-
-						// Create channel for response
-						responseChan := make(chan string, 1)
-
-						go func() {
-							fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
-							var response string
-							fmt.Scanln(&response)
-							responseChan <- response
-						}()
-
-						// Wait for either response or interrupt
-						select {
-						case <-sigChan:
-							fmt.Println("\nDeployment cancelled.")
-							os.Exit(0)
-						case response := <-responseChan:
-							response = strings.ToLower(strings.TrimSpace(response))
-
-							if response == "q" || response == "quit" {
-								fmt.Println("Deployment cancelled.")
-								os.Exit(0)
-							}
-
-							if response != "y" && response != "yes" {
-								fmt.Println("Deployment cancelled.")
-								os.Exit(0)
-							}
-						}
-
-						// Clean up signal handler
-						signal.Stop(sigChan)
-						fmt.Println()
-					}
+					handleConfigWarning(validationWarning, noTTY)
 				}
 			}
 
@@ -309,6 +272,55 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	}
 
 	return nil
+}
+
+// handleConfigWarning displays a warning and asks for confirmation in interactive mode
+func handleConfigWarning(warning string, noTTY bool) {
+	// Print the warning
+	fmt.Println(warning)
+
+	// In non-interactive mode, just show warning and continue
+	if noTTY {
+		core.PrintWarning("Continuing with deployment despite configuration warning...")
+	} else {
+		// In interactive mode, ask for confirmation with Ctrl+C support
+		// Set up signal handler for Ctrl+C
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+
+		// Create channel for response
+		responseChan := make(chan string, 1)
+
+		go func() {
+			fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
+			var response string
+			fmt.Scanln(&response)
+			responseChan <- response
+		}()
+
+		// Wait for either response or interrupt
+		select {
+		case <-sigChan:
+			fmt.Println("\nDeployment cancelled.")
+			os.Exit(0)
+		case response := <-responseChan:
+			response = strings.ToLower(strings.TrimSpace(response))
+
+			if response == "q" || response == "quit" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+
+			if response != "y" && response != "yes" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+		}
+
+		// Clean up signal handler
+		signal.Stop(sigChan)
+		fmt.Println()
+	}
 }
 
 // validateDeploymentConfig checks if the project has proper configuration for deployment
