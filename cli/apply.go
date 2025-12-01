@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -107,7 +106,7 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 			applyResults, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
 				core.PrintError("Apply", err)
-				os.Exit(1)
+				core.ExitWithError(err)
 			}
 
 			// Check if any resources failed
@@ -120,7 +119,7 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 			}
 
 			if hasFailures {
-				os.Exit(1)
+				core.ExitWithError(fmt.Errorf("one or more resources failed to apply"))
 			}
 		},
 	}
@@ -132,7 +131,7 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 	err := cmd.MarkFlagRequired("filename")
 	if err != nil {
 		core.PrintError("Apply", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 
 	return cmd

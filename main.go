@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -34,7 +35,7 @@ func main() {
 
 	err = cli.Execute(version, commit, date)
 	if err != nil {
-		core.CaptureException(err)
-		os.Exit(1)
+		fmt.Println("Error", err)
+		core.ExitWithError(err)
 	}
 }

@@ -396,7 +396,7 @@ func printJson(resource Resource, slices []interface{}) {
 	jsonData, err := json.MarshalIndent(formatted, "", "  ")
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		ExitWithError(err)
 	}
 	fmt.Println(string(jsonData))
 }
@@ -434,7 +434,7 @@ func renderYaml(resource Resource, slices []interface{}, pretty bool) []byte {
 		data, err := yaml.Marshal(result)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			ExitWithError(err)
 		}
 		yamlData = append(yamlData, []byte("---\n")...)
 		yamlData = append(yamlData, data...)

@@ -98,15 +98,17 @@ func StartEntrypoint(port int, host string, hotreload bool, folder string, confi
 		if config.Entrypoint.Development != "" {
 			entrypoint = config.Entrypoint.Development
 		} else {
-			core.PrintError("Serve", fmt.Errorf("no dev entrypoint configured in blaxel.toml for hotreload mode"))
-			os.Exit(1)
+			err := fmt.Errorf("no dev entrypoint configured in blaxel.toml for hotreload mode")
+			core.PrintError("Serve", err)
+			core.ExitWithError(err)
 		}
 	} else {
 		if config.Entrypoint.Production != "" {
 			entrypoint = config.Entrypoint.Production
 		} else {
-			core.PrintError("Serve", fmt.Errorf("no prod entrypoint configured in blaxel.toml"))
-			os.Exit(1)
+			err := fmt.Errorf("no prod entrypoint configured in blaxel.toml")
+			core.PrintError("Serve", err)
+			core.ExitWithError(err)
 		}
 	}
 
@@ -115,8 +117,9 @@ func StartEntrypoint(port int, host string, hotreload bool, folder string, confi
 	// Parse the entrypoint command
 	cmdParts := strings.Fields(entrypoint)
 	if len(cmdParts) == 0 {
-		core.PrintError("Serve", fmt.Errorf("entrypoint is empty"))
-		os.Exit(1)
+		err := fmt.Errorf("entrypoint is empty")
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
 	}
 
 	var cmd *exec.Cmd
@@ -136,8 +139,9 @@ func StartEntrypoint(port int, host string, hotreload bool, folder string, confi
 
 	err := cmd.Start()
 	if err != nil {
-		core.PrintError("Serve", fmt.Errorf("failed to start entrypoint: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to start entrypoint: %w", err)
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
 	}
 
 	return cmd

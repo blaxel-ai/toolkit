@@ -77,3 +77,29 @@ func RecoverWithSentry() {
 		panic(r) // Re-panic after capturing
 	}
 }
+
+// ExitWithError captures the error to Sentry and exits with code 1
+func ExitWithError(err error) {
+	if err != nil && SentryDSN != "" {
+		sentry.CaptureException(err)
+		sentry.Flush(2 * time.Second)
+	}
+	os.Exit(1)
+}
+
+// ExitWithMessage captures a message to Sentry and exits with code 1
+func ExitWithMessage(msg string) {
+	if msg != "" && SentryDSN != "" {
+		sentry.CaptureMessage(msg)
+		sentry.Flush(2 * time.Second)
+	}
+	os.Exit(1)
+}
+
+// Exit captures to Sentry and exits with the given code
+func Exit(code int) {
+	if code != 0 && SentryDSN != "" {
+		sentry.Flush(2 * time.Second)
+	}
+	os.Exit(code)
+}
