@@ -79,7 +79,7 @@ func RunCreateFlow(
 	// Retrieve templates (with or without spinner)
 	templates, err := RetrieveTemplatesWithSpinner(cfg.TemplateType, cfg.NoTTY, cfg.ErrorPrefix)
 	if err != nil {
-		os.Exit(1)
+		ExitWithError(err)
 	}
 
 	// Resolve options

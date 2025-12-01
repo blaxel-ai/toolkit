@@ -37,8 +37,9 @@ func LoginApiKey(workspace string) {
 
 	err := validateWorkspace(workspace, creds)
 	if err != nil {
-		core.PrintError("Login", fmt.Errorf("failed to access workspace '%s': %w", workspace, err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to access workspace '%s': %w", workspace, err)
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
 
 	sdk.SaveCredentials(workspace, creds)

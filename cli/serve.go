@@ -87,14 +87,16 @@ Workflow:
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				core.PrintError("Serve", fmt.Errorf("error getting current working directory: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error getting current working directory: %w", err)
+				core.PrintError("Serve", err)
+				core.ExitWithError(err)
 			}
 
 			err = core.SeedCache(cwd)
 			if err != nil {
-				core.PrintError("Serve", fmt.Errorf("error seeding cache: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error seeding cache: %w", err)
+				core.PrintError("Serve", err)
+				core.ExitWithError(err)
 			}
 
 			// If it's a package, we need to handle it
@@ -163,7 +165,7 @@ Workflow:
 							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' > blaxel.toml")
 						}
 					}
-					os.Exit(1)
+					core.ExitWithError(fmt.Errorf("cannot start server: no entrypoint configured and no language detected"))
 				}
 			}
 
@@ -185,7 +187,7 @@ Workflow:
 			if err := activeProc.Wait(); err != nil {
 				// Only treat as error if we didn't interrupt it ourselves
 				if err.Error() != "signal: interrupt" {
-					os.Exit(1)
+					core.ExitWithError(err)
 				}
 			}
 			os.Exit(0)

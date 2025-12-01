@@ -27,8 +27,9 @@ type PackageCommand struct {
 func StartPackageServer(port int, host string, hotreload bool, config core.Config, envFiles []string, secrets []core.Env) bool {
 	commands, err := getServeCommands(port, host, hotreload, config, envFiles, secrets)
 	if err != nil {
-		core.PrintError("Serve", fmt.Errorf("failed to get package commands: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to get package commands: %w", err)
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
 	}
 	if len(commands) == 1 {
 		if commands[0].Name == "root" {
@@ -174,8 +175,9 @@ func getServeCommands(port int, host string, hotreload bool, config core.Config,
 			if !usedPorts[pkg.Port] {
 				usedPorts[pkg.Port] = true
 			} else {
-				fmt.Printf("Port %d is already in use, please choose another one\n", pkg.Port)
-				os.Exit(1)
+				err := fmt.Errorf("port %d is already in use, please choose another one", pkg.Port)
+				fmt.Println(err)
+				core.ExitWithError(err)
 			}
 		}
 		command := PackageCommand{

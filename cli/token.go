@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
@@ -56,15 +55,17 @@ Examples:
 
 			// Validate workspace
 			if workspace == "" {
-				core.PrintError("token", fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate"))
-				os.Exit(1)
+				err := fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate")
+				core.PrintError("token", err)
+				core.ExitWithError(err)
 			}
 
 			// Load credentials for the workspace
 			credentials := sdk.LoadCredentials(workspace)
 			if !credentials.IsValid() {
-				core.PrintError("token", fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace))
-				os.Exit(1)
+				err := fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
 			}
 
 			// Get auth provider
@@ -73,8 +74,9 @@ Examples:
 			// Get headers (which will trigger token refresh if needed)
 			headers, err := authProvider.GetHeaders()
 			if err != nil {
-				core.PrintError("token", fmt.Errorf("failed to retrieve token: %v", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to retrieve token: %v", err)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
 			}
 
 			// Extract token from headers
@@ -89,8 +91,9 @@ Examples:
 			}
 
 			if token == "" {
-				core.PrintError("token", fmt.Errorf("no token found in authentication headers"))
-				os.Exit(1)
+				err := fmt.Errorf("no token found in authentication headers")
+				core.PrintError("token", err)
+				core.ExitWithError(err)
 			}
 
 			// Output the token

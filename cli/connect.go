@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -75,8 +74,9 @@ Examples:
 			currentContext := sdk.CurrentContext()
 			workspace := currentContext.Workspace
 			if workspace == "" {
-				core.PrintError("Connect", fmt.Errorf("no workspace found in current context. Please run 'bl login' first"))
-				os.Exit(1)
+				err := fmt.Errorf("no workspace found in current context. Please run 'bl login' first")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
 			if url == "" {
@@ -84,8 +84,9 @@ Examples:
 				// First, try to get the specific sandbox directly (more efficient)
 				response, err := client.GetSandboxWithResponse(ctx, sandboxName, &sdk.GetSandboxParams{})
 				if err != nil {
-					core.PrintError("Connect", fmt.Errorf("error getting sandbox: %w", err))
-					os.Exit(1)
+					err = fmt.Errorf("error getting sandbox: %w", err)
+					core.PrintError("Connect", err)
+					core.ExitWithError(err)
 				}
 
 				if response.StatusCode() == 200 {
@@ -95,7 +96,8 @@ Examples:
 					}
 				} else if response.StatusCode() == 404 {
 					// Sandbox not found, provide helpful error message with available sandboxes
-					core.PrintError("Connect", fmt.Errorf("sandbox '%s' not found", sandboxName))
+					err := fmt.Errorf("sandbox '%s' not found", sandboxName)
+					core.PrintError("Connect", err)
 
 					// Now list sandboxes to show available options
 					listResponse, listErr := client.ListSandboxesWithResponse(ctx)
@@ -114,11 +116,12 @@ Examples:
 						}
 					}
 					core.Print(fmt.Sprintf("Create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
-					os.Exit(1)
+					core.ExitWithError(err)
 				} else {
 					// Other error
-					core.PrintError("Connect", fmt.Errorf("error getting sandbox: %s", response.Status()))
-					os.Exit(1)
+					err := fmt.Errorf("error getting sandbox: %s", response.Status())
+					core.PrintError("Connect", err)
+					core.ExitWithError(err)
 				}
 			}
 			// Prepare authentication headers based on available credentials
@@ -126,8 +129,9 @@ Examples:
 			// Load credentials for the workspace
 			credentials := sdk.LoadCredentials(workspace)
 			if !credentials.IsValid() {
-				core.PrintError("Connect", fmt.Errorf("no valid credentials found. Please run 'bl login' first"))
-				os.Exit(1)
+				err := fmt.Errorf("no valid credentials found. Please run 'bl login' first")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 			if credentials.APIKey != "" {
 				authHeaders["X-Blaxel-Api-Key"] = credentials.APIKey
@@ -145,8 +149,9 @@ Examples:
 			// Create the MCP-based sandbox shell with custom URL
 			shell, err := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
 			if err != nil {
-				core.PrintError("Connect", fmt.Errorf("failed to connect to sandbox: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to connect to sandbox: %w", err)
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
 			// Initialize and run the Bubble Tea program
@@ -159,8 +164,9 @@ Examples:
 			core.SetInteractiveMode(true)
 			if _, err := p.Run(); err != nil {
 				core.SetInteractiveMode(false)
-				core.PrintError("Connect", fmt.Errorf("failed to run sandbox connection: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to run sandbox connection: %w", err)
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 			core.SetInteractiveMode(false)
 		},

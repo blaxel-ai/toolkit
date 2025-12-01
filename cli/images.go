@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -76,16 +75,16 @@ The image reference format is: resourceType/imageName[:tag]
 			}
 
 			if len(args) != 1 {
-				fmt.Println("Error: expected zero or one argument")
-				fmt.Println("Usage: bl get image [resourceType/imageName[:tag]]")
-				os.Exit(1)
+				err := fmt.Errorf("expected zero or one argument\nUsage: bl get image [resourceType/imageName[:tag]]")
+				fmt.Println(err)
+				core.ExitWithError(err)
 			}
 
 			// Parse the image reference
 			resourceType, imageName, tag, err := parseImageRef(args[0])
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
+				core.ExitWithError(err)
 			}
 
 			getImage(resourceType, imageName, tag)
@@ -101,15 +100,17 @@ func ListAllImages() {
 
 	response, err := client.ListImages(ctx)
 	if err != nil {
-		fmt.Printf("Error listing images: %v\n", err)
-		os.Exit(1)
+		err = fmt.Errorf("error listing images: %v", err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	defer func() { _ = response.Body.Close() }()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("Error reading response: %v\n", err)
-		os.Exit(1)
+		err = fmt.Errorf("error reading response: %v", err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	if response.StatusCode == 404 {
@@ -120,15 +121,17 @@ func ListAllImages() {
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Error listing images: %s\n", buf.String())
-		os.Exit(1)
+		err := fmt.Errorf("error listing images: %s", buf.String())
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	// Parse the response
 	var images []interface{}
 	if err := json.Unmarshal(buf.Bytes(), &images); err != nil {
-		fmt.Printf("Error parsing response: %v\n", err)
-		os.Exit(1)
+		err = fmt.Errorf("error parsing response: %v", err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	// Remove tags from each image for the list view
@@ -153,27 +156,31 @@ func getImage(resourceType, imageName, tag string) {
 
 	response, err := client.GetImage(ctx, resourceType, imageName)
 	if err != nil {
-		fmt.Printf("Error getting image %s/%s: %v\n", resourceType, imageName, err)
-		os.Exit(1)
+		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	defer func() { _ = response.Body.Close() }()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("Error reading response: %v\n", err)
-		os.Exit(1)
+		err = fmt.Errorf("error reading response: %v", err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Error getting image %s/%s: %s\n", resourceType, imageName, buf.String())
-		os.Exit(1)
+		err := fmt.Errorf("error getting image %s/%s: %s", resourceType, imageName, buf.String())
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	// Parse the response
 	var image map[string]interface{}
 	if err := json.Unmarshal(buf.Bytes(), &image); err != nil {
-		fmt.Printf("Error parsing response: %v\n", err)
-		os.Exit(1)
+		err = fmt.Errorf("error parsing response: %v", err)
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 
 	// If a specific tag is requested, filter the tags
@@ -191,8 +198,9 @@ func getImage(resourceType, imageName, tag string) {
 				spec["tags"] = filteredTags
 
 				if len(filteredTags) == 0 {
-					fmt.Printf("Tag '%s' not found for image %s/%s\n", tag, resourceType, imageName)
-					os.Exit(1)
+					err := fmt.Errorf("tag '%s' not found for image %s/%s", tag, resourceType, imageName)
+					fmt.Println(err)
+					core.ExitWithError(err)
 				}
 			}
 		}
@@ -376,9 +384,9 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
   bl delete image agent/img1:v1 agent/img2:v2`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				fmt.Println("Error: no image reference provided")
-				fmt.Println("Usage: bl delete image resourceType/imageName[:tag]")
-				os.Exit(1)
+				err := fmt.Errorf("no image reference provided\nUsage: bl delete image resourceType/imageName[:tag]")
+				fmt.Println(err)
+				core.ExitWithError(err)
 			}
 
 			hasFailures := false
@@ -397,7 +405,7 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 			}
 
 			if hasFailures {
-				os.Exit(1)
+				core.ExitWithError(fmt.Errorf("one or more image deletions failed"))
 			}
 		},
 	}

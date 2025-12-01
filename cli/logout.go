@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
@@ -54,8 +53,9 @@ Examples:
 			if len(args) == 0 {
 				workspaces := sdk.ListWorkspaces()
 				if len(workspaces) == 0 {
-					core.PrintError("Logout", fmt.Errorf("no authenticated workspaces found"))
-					os.Exit(1)
+					err := fmt.Errorf("no authenticated workspaces found")
+					core.PrintError("Logout", err)
+					core.ExitWithError(err)
 				}
 
 				var selectedWorkspace string
@@ -81,8 +81,9 @@ Examples:
 
 					err := form.Run()
 					if err != nil {
-						core.PrintError("Logout", fmt.Errorf("error selecting workspace: %w", err))
-						os.Exit(1)
+						err = fmt.Errorf("error selecting workspace: %w", err)
+						core.PrintError("Logout", err)
+						core.ExitWithError(err)
 					}
 				} else {
 					selectedWorkspace = workspaces[0]
