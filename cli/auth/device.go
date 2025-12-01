@@ -54,7 +54,10 @@ func LoginDevice(workspace string) {
 	} else {
 		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLoginResponse.VerificationURIComplete))
 	}
-	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace, 3)
+	core.PrintInfo("Waiting for you to confirm the login in your browser...")
+	// Increase retries to 60 (60 * 3 seconds = 3 minutes total timeout)
+	// This gives users enough time to review and confirm the login
+	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace, 60)
 }
 
 func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
@@ -84,19 +87,44 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	body, _ := io.ReadAll(res.Body)
 
+	// Check for pending authorization (HTTP 202 or authorization_pending error)
+	if res.StatusCode == http.StatusAccepted {
+		// HTTP 202 Accepted means authorization is pending
+		if retries > 0 {
+			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
+			return
+		} else {
+			core.PrintError("Login", fmt.Errorf("login timed out waiting for confirmation"))
+			os.Exit(1)
+		}
+	}
+
+	// Check for authorization_pending in error response
+	if res.StatusCode == http.StatusBadRequest {
+		var errorResponse sdk.AuthErrorResponse
+		if err := json.Unmarshal(body, &errorResponse); err == nil {
+			if errorResponse.Error == "authorization_pending" {
+				// Authorization is pending - keep polling
+				if retries > 0 {
+					deviceModeLoginFinalize(deviceCode, workspace, retries-1)
+					return
+				} else {
+					core.PrintError("Login", fmt.Errorf("login timed out waiting for confirmation"))
+					os.Exit(1)
+				}
+			}
+		}
+	}
+
 	var finalizeResponse sdk.DeviceLoginFinalizeResponse
 	if err := json.Unmarshal(body, &finalizeResponse); err != nil {
 		panic(err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		if retries > 0 {
-			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
-			return
-		} else {
-			core.PrintError("Login", fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)))
-			os.Exit(1)
-		}
+		// This is a real error, not just pending
+		core.PrintError("Login", fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)))
+		os.Exit(1)
 	}
 
 	creds := sdk.Credentials{
