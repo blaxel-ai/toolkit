@@ -670,6 +670,50 @@ func getResourceStatus(resourceType, name string) (string, error) {
 	return "UNKNOWN", nil
 }
 
+// getCallbackSecret extracts the callback secret from a deployed agent
+// This is only available for agents with async triggers
+func getCallbackSecret(resourceType, name string) (string, error) {
+	// Only agents support callback secrets
+	if resourceType != "agent" {
+		return "", nil
+	}
+
+	ctx := context.Background()
+	client := core.GetClient()
+
+	resp, err := client.GetAgentWithResponse(ctx, name, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode() >= 400 {
+		return "", fmt.Errorf("error getting agent %s: %d", name, resp.StatusCode())
+	}
+
+	var resource map[string]interface{}
+	if err := json.Unmarshal(resp.Body, &resource); err != nil {
+		return "", err
+	}
+
+	// Navigate through the JSON structure to find callback secret
+	// spec.triggers[].configuration.callbackSecret
+	if spec, ok := resource["spec"].(map[string]interface{}); ok {
+		if triggers, ok := spec["triggers"].([]interface{}); ok {
+			for _, trigger := range triggers {
+				if triggerMap, ok := trigger.(map[string]interface{}); ok {
+					if config, ok := triggerMap["configuration"].(map[string]interface{}); ok {
+						if callbackSecret, ok := config["callbackSecret"].(string); ok && callbackSecret != "" {
+							return callbackSecret, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return "", nil
+}
+
 func (d *Deployment) Apply() error {
 	blaxelDir := filepath.Join(d.cwd, ".blaxel")
 	if _, err := os.Stat(blaxelDir); err == nil {
@@ -1134,6 +1178,14 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
+
+						// Fetch callback secret if present (only for agents)
+						callbackSecret, err := getCallbackSecret(strings.ToLower(resource.Kind), resource.Name)
+						if err == nil && callbackSecret != "" {
+							resource.SetCallbackSecret(callbackSecret)
+							model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", callbackSecret))
+						}
+
 						model.UpdateResource(idx, deploy.StatusComplete, "Deployed successfully", nil)
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
 						return
@@ -1273,6 +1325,14 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
+
+										// Fetch callback secret if present (only for agents)
+										callbackSecret, err := getCallbackSecret(strings.ToLower(resource.Kind), resource.Name)
+										if err == nil && callbackSecret != "" {
+											resource.SetCallbackSecret(callbackSecret)
+											model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", callbackSecret))
+										}
+
 										model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
 										ticker.Stop()
 										return
@@ -1325,7 +1385,17 @@ func (d *Deployment) Ready() {
 	currentWorkspace := core.GetWorkspace()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
-	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
+
+	// Check for callback secret (only for agents)
+	var callbackSecretMsg string
+	if config.Type == "agent" {
+		callbackSecret, err := getCallbackSecret("agent", d.name)
+		if err == nil && callbackSecret != "" {
+			callbackSecretMsg = fmt.Sprintf("\n\nAsync Callback Configuration:\n  Callback Secret: %s\n  Use this secret to verify webhook callbacks from Blaxel", callbackSecret)
+		}
+	}
+
+	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s%s", availableAt, callbackSecretMsg))
 }
 
 // progressReader wraps an io.Reader and reports progress
