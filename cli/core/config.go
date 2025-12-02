@@ -13,29 +13,39 @@ import (
 	"github.com/fatih/color"
 )
 
+type Field struct {
+	Key     string
+	Value   string
+	Special string
+}
+
 type Resource struct {
-	Kind             string
-	Short            string
-	Plural           string
-	Singular         string
-	Aliases          []string
-	SpecType         reflect.Type
-	List             interface{}
-	Get              interface{}
-	Delete           interface{}
-	Put              interface{}
-	Post             interface{}
-	AdditionalFields map[string]string // map[columnName]fieldPath - e.g., "STATUS": "status", "IMAGE": "spec.runtime.image"
+	Kind     string
+	Short    string
+	Plural   string
+	Singular string
+	Aliases  []string
+	SpecType reflect.Type
+	List     interface{}
+	Get      interface{}
+	Delete   interface{}
+	Put      interface{}
+	Post     interface{}
+	Fields   []Field // ordered slice of fields - e.g., {Key: "STATUS", Value: "status"}
 }
 
 var resources = []*Resource{
 	{
-		Kind:             "Policy",
-		Short:            "pol",
-		Plural:           "policies",
-		Singular:         "policy",
-		SpecType:         reflect.TypeOf(sdk.Policy{}),
-		AdditionalFields: map[string]string{},
+		Kind:     "Policy",
+		Short:    "pol",
+		Plural:   "policies",
+		Singular: "policy",
+		SpecType: reflect.TypeOf(sdk.Policy{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+		},
 	},
 	{
 		Kind:     "Model",
@@ -43,8 +53,11 @@ var resources = []*Resource{
 		Plural:   "models",
 		Singular: "model",
 		SpecType: reflect.TypeOf(sdk.Model{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -54,9 +67,12 @@ var resources = []*Resource{
 		Singular: "function",
 		Aliases:  []string{"mcp", "mcps"},
 		SpecType: reflect.TypeOf(sdk.Function{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
-			"IMAGE":  "spec.runtime.image",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "IMAGE", Value: "spec.runtime.image", Special: "image"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -65,18 +81,25 @@ var resources = []*Resource{
 		Plural:   "agents",
 		Singular: "agent",
 		SpecType: reflect.TypeOf(sdk.Agent{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
-			"IMAGE":  "spec.runtime.image",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "IMAGE", Value: "spec.runtime.image", Special: "image"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
-		Kind:             "IntegrationConnection",
-		Short:            "ic",
-		Plural:           "integrationconnections",
-		Singular:         "integrationconnection",
-		SpecType:         reflect.TypeOf(sdk.IntegrationConnection{}),
-		AdditionalFields: map[string]string{},
+		Kind:     "IntegrationConnection",
+		Short:    "ic",
+		Plural:   "integrationconnections",
+		Singular: "integrationconnection",
+		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+		},
 	},
 	{
 		Kind:     "Sandbox",
@@ -84,10 +107,13 @@ var resources = []*Resource{
 		Plural:   "sandboxes",
 		Singular: "sandbox",
 		SpecType: reflect.TypeOf(sdk.Sandbox{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
-			"IMAGE":  "spec.runtime.image",
-			"REGION": "spec.region",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "IMAGE", Value: "spec.runtime.image", Special: "image"},
+			{Key: "REGION", Value: "spec.region"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -96,10 +122,13 @@ var resources = []*Resource{
 		Plural:   "jobs",
 		Singular: "job",
 		SpecType: reflect.TypeOf(sdk.Job{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
-			"IMAGE":  "spec.runtime.image",
-			"REGION": "spec.region",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "IMAGE", Value: "spec.runtime.image", Special: "image"},
+			{Key: "REGION", Value: "spec.region"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -108,10 +137,13 @@ var resources = []*Resource{
 		Plural:   "volumes",
 		Singular: "volume",
 		SpecType: reflect.TypeOf(sdk.Volume{}),
-		AdditionalFields: map[string]string{
-			"STATUS": "status",
-			"SIZE":   "spec.size",
-			"REGION": "spec.region",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "SIZE", Value: "spec.size", Special: "size"},
+			{Key: "REGION", Value: "spec.region"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -120,10 +152,13 @@ var resources = []*Resource{
 		Plural:   "volumetemplates",
 		Singular: "volumetemplate",
 		SpecType: reflect.TypeOf(sdk.VolumeTemplate{}),
-		AdditionalFields: map[string]string{
-			"STATUS":  "state.status",
-			"SIZE":    "spec.defaultSize",
-			"VERSION": "state.latestVersion",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "SIZE", Value: "spec.defaultSize", Special: "size"},
+			{Key: "VERSION", Value: "state.latestVersion"},
+			{Key: "STATUS", Value: "state.status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -132,9 +167,12 @@ var resources = []*Resource{
 		Plural:   "images",
 		Singular: "image",
 		SpecType: reflect.TypeOf(sdk.Image{}),
-		AdditionalFields: map[string]string{
-			"SIZE":             "spec.size",
-			"LAST_DEPLOYED_AT": "metadata.lastDeployedAt",
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "SIZE", Value: "spec.size", Special: "imagesize"},
+			{Key: "LAST_DEPLOYED_AT", Value: "metadata.lastDeployedAt", Special: "date"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 }

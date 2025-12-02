@@ -89,6 +89,14 @@ func listJobExecutions(jobName string) {
 		Kind:     "JobExecution",
 		Plural:   "executions",
 		Singular: "execution",
+		Fields: []core.Field{
+			{Key: "WORKSPACE", Value: "metadata.workspace"},
+			{Key: "JOB", Value: "metadata.job"},
+			{Key: "ID", Value: "metadata.id"},
+			{Key: "TASKS", Value: "spec.tasks", Special: "count"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "datetime"},
+		},
 	}
 
 	core.Output(resource, slices, core.GetOutputFormat())
