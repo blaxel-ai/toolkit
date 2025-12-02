@@ -50,14 +50,14 @@ func StartTypescriptServer(port int, host string, hotreload bool, folder string,
 		core.PrintInfo("  - Linux: sudo apt-get install nodejs npm (or use your distribution's package manager)")
 		core.PrintInfo("  - Windows: Download from https://nodejs.org/")
 		core.PrintInfo("After installation, ensure Node.js is in your PATH.")
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	_ = nodeExec // Will be used by findTSRootCmdAsString
 
 	ts, err := FindRootCmd(port, host, hotreload, folder, config)
 	if err != nil {
 		core.PrintError("Serve", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	// Extract the actual command, hiding "sh -c" wrapper if present
 	cmdDisplay := strings.Join(ts.Args, " ")
@@ -84,8 +84,9 @@ func StartTypescriptServer(port int, host string, hotreload bool, folder string,
 
 	err = ts.Start()
 	if err != nil {
-		core.PrintError("Serve", fmt.Errorf("failed to start TypeScript server: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to start TypeScript server: %w", err)
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
 	}
 
 	return ts

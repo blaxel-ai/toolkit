@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -73,8 +72,9 @@ separately if needed.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
-				core.PrintError("Delete", fmt.Errorf("failed to get results: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to get results: %w", err)
+				core.PrintError("Delete", err)
+				core.ExitWithError(err)
 			}
 
 			// À ce stade, results contient tous vos documents YAML
@@ -91,7 +91,7 @@ separately if needed.`,
 			}
 
 			if hasFailures {
-				os.Exit(1)
+				core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 			}
 		},
 	}
@@ -101,7 +101,7 @@ separately if needed.`,
 	err := cmd.MarkFlagRequired("filename")
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 
 	for _, resource := range core.GetResources() {
@@ -123,8 +123,9 @@ separately if needed.`,
 			Short:   fmt.Sprintf("Delete %s", resource.Singular),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
-					fmt.Println("no resource name provided")
-					os.Exit(1)
+					err := fmt.Errorf("no resource name provided")
+					fmt.Println(err)
+					core.ExitWithError(err)
 				}
 				hasFailures := false
 				for _, name := range args {
@@ -133,7 +134,7 @@ separately if needed.`,
 					}
 				}
 				if hasFailures {
-					os.Exit(1)
+					core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 				}
 			},
 		}

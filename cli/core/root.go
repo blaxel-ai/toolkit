@@ -386,6 +386,10 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	if date == "" {
 		date = releaseDate
 	}
+	SetSentryTag("version", version)
+	SetSentryTag("commit", commit)
+	SetSentryTag("workspace", workspace)
+
 	return rootCmd.Execute()
 }
 

@@ -28,14 +28,14 @@ func StartGoServer(port int, host string, hotreload bool, folder string, config 
 		core.PrintInfo("  - Linux: sudo apt-get install golang-go (or use your distribution's package manager)")
 		core.PrintInfo("  - Windows: Download from https://go.dev/dl/")
 		core.PrintInfo("After installation, ensure Go is in your PATH.")
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	_ = goExec // Will be used by findGoRootCmdAsString
 
 	golang, err := FindRootCmd(port, host, hotreload, folder, config)
 	if err != nil {
 		core.PrintError("Serve", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	// Extract the actual command, hiding "sh -c" wrapper if present
 	cmdDisplay := strings.Join(golang.Args, " ")
@@ -62,8 +62,9 @@ func StartGoServer(port int, host string, hotreload bool, folder string, config 
 
 	err = golang.Start()
 	if err != nil {
-		core.PrintError("Serve", fmt.Errorf("failed to start Go server: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to start Go server: %w", err)
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
 	}
 
 	return golang

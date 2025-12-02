@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,6 +74,15 @@ The command can list all resources of a type or get details for a specific one.`
   # List jobs
   bl get jobs
 
+  # Get specific job
+  bl get job my-job
+
+  # List executions for a job (nested resource)
+  bl get job my-job executions
+
+  # Get specific execution for a job
+  bl get job my-job execution <execution-id>
+
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch`,
 	}
@@ -97,6 +107,14 @@ The command can list all resources of a type or get details for a specific one.`
 			Aliases: aliases,
 			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
+				// Special handling for nested resources (e.g., job executions)
+				if resource.Kind == "Job" && len(args) >= 2 {
+					// Check if this is a nested resource request
+					if HandleJobNestedResource(args) {
+						return
+					}
+				}
+
 				if watch {
 					seconds := 2
 					duration := time.Duration(seconds) * time.Second
@@ -144,8 +162,9 @@ func GetFn(resource *core.Resource, name string) {
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
 	if funcValue.Kind() != reflect.Func {
-		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "fn is not a valid function")
+		core.PrintError("Get", err)
+		core.ExitWithError(err)
 	}
 
 	// Determine the number of parameters the function expects
@@ -177,34 +196,36 @@ func GetFn(resource *core.Resource, name string) {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	// Check if the first result is a pointer to http.Response
 	response, ok := results[0].Interface().(*http.Response)
 	if !ok {
-		fmt.Printf("%s%s", formattedError, "the result is not a pointer to http.Response")
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "the result is not a pointer to http.Response")
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	// Read the content of http.Response.Body
 	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resource.Kind, name, buf.String())
-		os.Exit(1)
+		msg := fmt.Sprintf("Resource %s:%s error: %s", resource.Kind, name, buf.String())
+		fmt.Println(msg)
+		core.ExitWithError(errors.New(msg))
 	}
 
 	// Check if the content is an array or an object
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 	core.Output(*resource, []interface{}{res}, core.GetOutputFormat())
 }
@@ -213,7 +234,7 @@ func ListFn(resource *core.Resource) {
 	slices, err := ListExec(resource)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	// Check the output format
 	core.Output(*resource, slices, core.GetOutputFormat())

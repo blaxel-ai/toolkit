@@ -119,8 +119,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("failed to get current working directory: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to get current working directory: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			// Additional deployment directory, for blaxel yaml files
@@ -142,54 +143,17 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				cwd:    cwd,
 			}
 
+			// Check for blaxel.toml validation warnings first
+			blaxelTomlWarning := core.GetBlaxelTomlWarning()
+			if blaxelTomlWarning != "" {
+				handleConfigWarning(blaxelTomlWarning, noTTY)
+				core.ClearBlaxelTomlWarning()
+			}
+
 			if !skipBuild {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
-					// Print the warning
-					fmt.Println(validationWarning)
-
-					// In non-interactive mode, just show warning and continue
-					if noTTY {
-						core.PrintWarning("Continuing with deployment despite configuration warning...")
-					} else {
-						// In interactive mode, ask for confirmation with Ctrl+C support
-						// Set up signal handler for Ctrl+C
-						sigChan := make(chan os.Signal, 1)
-						signal.Notify(sigChan, os.Interrupt)
-
-						// Create channel for response
-						responseChan := make(chan string, 1)
-
-						go func() {
-							fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
-							var response string
-							fmt.Scanln(&response)
-							responseChan <- response
-						}()
-
-						// Wait for either response or interrupt
-						select {
-						case <-sigChan:
-							fmt.Println("\nDeployment cancelled.")
-							os.Exit(0)
-						case response := <-responseChan:
-							response = strings.ToLower(strings.TrimSpace(response))
-
-							if response == "q" || response == "quit" {
-								fmt.Println("Deployment cancelled.")
-								os.Exit(0)
-							}
-
-							if response != "y" && response != "yes" {
-								fmt.Println("Deployment cancelled.")
-								os.Exit(0)
-							}
-						}
-
-						// Clean up signal handler
-						signal.Stop(sigChan)
-						fmt.Println()
-					}
+					handleConfigWarning(validationWarning, noTTY)
 				}
 			}
 
@@ -217,15 +181,17 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
 			err = deployment.Generate(skipBuild)
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("error generating blaxel deployment: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error generating blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			if dryRun {
 				err := deployment.Print(skipBuild)
 				if err != nil {
-					core.PrintError("Deploy", fmt.Errorf("error printing blaxel deployment: %w", err))
-					os.Exit(1)
+					err = fmt.Errorf("error printing blaxel deployment: %w", err)
+					core.PrintError("Deploy", err)
+					core.ExitWithError(err)
 				}
 				return
 			}
@@ -236,8 +202,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				err = deployment.Apply()
 			}
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("error applying blaxel deployment: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error applying blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			// Only show success message for non-interactive deployments
@@ -310,6 +277,55 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	}
 
 	return nil
+}
+
+// handleConfigWarning displays a warning and asks for confirmation in interactive mode
+func handleConfigWarning(warning string, noTTY bool) {
+	// Print the warning
+	fmt.Println(warning)
+
+	// In non-interactive mode, just show warning and continue
+	if noTTY {
+		core.PrintWarning("Continuing with deployment despite configuration warning...")
+	} else {
+		// In interactive mode, ask for confirmation with Ctrl+C support
+		// Set up signal handler for Ctrl+C
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+
+		// Create channel for response
+		responseChan := make(chan string, 1)
+
+		go func() {
+			fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
+			var response string
+			fmt.Scanln(&response)
+			responseChan <- response
+		}()
+
+		// Wait for either response or interrupt
+		select {
+		case <-sigChan:
+			fmt.Println("\nDeployment cancelled.")
+			os.Exit(0)
+		case response := <-responseChan:
+			response = strings.ToLower(strings.TrimSpace(response))
+
+			if response == "q" || response == "quit" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+
+			if response != "y" && response != "yes" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+		}
+
+		// Clean up signal handler
+		signal.Stop(sigChan)
+		fmt.Println()
+	}
 }
 
 // validateDeploymentConfig checks if the project has proper configuration for deployment
@@ -452,7 +468,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
-			os.Exit(1)
+			core.ExitWithError(err)
 		}
 
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
@@ -460,8 +476,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 				if image, ok := rt["image"].(string); ok && image != "" {
 					runtime["image"] = image
 				} else {
-					core.PrintError("Deployment", fmt.Errorf("no image found for %s. please deploy with a build first", d.name))
-					os.Exit(1)
+					err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
+					core.PrintError("Deployment", err)
+					core.ExitWithError(err)
 				}
 			}
 		}
@@ -1821,8 +1838,9 @@ func (d *Deployment) PrintTar() error {
 func deployPackage(dryRun bool, name string) bool {
 	commands, err := getDeployCommands(dryRun, name)
 	if err != nil {
-		core.PrintError("Deploy", fmt.Errorf("failed to get package commands: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to get package commands: %w", err)
+		core.PrintError("Deploy", err)
+		core.ExitWithError(err)
 	}
 
 	if len(commands) == 1 {

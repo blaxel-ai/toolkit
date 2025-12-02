@@ -242,7 +242,7 @@ Examples:
 			canonicalType, err := normalizeResourceType(resourceType)
 			if err != nil {
 				core.PrintError("logs", err)
-				os.Exit(1)
+				core.ExitWithError(err)
 			}
 
 			// Determine time range
@@ -252,21 +252,23 @@ Examples:
 				// Use explicit start and end times
 				startTime, err = parseTimeFlag(startTimeStr)
 				if err != nil {
-					core.PrintError("logs", fmt.Errorf("invalid start time: %v", err))
-					os.Exit(1)
+					err = fmt.Errorf("invalid start time: %v", err)
+					core.PrintError("logs", err)
+					core.ExitWithError(err)
 				}
 
 				endTime, err = parseTimeFlag(endTimeStr)
 				if err != nil {
-					core.PrintError("logs", fmt.Errorf("invalid end time: %v", err))
-					os.Exit(1)
+					err = fmt.Errorf("invalid end time: %v", err)
+					core.PrintError("logs", err)
+					core.ExitWithError(err)
 				}
 			} else if period != "" {
 				// Use period (e.g., "3d", "1h")
 				duration, err := parseDuration(period)
 				if err != nil {
 					core.PrintError("logs", err)
-					os.Exit(1)
+					core.ExitWithError(err)
 				}
 
 				endTime = time.Now().UTC()
@@ -275,8 +277,9 @@ Examples:
 				// Only start time provided
 				startTime, err = parseTimeFlag(startTimeStr)
 				if err != nil {
-					core.PrintError("logs", fmt.Errorf("invalid start time: %v", err))
-					os.Exit(1)
+					err = fmt.Errorf("invalid start time: %v", err)
+					core.PrintError("logs", err)
+					core.ExitWithError(err)
 				}
 
 				if endTimeStr == "" {
@@ -298,7 +301,7 @@ Examples:
 			if !follow {
 				if err := validateTimeRange(startTime, endTime); err != nil {
 					core.PrintError("logs", err)
-					os.Exit(1)
+					core.ExitWithError(err)
 				}
 			}
 
@@ -308,8 +311,9 @@ Examples:
 			}
 
 			if workspace == "" {
-				core.PrintError("logs", fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate"))
-				os.Exit(1)
+				err := fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate")
+				core.PrintError("logs", err)
+				core.ExitWithError(err)
 			}
 
 			if follow {
@@ -368,7 +372,7 @@ func fetchLogs(workspace, resourceType, resourceName string, startTime, endTime 
 	logs, err := fetcher.FetchLogs()
 	if err != nil {
 		core.PrintError("logs", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 
 	// Check if no logs were retrieved
