@@ -125,7 +125,6 @@ var resources = []*Resource{
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
-			{Key: "IMAGE", Value: "spec.runtime.image", Special: "image"},
 			{Key: "REGION", Value: "spec.region"},
 			{Key: "STATUS", Value: "status"},
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
