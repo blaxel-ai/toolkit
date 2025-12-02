@@ -203,7 +203,7 @@ func printTable(resource Resource, slices []interface{}) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 
-	// Build header dynamically from AdditionalFields
+	// Build header dynamically from Fields
 	header := buildTableHeader(resource)
 	t.AppendHeader(header)
 
@@ -221,119 +221,91 @@ func printTable(resource Resource, slices []interface{}) {
 	t.Render()
 }
 
-// getFieldOrder returns a consistent ordering for additional fields
-func getFieldOrder(additionalFields map[string]string) []string {
-	// Define preferred order for common fields
-	preferredOrder := []string{"STATUS", "IMAGE", "SIZE", "REGION"}
-
-	// Collect fields that exist in AdditionalFields
-	var orderedFields []string
-
-	// First add fields in preferred order
-	for _, field := range preferredOrder {
-		if _, exists := additionalFields[field]; exists {
-			orderedFields = append(orderedFields, field)
-		}
-	}
-
-	// Then add any remaining fields not in preferred order
-	for field := range additionalFields {
-		found := false
-		for _, existing := range orderedFields {
-			if existing == field {
-				found = true
-				break
-			}
-		}
-		if !found {
-			orderedFields = append(orderedFields, field)
-		}
-	}
-
-	return orderedFields
-}
-
-// buildTableHeader builds the table header dynamically based on AdditionalFields
+// buildTableHeader builds the table header dynamically based on Fields
 func buildTableHeader(resource Resource) table.Row {
-	header := table.Row{"WORKSPACE", "NAME"}
+	header := table.Row{}
 
-	// Add additional fields in a consistent order
-	fieldOrder := getFieldOrder(resource.AdditionalFields)
-	for _, field := range fieldOrder {
-		header = append(header, field)
+	// Add fields in their declared order
+	for _, field := range resource.Fields {
+		header = append(header, field.Key)
 	}
 
-	header = append(header, "CREATED_AT")
 	return header
 }
 
-// buildTableRow builds a table row dynamically based on AdditionalFields
+// buildTableRow builds a table row dynamically based on Fields
 func buildTableRow(resource Resource, itemMap map[string]interface{}, imageWidth int) table.Row {
-	workspace := retrieveKey(itemMap, "workspace")
-	name := retrieveKey(itemMap, "name")
-	createdAt := retrieveDate(itemMap, "createdAt")
+	row := table.Row{}
 
-	// For images, display resourceType/name instead of just name
-	if resource.Kind == "Image" {
-		if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
-			if resourceType, ok := metadata["resourceType"].(string); ok {
-				name = resourceType + "/" + name
+	// Add fields in their declared order
+	for _, field := range resource.Fields {
+		value := retrieveFieldValue(itemMap, field, imageWidth)
+
+		// Special handling for NAME field in Image resources
+		if field.Key == "NAME" && resource.Kind == "Image" {
+			if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+				if resourceType, ok := metadata["resourceType"].(string); ok {
+					value = resourceType + "/" + value
+				}
 			}
 		}
+
+		row = append(row, value)
 	}
 
-	row := table.Row{workspace, name}
-
-	// Add additional fields in a consistent order
-	fieldOrder := getFieldOrder(resource.AdditionalFields)
-	for _, field := range fieldOrder {
-		if fieldPath, exists := resource.AdditionalFields[field]; exists {
-			value := retrieveFieldValue(itemMap, field, fieldPath, imageWidth)
-			row = append(row, value)
-		}
-	}
-
-	row = append(row, createdAt)
 	return row
 }
 
 // retrieveFieldValue retrieves and formats a field value based on its type
-func retrieveFieldValue(itemMap map[string]interface{}, fieldName, fieldPath string, imageWidth int) string {
-	// First retrieve the raw value using the fieldPath
-	rawValue := retrieveKey(itemMap, fieldPath)
-
-	// Then apply formatting based on field name
-	switch fieldName {
-	case "IMAGE":
-		return truncateString(rawValue, imageWidth)
-	case "SIZE":
-		// For SIZE, we need the actual value not the string, so navigate directly
-		value := navigateToKey(itemMap, strings.Split(fieldPath, "."))
+func retrieveFieldValue(itemMap map[string]interface{}, field Field, imageWidth int) string {
+	// Handle special field types first
+	switch field.Special {
+	case "count":
+		// Count elements in an array field
+		value := navigateToKey(itemMap, strings.Split(field.Value, "."))
 		if value != nil {
-			// Check if this is an image resource (size in bytes) or volume (size in MB)
-			// Images have metadata.name, volumes have spec.size
-			if _, hasMetadata := itemMap["metadata"].(map[string]interface{}); hasMetadata {
-				// Check if spec.size exists and it's for an image (has displayName in metadata)
-				if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
-					if _, hasDisplayName := metadata["displayName"]; hasDisplayName {
-						// This is an image, format as bytes
-						return formatImageSizeValue(value)
-					}
-				}
+			if arr, ok := value.([]interface{}); ok {
+				return fmt.Sprintf("%d", len(arr))
 			}
-			// Default to volume size formatting (MB)
+		}
+		return "0"
+	case "date":
+		// Format as date only (YYYY-MM-DD)
+		rawValue := retrieveKey(itemMap, field.Value)
+		return formatDate(rawValue, "2006-01-02")
+	case "datetime":
+		// Format as full datetime (YYYY-MM-DD HH:MM:SS)
+		rawValue := retrieveKey(itemMap, field.Value)
+		return formatDate(rawValue, "2006-01-02 15:04:05")
+	case "size":
+		// Format size in MB (for volumes)
+		value := navigateToKey(itemMap, strings.Split(field.Value, "."))
+		if value != nil {
 			return formatSizeValue(value)
 		}
 		return "-"
-	case "LAST_DEPLOYED_AT":
-		return formatTimestamp(rawValue)
-	default:
-		return rawValue
+	case "imagesize":
+		// Format size in bytes (for images)
+		value := navigateToKey(itemMap, strings.Split(field.Value, "."))
+		if value != nil {
+			return formatImageSizeValue(value)
+		}
+		return "-"
+	case "image":
+		// Strip optional "sandbox/" prefix and truncate image name to fit column width
+		rawValue := retrieveKey(itemMap, field.Value)
+		// Remove "sandbox/" prefix if present
+		rawValue = strings.TrimPrefix(rawValue, "sandbox/")
+		return truncateString(rawValue, imageWidth)
 	}
+
+	// No special formatting, just return the raw value
+	rawValue := retrieveKey(itemMap, field.Value)
+	return rawValue
 }
 
-// formatTimestamp formats a timestamp to a simple date format (YYYY-MM-DD)
-func formatTimestamp(timestamp string) string {
+// formatDate formats a timestamp string using the provided format
+func formatDate(timestamp string, format string) string {
 	if timestamp == "" || timestamp == "-" {
 		return "-"
 	}
@@ -354,25 +326,8 @@ func formatTimestamp(timestamp string) string {
 		localTime = parsedTime.UTC()
 	}
 
-	// Format as date only (YYYY-MM-DD)
-	return localTime.Format("2006-01-02")
-}
-
-func retrieveDate(itemMap map[string]interface{}, key string) string {
-	value := retrieveKey(itemMap, key)
-	if value != "-" {
-		// Parse and format the date
-		if parsedTime, err := time.Parse(time.RFC3339, value); err == nil {
-			// Convert the parsed time to local time
-			localTime := parsedTime.Local()
-			if utc {
-				localTime = parsedTime.UTC()
-			}
-			// Format the local time with only date (no time)
-			value = localTime.Format("2006-01-02")
-		}
-	}
-	return value
+	// Format using the provided format string
+	return localTime.Format(format)
 }
 
 func printJson(resource Resource, slices []interface{}) {

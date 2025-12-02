@@ -74,6 +74,15 @@ The command can list all resources of a type or get details for a specific one.`
   # List jobs
   bl get jobs
 
+  # Get specific job
+  bl get job my-job
+
+  # List executions for a job (nested resource)
+  bl get job my-job executions
+
+  # Get specific execution for a job
+  bl get job my-job execution <execution-id>
+
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch`,
 	}
@@ -98,6 +107,14 @@ The command can list all resources of a type or get details for a specific one.`
 			Aliases: aliases,
 			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
+				// Special handling for nested resources (e.g., job executions)
+				if resource.Kind == "Job" && len(args) >= 2 {
+					// Check if this is a nested resource request
+					if HandleJobNestedResource(args) {
+						return
+					}
+				}
+
 				if watch {
 					seconds := 2
 					duration := time.Duration(seconds) * time.Second
