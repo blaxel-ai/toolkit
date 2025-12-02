@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
@@ -21,9 +22,10 @@ func init() {
 }
 
 type ResourceOperationResult struct {
-	Status    string
-	UploadURL string
-	ErrorMsg  string
+	Status         string
+	UploadURL      string
+	ErrorMsg       string
+	CallbackSecret string
 }
 
 type ApplyResult struct {
@@ -316,6 +318,35 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 	return response, nil
 }
 
+// extractCallbackSecret extracts the callback secret from an agent API response
+func extractCallbackSecret(responseBody []byte) string {
+	var resource map[string]interface{}
+	if err := json.Unmarshal(responseBody, &resource); err != nil {
+		return ""
+	}
+
+	// Navigate through the JSON structure to find callback secret
+	// spec.triggers[].configuration.callbackSecret
+	if spec, ok := resource["spec"].(map[string]interface{}); ok {
+		if triggers, ok := spec["triggers"].([]interface{}); ok {
+			for _, trigger := range triggers {
+				if triggerMap, ok := trigger.(map[string]interface{}); ok {
+					if config, ok := triggerMap["configuration"].(map[string]interface{}); ok {
+						if callbackSecret, ok := config["callbackSecret"].(string); ok && callbackSecret != "" {
+							// Only return if it's not masked (doesn't contain asterisks)
+							if !strings.Contains(callbackSecret, "*") {
+								return callbackSecret
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
 func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
 	failedResponse := ResourceOperationResult{
 		Status: "failed",
@@ -373,6 +404,12 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
+
+	// Extract callback secret from response for agents
+	if resourceName == "Agent" {
+		result.CallbackSecret = extractCallbackSecret(buf.Bytes())
+	}
+
 	core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 	return &result
 }
@@ -417,6 +454,12 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	if uploadUrl := response.Header.Get("X-Blaxel-Upload-Url"); uploadUrl != "" {
 		result.UploadURL = uploadUrl
 	}
+
+	// Extract callback secret from response for agents
+	if resourceName == "Agent" {
+		result.CallbackSecret = extractCallbackSecret(buf.Bytes())
+	}
+
 	core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 	return &result
 }

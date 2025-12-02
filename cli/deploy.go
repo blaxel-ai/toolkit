@@ -233,6 +233,7 @@ type Deployment struct {
 	cwd                    string
 	progressCallback       func(status string, progress int)
 	uploadProgressCallback func(bytesUploaded, totalBytes int64)
+	callbackSecret         string
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -701,6 +702,13 @@ func (d *Deployment) Apply() error {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
+	// Store callback secret from first result if present
+	var callbackSecret string
+	if len(applyResults) > 0 && applyResults[0].Result.CallbackSecret != "" {
+		callbackSecret = applyResults[0].Result.CallbackSecret
+		d.callbackSecret = callbackSecret
+	}
+
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
 			config := core.GetConfig()
@@ -937,6 +945,12 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		return
 	}
 
+	// Store callback secret from apply result if present (only available on first deployment)
+	if applyResults[0].Result.CallbackSecret != "" {
+		resource.SetCallbackSecret(applyResults[0].Result.CallbackSecret)
+		model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", applyResults[0].Result.CallbackSecret))
+	}
+
 	// Handle upload if there's an upload URL
 	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
@@ -1151,6 +1165,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
+
 						model.UpdateResource(idx, deploy.StatusComplete, "Deployed successfully", nil)
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
 						return
@@ -1207,6 +1222,11 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 							model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", errors.New(result.Result.ErrorMsg))
 							model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %v", result.Name, result.Result.ErrorMsg))
 							return
+						}
+						// Store callback secret from apply result if present (only available on first deployment)
+						if result.Result.CallbackSecret != "" {
+							resource.SetCallbackSecret(result.Result.CallbackSecret)
+							model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", result.Result.CallbackSecret))
 						}
 					}
 					model.AddBuildLog(idx, "Resource applied, monitoring status...")
@@ -1290,6 +1310,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
+
 										model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
 										ticker.Stop()
 										return
@@ -1342,7 +1363,14 @@ func (d *Deployment) Ready() {
 	currentWorkspace := core.GetWorkspace()
 	appUrl := core.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
-	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s", availableAt))
+
+	// Check for callback secret (only for agents, only shown on first deployment)
+	var callbackSecretMsg string
+	if config.Type == "agent" && d.callbackSecret != "" {
+		callbackSecretMsg = fmt.Sprintf("\n\nAsync Callback Configuration:\n  Callback Secret: %s\n  Use this secret to verify webhook callbacks from Blaxel", d.callbackSecret)
+	}
+
+	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s%s", availableAt, callbackSecretMsg))
 }
 
 // progressReader wraps an io.Reader and reports progress
