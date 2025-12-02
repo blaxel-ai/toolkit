@@ -43,13 +43,13 @@ The command can list all resources of a type or get details for a specific one.
   bl get agent my-agent
 
   # Get in JSON format (useful for scripting)
-  bl get agent my-agent -ojson
+  bl get agent my-agent -o json
 
   # Watch agent status in real-time
   bl get agent my-agent --watch
 
   # List all resources with table output
-  bl get agents -otable
+  bl get agents -o table
 
   # Get MCP servers (also called functions)
   bl get functions
