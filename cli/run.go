@@ -91,8 +91,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
   bl run agent my-agent --data '{}' --debug`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || len(args) == 1 {
-				core.PrintError("Run", fmt.Errorf("resource type and name are required"))
-				os.Exit(1)
+				err := fmt.Errorf("resource type and name are required")
+				core.PrintError("Run", err)
+				core.ExitWithError(err)
 			}
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets("", envFiles)
@@ -105,8 +106,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			for _, header := range headerFlags {
 				parts := strings.SplitN(header, ":", 2)
 				if len(parts) != 2 {
-					core.PrintError("Run", fmt.Errorf("invalid header format '%s'. Must be 'Key: Value'", header))
-					os.Exit(1)
+					err := fmt.Errorf("invalid header format '%s'. Must be 'Key: Value'", header)
+					core.PrintError("Run", err)
+					core.ExitWithError(err)
 				}
 				key := strings.TrimSpace(parts[0])
 				value := strings.TrimSpace(parts[1])
@@ -125,8 +127,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			if uploadFilePath != "" {
 				fileContent, err := os.ReadFile(uploadFilePath)
 				if err != nil {
-					core.PrintError("Run", fmt.Errorf("error reading file: %w", err))
-					os.Exit(1)
+					err = fmt.Errorf("error reading file: %w", err)
+					core.PrintError("Run", err)
+					core.ExitWithError(err)
 				}
 				data = string(fileContent)
 			}
@@ -165,16 +168,18 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				local,
 			)
 			if err != nil {
-				core.PrintError("Run", fmt.Errorf("error making request: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error making request: %w", err)
+				core.PrintError("Run", err)
+				core.ExitWithError(err)
 			}
 			defer func() { _ = res.Body.Close() }()
 
 			// Read response body
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
-				core.PrintError("Run", fmt.Errorf("error reading response: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error reading response: %w", err)
+				core.PrintError("Run", err)
+				core.ExitWithError(err)
 			}
 			// Only print status code if it's an error
 			if res.StatusCode >= 400 {
@@ -284,22 +289,25 @@ func runJobLocally(data string, folder string, config core.Config) {
 	batch := sdk.Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
-		core.PrintError("Run", fmt.Errorf("invalid JSON: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("invalid JSON: %w", err)
+		core.PrintError("Run", err)
+		core.ExitWithError(err)
 	}
 
 	for i, task := range batch.Tasks {
 		core.PrintInfo(fmt.Sprintf("Task %d:", i+1))
 		jsonencoded, err := json.Marshal(task)
 		if err != nil {
-			core.PrintError("Run", fmt.Errorf("error marshalling task: %w", err))
-			os.Exit(1)
+			err = fmt.Errorf("error marshalling task: %w", err)
+			core.PrintError("Run", err)
+			core.ExitWithError(err)
 		}
 		core.PrintInfo(fmt.Sprintf("Arguments: %s", string(jsonencoded)))
 		cmd, err := server.FindJobCommand(task, folder, config)
 		if err != nil {
-			core.PrintError("Run", fmt.Errorf("error finding root cmd: %w", err))
-			os.Exit(1)
+			err = fmt.Errorf("error finding root cmd: %w", err)
+			core.PrintError("Run", err)
+			core.ExitWithError(err)
 		}
 
 		// Merge .env variables into the command's environment
@@ -327,8 +335,9 @@ func runJobLocally(data string, folder string, config core.Config) {
 		// Run the command and wait for it to complete
 		err = cmd.Run()
 		if err != nil {
-			core.PrintError("Run", fmt.Errorf("error executing task %d: %w", i+1, err))
-			os.Exit(1)
+			err = fmt.Errorf("error executing task %d: %w", i+1, err)
+			core.PrintError("Run", err)
+			core.ExitWithError(err)
 		}
 		core.Print("")
 	}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -104,10 +103,23 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets("", envFiles)
-			_, err := Apply(filePath, WithRecursive(recursive))
+			applyResults, err := Apply(filePath, WithRecursive(recursive))
 			if err != nil {
 				core.PrintError("Apply", err)
-				os.Exit(1)
+				core.ExitWithError(err)
+			}
+
+			// Check if any resources failed
+			hasFailures := false
+			for _, result := range applyResults {
+				if result.Result.Status == "failed" {
+					hasFailures = true
+					break
+				}
+			}
+
+			if hasFailures {
+				core.ExitWithError(fmt.Errorf("one or more resources failed to apply"))
 			}
 		},
 	}
@@ -119,7 +131,7 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 	err := cmd.MarkFlagRequired("filename")
 	if err != nil {
 		core.PrintError("Apply", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 
 	return cmd
@@ -230,30 +242,56 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 			return nil
 		})
 	}
+
+	// Get function signature information
+	funcType := fn.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
 	switch operation {
 	case "put":
+		// Build arguments: ctx, name, [params if needed], body
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
 		}
-		if resource.Kind == "VolumeTemplate" {
-			params := sdk.UpdateVolumeTemplateParams{}
-			values = append(values, reflect.ValueOf(&params))
+
+		// Fill in any additional required parameters with zero values before the body
+		// Body should be the last required parameter before variadic
+		for i := len(values); i < requiredParams-1; i++ {
+			values = append(values, reflect.Zero(funcType.In(i)))
 		}
+
+		// Add the body parameter
 		values = append(values, reflect.ValueOf(destBody).Elem())
+
+		// Add variadic opts if present
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
 		results = fn.Call(values)
 	case "post":
+		// Build arguments: ctx, [params if needed], body
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 		}
-		if resource.Kind == "VolumeTemplate" {
-			params := sdk.CreateVolumeTemplateParams{}
-			values = append(values, reflect.ValueOf(&params))
+
+		// Fill in any additional required parameters with zero values before the body
+		// Body should be the last required parameter before variadic
+		for i := len(values); i < requiredParams-1; i++ {
+			values = append(values, reflect.Zero(funcType.In(i)))
 		}
+
+		// Add the body parameter
 		values = append(values, reflect.ValueOf(destBody).Elem())
+
+		// Add variadic opts if present
 		if opts != nil {
 			values = append(values, reflect.ValueOf(opts))
 		}
@@ -319,10 +357,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	if response.StatusCode >= 400 {
 		errorMsg := buf.String()
 		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
-		// Don't exit in interactive mode - let the caller handle the failure
-		if !core.IsInteractiveMode() {
-			os.Exit(1)
-		}
+		// Don't exit - let the caller handle the failure and continue processing
 		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}
@@ -366,10 +401,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	if response.StatusCode >= 400 {
 		errorMsg := buf.String()
 		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
-		// Don't exit in interactive mode - let the caller handle the failure
-		if !core.IsInteractiveMode() {
-			os.Exit(1)
-		}
+		// Don't exit - let the caller handle the failure and continue processing
 		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
 	}

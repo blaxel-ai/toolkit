@@ -2,14 +2,34 @@ package core
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/user"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 )
+
+// generateRandomDirectoryName creates a random directory name with the resource type prefix
+// Format: {resourceType}-{5-random-chars}
+func generateRandomDirectoryName(resourceType string) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	const length = 5
+
+	// Initialize random seed
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Generate random string
+	randomStr := make([]byte, length)
+	for i := range randomStr {
+		randomStr[i] = charset[rnd.Intn(len(charset))]
+	}
+
+	return fmt.Sprintf("%s-%s", resourceType, string(randomStr))
+}
 
 // CreateFlowConfig captures the knobs that differ between create commands.
 type CreateFlowConfig struct {
@@ -44,8 +64,8 @@ func RunCreateFlow(
 	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
 		templateNameFlag = "template-" + templateNameFlag
 	}
-	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
-		templateNameFlag = "template-" + templateNameFlag
+	if dirArg == "" {
+		dirArg = generateRandomDirectoryName(cfg.TemplateType)
 	}
 
 	// If directory arg provided, ensure it doesn't already exist
@@ -59,7 +79,7 @@ func RunCreateFlow(
 	// Retrieve templates (with or without spinner)
 	templates, err := RetrieveTemplatesWithSpinner(cfg.TemplateType, cfg.NoTTY, cfg.ErrorPrefix)
 	if err != nil {
-		os.Exit(1)
+		ExitWithError(err)
 	}
 
 	// Resolve options

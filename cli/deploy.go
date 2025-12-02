@@ -3,9 +3,11 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,8 +21,8 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/blaxel-ai/toolkit/cli/server"
-	"github.com/blaxel-ai/toolkit/sdk"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -104,27 +106,26 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 					noTTY = true
 				}
 			}
+
+			core.SetInteractiveMode(!noTTY)
 			if folder != "" {
 				recursive = false
 				core.ReadSecrets("", envFiles)
-				core.ReadConfigToml(folder)
-			}
-			core.SetInteractiveMode(!noTTY)
-			if recursive {
-				if deployPackage(dryRun, name) {
-					return
-				}
+				core.ReadConfigToml(folder, false)
+			} else {
+				// Read config without setting default type, we'll handle that below
+				core.ReadConfigToml("", false)
 			}
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("failed to get current working directory: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to get current working directory: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
-
 			config := core.GetConfig()
 			if config.Name != "" {
 				name = config.Name
@@ -142,17 +143,55 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				cwd:    cwd,
 			}
 
+			// Check for blaxel.toml validation warnings first
+			blaxelTomlWarning := core.GetBlaxelTomlWarning()
+			if blaxelTomlWarning != "" {
+				handleConfigWarning(blaxelTomlWarning, noTTY)
+				core.ClearBlaxelTomlWarning()
+			}
+
+			if !skipBuild {
+				validationWarning := deployment.validateDeploymentConfig(config)
+				if validationWarning != "" {
+					handleConfigWarning(validationWarning, noTTY)
+				}
+			}
+
+			// Check if type is empty and prompt user if in interactive mode
+			if config.Type == "" {
+				if core.IsInteractiveMode() {
+					selectedType := core.PromptForDeploymentType()
+					if selectedType != "" {
+						core.SetConfigType(selectedType)
+					} else {
+						// User cancelled (Ctrl+C or ESC) - exit instead of defaulting
+						fmt.Println("Deployment cancelled.")
+						os.Exit(0)
+					}
+				} else {
+					core.SetConfigType("agent")
+				}
+			}
+
+			if recursive {
+				if deployPackage(dryRun, name) {
+					return
+				}
+			}
+
 			err = deployment.Generate(skipBuild)
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("error generating blaxel deployment: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error generating blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			if dryRun {
 				err := deployment.Print(skipBuild)
 				if err != nil {
-					core.PrintError("Deploy", fmt.Errorf("error printing blaxel deployment: %w", err))
-					os.Exit(1)
+					err = fmt.Errorf("error printing blaxel deployment: %w", err)
+					core.PrintError("Deploy", err)
+					core.ExitWithError(err)
 				}
 				return
 			}
@@ -163,8 +202,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				err = deployment.Apply()
 			}
 			if err != nil {
-				core.PrintError("Deploy", fmt.Errorf("error applying blaxel deployment: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error applying blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
 			}
 
 			// Only show success message for non-interactive deployments
@@ -238,6 +278,175 @@ func (d *Deployment) Generate(skipBuild bool) error {
 	return nil
 }
 
+// handleConfigWarning displays a warning and asks for confirmation in interactive mode
+func handleConfigWarning(warning string, noTTY bool) {
+	// Print the warning
+	fmt.Println(warning)
+
+	// In non-interactive mode, just show warning and continue
+	if noTTY {
+		core.PrintWarning("Continuing with deployment despite configuration warning...")
+	} else {
+		// In interactive mode, ask for confirmation with Ctrl+C support
+		// Set up signal handler for Ctrl+C
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+
+		// Create channel for response
+		responseChan := make(chan string, 1)
+
+		go func() {
+			fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
+			var response string
+			fmt.Scanln(&response)
+			responseChan <- response
+		}()
+
+		// Wait for either response or interrupt
+		select {
+		case <-sigChan:
+			fmt.Println("\nDeployment cancelled.")
+			os.Exit(0)
+		case response := <-responseChan:
+			response = strings.ToLower(strings.TrimSpace(response))
+
+			if response == "q" || response == "quit" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+
+			if response != "y" && response != "yes" {
+				fmt.Println("Deployment cancelled.")
+				os.Exit(0)
+			}
+		}
+
+		// Clean up signal handler
+		signal.Stop(sigChan)
+		fmt.Println()
+	}
+}
+
+// validateDeploymentConfig checks if the project has proper configuration for deployment
+// Returns a warning message if configuration is missing, empty string if all is good
+func (d *Deployment) validateDeploymentConfig(config core.Config) string {
+	projectDir := filepath.Join(d.cwd, d.folder)
+
+	// Check for Dockerfile
+	dockerfilePath := filepath.Join(projectDir, "Dockerfile")
+	hasDockerfile := false
+	if _, err := os.Stat(dockerfilePath); err == nil {
+		hasDockerfile = true
+	}
+
+	// Special validation for sandbox type
+	if config.Type == "sandbox" {
+		if !hasDockerfile {
+			// No Dockerfile for sandbox - show warning with sample
+			var warningMsg strings.Builder
+			warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
+			warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+			codeColor := color.New(color.FgCyan)
+			warningMsg.WriteString(fmt.Sprintf("Sandbox deployments require a %s.\n\n", codeColor.Sprint("Dockerfile")))
+			warningMsg.WriteString("Quick sample Dockerfile:\n\n")
+			warningMsg.WriteString(codeColor.Sprint("FROM debian:bookworm-slim\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("WORKDIR /app\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
+			warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
+			warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+			return warningMsg.String()
+		}
+
+		// Dockerfile exists, check if it contains sandbox-api
+		dockerfileContent, err := os.ReadFile(dockerfilePath)
+		if err == nil {
+			content := string(dockerfileContent)
+			hasSandboxAPI := strings.Contains(content, "sandbox-api")
+			hasBlaxelSandboxImage := strings.Contains(content, "ghcr.io/blaxel-ai/sandbox-")
+
+			if !hasSandboxAPI && !hasBlaxelSandboxImage {
+				// Dockerfile exists but doesn't have sandbox-api
+				var warningMsg strings.Builder
+				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
+				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+				codeColor := color.New(color.FgCyan)
+				warningMsg.WriteString(fmt.Sprintf("Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
+					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel")))
+				warningMsg.WriteString("Your Dockerfile should come from a sandbox image or at least include sandbox-api:\n\n")
+				warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
+				warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
+				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+				return warningMsg.String()
+			}
+		}
+		return ""
+	}
+
+	// Check for language-specific files
+	language := core.ModuleLanguage(d.folder)
+	hasLanguage := language != ""
+	hasEntrypoint := true
+
+	if hasLanguage && config.Entrypoint.Production == "" {
+		switch language {
+		case "python":
+			hasEntrypoint = core.HasPythonEntryFile(projectDir)
+		case "go":
+			hasEntrypoint = core.HasGoEntryFile(projectDir)
+		case "typescript":
+			hasEntrypoint = core.HasTypeScriptEntryFile(projectDir)
+		}
+	}
+
+	// If everything is fine, return early
+	if hasDockerfile || (hasLanguage && hasEntrypoint) {
+		return ""
+	}
+
+	// Build concise warning message
+	var warningMsg strings.Builder
+	warningMsg.WriteString("⚠️  Configuration Warning\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	codeColor := color.New(color.FgCyan)
+	languageColor := color.New(color.FgGreen)
+
+	if !hasLanguage {
+		warningMsg.WriteString(fmt.Sprintf("No language detected. Missing %s or language files.\n\n", codeColor.Sprint("Dockerfile")))
+		warningMsg.WriteString(fmt.Sprintf("To fix: Add a %s OR auto-detect language files:\n", codeColor.Sprint("Dockerfile")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s or %s (Python)\n", codeColor.Sprint("pyproject.toml"), codeColor.Sprint("requirements.txt")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s (TypeScript/Node)\n", codeColor.Sprint("package.json")))
+		warningMsg.WriteString(fmt.Sprintf("  • %s (Go)\n\n", codeColor.Sprint("go.mod")))
+	} else {
+		warningMsg.WriteString(fmt.Sprintf("Detected %s project, but missing entrypoint.\n\n", languageColor.Sprint(language)))
+		warningMsg.WriteString("To fix:\n")
+		entrypointSection := fmt.Sprintf("  • Set entrypoint in %s by adding the following section:\n\n%s\n\n", codeColor.Sprint("blaxel.toml"), codeColor.Sprint("[entrypoint]\nprod = \"your-command\""))
+		switch language {
+		case "python":
+			pythonFiles := codeColor.Sprint("main.py, app.py, api.py, src/main.py, src/app.py, src/api.py, app/main.py, app/app.py, app/api.py")
+			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", pythonFiles))
+			warningMsg.WriteString(entrypointSection)
+		case "go":
+			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go")
+			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", goFiles))
+			warningMsg.WriteString(entrypointSection)
+		case "typescript":
+			warningMsg.WriteString(fmt.Sprintf("  • Add start script in %s OR\n", codeColor.Sprint("package.json")))
+			warningMsg.WriteString(entrypointSection)
+		}
+	}
+
+	warningMsg.WriteString("Learn more: https://docs.blaxel.ai/Agents/Deploy-an-agent\n\n")
+	warningMsg.WriteString("⚠️  Blaxel will attempt to build with default settings, but this may fail.\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	return warningMsg.String()
+}
+
 func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	var Spec map[string]interface{}
 	var Kind string
@@ -258,7 +467,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
-			os.Exit(1)
+			core.ExitWithError(err)
 		}
 
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
@@ -266,8 +475,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 				if image, ok := rt["image"].(string); ok && image != "" {
 					runtime["image"] = image
 				} else {
-					core.PrintError("Deployment", fmt.Errorf("no image found for %s. please deploy with a build first", d.name))
-					os.Exit(1)
+					err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
+					core.PrintError("Deployment", err)
+					core.ExitWithError(err)
 				}
 			}
 		}
@@ -340,7 +550,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name, &sdk.GetAgentParams{})
+		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -348,7 +558,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name, &sdk.GetFunctionParams{})
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -356,7 +566,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name, &sdk.GetJobParams{})
+		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -364,7 +574,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name, &sdk.GetSandboxParams{})
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -372,7 +582,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -413,7 +623,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name, &sdk.GetAgentParams{})
+		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -421,7 +631,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name, &sdk.GetFunctionParams{})
+		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -429,7 +639,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name, &sdk.GetJobParams{})
+		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -437,7 +647,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name, &sdk.GetSandboxParams{})
+		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -445,7 +655,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 			statusCode = resp.StatusCode()
 		}
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name)
+		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
 		if errGet != nil {
 			err = errGet
 		} else {
@@ -494,16 +704,27 @@ func (d *Deployment) Apply() error {
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
 			config := core.GetConfig()
-			if core.IsVolumeTemplate(config.Type) {
-				fmt.Println("Uploading volume template...")
+			// Print upload message for all resource types
+			resourceLabel := "code"
+			switch strings.ToLower(config.Type) {
+			case "volumetemplate":
+				resourceLabel = "volume template"
+			case "agent":
+				resourceLabel = "agent code"
+			case "function":
+				resourceLabel = "function code"
+			case "job":
+				resourceLabel = "job code"
+			case "sandbox":
+				resourceLabel = "sandbox code"
 			}
+			fmt.Printf("Uploading %s...\n", resourceLabel)
+
 			err := d.Upload(result.Result.UploadURL)
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
 			}
-			if core.IsVolumeTemplate(config.Type) {
-				fmt.Println("Upload completed")
-			}
+			fmt.Println("Upload completed")
 		}
 	}
 
@@ -582,7 +803,6 @@ func (d *Deployment) ApplyInteractive() error {
 	// Set program reference so model can send messages
 	model.SetProgram(p)
 
-	// Run deployment in background
 	go d.runInteractiveDeployment(resources, additionalResources, model)
 
 	// Run the UI
@@ -721,9 +941,30 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 
-		// For volume templates, set up upload progress callback
-		if core.IsVolumeTemplate(config.Type) {
-			model.AddBuildLog(idx, "Starting upload of volume template...")
+		// Check if resource type supports detailed upload progress
+		needsUploadProgress := false
+		var uploadLabel string
+		switch strings.ToLower(resource.Kind) {
+		case "volumetemplate":
+			needsUploadProgress = true
+			uploadLabel = "volume template"
+		case "agent":
+			needsUploadProgress = true
+			uploadLabel = "agent code"
+		case "function":
+			needsUploadProgress = true
+			uploadLabel = "function code"
+		case "job":
+			needsUploadProgress = true
+			uploadLabel = "job code"
+		case "sandbox":
+			needsUploadProgress = true
+			uploadLabel = "sandbox code"
+		}
+
+		// Set up upload progress callback for supported resources
+		if needsUploadProgress {
+			model.AddBuildLog(idx, fmt.Sprintf("Starting upload of %s...", uploadLabel))
 
 			var lastLoggedPercentage int
 			var lastUpdatePercentage int
@@ -955,13 +1196,19 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 			if metadata, ok := result.Metadata.(map[string]interface{}); ok {
 				if name, exists := metadata["name"]; exists && fmt.Sprintf("%v", name) == resource.Name {
 					// Apply this specific resource
-					_, err := ApplyResources([]core.Result{result})
+					results, err := ApplyResources([]core.Result{result})
 					if err != nil {
 						model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", err)
 						model.AddBuildLog(idx, fmt.Sprintf("Failed to apply resource: %v", err))
 						return
 					}
-
+					for _, result := range results {
+						if result.Result.Status == "failed" {
+							model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", errors.New(result.Result.ErrorMsg))
+							model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %v", result.Name, result.Result.ErrorMsg))
+							return
+						}
+					}
 					model.AddBuildLog(idx, "Resource applied, monitoring status...")
 
 					// For resources that need monitoring, start status polling
@@ -1421,13 +1668,23 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 }
 
 func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, headerName string) error {
-	if _, err := os.Stat(filePath); err == nil {
-		fileInfo, err := os.Stat(filePath)
+	if _, err := os.Lstat(filePath); err == nil {
+		// Use Lstat instead of Stat to not follow symlinks
+		fileInfo, err := os.Lstat(filePath)
 		if err != nil {
 			return fmt.Errorf("failed to stat %s: %w", headerName, err)
 		}
 
-		header, err := tar.FileInfoHeader(fileInfo, "")
+		// For symlinks, we need to read the link target
+		linkTarget := ""
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err = os.Readlink(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to read symlink %s: %w", headerName, err)
+			}
+		}
+
+		header, err := tar.FileInfoHeader(fileInfo, linkTarget)
 		if err != nil {
 			return fmt.Errorf("failed to create tar header: %w", err)
 		}
@@ -1444,8 +1701,8 @@ func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, header
 			return fmt.Errorf("failed to write tar header: %w", err)
 		}
 
-		// If it's a file, write its content to the tar
-		if !fileInfo.IsDir() {
+		// If it's a regular file (not a directory or symlink), write its content to the tar
+		if !fileInfo.IsDir() && fileInfo.Mode()&os.ModeSymlink == 0 {
 			file, err := os.Open(filePath)
 			if err != nil {
 				return fmt.Errorf("failed to open %s: %w", headerName, err)
@@ -1469,11 +1726,27 @@ func (d *Deployment) Print(skipBuild bool) error {
 	if !skipBuild {
 		config := core.GetConfig()
 		if core.IsVolumeTemplate(config.Type) {
+			// Ensure archive is created before trying to print it
+			if d.archive == nil {
+				fmt.Println("Compressing volume template files for dry run...")
+				err := d.Tar()
+				if err != nil {
+					return fmt.Errorf("failed to create tar: %w", err)
+				}
+				fmt.Println("Compression completed")
+			}
 			err := d.PrintTar()
 			if err != nil {
 				return fmt.Errorf("failed to print tar: %w", err)
 			}
 		} else {
+			// Ensure archive is created before trying to print it
+			if d.archive == nil {
+				err := d.Zip()
+				if err != nil {
+					return fmt.Errorf("failed to create zip: %w", err)
+				}
+			}
 			err := d.PrintZip()
 			if err != nil {
 				return fmt.Errorf("failed to print zip: %w", err)
@@ -1537,8 +1810,9 @@ func (d *Deployment) PrintTar() error {
 func deployPackage(dryRun bool, name string) bool {
 	commands, err := getDeployCommands(dryRun, name)
 	if err != nil {
-		core.PrintError("Deploy", fmt.Errorf("failed to get package commands: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to get package commands: %w", err)
+		core.PrintError("Deploy", err)
+		core.ExitWithError(err)
 	}
 
 	if len(commands) == 1 {

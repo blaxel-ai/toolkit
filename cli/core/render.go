@@ -108,6 +108,80 @@ func truncateString(s string, maxLength int) string {
 	return s[:maxLength-3] + "..."
 }
 
+// formatVolumeSize formats volume size in MB to human-readable format
+func formatVolumeSize(sizeInMB int) string {
+	if sizeInMB >= 1024 {
+		sizeInGB := float64(sizeInMB) / 1024.0
+		return fmt.Sprintf("%.2f GB", sizeInGB)
+	}
+	return fmt.Sprintf("%d MB", sizeInMB)
+}
+
+// formatBytesSize formats size in bytes to human-readable format
+func formatBytesSize(sizeInBytes int64) string {
+	const (
+		KB = 1024
+		MB = 1024 * KB
+		GB = 1024 * MB
+		TB = 1024 * GB
+	)
+
+	switch {
+	case sizeInBytes >= TB:
+		return fmt.Sprintf("%.2f TB", float64(sizeInBytes)/float64(TB))
+	case sizeInBytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(sizeInBytes)/float64(GB))
+	case sizeInBytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(sizeInBytes)/float64(MB))
+	case sizeInBytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(sizeInBytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", sizeInBytes)
+	}
+}
+
+// formatSizeValue formats a size value (from any path) into human-readable format
+func formatSizeValue(value interface{}) string {
+	switch v := value.(type) {
+	case int:
+		return formatVolumeSize(v)
+	case float64:
+		return formatVolumeSize(int(v))
+	case *int:
+		if v != nil {
+			return formatVolumeSize(*v)
+		}
+	case string:
+		// Try to parse string as int
+		var size int
+		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
+			return formatVolumeSize(size)
+		}
+		return v
+	}
+	return "-"
+}
+
+// formatImageSizeValue formats image size (in bytes) to human-readable format
+func formatImageSizeValue(value interface{}) string {
+	switch v := value.(type) {
+	case int:
+		return formatBytesSize(int64(v))
+	case int64:
+		return formatBytesSize(v)
+	case float64:
+		return formatBytesSize(int64(v))
+	case string:
+		// Try to parse string as int64
+		var size int64
+		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
+			return formatBytesSize(size)
+		}
+		return v
+	}
+	return "-"
+}
+
 // navigateToKey recursively navigates through nested maps using the provided keys
 func navigateToKey(m map[string]interface{}, keys []string) interface{} {
 	if len(keys) == 0 {
@@ -129,16 +203,9 @@ func printTable(resource Resource, slices []interface{}) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
 
-	// Set header based on what columns are enabled
-	if resource.WithImage && resource.WithStatus {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "IMAGE", "CREATED_AT"})
-	} else if resource.WithImage {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "IMAGE", "CREATED_AT"})
-	} else if resource.WithStatus {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "STATUS", "CREATED_AT"})
-	} else {
-		t.AppendHeader(table.Row{"WORKSPACE", "NAME", "CREATED_AT"})
-	}
+	// Build header dynamically from AdditionalFields
+	header := buildTableHeader(resource)
+	t.AppendHeader(header)
 
 	// Calculate dynamic image width once for all rows
 	imageWidth := getImageColumnWidth()
@@ -146,31 +213,149 @@ func printTable(resource Resource, slices []interface{}) {
 	// Add rows to the table
 	for _, item := range slices {
 		if itemMap, ok := item.(map[string]interface{}); ok {
-			workspace := retrieveKey(itemMap, "workspace")
-			name := retrieveKey(itemMap, "name")
-			// Fallback to 'id' if 'name' is not available (e.g., for JobExecutions)
-			if name == "-" {
-				name = retrieveKey(itemMap, "id")
-			}
-			createdAt := retrieveDate(itemMap, "createdAt")
-
-			if resource.WithImage && resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				image := truncateString(retrieveKey(itemMap, "spec.runtime.image"), imageWidth)
-				t.AppendRow(table.Row{workspace, name, status, image, createdAt})
-			} else if resource.WithImage {
-				image := truncateString(retrieveKey(itemMap, "spec.runtime.image"), imageWidth)
-				t.AppendRow(table.Row{workspace, name, image, createdAt})
-			} else if resource.WithStatus {
-				status := retrieveKey(itemMap, "status")
-				t.AppendRow(table.Row{workspace, name, status, createdAt})
-			} else {
-				t.AppendRow(table.Row{workspace, name, createdAt})
-			}
+			row := buildTableRow(resource, itemMap, imageWidth)
+			t.AppendRow(row)
 		}
 	}
 	// Render the table - this automatically sizes columns based on content
 	t.Render()
+}
+
+// getFieldOrder returns a consistent ordering for additional fields
+func getFieldOrder(additionalFields map[string]string) []string {
+	// Define preferred order for common fields
+	preferredOrder := []string{"STATUS", "IMAGE", "SIZE", "REGION"}
+
+	// Collect fields that exist in AdditionalFields
+	var orderedFields []string
+
+	// First add fields in preferred order
+	for _, field := range preferredOrder {
+		if _, exists := additionalFields[field]; exists {
+			orderedFields = append(orderedFields, field)
+		}
+	}
+
+	// Then add any remaining fields not in preferred order
+	for field := range additionalFields {
+		found := false
+		for _, existing := range orderedFields {
+			if existing == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			orderedFields = append(orderedFields, field)
+		}
+	}
+
+	return orderedFields
+}
+
+// buildTableHeader builds the table header dynamically based on AdditionalFields
+func buildTableHeader(resource Resource) table.Row {
+	header := table.Row{"WORKSPACE", "NAME"}
+
+	// Add additional fields in a consistent order
+	fieldOrder := getFieldOrder(resource.AdditionalFields)
+	for _, field := range fieldOrder {
+		header = append(header, field)
+	}
+
+	header = append(header, "CREATED_AT")
+	return header
+}
+
+// buildTableRow builds a table row dynamically based on AdditionalFields
+func buildTableRow(resource Resource, itemMap map[string]interface{}, imageWidth int) table.Row {
+	workspace := retrieveKey(itemMap, "workspace")
+	name := retrieveKey(itemMap, "name")
+	createdAt := retrieveDate(itemMap, "createdAt")
+
+	// For images, display resourceType/name instead of just name
+	if resource.Kind == "Image" {
+		if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+			if resourceType, ok := metadata["resourceType"].(string); ok {
+				name = resourceType + "/" + name
+			}
+		}
+	}
+
+	row := table.Row{workspace, name}
+
+	// Add additional fields in a consistent order
+	fieldOrder := getFieldOrder(resource.AdditionalFields)
+	for _, field := range fieldOrder {
+		if fieldPath, exists := resource.AdditionalFields[field]; exists {
+			value := retrieveFieldValue(itemMap, field, fieldPath, imageWidth)
+			row = append(row, value)
+		}
+	}
+
+	row = append(row, createdAt)
+	return row
+}
+
+// retrieveFieldValue retrieves and formats a field value based on its type
+func retrieveFieldValue(itemMap map[string]interface{}, fieldName, fieldPath string, imageWidth int) string {
+	// First retrieve the raw value using the fieldPath
+	rawValue := retrieveKey(itemMap, fieldPath)
+
+	// Then apply formatting based on field name
+	switch fieldName {
+	case "IMAGE":
+		return truncateString(rawValue, imageWidth)
+	case "SIZE":
+		// For SIZE, we need the actual value not the string, so navigate directly
+		value := navigateToKey(itemMap, strings.Split(fieldPath, "."))
+		if value != nil {
+			// Check if this is an image resource (size in bytes) or volume (size in MB)
+			// Images have metadata.name, volumes have spec.size
+			if _, hasMetadata := itemMap["metadata"].(map[string]interface{}); hasMetadata {
+				// Check if spec.size exists and it's for an image (has displayName in metadata)
+				if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
+					if _, hasDisplayName := metadata["displayName"]; hasDisplayName {
+						// This is an image, format as bytes
+						return formatImageSizeValue(value)
+					}
+				}
+			}
+			// Default to volume size formatting (MB)
+			return formatSizeValue(value)
+		}
+		return "-"
+	case "LAST_DEPLOYED_AT":
+		return formatTimestamp(rawValue)
+	default:
+		return rawValue
+	}
+}
+
+// formatTimestamp formats a timestamp to a simple date format (YYYY-MM-DD)
+func formatTimestamp(timestamp string) string {
+	if timestamp == "" || timestamp == "-" {
+		return "-"
+	}
+
+	// Parse the timestamp
+	parsedTime, err := time.Parse(time.RFC3339Nano, timestamp)
+	if err != nil {
+		// Try RFC3339 format as fallback
+		parsedTime, err = time.Parse(time.RFC3339, timestamp)
+		if err != nil {
+			return timestamp
+		}
+	}
+
+	// Convert to local time
+	localTime := parsedTime.Local()
+	if utc {
+		localTime = parsedTime.UTC()
+	}
+
+	// Format as date only (YYYY-MM-DD)
+	return localTime.Format("2006-01-02")
 }
 
 func retrieveDate(itemMap map[string]interface{}, key string) string {
@@ -211,7 +396,7 @@ func printJson(resource Resource, slices []interface{}) {
 	jsonData, err := json.MarshalIndent(formatted, "", "  ")
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		ExitWithError(err)
 	}
 	fmt.Println(string(jsonData))
 }
@@ -249,7 +434,7 @@ func renderYaml(resource Resource, slices []interface{}, pretty bool) []byte {
 		data, err := yaml.Marshal(result)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			ExitWithError(err)
 		}
 		yamlData = append(yamlData, []byte("---\n")...)
 		yamlData = append(yamlData, data...)

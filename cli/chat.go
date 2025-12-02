@@ -1,23 +1,18 @@
 package cli
 
 import (
+	"bufio"
 	"context"
-	"fmt"
-	"os"
-	"strings"
-
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/chat"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
-	"github.com/spf13/cobra"
-
-	"bufio"
-
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -75,8 +70,9 @@ Keyboard Controls:
 			resourceName := ""
 			if len(args) == 0 {
 				if !local {
-					core.PrintError("Chat", fmt.Errorf("agent name is required"))
-					os.Exit(1)
+					err := fmt.Errorf("agent name is required")
+					core.PrintError("Chat", err)
+					core.ExitWithError(err)
 				} else {
 					resourceName = "local-agent"
 				}
@@ -89,7 +85,7 @@ Keyboard Controls:
 			err := Chat(context.Background(), core.GetWorkspace(), resourceType, resourceName, debug, local, headerFlags)
 			if err != nil {
 				core.PrintError("Chat", err)
-				os.Exit(1)
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -165,7 +161,7 @@ func CheckResource(
 
 	// Call GetAgent with the required parameters
 	client := core.GetClient()
-	resp, err := client.GetAgent(ctx, resourceName, &sdk.GetAgentParams{})
+	resp, err := client.GetAgent(ctx, resourceName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
 	}

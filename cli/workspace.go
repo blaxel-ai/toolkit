@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/sdk"
@@ -112,8 +111,9 @@ func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sd
 		return sdk.Workspace{}, err
 	}
 	if response.StatusCode() >= 400 {
-		fmt.Println(core.ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body)))
-		os.Exit(1)
+		err := core.ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body))
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	return *response.JSON200, nil
 }

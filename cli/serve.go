@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
@@ -32,7 +33,7 @@ func ServeCmd() *cobra.Command {
 		Short:   "Serve a blaxel project",
 		Long: `Start a local development server for your Blaxel project.
 
-This runs your agent, MCP server, or job locally on your machine for rapid
+This runs your agent or MCP server locally on your machine for rapid
 development and testing. Perfect for the inner development loop where you
 want to iterate quickly without deploying to the cloud.
 
@@ -49,7 +50,7 @@ restarts.
 Testing Locally:
 While your server is running, test it with:
 - bl chat agent-name --local   (for agents)
-- bl run agent agent-name --local --data '{}'   (for agents/jobs)
+- bl run agent agent-name --local --data '{}'   (for agents)
 
 Workflow:
 1. bl serve --hotreload        Start local server with auto-reload
@@ -80,20 +81,22 @@ Workflow:
 			core.ReadSecrets(folder, envFiles)
 			if folder != "" {
 				core.ReadSecrets("", envFiles)
-				core.ReadConfigToml(folder)
+				core.ReadConfigToml(folder, true)
 			}
 			config := core.GetConfig()
 
 			cwd, err := os.Getwd()
 			if err != nil {
-				core.PrintError("Serve", fmt.Errorf("error getting current working directory: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error getting current working directory: %w", err)
+				core.PrintError("Serve", err)
+				core.ExitWithError(err)
 			}
 
 			err = core.SeedCache(cwd)
 			if err != nil {
-				core.PrintError("Serve", fmt.Errorf("error seeding cache: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error seeding cache: %w", err)
+				core.PrintError("Serve", err)
+				core.ExitWithError(err)
 			}
 
 			// If it's a package, we need to handle it
@@ -102,18 +105,68 @@ Workflow:
 					return
 				}
 			}
-			// Check for pyproject.toml or package.json
-			language := core.ModuleLanguage(folder)
-			switch language {
-			case "python":
-				activeProc = server.StartPythonServer(port, host, hotreload, folder, config)
-			case "typescript":
-				activeProc = server.StartTypescriptServer(port, host, hotreload, folder, config)
-			case "go":
-				activeProc = server.StartGoServer(port, host, hotreload, folder, config)
-			default:
-				core.PrintError("Serve", fmt.Errorf("neither pyproject.toml nor package.json found in current directory"))
-				os.Exit(1)
+
+			// First, check if entrypoint is configured
+			useEntrypoint := (config.Entrypoint.Production != "" && !hotreload) || (config.Entrypoint.Development != "" && hotreload)
+
+			if useEntrypoint {
+				activeProc = server.StartEntrypoint(port, host, hotreload, folder, config)
+			} else {
+				// Fall back to language detection
+				language := core.ModuleLanguage(folder)
+				switch language {
+				case "python":
+					activeProc = server.StartPythonServer(port, host, hotreload, folder, config)
+				case "typescript":
+					activeProc = server.StartTypescriptServer(port, host, hotreload, folder, config)
+				case "go":
+					activeProc = server.StartGoServer(port, host, hotreload, folder, config)
+				default:
+					// Neither entrypoint nor language detected
+					// Check if blaxel.toml exists
+					blaxelTomlPath := filepath.Join(cwd, folder, "blaxel.toml")
+					blaxelTomlExists := false
+					if _, err := os.Stat(blaxelTomlPath); err == nil {
+						blaxelTomlExists = true
+					}
+
+					if hotreload {
+						core.PrintError("Serve", fmt.Errorf("cannot start server with hotreload: no dev entrypoint configured and no language detected"))
+						if blaxelTomlExists {
+							core.PrintInfo("To fix this issue, configure a dev entrypoint in blaxel.toml:")
+							core.Print("[entrypoint]")
+							core.Print("dev = \"your-command\"")
+						} else {
+							core.PrintInfo("To fix this issue, create a blaxel.toml file with a dev entrypoint:")
+							core.Print("[entrypoint]")
+							core.Print("dev = \"your-command\"")
+						}
+						core.PrintInfo("\nOr execute this command:")
+						if blaxelTomlExists {
+							core.Print("echo '[entrypoint]\\ndev = \"your-command\"' >> blaxel.toml")
+						} else {
+							core.Print("echo '[entrypoint]\\ndev = \"your-command\"' > blaxel.toml")
+						}
+					} else {
+						core.PrintError("Serve", fmt.Errorf("cannot start server: no prod entrypoint configured and no language detected"))
+						if blaxelTomlExists {
+							core.PrintInfo("To fix this issue, configure a prod entrypoint in blaxel.toml:")
+							core.Print("[entrypoint]")
+							core.Print("prod = \"your-command\"")
+						} else {
+							core.PrintInfo("To fix this issue, create a blaxel.toml file with a prod entrypoint:")
+							core.Print("[entrypoint]")
+							core.Print("prod = \"your-command\"")
+						}
+						core.PrintInfo("\nOr execute this command:")
+						if blaxelTomlExists {
+							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' >> blaxel.toml")
+						} else {
+							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' > blaxel.toml")
+						}
+					}
+					core.ExitWithError(fmt.Errorf("cannot start server: no entrypoint configured and no language detected"))
+				}
 			}
 
 			// Handle graceful shutdown on interrupt
@@ -134,7 +187,7 @@ Workflow:
 			if err := activeProc.Wait(); err != nil {
 				// Only treat as error if we didn't interrupt it ourselves
 				if err.Error() != "signal: interrupt" {
-					os.Exit(1)
+					core.ExitWithError(err)
 				}
 			}
 			os.Exit(0)

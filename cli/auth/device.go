@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"time"
 
@@ -34,8 +33,9 @@ func LoginDevice(workspace string) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		core.PrintError("Login", fmt.Errorf("error making request: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("error making request: %w", err)
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
@@ -43,8 +43,9 @@ func LoginDevice(workspace string) {
 
 	var deviceLoginResponse sdk.DeviceLoginResponse
 	if err := json.Unmarshal(body, &deviceLoginResponse); err != nil {
-		core.PrintError("Login", fmt.Errorf("error unmarshalling response: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("error unmarshalling response: %w", err)
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
 
 	// Open the URL in the default browser
@@ -54,7 +55,10 @@ func LoginDevice(workspace string) {
 	} else {
 		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLoginResponse.VerificationURIComplete))
 	}
-	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace, 3)
+	core.PrintInfo("Waiting for you to confirm the login in your browser...")
+	// Increase retries to 60 (60 * 3 seconds = 3 minutes total timeout)
+	// This gives users enough time to review and confirm the login
+	deviceModeLoginFinalize(deviceLoginResponse.DeviceCode, workspace, 60)
 }
 
 func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
@@ -77,12 +81,44 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		core.PrintError("Login", fmt.Errorf("error making request: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("error making request: %w", err)
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	body, _ := io.ReadAll(res.Body)
+
+	// Check for pending authorization (HTTP 202 or authorization_pending error)
+	if res.StatusCode == http.StatusAccepted {
+		// HTTP 202 Accepted means authorization is pending
+		if retries > 0 {
+			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
+			return
+		} else {
+			err := fmt.Errorf("login timed out waiting for confirmation")
+			core.PrintError("Login", err)
+			core.ExitWithError(err)
+		}
+	}
+
+	// Check for authorization_pending in error response
+	if res.StatusCode == http.StatusBadRequest {
+		var errorResponse sdk.AuthErrorResponse
+		if err := json.Unmarshal(body, &errorResponse); err == nil {
+			if errorResponse.Error == "authorization_pending" {
+				// Authorization is pending - keep polling
+				if retries > 0 {
+					deviceModeLoginFinalize(deviceCode, workspace, retries-1)
+					return
+				} else {
+					err := fmt.Errorf("login timed out waiting for confirmation")
+					core.PrintError("Login", err)
+					core.ExitWithError(err)
+				}
+			}
+		}
+	}
 
 	var finalizeResponse sdk.DeviceLoginFinalizeResponse
 	if err := json.Unmarshal(body, &finalizeResponse); err != nil {
@@ -90,13 +126,10 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		if retries > 0 {
-			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
-			return
-		} else {
-			core.PrintError("Login", fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)))
-			os.Exit(1)
-		}
+		// This is a real error, not just pending
+		err := fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body))
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
 
 	creds := sdk.Credentials{
@@ -110,13 +143,15 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	if workspace == "" {
 		workspaces, err := listWorkspaces(creds)
 		if err != nil {
-			core.PrintError("Login", fmt.Errorf("failed to list workspaces: %w", err))
-			os.Exit(1)
+			err = fmt.Errorf("failed to list workspaces: %w", err)
+			core.PrintError("Login", err)
+			core.ExitWithError(err)
 			return
 		}
 		if len(workspaces) == 0 {
-			core.PrintError("Login", fmt.Errorf("no workspaces are available for your account.\nVisit https://app.blaxel.ai to create one"))
-			os.Exit(1)
+			err := fmt.Errorf("no workspaces are available for your account.\nVisit https://app.blaxel.ai to create one")
+			core.PrintError("Login", err)
+			core.ExitWithError(err)
 			return
 		}
 
@@ -159,8 +194,9 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 			err := form.Run()
 			if err != nil {
-				core.PrintError("Login", fmt.Errorf("error selecting workspace: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("error selecting workspace: %w", err)
+				core.PrintError("Login", err)
+				core.ExitWithError(err)
 			}
 		}
 

@@ -45,10 +45,17 @@ func GetAuthProvider(credentials Credentials, workspace string, apiUrl string) A
 
 func NewClientWithCredentials(config RunClientWithCredentials) (*ClientWithResponses, error) {
 	provider := GetAuthProvider(config.Credentials, config.Workspace, config.ApiURL)
-	return NewClientWithResponses(config.ApiURL, config.RunURL, WithRequestEditorFn(provider.Intercept), WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-		for k, v := range config.Headers {
-			req.Header.Set(k, v)
-		}
-		return nil
-	}))
+
+	return NewClientWithResponses(
+		config.ApiURL,
+		config.RunURL,
+		WithHTTPClient(NewAuthAwareHTTPClient()),
+		WithRequestEditorFn(provider.Intercept),
+		WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+			for k, v := range config.Headers {
+				req.Header.Set(k, v)
+			}
+			return nil
+		}),
+	)
 }

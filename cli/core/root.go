@@ -29,6 +29,9 @@ var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#upda
 // ANSI color codes
 const (
 	colorYellow = "\033[33m"
+	colorCyan   = "\033[36m"
+	colorGreen  = "\033[32m"
+	colorBold   = "\033[1m"
 	colorReset  = "\033[0m"
 )
 
@@ -104,8 +107,10 @@ func writeVersionCache(cache versionCache) error {
 }
 
 func notifyNewVersionAvailable(latestVersion, currentVersion string) {
-	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s (current: %s)\nTo update follow the instructions at %s\n\n%s",
-		colorYellow, latestVersion, currentVersion, UPDATE_CLI_DOC_URL, colorReset)
+	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
+		colorYellow, colorBold+colorGreen, latestVersion, colorReset, colorYellow, colorBold, currentVersion, colorReset+colorYellow,
+		colorYellow, colorBold+colorGreen, colorReset+colorYellow,
+		colorYellow, colorCyan, UPDATE_CLI_DOC_URL, colorReset+colorYellow, colorReset)
 }
 
 func checkForUpdates(currentVersion string) {
@@ -250,7 +255,16 @@ var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI is a command line tool to interact with Blaxel APIs.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if !skipVersionWarning && cmd.Name() != "__complete" && cmd.Name() != "completion" {
+		// Skip version warning for specific commands/conditions
+		shouldSkipWarning := skipVersionWarning ||
+			cmd.Name() == "__complete" ||
+			cmd.Name() == "completion" ||
+			cmd.Name() == "token" ||
+			(cmd.Name() == "workspaces" && cmd.Flag("current") != nil && cmd.Flag("current").Changed) ||
+			outputFormat == "json" ||
+			outputFormat == "yaml"
+
+		if !shouldSkipWarning {
 			checkForUpdates(version)
 		}
 
@@ -271,7 +285,11 @@ var rootCmd = &cobra.Command{
 		}
 
 		setEnvs()
-		readConfigToml("")
+
+		// Skip config reading for deploy command as it handles its own config logic with special type prompting
+		if cmd.Name() != "deploy" {
+			readConfigToml("", true)
+		}
 
 		credentials := sdk.LoadCredentials(workspace)
 		if !credentials.IsValid() && workspace != "" {
@@ -368,6 +386,10 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	if date == "" {
 		date = releaseDate
 	}
+	SetSentryTag("version", version)
+	SetSentryTag("commit", commit)
+	SetSentryTag("workspace", workspace)
+
 	return rootCmd.Execute()
 }
 
@@ -421,12 +443,17 @@ func setEnvFiles(files []string) {
 	envFiles = files
 }
 
-func ReadConfigToml(folder string) {
-	readConfigToml(folder)
+func ReadConfigToml(folder string, setDefaultType bool) {
+	readConfigToml(folder, setDefaultType)
 }
 
 func GetConfig() Config {
 	return config
+}
+
+// SetConfigType sets the config type
+func SetConfigType(t string) {
+	config.Type = t
 }
 
 // GetClient returns the current client
@@ -467,6 +494,10 @@ func GetCommit() string {
 
 func GetDate() string {
 	return date
+}
+
+func GetVerbose() bool {
+	return verbose
 }
 
 var interactiveMode bool

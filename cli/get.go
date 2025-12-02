@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -88,12 +89,23 @@ The command can list all resources of a type or get details for a specific one.`
 	var watch bool
 	resources := core.GetResources()
 	for _, resource := range resources {
-		// Capture resource in closure
-		res := resource
+		aliases := []string{resource.Singular, resource.Short}
+		if len(resource.Aliases) > 0 {
+			aliases = append(aliases, resource.Aliases...)
+		}
+
+		// Special handling for images - use custom command
+		if resource.Kind == "Image" {
+			imageCmd := GetImagesCmd()
+			// Add both singular and plural
+			cmd.AddCommand(imageCmd)
+			continue
+		}
+
 		subcmd := &cobra.Command{
-			Use:     res.Plural,
-			Aliases: []string{res.Singular, res.Short},
-			Short:   fmt.Sprintf("Get a %s", res.Kind),
+			Use:     resource.Plural,
+			Aliases: aliases,
+			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
 				// Special handling for nested resources (e.g., job executions)
 				if res.Kind == "Job" && len(args) >= 2 {
@@ -150,34 +162,30 @@ func GetFn(resource *core.Resource, name string) {
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
 	if funcValue.Kind() != reflect.Func {
-		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "fn is not a valid function")
+		core.PrintError("Get", err)
+		core.ExitWithError(err)
 	}
 
-	// Check the function signature to determine if it requires params
+	// Determine the number of parameters the function expects
 	funcType := funcValue.Type()
 	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
 
-	var fnargs []reflect.Value
-	if numIn == 2 {
-		// Old signature: (ctx, name)
-		fnargs = []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
-	} else if funcType.IsVariadic() && numIn == 3 {
-		// New signature: (ctx, name, ...reqEditors)
-		// Just pass ctx and name, variadic parameter is optional
-		fnargs = []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
-	} else if numIn >= 3 {
-		// Signature with params: (ctx, name, params, ...)
-		// Create an empty params struct - we need to determine the type
-		fnargs = []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf(name),
-			reflect.New(funcType.In(2)).Elem(), // Empty params struct
-		}
-	} else {
-		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "unexpected function signature"))
-		os.Exit(1)
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
 	}
+
+	// Build arguments - start with the ones we have
+	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -188,34 +196,36 @@ func GetFn(resource *core.Resource, name string) {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	// Check if the first result is a pointer to http.Response
 	response, ok := results[0].Interface().(*http.Response)
 	if !ok {
-		fmt.Printf("%s%s", formattedError, "the result is not a pointer to http.Response")
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "the result is not a pointer to http.Response")
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	// Read the content of http.Response.Body
 	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resource.Kind, name, buf.String())
-		os.Exit(1)
+		msg := fmt.Sprintf("Resource %s:%s error: %s", resource.Kind, name, buf.String())
+		fmt.Println(msg)
+		core.ExitWithError(errors.New(msg))
 	}
 
 	// Check if the content is an array or an object
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 	core.Output(*resource, []interface{}{res}, core.GetOutputFormat())
 }
@@ -224,7 +234,7 @@ func ListFn(resource *core.Resource) {
 	slices, err := ListExec(resource)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	// Check the output format
 	core.Output(*resource, slices, core.GetOutputFormat())
@@ -240,28 +250,25 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 		return nil, fmt.Errorf("fn is not a valid function")
 	}
 
-	// Check the function signature to determine if it requires params
+	// Determine the number of parameters the function expects
 	funcType := funcValue.Type()
 	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
 
-	var fnargs []reflect.Value
-	if numIn == 1 {
-		// Old signature: (ctx)
-		fnargs = []reflect.Value{reflect.ValueOf(ctx)}
-	} else if funcType.IsVariadic() && numIn == 2 {
-		// New signature: (ctx, ...reqEditors)
-		// Just pass ctx, variadic parameter is optional
-		fnargs = []reflect.Value{reflect.ValueOf(ctx)}
-	} else if numIn >= 2 {
-		// Signature with params: (ctx, params, ...)
-		// Create an empty params struct
-		fnargs = []reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.New(funcType.In(1)).Elem(), // Empty params struct
-		}
-	} else {
-		return nil, fmt.Errorf("unexpected function signature")
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
 	}
+
+	// Build arguments - start with context
+	fnargs := []reflect.Value{reflect.ValueOf(ctx)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
