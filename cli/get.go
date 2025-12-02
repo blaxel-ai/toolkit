@@ -59,13 +59,13 @@ The command can list all resources of a type or get details for a specific one.`
   bl get agent my-agent
 
   # Get in JSON format (useful for scripting)
-  bl get agent my-agent -ojson
+  bl get agent my-agent -o json
 
   # Watch agent status in real-time
   bl get agent my-agent --watch
 
   # List all resources with table output
-  bl get agents -otable
+  bl get agents -o table
 
   # Get MCP servers (also called functions)
   bl get functions
@@ -108,7 +108,7 @@ The command can list all resources of a type or get details for a specific one.`
 			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
 				// Special handling for nested resources (e.g., job executions)
-				if res.Kind == "Job" && len(args) >= 2 {
+				if resource.Kind == "Job" && len(args) >= 2 {
 					// Check if this is a nested resource request
 					if HandleJobNestedResource(args) {
 						return
@@ -120,7 +120,7 @@ The command can list all resources of a type or get details for a specific one.`
 					duration := time.Duration(seconds) * time.Second
 
 					// Execute immediately before starting the ticker
-					executeAndDisplayWatch(args, *res, seconds)
+					executeAndDisplayWatch(args, *resource, seconds)
 
 					// Create a ticker to periodically fetch updates
 					ticker := time.NewTicker(duration)
@@ -133,7 +133,7 @@ The command can list all resources of a type or get details for a specific one.`
 					for {
 						select {
 						case <-ticker.C:
-							executeAndDisplayWatch(args, *res, seconds)
+							executeAndDisplayWatch(args, *resource, seconds)
 						case <-sigChan:
 							fmt.Println("\nStopped watching.")
 							return
@@ -141,11 +141,11 @@ The command can list all resources of a type or get details for a specific one.`
 					}
 				} else {
 					if len(args) == 0 {
-						ListFn(res)
+						ListFn(resource)
 						return
 					}
 					if len(args) == 1 {
-						GetFn(res, args[0])
+						GetFn(resource, args[0])
 					}
 				}
 			},
