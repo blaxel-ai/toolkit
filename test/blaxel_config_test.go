@@ -8,7 +8,7 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	core.ReadConfigToml(".")
+	core.ReadConfigToml(".", true)
 	config := core.GetConfig()
 	fmt.Println(config.Runtime)
 }

@@ -38,6 +38,7 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl run](bl_run.md)	 - Run a resource on blaxel
 * [bl serve](bl_serve.md)	 - Serve a blaxel project
 * [bl token](bl_token.md)	 - Retrieve authentication token for a workspace
+* [bl upgrade](bl_upgrade.md)	 - Upgrade the Blaxel CLI to the latest version
 * [bl version](bl_version.md)	 - Print the version number
 * [bl workspaces](bl_workspaces.md)	 - List all workspaces with the current workspace highlighted, set optionally a new current workspace
 

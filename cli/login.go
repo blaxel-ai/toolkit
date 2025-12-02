@@ -106,7 +106,7 @@ func showLoginMenu(workspace string) {
 	err := form.Run()
 	if err != nil {
 		core.PrintError("Login", err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 
 	switch selectedMethod {

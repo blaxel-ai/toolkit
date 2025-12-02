@@ -60,13 +60,13 @@ bl new [type] [directory] [flags]
   bl new agent
 
   # Create agent with specific template
-  bl new agent my-agent -t template-google-adk-py
+  bl new agent my-agent -t google-adk-py
 
   # Create MCP server with default template (non-interactive)
-  bl new mcp my-mcp-server -y
+  bl new mcp my-mcp-server -y -t mcp-py
 
   # Create job with specific template
-  bl new job my-batch-job -t template-job-py
+  bl new job my-batch-job -t jobs-py
 
   # Full workflow example:
   bl new agent my-assistant

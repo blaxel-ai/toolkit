@@ -34,6 +34,29 @@ type RootCmdConfig struct {
 }
 
 func FindRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
+	// First, check if entrypoint is configured
+	var useEntrypoint bool
+	var entrypoint string
+
+	if cfg.Hotreload {
+		// For hotreload, use dev entrypoint if available
+		if cfg.Entrypoint.Development != "" {
+			useEntrypoint = true
+			entrypoint = cfg.Entrypoint.Development
+		}
+	} else {
+		// For production, use prod entrypoint if available
+		if cfg.Entrypoint.Production != "" {
+			useEntrypoint = true
+			entrypoint = cfg.Entrypoint.Production
+		}
+	}
+
+	if useEntrypoint {
+		return strings.Fields(entrypoint), nil
+	}
+
+	// Fall back to language detection
 	language := core.ModuleLanguage(cfg.Folder)
 	switch language {
 	case "python":
@@ -42,8 +65,12 @@ func FindRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		return findTSRootCmdAsString(cfg)
 	case "go":
 		return findGoRootCmdAsString(cfg)
+	default:
+		if cfg.Hotreload {
+			return nil, fmt.Errorf("no dev entrypoint configured and language not supported")
+		}
+		return nil, fmt.Errorf("no prod entrypoint configured and language not supported")
 	}
-	return nil, fmt.Errorf("language not supported")
 }
 
 func FindJobCommand(task map[string]interface{}, folder string, config core.Config) (*exec.Cmd, error) {
@@ -63,12 +90,71 @@ func FindJobCommand(task map[string]interface{}, folder string, config core.Conf
 	return rootCmd, nil
 }
 
+func StartEntrypoint(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
+	var entrypoint string
+
+	// Choose the appropriate entrypoint based on hotreload flag
+	if hotreload {
+		if config.Entrypoint.Development != "" {
+			entrypoint = config.Entrypoint.Development
+		} else {
+			err := fmt.Errorf("no dev entrypoint configured in blaxel.toml for hotreload mode")
+			core.PrintError("Serve", err)
+			core.ExitWithError(err)
+		}
+	} else {
+		if config.Entrypoint.Production != "" {
+			entrypoint = config.Entrypoint.Production
+		} else {
+			err := fmt.Errorf("no prod entrypoint configured in blaxel.toml")
+			core.PrintError("Serve", err)
+			core.ExitWithError(err)
+		}
+	}
+
+	fmt.Printf("Starting server with entrypoint: %s\n", entrypoint)
+
+	// Parse the entrypoint command
+	cmdParts := strings.Fields(entrypoint)
+	if len(cmdParts) == 0 {
+		err := fmt.Errorf("entrypoint is empty")
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
+	}
+
+	var cmd *exec.Cmd
+	if len(cmdParts) > 1 {
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+	} else {
+		cmd = exec.Command(cmdParts[0])
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = folder
+
+	// Set env variables
+	envs := GetServerEnvironment(port, host, hotreload, config)
+	cmd.Env = envs.ToEnv()
+
+	err := cmd.Start()
+	if err != nil {
+		err = fmt.Errorf("failed to start entrypoint: %w", err)
+		core.PrintError("Serve", err)
+		core.ExitWithError(err)
+	}
+
+	return cmd
+}
+
 func GetServerEnvironment(port int, host string, hotreload bool, config core.Config) core.CommandEnv {
 	env := core.CommandEnv{}
 	// Add all current env variables if not already set
 	env.AddClientEnv()
 	env.Set("BL_SERVER_PORT", fmt.Sprintf("%d", port))
 	env.Set("BL_SERVER_HOST", host)
+	env.Set("HOST", host)
+	env.Set("PORT", fmt.Sprintf("%d", port))
 	workspace := config.Workspace
 	if workspace == "" {
 		workspace = core.GetWorkspace()
@@ -81,6 +167,11 @@ func GetServerEnvironment(port int, host string, hotreload bool, config core.Con
 	secrets := core.GetSecrets()
 	for _, secret := range secrets {
 		env.Set(secret.Name, secret.Value)
+	}
+	if config.Env != nil {
+		for key, value := range config.Env {
+			env.Set(key, value)
+		}
 	}
 	return env
 }

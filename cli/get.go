@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -79,9 +80,22 @@ The command can list all resources of a type or get details for a specific one.`
 	var watch bool
 	resources := core.GetResources()
 	for _, resource := range resources {
+		aliases := []string{resource.Singular, resource.Short}
+		if len(resource.Aliases) > 0 {
+			aliases = append(aliases, resource.Aliases...)
+		}
+
+		// Special handling for images - use custom command
+		if resource.Kind == "Image" {
+			imageCmd := GetImagesCmd()
+			// Add both singular and plural
+			cmd.AddCommand(imageCmd)
+			continue
+		}
+
 		subcmd := &cobra.Command{
 			Use:     resource.Plural,
-			Aliases: []string{resource.Singular, resource.Short},
+			Aliases: aliases,
 			Short:   fmt.Sprintf("Get a %s", resource.Kind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if watch {
@@ -131,11 +145,30 @@ func GetFn(resource *core.Resource, name string) {
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
 	if funcValue.Kind() != reflect.Func {
-		core.PrintError("Get", fmt.Errorf("%s%s", formattedError, "fn is not a valid function"))
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "fn is not a valid function")
+		core.PrintError("Get", err)
+		core.ExitWithError(err)
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)} // Add the context and the resource name
+
+	// Determine the number of parameters the function expects
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
+	// Build arguments - start with the ones we have
+	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -146,34 +179,36 @@ func GetFn(resource *core.Resource, name string) {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	// Check if the first result is a pointer to http.Response
 	response, ok := results[0].Interface().(*http.Response)
 	if !ok {
-		fmt.Printf("%s%s", formattedError, "the result is not a pointer to http.Response")
-		os.Exit(1)
+		err := fmt.Errorf("%s%s", formattedError, "the result is not a pointer to http.Response")
+		fmt.Println(err)
+		core.ExitWithError(err)
 	}
 	// Read the content of http.Response.Body
 	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 
 	if response.StatusCode >= 400 {
-		fmt.Printf("Resource %s:%s error: %s\n", resource.Kind, name, buf.String())
-		os.Exit(1)
+		msg := fmt.Sprintf("Resource %s:%s error: %s", resource.Kind, name, buf.String())
+		fmt.Println(msg)
+		core.ExitWithError(errors.New(msg))
 	}
 
 	// Check if the content is an array or an object
 	var res interface{}
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Printf("%s%v", formattedError, err)
-		os.Exit(1)
+		fmt.Printf("%s%v\n", formattedError, err)
+		core.ExitWithError(err)
 	}
 	core.Output(*resource, []interface{}{res}, core.GetOutputFormat())
 }
@@ -182,7 +217,7 @@ func ListFn(resource *core.Resource) {
 	slices, err := ListExec(resource)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		core.ExitWithError(err)
 	}
 	// Check the output format
 	core.Output(*resource, slices, core.GetOutputFormat())
@@ -197,8 +232,26 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	if funcValue.Kind() != reflect.Func {
 		return nil, fmt.Errorf("fn is not a valid function")
 	}
-	// Create a slice for the arguments
-	fnargs := []reflect.Value{reflect.ValueOf(ctx)} // Add the context
+
+	// Determine the number of parameters the function expects
+	funcType := funcValue.Type()
+	numIn := funcType.NumIn()
+	isVariadic := funcType.IsVariadic()
+
+	// Calculate the number of required (non-variadic) parameters
+	requiredParams := numIn
+	if isVariadic {
+		requiredParams = numIn - 1 // Exclude the variadic parameter
+	}
+
+	// Build arguments - start with context
+	fnargs := []reflect.Value{reflect.ValueOf(ctx)}
+
+	// Fill in any additional required parameters with zero values
+	for i := len(fnargs); i < requiredParams; i++ {
+		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	}
+	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)

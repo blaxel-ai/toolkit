@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -75,49 +74,54 @@ Examples:
 			currentContext := sdk.CurrentContext()
 			workspace := currentContext.Workspace
 			if workspace == "" {
-				core.PrintError("Connect", fmt.Errorf("no workspace found in current context. Please run 'bl login' first"))
-				os.Exit(1)
+				err := fmt.Errorf("no workspace found in current context. Please run 'bl login' first")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
 			if url == "" {
 				client := core.GetClient()
-				response, err := client.ListSandboxesWithResponse(ctx)
+				// First, try to get the specific sandbox directly (more efficient)
+				response, err := client.GetSandboxWithResponse(ctx, sandboxName, &sdk.GetSandboxParams{})
 				if err != nil {
-					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %w", err))
-					os.Exit(1)
+					err = fmt.Errorf("error getting sandbox: %w", err)
+					core.PrintError("Connect", err)
+					core.ExitWithError(err)
 				}
-				if response.StatusCode() != 200 {
-					core.PrintError("Connect", fmt.Errorf("error listing sandboxes: %s", response.Status()))
-					os.Exit(1)
-				}
-				found := false
-				sandboxes := response.JSON200
-				names := []string{}
-				var sandboxURL string
-				for _, sandbox := range *sandboxes {
-					if *sandbox.Metadata.Name == sandboxName {
-						found = true
-						// Get the direct URL from sandbox metadata
-						if sandbox.Metadata.Url != nil && *sandbox.Metadata.Url != "" {
-							sandboxURL = *sandbox.Metadata.Url
+
+				if response.StatusCode() == 200 {
+					// Sandbox found, get the URL from metadata
+					if response.JSON200.Metadata.Url != nil && *response.JSON200.Metadata.Url != "" {
+						url = *response.JSON200.Metadata.Url
+					}
+				} else if response.StatusCode() == 404 {
+					// Sandbox not found, provide helpful error message with available sandboxes
+					err := fmt.Errorf("sandbox '%s' not found", sandboxName)
+					core.PrintError("Connect", err)
+
+					// Now list sandboxes to show available options
+					listResponse, listErr := client.ListSandboxesWithResponse(ctx)
+					if listErr == nil && listResponse.StatusCode() == 200 && listResponse.JSON200 != nil {
+						sandboxes := *listResponse.JSON200
+						if len(sandboxes) > 0 {
+							names := make([]string, 0, len(sandboxes))
+							for _, sandbox := range sandboxes {
+								if sandbox.Metadata != nil && sandbox.Metadata.Name != nil {
+									names = append(names, *sandbox.Metadata.Name)
+								}
+							}
+							if len(names) > 0 {
+								core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
+							}
 						}
-						break
 					}
-					names = append(names, *sandbox.Metadata.Name)
-				}
-				if !found {
-					core.PrintError("Connect", fmt.Errorf("sandbox '%s' not found", sandboxName))
-					if len(names) > 0 {
-						core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
-						core.Print(fmt.Sprintf("Or create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
-					} else {
-						core.Print(fmt.Sprintf("Create a sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
-					}
-					os.Exit(1)
-				}
-				// Use the URL from metadata if available
-				if sandboxURL != "" {
-					url = sandboxURL
+					core.Print(fmt.Sprintf("Create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
+					core.ExitWithError(err)
+				} else {
+					// Other error
+					err := fmt.Errorf("error getting sandbox: %s", response.Status())
+					core.PrintError("Connect", err)
+					core.ExitWithError(err)
 				}
 			}
 			// Prepare authentication headers based on available credentials
@@ -125,8 +129,9 @@ Examples:
 			// Load credentials for the workspace
 			credentials := sdk.LoadCredentials(workspace)
 			if !credentials.IsValid() {
-				core.PrintError("Connect", fmt.Errorf("no valid credentials found. Please run 'bl login' first"))
-				os.Exit(1)
+				err := fmt.Errorf("no valid credentials found. Please run 'bl login' first")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 			if credentials.APIKey != "" {
 				authHeaders["X-Blaxel-Api-Key"] = credentials.APIKey
@@ -144,8 +149,9 @@ Examples:
 			// Create the MCP-based sandbox shell with custom URL
 			shell, err := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
 			if err != nil {
-				core.PrintError("Connect", fmt.Errorf("failed to connect to sandbox: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to connect to sandbox: %w", err)
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
 			// Initialize and run the Bubble Tea program
@@ -158,8 +164,9 @@ Examples:
 			core.SetInteractiveMode(true)
 			if _, err := p.Run(); err != nil {
 				core.SetInteractiveMode(false)
-				core.PrintError("Connect", fmt.Errorf("failed to run sandbox connection: %w", err))
-				os.Exit(1)
+				err = fmt.Errorf("failed to run sandbox connection: %w", err)
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 			core.SetInteractiveMode(false)
 		},

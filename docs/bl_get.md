@@ -84,6 +84,7 @@ The command can list all resources of a type or get details for a specific one.
 * [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl get agents](bl_get_agents.md)	 - Get a Agent
 * [bl get functions](bl_get_functions.md)	 - Get a Function
+* [bl get image](bl_get_image.md)	 - Get image information
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - Get a IntegrationConnection
 * [bl get jobs](bl_get_jobs.md)	 - Get a Job
 * [bl get models](bl_get_models.md)	 - Get a Model

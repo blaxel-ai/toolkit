@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -190,14 +191,105 @@ func handleDirectory(action string, filePath string, recursive bool, n int) ([]R
 }
 
 func ModuleLanguage(directory string) string {
-	if _, err := os.Stat(filepath.Join(directory, "pyproject.toml")); !os.IsNotExist(err) {
-		return "python"
-	} else if _, err := os.Stat(filepath.Join(directory, "package.json")); !os.IsNotExist(err) {
+	pythonFiles := []string{
+		"pyproject.toml",
+		"requirements.txt",
+	}
+	for _, f := range pythonFiles {
+		if _, err := os.Stat(filepath.Join(directory, f)); !os.IsNotExist(err) {
+			return "python"
+		}
+	}
+	if _, err := os.Stat(filepath.Join(directory, "package.json")); !os.IsNotExist(err) {
 		return "typescript"
-	} else if _, err := os.Stat(filepath.Join(directory, "go.mod")); !os.IsNotExist(err) {
+	}
+	if _, err := os.Stat(filepath.Join(directory, "go.mod")); !os.IsNotExist(err) {
 		return "go"
 	}
+	// Check if Python entry files exist
+	if HasPythonEntryFile(directory) {
+		return "python"
+	}
 	return ""
+}
+
+// HasPythonEntryFile checks if common Python entry files exist in the given directory
+func HasPythonEntryFile(directory string) bool {
+	files := []string{
+		"app.py",
+		"main.py",
+		"api.py",
+		"app/main.py",
+		"app/app.py",
+		"app/api.py",
+		"src/main.py",
+		"src/app.py",
+		"src/api.py",
+	}
+	for _, f := range files {
+		if _, err := os.Stat(filepath.Join(directory, f)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// HasGoEntryFile checks if common Go entry files exist in the given directory
+func HasGoEntryFile(directory string) bool {
+	files := []string{
+		"main.go",
+		"src/main.go",
+		"cmd/main.go",
+	}
+	for _, f := range files {
+		if _, err := os.Stat(filepath.Join(directory, f)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// HasTypeScriptEntryFile checks if common TypeScript/JavaScript entry files exist in the given directory
+// or if package.json has a start script defined
+func HasTypeScriptEntryFile(directory string) bool {
+	// Check for common entry files
+	files := []string{
+		"index.js",
+		"app.js",
+		"server.js",
+		"src/index.js",
+		"src/app.js",
+		"src/server.js",
+		"dist/index.js",
+		"dist/app.js",
+		"dist/server.js",
+		"build/index.js",
+		"build/app.js",
+		"build/server.js",
+	}
+	for _, f := range files {
+		if _, err := os.Stat(filepath.Join(directory, f)); err == nil {
+			return true
+		}
+	}
+
+	// Check if package.json has a start script
+	packageJsonPath := filepath.Join(directory, "package.json")
+	if _, err := os.Stat(packageJsonPath); err == nil {
+		content, err := os.ReadFile(packageJsonPath)
+		if err == nil {
+			var packageJson map[string]interface{}
+			if err := json.Unmarshal(content, &packageJson); err == nil {
+				if scripts, ok := packageJson["scripts"].(map[string]interface{}); ok {
+					if _, hasStart := scripts["start"]; hasStart {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // getTheme returns a custom theme configuration for the CLI interface using the Dracula color scheme.
