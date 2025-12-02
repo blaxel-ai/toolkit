@@ -86,10 +86,9 @@ func listJobExecutions(jobName string) {
 
 	// Create a pseudo-resource for output formatting
 	resource := core.Resource{
-		Kind:       "JobExecution",
-		Plural:     "executions",
-		Singular:   "execution",
-		WithStatus: true,
+		Kind:     "JobExecution",
+		Plural:   "executions",
+		Singular: "execution",
 	}
 
 	core.Output(resource, slices, core.GetOutputFormat())
@@ -137,10 +136,9 @@ func getJobExecution(jobName, executionID string) {
 
 	// Create a pseudo-resource for output formatting
 	resource := core.Resource{
-		Kind:       "JobExecution",
-		Plural:     "executions",
-		Singular:   "execution",
-		WithStatus: true,
+		Kind:     "JobExecution",
+		Plural:   "executions",
+		Singular: "execution",
 	}
 
 	core.Output(resource, []interface{}{executionMap}, core.GetOutputFormat())
