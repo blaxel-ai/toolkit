@@ -187,7 +187,7 @@ Workflow:
 			if err := activeProc.Wait(); err != nil {
 				// Only treat as error if we didn't interrupt it ourselves
 				if err.Error() != "signal: interrupt" {
-					core.ExitWithError(err)
+					os.Exit(1)
 				}
 			}
 			os.Exit(0)
