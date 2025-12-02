@@ -58,6 +58,15 @@ The command can list all resources of a type or get details for a specific one.
   # List jobs
   bl get jobs
 
+  # Get specific job
+  bl get job my-job
+
+  # List executions for a job (nested resource)
+  bl get job my-job executions
+
+  # Get specific execution for a job
+  bl get job my-job execution <execution-id>
+
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
 ```
