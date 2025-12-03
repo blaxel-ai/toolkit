@@ -45,7 +45,7 @@ type CreateFlowConfig struct {
 	BlaxelTomlResourceType string
 }
 
-// RunCreateFlow centralizes the common steps for all create-* commands while
+// runCreateFlow centralizes the common steps for all create-* commands while
 // preserving each command's specific behavior via the config and callbacks.
 //
 // Parameters:
@@ -53,7 +53,7 @@ type CreateFlowConfig struct {
 // - templateNameFlag: optional template name provided via --template
 // - promptFunc: called to interactively collect TemplateOptions when needed
 // - successFunc: called at the end to print any command-specific instructions
-func RunCreateFlow(
+func runCreateFlow(
 	dirArg string,
 	templateNameFlag string,
 	cfg CreateFlowConfig,
@@ -320,4 +320,127 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 	}
 	options.ProjectName = options.Directory
 	return options
+}
+
+// RunSandboxCreation is a reusable wrapper that executes the sandbox creation flow.
+func RunSandboxCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType: "sandbox",
+			NoTTY:        noTTY,
+			ErrorPrefix:  "Sandbox creation",
+			SpinnerTitle: "Creating your blaxel sandbox...",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "sandbox", false, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel sandbox has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
+		},
+	)
+}
+
+// RunAgentAppCreation is a reusable wrapper that executes the agent creation flow.
+// It can be called by both the dedicated command and the unified `bl new` command.
+func RunAgentAppCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType:           "agent",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "Agent creation",
+			SpinnerTitle:           "Creating your blaxel agent app...",
+			BlaxelTomlResourceType: "agent",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "agent app", true, 12)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel agent app has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl serve --hotreload
+`, opts.Directory)
+		},
+	)
+}
+
+// RunJobCreation is a reusable wrapper that executes the job creation flow.
+func RunJobCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType: "job",
+			NoTTY:        noTTY,
+			ErrorPrefix:  "Job creation",
+			SpinnerTitle: "Creating your blaxel job...",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "job", true, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel job has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl run job %s --local --file batches/sample-batch.json
+`, opts.Directory, opts.Directory)
+		},
+	)
+}
+
+// RunMCPCreation is a reusable wrapper that executes the MCP server creation flow.
+func RunMCPCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType:           "mcp",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "MCP Server creation",
+			SpinnerTitle:           "Creating your blaxel mcp server...",
+			BlaxelTomlResourceType: "function",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "mcp server", true, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel MCP server has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl serve --hotreload
+`, opts.Directory)
+		},
+	)
+}
+
+// RunVolumeTemplateCreation is a reusable wrapper that executes the volume template creation flow.
+func RunVolumeTemplateCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType: "volume-template",
+			NoTTY:        noTTY,
+			ErrorPrefix:  "Volume template creation",
+			SpinnerTitle: "Creating your blaxel volume template...",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "volume template", false, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel volume template has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
+		},
+	)
 }

@@ -120,15 +120,15 @@ After Creation:
 			// Dispatch to existing flows with appropriate config and prompt
 			switch t {
 			case newTypeAgent:
-				RunAgentAppCreation(dirArg, templateName, noTTY)
+				core.RunAgentAppCreation(dirArg, templateName, noTTY)
 			case newTypeMCP:
-				RunMCPCreation(dirArg, templateName, noTTY)
+				core.RunMCPCreation(dirArg, templateName, noTTY)
 			case newTypeSandbox:
-				RunSandboxCreation(dirArg, templateName, noTTY)
+				core.RunSandboxCreation(dirArg, templateName, noTTY)
 			case newTypeJob:
-				RunJobCreation(dirArg, templateName, noTTY)
+				core.RunJobCreation(dirArg, templateName, noTTY)
 			case newTypeVolumeTemplate:
-				RunVolumeTemplateCreation(dirArg, templateName, noTTY)
+				core.RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
 				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volume-template", t))
 			}
