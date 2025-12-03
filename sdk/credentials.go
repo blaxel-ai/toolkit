@@ -152,3 +152,27 @@ func ClearCredentials(workspaceName string) {
 	}
 	saveConfig(config)
 }
+
+// IsTrackingEnabled returns true if tracking is enabled.
+// Tracking is enabled by default if not explicitly set (nil) or if explicitly set to true.
+func IsTrackingEnabled() bool {
+	config := loadConfig()
+	// If tracking is not set (nil), default to true
+	if config.Tracking == nil {
+		return true
+	}
+	return *config.Tracking
+}
+
+// IsTrackingConfigured returns true if tracking has been explicitly configured.
+func IsTrackingConfigured() bool {
+	config := loadConfig()
+	return config.Tracking != nil
+}
+
+// SetTracking saves the tracking preference to the config file.
+func SetTracking(enabled bool) {
+	config := loadConfig()
+	config.Tracking = &enabled
+	saveConfig(config)
+}

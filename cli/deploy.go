@@ -331,6 +331,11 @@ func handleConfigWarning(warning string, noTTY bool) {
 // validateDeploymentConfig checks if the project has proper configuration for deployment
 // Returns a warning message if configuration is missing, empty string if all is good
 func (d *Deployment) validateDeploymentConfig(config core.Config) string {
+	// Skip validation for volume templates - they don't need language detection, Dockerfile, or entrypoint
+	if core.IsVolumeTemplate(config.Type) {
+		return ""
+	}
+
 	projectDir := filepath.Join(d.cwd, d.folder)
 
 	// Check for Dockerfile

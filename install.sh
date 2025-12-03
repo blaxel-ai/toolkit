@@ -402,6 +402,68 @@ setup_path_interactive() {
   echo "To get started, run: ${BINARY_SHORT_NAME} --help"
 }
 
+# Function to setup tracking preference
+setup_tracking() {
+  local config_dir="$HOME/.blaxel"
+  local config_file="$config_dir/config.yaml"
+
+  # Check if running in CI environment - skip tracking prompt
+  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
+    return
+  fi
+
+  # Check if tracking is already configured
+  if [ -f "$config_file" ] && grep -q "^tracking:" "$config_file"; then
+    return
+  fi
+
+  local response=""
+
+  # Check if running interactively
+  if [ -t 0 ]; then
+    # Running interactively - ask user via stdin
+    echo ""
+    printf "Do you want to enable anonymous error tracking to help improve Blaxel? [Y/n] "
+    read -r response
+  else
+    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
+    if [ -e /dev/tty ]; then
+      echo "" > /dev/tty
+      printf "Do you want to enable anonymous error tracking to help improve Blaxel? [Y/n] " > /dev/tty
+      read -r response < /dev/tty
+    else
+      # No TTY available - default to enabled (tracking: true)
+      return
+    fi
+  fi
+
+  # Create config directory if it doesn't exist
+  mkdir -p "$config_dir"
+
+  # Determine tracking value based on response (default to true)
+  local tracking_value="true"
+  case "$response" in
+    [nN]|[nN][oO])
+      tracking_value="false"
+      ;;
+  esac
+
+  # Write or append tracking to config file
+  if [ -f "$config_file" ]; then
+    # Append tracking to existing config
+    printf "\ntracking: %s\n" "$tracking_value" >> "$config_file"
+  else
+    # Create new config file with tracking
+    printf "tracking: %s\n" "$tracking_value" > "$config_file"
+  fi
+
+  if [ "$tracking_value" = "true" ]; then
+    echo "✓ Tracking enabled. Thank you for helping improve Blaxel!"
+  else
+    echo "✓ Tracking disabled."
+  fi
+}
+
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
@@ -423,6 +485,7 @@ execute() {
   fi
 
   setup_path_interactive "$ABSOLUTE_BINDIR"
+  setup_tracking
 }
 
 uname_os_check

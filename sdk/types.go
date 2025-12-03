@@ -3,6 +3,7 @@ package sdk
 type Config struct {
 	Context    ContextConfig     `yaml:"context"`
 	Workspaces []WorkspaceConfig `yaml:"workspaces"`
+	Tracking   *bool             `yaml:"tracking,omitempty"`
 }
 type WorkspaceConfig struct {
 	Name        string      `yaml:"name"`
