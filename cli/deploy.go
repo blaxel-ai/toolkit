@@ -173,6 +173,19 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				}
 			}
 
+			// Refresh config after potential type change
+			config = core.GetConfig()
+
+			// Check if agent/function code uses HOST/PORT environment variables
+			if (config.Type == "agent" || config.Type == "function") && !skipBuild {
+				projectDir := filepath.Join(cwd, folder)
+				language := core.ModuleLanguage(projectDir)
+				if !core.CheckServerEnvUsage(folder, language) {
+					serverEnvWarning := core.BuildServerEnvWarning(language, config.Type)
+					handleConfigWarning(serverEnvWarning, noTTY)
+				}
+			}
+
 			if recursive {
 				if deployPackage(dryRun, name) {
 					return
