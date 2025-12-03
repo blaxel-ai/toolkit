@@ -85,6 +85,13 @@ Workflow:
 			}
 			config := core.GetConfig()
 
+			// Volume templates cannot be served - they are data volumes, not services
+			if core.IsVolumeTemplate(config.Type) {
+				err := fmt.Errorf("volume templates cannot be served. Use 'bl deploy' to upload volume template files")
+				core.PrintError("Serve", err)
+				core.ExitWithError(err)
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				err = fmt.Errorf("error getting current working directory: %w", err)
