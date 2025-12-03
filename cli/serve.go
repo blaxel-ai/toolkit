@@ -92,6 +92,47 @@ Workflow:
 				core.ExitWithError(err)
 			}
 
+			// Jobs cannot be served - they are batch processes, not persistent servers
+			if config.Type == "job" {
+				// Get job name from config or derive from directory
+				jobName := config.Name
+				if jobName == "" {
+					cwd, _ := os.Getwd()
+					jobName = filepath.Base(filepath.Join(cwd, folder))
+				}
+				jobName = core.Slugify(jobName)
+
+				err := fmt.Errorf("jobs cannot be served as they are batch processes, not persistent servers")
+				core.PrintError("Serve", err)
+				fmt.Println()
+				core.PrintInfo("To run a job locally:")
+				fmt.Printf("  bl run job %s --local --file batches/sample-batch.json\n", jobName)
+				fmt.Println("  Learn more: https://docs.blaxel.ai/Jobs/Develop-a-job")
+				fmt.Println()
+				core.PrintInfo("To run on Blaxel:")
+				fmt.Println("  bl deploy")
+				fmt.Printf("  bl run job %s --data '{\"tasks\": [{\"name\": \"John\"}]}'\n", jobName)
+				fmt.Println("  Learn more: https://docs.blaxel.ai/Jobs/Deploy-a-job")
+				fmt.Println()
+				core.ExitWithError(err)
+			}
+
+			// Check if agent/function code uses HOST/PORT environment variables (warning only for serve)
+			// Agent is the default type, so check if type is "", "agent", or "function"
+			if config.Type == "" || config.Type == "agent" || config.Type == "function" {
+				language := core.ModuleLanguage(folder)
+				if !core.CheckServerEnvUsage(folder, language) {
+					// Use "agent" as default type for documentation URL if type is empty
+					resourceType := config.Type
+					if resourceType == "" {
+						resourceType = "agent"
+					}
+					serverEnvWarning := core.BuildServerEnvWarning(language, resourceType)
+					fmt.Println(serverEnvWarning)
+					fmt.Println()
+				}
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				err = fmt.Errorf("error getting current working directory: %w", err)

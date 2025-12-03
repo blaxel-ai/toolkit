@@ -455,3 +455,162 @@ func IsVolumeTemplate(resourceType string) bool {
 	}
 	return false
 }
+
+// GetDeployDocURL returns the documentation URL for deploying a specific resource type
+func GetDeployDocURL(resourceType string) string {
+	switch resourceType {
+	case "agent":
+		return "https://docs.blaxel.ai/Agents/Deploy-an-agent"
+	case "function":
+		return "https://docs.blaxel.ai/Functions/Deploy-a-function"
+	case "job":
+		return "https://docs.blaxel.ai/Jobs/Deploy-a-job"
+	default:
+		return "https://docs.blaxel.ai/Agents/Deploy-an-agent"
+	}
+}
+
+// CheckServerEnvUsage scans project files to check if the code uses HOST/PORT
+// or BL_SERVER_HOST/BL_SERVER_PORT environment variables.
+// Returns true if any of these patterns are found in the code.
+func CheckServerEnvUsage(folder string, language string) bool {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+
+	projectDir := filepath.Join(cwd, folder)
+
+	// Define file extensions based on language
+	var extensions []string
+	switch language {
+	case "python":
+		extensions = []string{".py"}
+	case "typescript":
+		extensions = []string{".ts", ".js", ".tsx", ".jsx"}
+	case "go":
+		extensions = []string{".go"}
+	default:
+		// If language is unknown, check all common extensions
+		extensions = []string{
+			".py",                                        // Python
+			".ts", ".js", ".tsx", ".jsx", ".mjs", ".mts", // TypeScript/JavaScript
+			".go",      // Go
+			".rs",      // Rust
+			".c", ".h", // C
+			".cpp", ".cc", ".cxx", ".hpp", // C++
+			".cs",         // C#
+			".java",       // Java
+			".kt", ".kts", // Kotlin
+			".rb",         // Ruby
+			".php",        // PHP
+			".swift",      // Swift
+			".scala",      // Scala
+			".ex", ".exs", // Elixir
+		}
+	}
+
+	// Patterns to search for (both current and deprecated env vars)
+	patterns := []string{
+		"HOST",
+		"PORT",
+		"BL_SERVER_HOST",
+		"BL_SERVER_PORT",
+	}
+
+	found := false
+	_ = filepath.WalkDir(projectDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		// Skip directories
+		if d.IsDir() {
+			// Skip common non-source directories
+			name := d.Name()
+			if name == ".git" || name == "node_modules" || name == ".venv" || name == "venv" ||
+				name == "__pycache__" || name == "dist" || name == "build" || name == ".next" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if file has a matching extension
+		ext := filepath.Ext(path)
+		hasMatchingExt := false
+		for _, e := range extensions {
+			if ext == e {
+				hasMatchingExt = true
+				break
+			}
+		}
+		if !hasMatchingExt {
+			return nil
+		}
+
+		// Read file content
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		contentStr := string(content)
+
+		// Check for patterns
+		for _, pattern := range patterns {
+			if strings.Contains(contentStr, pattern) {
+				found = true
+				return filepath.SkipAll // Stop walking once we find a match
+			}
+		}
+		return nil
+	})
+	return found
+}
+
+// BuildServerEnvWarning returns a formatted warning message with language-specific
+// sample code for using HOST and PORT environment variables.
+func BuildServerEnvWarning(language string, resourceType string) string {
+	codeColor := color.New(color.FgCyan)
+
+	var warningMsg strings.Builder
+	warningMsg.WriteString("⚠️  Server Configuration Warning\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+	warningMsg.WriteString(fmt.Sprintf("Your code does not appear to use the %s and %s environment variables.\n",
+		codeColor.Sprint("HOST"), codeColor.Sprint("PORT")))
+	warningMsg.WriteString("Blaxel injects these variables at runtime to configure your server.\n\n")
+
+	warningMsg.WriteString("Sample code to read these variables:\n\n")
+
+	switch language {
+	case "python":
+		warningMsg.WriteString(codeColor.Sprint("import os\n\n"))
+		warningMsg.WriteString(codeColor.Sprint("host = os.environ.get(\"HOST\", \"0.0.0.0\")\n"))
+		warningMsg.WriteString(codeColor.Sprint("port = int(os.environ.get(\"PORT\", \"80\"))\n"))
+	case "typescript":
+		warningMsg.WriteString(codeColor.Sprint("const host = process.env.HOST || \"0.0.0.0\";\n"))
+		warningMsg.WriteString(codeColor.Sprint("const port = parseInt(process.env.PORT || \"80\", 10);\n"))
+	case "go":
+		warningMsg.WriteString(codeColor.Sprint("import \"os\"\n\n"))
+		warningMsg.WriteString(codeColor.Sprint("host := os.Getenv(\"HOST\")\n"))
+		warningMsg.WriteString(codeColor.Sprint("if host == \"\" {\n"))
+		warningMsg.WriteString(codeColor.Sprint("    host = \"0.0.0.0\"\n"))
+		warningMsg.WriteString(codeColor.Sprint("}\n"))
+		warningMsg.WriteString(codeColor.Sprint("port := os.Getenv(\"PORT\")\n"))
+		warningMsg.WriteString(codeColor.Sprint("if port == \"\" {\n"))
+		warningMsg.WriteString(codeColor.Sprint("    port = \"80\"\n"))
+		warningMsg.WriteString(codeColor.Sprint("}\n"))
+	default:
+		warningMsg.WriteString(codeColor.Sprint("# Read HOST and PORT from environment variables\n"))
+		warningMsg.WriteString(codeColor.Sprint("# HOST defaults to 0.0.0.0\n"))
+		warningMsg.WriteString(codeColor.Sprint("# PORT defaults to 80\n"))
+	}
+
+	warningMsg.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	warningMsg.WriteString(fmt.Sprintf("Learn more: %s\n\n", GetDeployDocURL(resourceType)))
+	warningMsg.WriteString("⚠️  Without reading these variables, your deployment may not bind to the correct address.\n")
+	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+	return warningMsg.String()
+}
