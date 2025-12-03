@@ -291,6 +291,33 @@ var rootCmd = &cobra.Command{
 			readConfigToml("", true)
 		}
 
+		// Check if workspace is required but not available
+		// Commands that don't require a workspace
+		workspaceExemptCommands := map[string]bool{
+			"login":      true,
+			"logout":     true,
+			"version":    true,
+			"upgrade":    true,
+			"workspaces": true,
+			"workspace":  true,
+			"ws":         true,
+			"completion": true,
+			"__complete": true,
+			"help":       true,
+			"new":        true,
+			"docs":       true,
+		}
+
+		if !workspaceExemptCommands[cmd.Name()] {
+			// Check if BL_WORKSPACE is set or if there are workspaces in config
+			if workspace == "" {
+				workspaces := sdk.ListWorkspaces()
+				if len(workspaces) == 0 {
+					return fmt.Errorf("no workspace configured. Please run 'bl login <workspace>' first to authenticate")
+				}
+			}
+		}
+
 		credentials := sdk.LoadCredentials(workspace)
 		if !credentials.IsValid() && workspace != "" {
 			PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
@@ -358,6 +385,9 @@ func setEnvs() {
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
 	setEnvs()
 
+	// Prompt for tracking consent if not already configured
+	promptForTracking()
+
 	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -373,7 +403,12 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	}
 
 	if workspace == "" {
-		workspace = sdk.CurrentContext().Workspace
+		// Check for BL_WORKSPACE environment variable first
+		if envWorkspace := os.Getenv("BL_WORKSPACE"); envWorkspace != "" {
+			workspace = envWorkspace
+		} else {
+			workspace = sdk.CurrentContext().Workspace
+		}
 		env := sdk.LoadEnv(workspace)
 		initEnv(env)
 	}
@@ -531,4 +566,46 @@ func IsCIEnvironment() bool {
 // IsTerminalInteractive returns true if both stdin and stdout are terminals (TTY).
 func IsTerminalInteractive() bool {
 	return term.IsTerminal(int(os.Stdout.Fd())) && term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+// promptForTracking prompts the user for tracking consent if not already configured.
+// Only prompts in interactive mode and not in CI environments.
+func promptForTracking() {
+	// Skip if tracking is already configured
+	if sdk.IsTrackingConfigured() {
+		return
+	}
+
+	// Skip in CI environments
+	if IsCIEnvironment() {
+		return
+	}
+
+	// Skip if not in interactive mode
+	if !IsTerminalInteractive() {
+		return
+	}
+
+	// Prompt user for tracking consent
+	fmt.Println()
+	fmt.Print("Do you want to enable tracking to help improve Blaxel? [Y/n] ")
+
+	var response string
+	fmt.Scanln(&response)
+
+	// Default to true (Y) if empty or yes
+	enabled := true
+	response = strings.ToLower(strings.TrimSpace(response))
+	if response == "n" || response == "no" {
+		enabled = false
+	}
+
+	sdk.SetTracking(enabled)
+
+	if enabled {
+		fmt.Println("✓ Tracking enabled. Thank you for helping improve Blaxel!")
+	} else {
+		fmt.Println("✓ Tracking disabled.")
+	}
+	fmt.Println()
 }
