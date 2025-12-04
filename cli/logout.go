@@ -31,7 +31,7 @@ If you have multiple workspaces authenticated, you can logout from:
 - A specific workspace by providing its name
 - Any workspace interactively by running 'bl logout' without arguments
 
-After logging out, you'll need to run 'bl login <workspace>' again to
+After logging out, you'll need to run 'bl login WORKSPACE' again to
 authenticate before using other commands for that workspace.
 
 Note: Logout is a local operation only. It does not:

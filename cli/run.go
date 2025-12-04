@@ -60,7 +60,7 @@ Local vs Remote:
 - Local (--local): Runs against locally served resources (requires 'bl serve')
 
 Input Formats:
-- Inline JSON with --data '{"key": "value"}'
+- Inline JSON with --data json-object
 - From file with --file path/to/input.json
 
 Advanced Usage:
