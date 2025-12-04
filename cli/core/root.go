@@ -313,7 +313,8 @@ var rootCmd = &cobra.Command{
 			if workspace == "" {
 				workspaces := sdk.ListWorkspaces()
 				if len(workspaces) == 0 {
-					return fmt.Errorf("no workspace configured. Please run 'bl login <workspace>' first to authenticate")
+					PrintError("Login required", fmt.Errorf("no workspace configured. Please run 'bl login' first to authenticate"))
+					Exit(1)
 				}
 			}
 		}

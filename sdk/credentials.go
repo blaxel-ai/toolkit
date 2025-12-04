@@ -35,6 +35,11 @@ func saveConfig(config Config) {
 	}
 	configDir := filepath.Join(homeDir, ".blaxel")
 	configFile := filepath.Join(configDir, "config.yaml")
+	// Ensure the .blaxel directory exists
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		fmt.Printf("Error creating config directory: %v\n", err)
+		os.Exit(1)
+	}
 	if err := os.WriteFile(configFile, yamlData, 0600); err != nil {
 		fmt.Printf("Error writing credentials file: %v\n", err)
 		os.Exit(1)
