@@ -1480,7 +1480,28 @@ func (d *Deployment) IgnoredPaths() []string {
 			"__pycache__",
 		}
 	}
-	return strings.Split(string(content), "\n")
+
+	// Parse the .blaxelignore file, filtering out comments and empty lines
+	lines := strings.Split(string(content), "\n")
+	var ignoredPaths []string
+	for _, line := range lines {
+		// Trim whitespace
+		line = strings.TrimSpace(line)
+		// Skip empty lines and comments (lines starting with #)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		// Handle inline comments (e.g., "path #comment")
+		if idx := strings.Index(line, "#"); idx != -1 {
+			line = strings.TrimSpace(line[:idx])
+			// Skip if nothing remains after removing inline comment
+			if line == "" {
+				continue
+			}
+		}
+		ignoredPaths = append(ignoredPaths, line)
+	}
+	return ignoredPaths
 }
 
 func (d *Deployment) shouldIgnorePath(path string, ignoredPaths []string) bool {
