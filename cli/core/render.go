@@ -108,13 +108,19 @@ func truncateString(s string, maxLength int) string {
 	return s[:maxLength-3] + "..."
 }
 
-// formatVolumeSize formats volume size in MB to human-readable format
+// formatVolumeSize formats volume size to human-readable format
+// Accepts size in MB and converts to appropriate unit (GB/MB)
 func formatVolumeSize(sizeInMB int) string {
-	if sizeInMB >= 1024 {
-		sizeInGB := float64(sizeInMB) / 1024.0
+	const MB_TO_GB = 1024
+	
+	// Convert MB to GB for sizes >= 1 GB (1024 MB)
+	if sizeInMB >= MB_TO_GB {
+		sizeInGB := float64(sizeInMB) / float64(MB_TO_GB)
 		return fmt.Sprintf("%.2f GB", sizeInGB)
 	}
-	return fmt.Sprintf("%d MB", sizeInMB)
+	
+	// Display in MB for smaller sizes
+	return fmt.Sprintf("%.2f MB", float64(sizeInMB))
 }
 
 // formatBytesSize formats size in bytes to human-readable format
@@ -152,10 +158,35 @@ func formatSizeValue(value interface{}) string {
 			return formatVolumeSize(*v)
 		}
 	case string:
-		// Try to parse string as int
+		// Try to parse string as int (for plain numbers)
 		var size int
 		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
 			return formatVolumeSize(size)
+		}
+		// Try to parse formatted size strings (e.g., "1.00 KB", "512 MB", "1.00 GB")
+		var sizeFloat float64
+		var unit string
+		if n, err := fmt.Sscanf(v, "%f %s", &sizeFloat, &unit); err == nil && n == 2 {
+			// The API may return incorrectly formatted sizes where MB values are labeled as KB
+			// If we see "X KB", it likely means X*1024 MB (MB values incorrectly treated as bytes)
+			var sizeInMB int
+			switch unit {
+			case "KB":
+				// Fix: KB label likely means bytes, so X KB of bytes = X*1024 bytes
+				// If those bytes were actually MB, then X*1024 bytes = X*1024 MB
+				sizeInMB = int(sizeFloat * 1024)
+			case "MB":
+				sizeInMB = int(sizeFloat)
+			case "GB":
+				// Convert GB to MB: GB * 1024 = MB
+				sizeInMB = int(sizeFloat * 1024)
+			case "TB":
+				// Convert TB to MB: TB * 1024 * 1024 = MB
+				sizeInMB = int(sizeFloat * 1024 * 1024)
+			default:
+				return v // Unknown unit, return as-is
+			}
+			return formatVolumeSize(sizeInMB)
 		}
 		return v
 	}
@@ -278,7 +309,7 @@ func retrieveFieldValue(itemMap map[string]interface{}, field Field, imageWidth 
 		rawValue := retrieveKey(itemMap, field.Value)
 		return formatDate(rawValue, "2006-01-02 15:04:05")
 	case "size":
-		// Format size in MB (for volumes)
+		// Format size in MB (for volumes) - convert to GB/MB appropriately
 		value := navigateToKey(itemMap, strings.Split(field.Value, "."))
 		if value != nil {
 			return formatSizeValue(value)
