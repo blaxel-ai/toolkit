@@ -159,12 +159,14 @@ func ClearCredentials(workspaceName string) {
 }
 
 // IsTrackingEnabled returns true if tracking is enabled.
-// Priority: BL_TRACKING env var > config file > default (true).
+// Priority: DO_NOT_TRACK env var > config file > default (true).
 // Tracking is enabled by default if not explicitly set.
 func IsTrackingEnabled() bool {
 	// Environment variable takes priority over config file
-	if envVal := os.Getenv("BL_TRACKING"); envVal != "" {
-		return envVal != "false" && envVal != "0"
+	if envVal := os.Getenv("DO_NOT_TRACK"); envVal != "" {
+		// DO_NOT_TRACK=true/1 means tracking is disabled (return false)
+		// DO_NOT_TRACK=false/0 means tracking is enabled (return true)
+		return envVal == "false" || envVal == "0"
 	}
 
 	config := loadConfig()
@@ -179,7 +181,7 @@ func IsTrackingEnabled() bool {
 // (either via environment variable or config file).
 func IsTrackingConfigured() bool {
 	// Environment variable counts as configured
-	if os.Getenv("BL_TRACKING") != "" {
+	if os.Getenv("DO_NOT_TRACK") != "" {
 		return true
 	}
 	config := loadConfig()
