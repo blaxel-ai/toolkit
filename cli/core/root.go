@@ -260,6 +260,7 @@ var rootCmd = &cobra.Command{
 			cmd.Name() == "__complete" ||
 			cmd.Name() == "completion" ||
 			cmd.Name() == "token" ||
+			cmd.Name() == "upgrade" ||
 			(cmd.Name() == "workspaces" && cmd.Flag("current") != nil && cmd.Flag("current").Changed) ||
 			outputFormat == "json" ||
 			outputFormat == "yaml"
