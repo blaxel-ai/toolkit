@@ -320,6 +320,8 @@ func (m *InteractiveModel) View() string {
 						s.WriteString(fmt.Sprintf("  Callback Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(callbackSecret)))
 						s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("  Use this secret to verify webhook callbacks from Blaxel"))
 						s.WriteString("\n")
+						runCommand := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Render("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", m.resources[0].Name)
+						s.WriteString(fmt.Sprintf("  Run your async agent with: %s", runCommand))
 					}
 				}
 			}
