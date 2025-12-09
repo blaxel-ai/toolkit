@@ -1385,7 +1385,7 @@ func (d *Deployment) Ready() {
 	// Check for callback secret (only for agents, only shown on first deployment)
 	var callbackSecretMsg string
 	if config.Type == "agent" && d.callbackSecret != "" {
-		callbackSecretMsg = fmt.Sprintf("\n\nAsync Callback Configuration:\n  Callback Secret: %s\n  Use this secret to verify webhook callbacks from Blaxel", d.callbackSecret)
+		callbackSecretMsg = fmt.Sprintf("\n\nAsync Callback Configuration:\n  Callback Secret: %s\n  Use this secret to verify webhook callbacks from Blaxel\n\n  Example (run agent in async mode):\n  bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", d.callbackSecret, d.name)
 	}
 
 	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s%s", availableAt, callbackSecretMsg))
