@@ -1109,15 +1109,32 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		time.Sleep(1000 * time.Millisecond)
 		model.AddBuildLog(idx, "Verifying deployment status...")
 
+		// Get initial status before monitoring - this helps detect stale FAILED status from previous builds
+		initialStatus, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+		if err != nil {
+			// If we can't get initial status, assume it's not FAILED to avoid false positives
+			model.AddBuildLog(idx, fmt.Sprintf("Warning: Could not get initial status: %v", err))
+			initialStatus = "UNKNOWN"
+		}
+
 		// Start monitoring the resource status
 		statusTicker := time.NewTicker(3 * time.Second)
 		defer statusTicker.Stop()
 		statusTimeout := time.After(15 * time.Minute) // 15 minute timeout for deployment
 
+		// Grace period for stale FAILED status - if we don't see any status change within this time,
+		// accept that the FAILED status is real (handles case where new deployment fails immediately)
+		var staleFailedGracePeriod <-chan time.Time
+		if initialStatus == "FAILED" {
+			staleFailedGracePeriod = time.After(15 * time.Second)
+		}
+		staleGracePeriodExpired := false
+
 		var logWatcher interface{ Stop() }
 		buildLogStarted := false
 		lastStatus := ""           // Track last status to avoid duplicate logs
 		sawBuildingStatus := false // Track if we've seen BUILDING status
+		sawStatusChange := false   // Track if status has changed from initial (new build started)
 
 		for {
 			select {
@@ -1127,11 +1144,19 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				}
 				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after 15 minutes"))
 				return
+			case <-staleFailedGracePeriod:
+				// Grace period expired - if status is still FAILED, accept it as real
+				staleGracePeriodExpired = true
 			case <-statusTicker.C:
 				status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
 				if err != nil {
 					// Continue polling on temporary errors
 					continue
+				}
+
+				// Track if we've seen the status change from initial (indicates new build has started)
+				if status != initialStatus {
+					sawStatusChange = true
 				}
 
 				// Only log status changes
@@ -1188,6 +1213,13 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
 						return
 					case "FAILED":
+						// Ignore stale FAILED status from previous builds, unless:
+						// 1. We've seen the status change (new build started and then failed)
+						// 2. The grace period has expired (no status change = new build failed immediately)
+						// 3. Initial status wasn't FAILED (no stale status to worry about)
+						if initialStatus == "FAILED" && !sawStatusChange && !staleGracePeriodExpired {
+							continue
+						}
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}

@@ -258,6 +258,9 @@ func (m *InteractiveModel) View() string {
 		// Show final status
 		s.WriteString("Final Status:\n")
 		allSuccess := true
+		appUrl := core.GetAppURL()
+		currentWorkspace := core.GetWorkspace()
+
 		for _, r := range m.resources {
 			r.mu.RLock()
 			status := r.Status
@@ -282,6 +285,12 @@ func (m *InteractiveModel) View() string {
 				if err != nil {
 					s.WriteString(fmt.Sprintf("     Error: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(err.Error())))
 				}
+
+				// Show console URL and logs command for failed resources
+				resourceType := strings.ToLower(kind)
+				consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, name)
+				s.WriteString(fmt.Sprintf("     Console: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(consoleUrl)))
+				s.WriteString(fmt.Sprintf("     Logs:    %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(fmt.Sprintf("bl logs %s %s", resourceType, name))))
 			} else {
 				line = statusStyles[StatusComplete].Render(line)
 				s.WriteString(line + "\n")
@@ -327,8 +336,6 @@ func (m *InteractiveModel) View() string {
 			}
 		} else {
 			s.WriteString(statusStyles[StatusFailed].Render("✗ Some resources failed to deploy"))
-			s.WriteString("\n")
-			s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Tip: Check the error details above or view logs with 'bl logs <resource-name>'"))
 		}
 		s.WriteString("\n\n")
 		s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("Press any key to exit..."))
