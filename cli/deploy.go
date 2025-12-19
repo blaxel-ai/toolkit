@@ -1109,6 +1109,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		time.Sleep(1000 * time.Millisecond)
 		model.AddBuildLog(idx, "Verifying deployment status...")
 
+		// Get initial status before monitoring - this helps detect stale FAILED status from previous builds
+		initialStatus, _ := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+
 		// Start monitoring the resource status
 		statusTicker := time.NewTicker(3 * time.Second)
 		defer statusTicker.Stop()
@@ -1118,6 +1121,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		buildLogStarted := false
 		lastStatus := ""           // Track last status to avoid duplicate logs
 		sawBuildingStatus := false // Track if we've seen BUILDING status
+		sawStatusChange := false   // Track if status has changed from initial (new build started)
 
 		for {
 			select {
@@ -1132,6 +1136,11 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				if err != nil {
 					// Continue polling on temporary errors
 					continue
+				}
+
+				// Track if we've seen the status change from initial (indicates new build has started)
+				if status != initialStatus {
+					sawStatusChange = true
 				}
 
 				// Only log status changes
@@ -1188,6 +1197,11 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
 						return
 					case "FAILED":
+						// Ignore stale FAILED status from previous builds
+						// Only fail if we've seen the status change (new build started) or initial wasn't FAILED
+						if initialStatus == "FAILED" && !sawStatusChange {
+							continue
+						}
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
