@@ -1110,7 +1110,12 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		model.AddBuildLog(idx, "Verifying deployment status...")
 
 		// Get initial status before monitoring - this helps detect stale FAILED status from previous builds
-		initialStatus, _ := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+		initialStatus, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+		if err != nil {
+			// If we can't get initial status, assume it's not FAILED to avoid false positives
+			model.AddBuildLog(idx, fmt.Sprintf("Warning: Could not get initial status: %v", err))
+			initialStatus = "UNKNOWN"
+		}
 
 		// Start monitoring the resource status
 		statusTicker := time.NewTicker(3 * time.Second)
