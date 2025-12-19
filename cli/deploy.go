@@ -1122,6 +1122,14 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		defer statusTicker.Stop()
 		statusTimeout := time.After(15 * time.Minute) // 15 minute timeout for deployment
 
+		// Grace period for stale FAILED status - if we don't see any status change within this time,
+		// accept that the FAILED status is real (handles case where new deployment fails immediately)
+		var staleFailedGracePeriod <-chan time.Time
+		if initialStatus == "FAILED" {
+			staleFailedGracePeriod = time.After(15 * time.Second)
+		}
+		staleGracePeriodExpired := false
+
 		var logWatcher interface{ Stop() }
 		buildLogStarted := false
 		lastStatus := ""           // Track last status to avoid duplicate logs
@@ -1136,6 +1144,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				}
 				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after 15 minutes"))
 				return
+			case <-staleFailedGracePeriod:
+				// Grace period expired - if status is still FAILED, accept it as real
+				staleGracePeriodExpired = true
 			case <-statusTicker.C:
 				status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
 				if err != nil {
@@ -1202,9 +1213,11 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						model.AddBuildLog(idx, fmt.Sprintf("Deployment completed with status: %s", status))
 						return
 					case "FAILED":
-						// Ignore stale FAILED status from previous builds
-						// Only fail if we've seen the status change (new build started) or initial wasn't FAILED
-						if initialStatus == "FAILED" && !sawStatusChange {
+						// Ignore stale FAILED status from previous builds, unless:
+						// 1. We've seen the status change (new build started and then failed)
+						// 2. The grace period has expired (no status change = new build failed immediately)
+						// 3. Initial status wasn't FAILED (no stale status to worry about)
+						if initialStatus == "FAILED" && !sawStatusChange && !staleGracePeriodExpired {
 							continue
 						}
 						if logWatcher != nil {
