@@ -446,6 +446,10 @@ func GetRegistryURL() string {
 	return REGISTRY_URL
 }
 
+func IsVerbose() bool {
+	return verbose
+}
+
 func SetEnvs() {
 	if url := os.Getenv("BL_API_URL"); url != "" {
 		BASE_URL = url

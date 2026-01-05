@@ -379,15 +379,31 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		return &failedResponse
 	}
 
+	// Log PUT response details for debugging
+	if core.IsVerbose() {
+		core.Print(fmt.Sprintf("PUT %s:%s - Status: %d, Body: %s\n", resourceName, name, response.StatusCode, buf.String()))
+	}
+
 	// We handle not found, and also not implemented to know we need to create
 	if response.StatusCode == 404 || response.StatusCode == 405 {
 		// Need to create the resource
 		return PostFn(resource, resourceName, name, resourceObject)
 	}
 
+	// Handle 409 Conflict - resource already exists but doesn't support PUT
+	if response.StatusCode == 409 {
+		core.Print(fmt.Sprintf("Resource %s:%s already exists and does not support updates\n", resourceName, name))
+		if core.IsVerbose() {
+			core.Print(fmt.Sprintf("PUT returned 409: %s\n", buf.String()))
+		}
+		return &ResourceOperationResult{
+			Status: "unchanged",
+		}
+	}
+
 	if response.StatusCode >= 400 {
 		errorMsg := buf.String()
-		core.Print(fmt.Sprintf("Resource %s:%s error: %s\n", resourceName, name, errorMsg))
+		core.Print(fmt.Sprintf("Resource %s:%s PUT error (status %d): %s\n", resourceName, name, response.StatusCode, errorMsg))
 		// Don't exit - let the caller handle the failure and continue processing
 		failedResponse.ErrorMsg = errorMsg
 		return &failedResponse
