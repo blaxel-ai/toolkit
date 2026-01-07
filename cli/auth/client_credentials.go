@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func LoginClientCredentials(workspace string, clientCredentials string) {
 	// Create credentials struct and marshal to JSON
-	creds := sdk.Credentials{
+	creds := blaxel.Credentials{
 		ClientCredentials: clientCredentials,
 	}
 
@@ -20,7 +20,7 @@ func LoginClientCredentials(workspace string, clientCredentials string) {
 		core.ExitWithError(err)
 	}
 
-	sdk.SaveCredentials(workspace, creds)
-	sdk.SetCurrentWorkspace(workspace)
+	blaxel.SaveCredentials(workspace, creds)
+	blaxel.SetCurrentWorkspace(workspace)
 	fmt.Println("Successfully stored client credentials")
 }

@@ -4,27 +4,33 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
+	"github.com/stainless-sdks/blaxel-go/option"
 )
 
 // Helper function to validate workspace
-func validateWorkspace(workspace string, credentials sdk.Credentials) error {
-	// Create a temporary client to validate the workspace
-	c, err := sdk.NewClientWithCredentials(
-		sdk.RunClientWithCredentials{
-			ApiURL:      core.GetBaseURL(),
-			RunURL:      core.GetRunURL(),
-			Credentials: credentials,
-			Workspace:   workspace,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
+func validateWorkspace(workspace string, credentials blaxel.Credentials) error {
+	// Build client options based on credentials
+	opts := []option.RequestOption{
+		option.WithBaseURL(blaxel.GetBaseURL()),
 	}
 
+	if workspace != "" {
+		opts = append(opts, option.WithWorkspace(workspace))
+	}
+
+	if credentials.APIKey != "" {
+		opts = append(opts, option.WithAPIKey(credentials.APIKey))
+	} else if credentials.AccessToken != "" {
+		opts = append(opts, option.WithAccessToken(credentials.AccessToken))
+	} else if credentials.ClientCredentials != "" {
+		opts = append(opts, option.WithClientCredentials(credentials.ClientCredentials))
+	}
+
+	c := blaxel.NewClient(opts...)
+
 	// Try to make a simple API call to validate
-	_, err = c.ListWorkspacesWithResponse(context.Background())
+	_, err := c.Workspaces.List(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to validate workspace credentials: %w", err)
 	}
@@ -32,27 +38,30 @@ func validateWorkspace(workspace string, credentials sdk.Credentials) error {
 	return nil
 }
 
-// Helper function to validate workspace
-func listWorkspaces(credentials sdk.Credentials) ([]sdk.Workspace, error) {
-	// Create a temporary client to validate the workspace
-	c, err := sdk.NewClientWithCredentials(
-		sdk.RunClientWithCredentials{
-			ApiURL:      core.GetBaseURL(),
-			RunURL:      core.GetRunURL(),
-			Credentials: credentials,
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
+// Helper function to list workspaces
+func listWorkspaces(credentials blaxel.Credentials) ([]blaxel.Workspace, error) {
+	// Build client options based on credentials
+	opts := []option.RequestOption{
+		option.WithBaseURL(blaxel.GetBaseURL()),
 	}
 
-	// Try to make a simple API call to validate
-	response, err := c.ListWorkspacesWithResponse(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate workspace credentials: %w", err)
+	if credentials.APIKey != "" {
+		opts = append(opts, option.WithAPIKey(credentials.APIKey))
+	} else if credentials.AccessToken != "" {
+		opts = append(opts, option.WithAccessToken(credentials.AccessToken))
+	} else if credentials.ClientCredentials != "" {
+		opts = append(opts, option.WithClientCredentials(credentials.ClientCredentials))
 	}
-	if response.JSON200 == nil {
+
+	c := blaxel.NewClient(opts...)
+
+	// Try to make a simple API call to validate
+	workspaces, err := c.Workspaces.List(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve workspaces: %w", err)
+	}
+	if workspaces == nil {
 		return nil, fmt.Errorf("failed to retrieve workspaces for your account")
 	}
-	return *response.JSON200, nil
+	return *workspaces, nil
 }

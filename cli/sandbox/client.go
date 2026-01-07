@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/blaxel-ai/toolkit/sdk/mcp"
 	officialMcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/stainless-sdks/blaxel-go/lib/mcp"
 )
 
 type SandboxClient struct {

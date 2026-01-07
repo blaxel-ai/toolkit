@@ -12,8 +12,8 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/monitor"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {
@@ -307,7 +307,8 @@ Examples:
 
 			workspace := core.GetWorkspace()
 			if workspace == "" {
-				workspace = sdk.CurrentContext().Workspace
+				ctx, _ := blaxel.CurrentContext()
+				workspace = ctx.Workspace
 			}
 
 			if workspace == "" {

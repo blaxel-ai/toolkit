@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // BuildLogWatcher watches build logs for a resource
 type BuildLogWatcher struct {
-	client       *sdk.ClientWithResponses
+	client       *blaxel.Client
 	workspace    string
 	resourceType string
 	resourceName string
@@ -31,7 +31,7 @@ type BuildLogWatcher struct {
 }
 
 // NewBuildLogWatcher creates a new build log watcher
-func NewBuildLogWatcher(client *sdk.ClientWithResponses, workspace, resourceType, resourceName string, onLog func(string)) *BuildLogWatcher {
+func NewBuildLogWatcher(client *blaxel.Client, workspace, resourceType, resourceName string, onLog func(string)) *BuildLogWatcher {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &BuildLogWatcher{
 		client:       client,
@@ -120,10 +120,8 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	workspace := w.workspace
 
 	// Build URL with proper encoding
-	baseURL := core.GetBaseURL()
-
 	// Create URL with query parameters
-	u, err := url.Parse(baseURL + "/observability/logs")
+	u, err := url.Parse(blaxel.BuildObservabilityLogsURL())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
@@ -152,7 +150,7 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	}
 
 	// Add authentication headers
-	credentials := sdk.LoadCredentials(workspace)
+	credentials, _ := blaxel.LoadCredentials(workspace)
 	if credentials.IsValid() {
 		if credentials.AccessToken != "" {
 			req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.AccessToken))
@@ -259,10 +257,8 @@ func (lf *LogFetcher) FetchLogs() ([]LogEntry, error) {
 
 // fetchLogsFromAPI fetches logs from the Blaxel API
 func (lf *LogFetcher) fetchLogsFromAPI(offset int) ([]LogEntry, error) {
-	baseURL := core.GetBaseURL()
-
 	// Create URL with query parameters
-	u, err := url.Parse(baseURL + "/observability/logs")
+	u, err := url.Parse(blaxel.BuildObservabilityLogsURL())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %w", err)
 	}
@@ -309,19 +305,20 @@ func (lf *LogFetcher) fetchLogsFromAPI(offset int) ([]LogEntry, error) {
 	}
 
 	// Add authentication headers
-	credentials := sdk.LoadCredentials(lf.workspace)
+	credentials, _ := blaxel.LoadCredentials(lf.workspace)
 	if !credentials.IsValid() {
 		return nil, fmt.Errorf("no valid credentials found for workspace '%s'", lf.workspace)
 	}
 
-	authProvider := sdk.GetAuthProvider(credentials, lf.workspace, core.GetBaseURL())
-	headers, err := authProvider.GetHeaders()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get authentication headers: %v", err)
+	// Set authentication headers directly
+	if credentials.AccessToken != "" {
+		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.AccessToken))
 	}
-
-	for k, v := range headers {
-		req.Header.Set(k, v)
+	if credentials.APIKey != "" {
+		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.APIKey))
+	}
+	if lf.workspace != "" {
+		req.Header.Set("X-Blaxel-Workspace", lf.workspace)
 	}
 
 	// Make the request

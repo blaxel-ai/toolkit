@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/blaxel-ai/toolkit/sdk"
-	"github.com/blaxel-ai/toolkit/sdk/mcp"
 	officialMcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	blaxel "github.com/stainless-sdks/blaxel-go"
+	"github.com/stainless-sdks/blaxel-go/lib/mcp"
 )
 
 // getAuthHeaders retrieves authentication headers from environment or SDK credentials
@@ -31,27 +31,24 @@ func getAuthHeaders(t *testing.T) (map[string]string, string) {
 	}
 
 	// Try to get from SDK credentials (for users who are logged in via CLI)
-	workspace := sdk.CurrentContext().Workspace
+	ctx, _ := blaxel.CurrentContext()
+	workspace := ctx.Workspace
 	if workspace == "" {
 		workspace = os.Getenv("BL_WORKSPACE")
 	}
 
 	if workspace != "" {
-		credentials := sdk.LoadCredentials(workspace)
+		credentials, _ := blaxel.LoadCredentials(workspace)
 		if credentials.IsValid() {
-			baseURL := os.Getenv("BL_API_URL")
-			if baseURL == "" {
-				baseURL = "https://api.blaxel.ai"
-			}
-			authProvider := sdk.GetAuthProvider(credentials, workspace, baseURL)
-			headers, err := authProvider.GetHeaders()
-			if err == nil && headers != nil {
-				// Convert X-Blaxel-Authorization to Authorization for sandbox
-				if auth, ok := headers["X-Blaxel-Authorization"]; ok {
-					return map[string]string{
-						"Authorization": auth,
-					}, workspace
-				}
+			// Set authentication headers directly based on credential type
+			if credentials.APIKey != "" {
+				return map[string]string{
+					"Authorization": "Bearer " + credentials.APIKey,
+				}, workspace
+			} else if credentials.AccessToken != "" {
+				return map[string]string{
+					"Authorization": "Bearer " + credentials.AccessToken,
+				}, workspace
 			}
 		}
 	}
@@ -69,16 +66,13 @@ func TestMCPTransports(t *testing.T) {
 	// Get sandbox URL from environment or use default
 	serverURL := os.Getenv("SANDBOX_URL")
 	if serverURL == "" {
-		// Use the correct run.blaxel.ai URL format for sandboxes
-		runURL := os.Getenv("BL_RUN_URL")
-		if runURL == "" {
-			runURL = "https://run.blaxel.ai"
-		}
+		// Apply any environment overrides
+		blaxel.ApplyEnvironmentOverrides()
 
 		if workspace != "" {
-			serverURL = runURL + "/" + workspace + "/sandboxes/base-image"
+			serverURL = blaxel.BuildSandboxURL(workspace, "base-image")
 		} else {
-			serverURL = runURL + "/blaxel/sandboxes/base-image"
+			serverURL = blaxel.BuildSandboxURL("blaxel", "base-image")
 		}
 		t.Logf("Using default sandbox URL: %s", serverURL)
 	}

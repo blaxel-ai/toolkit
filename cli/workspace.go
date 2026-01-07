@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
+	"github.com/stainless-sdks/blaxel-go/option"
 )
 
 func init() {
@@ -56,7 +57,8 @@ To list all authenticated workspaces, run without arguments.`,
   bl workspaces prod       # Switch to prod
   bl deploy                # Deploy to prod`,
 		Run: func(cmd *cobra.Command, args []string) {
-			currentWorkspace := sdk.CurrentContext().Workspace
+			ctx, _ := blaxel.CurrentContext()
+			currentWorkspace := ctx.Workspace
 
 			// If --current flag is set, only print the current workspace name
 			if current {
@@ -67,13 +69,17 @@ To list all authenticated workspaces, run without arguments.`,
 			// If workspace name is provided, set it as current and return
 			if len(args) > 0 {
 				workspaceName := args[0]
-				sdk.SetCurrentWorkspace(workspaceName)
+				blaxel.SetCurrentWorkspace(workspaceName)
 				fmt.Printf("Current workspace set to %s.\n", workspaceName)
 				return
 			}
 
 			// Otherwise, list all workspaces
-			workspaces := sdk.ListWorkspaces()
+			cfg, _ := blaxel.LoadConfig()
+			workspaces := make([]string, 0, len(cfg.Workspaces))
+			for _, ws := range cfg.Workspaces {
+				workspaces = append(workspaces, ws.Name)
+			}
 
 			// En-têtes avec largeurs fixes
 			fmt.Printf("%-30s %-20s\n", "NAME", "CURRENT")
@@ -94,26 +100,28 @@ To list all authenticated workspaces, run without arguments.`,
 	return cmd
 }
 
-func CheckWorkspaceAccess(workspaceName string, credentials sdk.Credentials) (sdk.Workspace, error) {
-	c, err := sdk.NewClientWithCredentials(
-		sdk.RunClientWithCredentials{
-			ApiURL:      core.GetBaseURL(),
-			RunURL:      core.GetRunURL(),
-			Credentials: credentials,
-			Workspace:   workspaceName,
-		},
-	)
+func CheckWorkspaceAccess(workspaceName string, credentials blaxel.Credentials) (blaxel.Workspace, error) {
+	// Build client options based on credentials
+	opts := []option.RequestOption{
+		option.WithBaseURL(blaxel.GetBaseURL()),
+	}
+
+	if workspaceName != "" {
+		opts = append(opts, option.WithWorkspace(workspaceName))
+	}
+
+	if credentials.APIKey != "" {
+		opts = append(opts, option.WithAPIKey(credentials.APIKey))
+	} else if credentials.AccessToken != "" {
+		opts = append(opts, option.WithAccessToken(credentials.AccessToken))
+	} else if credentials.ClientCredentials != "" {
+		opts = append(opts, option.WithClientCredentials(credentials.ClientCredentials))
+	}
+
+	c := blaxel.NewClient(opts...)
+	workspace, err := c.Workspaces.Get(context.Background(), workspaceName)
 	if err != nil {
-		return sdk.Workspace{}, err
+		return blaxel.Workspace{}, err
 	}
-	response, err := c.GetWorkspaceWithResponse(context.Background(), workspaceName)
-	if err != nil {
-		return sdk.Workspace{}, err
-	}
-	if response.StatusCode() >= 400 {
-		err := core.ErrorHandler(response.HTTPResponse.Request, "workspace", workspaceName, string(response.Body))
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-	return *response.JSON200, nil
+	return *workspace, nil
 }

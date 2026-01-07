@@ -9,7 +9,7 @@ spec:
     - name: my-volume
       mountPath: /data
   runtime:
-    image: blaxel/dev-base:latest
+    image: blaxel/base-image:latest
     ports:
       - name: sandbox-api
         target: 8080

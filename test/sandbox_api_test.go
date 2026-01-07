@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/blaxel-ai/toolkit/cli/sandbox"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func TestSandboxAPIURL(t *testing.T) {
 	// Get current workspace
-	workspace := sdk.CurrentContext().Workspace
+	blaxelCtx, _ := blaxel.CurrentContext()
+	workspace := blaxelCtx.Workspace
 	if workspace == "" {
 		t.Skip("No workspace configured")
 	}
@@ -42,7 +43,8 @@ func TestSandboxAPIURL(t *testing.T) {
 
 func TestSandboxClientWithAPI(t *testing.T) {
 	// Get current workspace
-	workspace := sdk.CurrentContext().Workspace
+	blaxelCtx, _ := blaxel.CurrentContext()
+	workspace := blaxelCtx.Workspace
 	if workspace == "" {
 		t.Skip("No workspace configured")
 	}

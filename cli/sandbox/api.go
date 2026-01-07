@@ -2,10 +2,12 @@ package sandbox
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
+	"github.com/stainless-sdks/blaxel-go/option"
 )
 
 // GetSandboxURL fetches the sandbox metadata from the control plane and returns its direct URL
@@ -14,45 +16,54 @@ func GetSandboxURL(ctx context.Context, workspace, sandboxName string) (string, 
 	client := core.GetClient()
 	if client == nil {
 		// Initialize client if not already done
-		credentials := sdk.LoadCredentials(workspace)
+		credentials, _ := blaxel.LoadCredentials(workspace)
 		if !credentials.IsValid() {
 			return "", fmt.Errorf("no valid credentials found for workspace '%s'", workspace)
 		}
 
-		var err error
-		client, err = sdk.NewClientWithCredentials(sdk.RunClientWithCredentials{
-			ApiURL:      core.GetBaseURL(),
-			RunURL:      core.GetRunURL(),
-			Credentials: credentials,
-			Workspace:   workspace,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to create API client: %w", err)
+		opts := []option.RequestOption{
+			option.WithBaseURL(blaxel.GetBaseURL()),
 		}
+
+		if workspace != "" {
+			opts = append(opts, option.WithWorkspace(workspace))
+		}
+
+		if credentials.APIKey != "" {
+			opts = append(opts, option.WithAPIKey(credentials.APIKey))
+		} else if credentials.AccessToken != "" {
+			opts = append(opts, option.WithAccessToken(credentials.AccessToken))
+		} else if credentials.ClientCredentials != "" {
+			opts = append(opts, option.WithClientCredentials(credentials.ClientCredentials))
+		}
+
+		c := blaxel.NewClient(opts...)
+		client = &c
 	}
 
 	// Get the sandbox by name
-	response, err := client.GetSandboxWithResponse(ctx, sandboxName, nil)
+	sandbox, err := client.Sandboxes.Get(ctx, sandboxName, blaxel.SandboxGetParams{})
 	if err != nil {
+		var apiErr *blaxel.Error
+		if ok := isBlaxelError(err, &apiErr); ok && apiErr.StatusCode == 404 {
+			return "", fmt.Errorf("sandbox '%s' not found", sandboxName)
+		}
 		return "", fmt.Errorf("error getting sandbox: %w", err)
 	}
 
-	if response.StatusCode() == 404 {
-		return "", fmt.Errorf("sandbox '%s' not found", sandboxName)
-	}
+	// Extract the URL from metadata via JSON
+	jsonData, _ := json.Marshal(sandbox)
+	var sbMap map[string]interface{}
+	json.Unmarshal(jsonData, &sbMap)
 
-	if response.StatusCode() != 200 {
-		return "", fmt.Errorf("error getting sandbox: %s", response.Status())
-	}
-
-	// Extract the URL from metadata
-	sandbox := response.JSON200
-	if sandbox != nil && sandbox.Metadata != nil && sandbox.Metadata.Url != nil && *sandbox.Metadata.Url != "" {
-		return *sandbox.Metadata.Url, nil
+	if metadata, ok := sbMap["metadata"].(map[string]interface{}); ok {
+		if url, ok := metadata["url"].(string); ok && url != "" {
+			return url, nil
+		}
 	}
 
 	// Fallback to constructing the URL if not available in metadata
-	return fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName), nil
+	return blaxel.BuildSandboxURL(workspace, sandboxName), nil
 }
 
 // NewSandboxClient creates a new sandbox client, fetching the URL from the control plane
@@ -67,24 +78,14 @@ func NewSandboxClient(workspace, sandboxName string) (*SandboxClient, error) {
 
 	// Prepare authentication headers
 	authHeaders := make(map[string]string)
-	credentials := sdk.LoadCredentials(workspace)
+	credentials, _ := blaxel.LoadCredentials(workspace)
 	if !credentials.IsValid() {
 		return nil, fmt.Errorf("no valid credentials found for workspace '%s'", workspace)
 	}
 
-	// Get the auth provider to get properly formatted headers
-	authProvider := sdk.GetAuthProvider(credentials, workspace, core.GetBaseURL())
-	headers, err := authProvider.GetHeaders()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get auth headers: %w", err)
-	}
-
-	// Convert headers for sandbox use
-	if apiKey, ok := headers["X-Blaxel-Authorization"]; ok {
-		// For sandboxes, use standard Authorization header
-		authHeaders["Authorization"] = apiKey
-	} else if credentials.APIKey != "" {
-		authHeaders["X-Blaxel-Api-Key"] = credentials.APIKey
+	// Get authentication header based on credential type
+	if credentials.APIKey != "" {
+		authHeaders["X-Blaxel-Authorization"] = "Bearer " + credentials.APIKey
 	} else if credentials.AccessToken != "" {
 		authHeaders["Authorization"] = "Bearer " + credentials.AccessToken
 	} else if credentials.ClientCredentials != "" {
@@ -93,4 +94,13 @@ func NewSandboxClient(workspace, sandboxName string) (*SandboxClient, error) {
 
 	// Create the client with the direct URL
 	return NewSandboxClientWithURL(workspace, sandboxName, serverURL, authHeaders)
+}
+
+// isBlaxelError checks if an error is a blaxel API error and sets the apiErr pointer
+func isBlaxelError(err error, apiErr **blaxel.Error) bool {
+	if e, ok := err.(*blaxel.Error); ok {
+		*apiErr = e
+		return true
+	}
+	return false
 }

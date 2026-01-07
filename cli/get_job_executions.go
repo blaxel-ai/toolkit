@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // HandleJobNestedResource handles nested resources for jobs (like executions)
@@ -53,25 +53,19 @@ func listJobExecutions(jobName string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	response, err := client.ListJobExecutionsWithResponse(ctx, jobName, &sdk.ListJobExecutionsParams{})
+	executions, err := client.Jobs.Executions.List(ctx, jobName, blaxel.JobExecutionListParams{})
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to list job executions: %w", err))
 		os.Exit(1)
 	}
 
-	if response.StatusCode() != 200 {
-		core.PrintError("Get", fmt.Errorf("failed to list job executions: %s", response.Status()))
-		os.Exit(1)
-	}
-
-	if response.JSON200 == nil {
+	if executions == nil || len(*executions) == 0 {
 		core.PrintError("Get", fmt.Errorf("no executions found"))
 		os.Exit(1)
 	}
 
 	// Convert JobExecution structs to maps for output formatting
 	// Marshal to JSON and unmarshal back to []interface{} to get map representation
-	executions := *response.JSON200
 	jsonData, err := json.Marshal(executions)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to marshal executions: %w", err))
@@ -106,30 +100,19 @@ func getJobExecution(jobName, executionID string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	response, err := client.GetJobExecutionWithResponse(ctx, jobName, executionID)
+	execution, err := client.Jobs.Executions.Get(ctx, executionID, blaxel.JobExecutionGetParams{JobID: jobName})
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to get job execution: %w", err))
 		os.Exit(1)
 	}
 
-	if response.StatusCode() == 404 {
-		core.PrintError("Get", fmt.Errorf("execution '%s' not found for job '%s'", executionID, jobName))
-		os.Exit(1)
-	}
-
-	if response.StatusCode() != 200 {
-		core.PrintError("Get", fmt.Errorf("failed to get job execution: %s", response.Status()))
-		os.Exit(1)
-	}
-
-	if response.JSON200 == nil {
+	if execution == nil {
 		core.PrintError("Get", fmt.Errorf("no execution data returned"))
 		os.Exit(1)
 	}
 
 	// Convert JobExecution struct to map for output formatting
 	// Marshal to JSON and unmarshal back to map[string]interface{}
-	execution := *response.JSON200
 	jsonData, err := json.Marshal(execution)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to marshal execution: %w", err))

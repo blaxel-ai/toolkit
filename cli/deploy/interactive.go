@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // Resource deployment statuses
@@ -258,7 +259,7 @@ func (m *InteractiveModel) View() string {
 		// Show final status
 		s.WriteString("Final Status:\n")
 		allSuccess := true
-		appUrl := core.GetAppURL()
+		appUrl := blaxel.GetAppURL()
 		currentWorkspace := core.GetWorkspace()
 
 		for _, r := range m.resources {
@@ -309,7 +310,7 @@ func (m *InteractiveModel) View() string {
 				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
 				s.WriteString("\n")
 			} else {
-				appUrl := core.GetAppURL()
+				appUrl := blaxel.GetAppURL()
 				currentWorkspace := core.GetWorkspace()
 				availableAt := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
 				core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
@@ -420,7 +421,7 @@ func (m *InteractiveModel) updateContent() {
 	config := core.GetConfig()
 	if !core.IsVolumeTemplate(config.Type) {
 		currentWorkspace := core.GetWorkspace()
-		appUrl := core.GetAppURL()
+		appUrl := blaxel.GetAppURL()
 		resourceType := strings.ToLower(selected.Kind)
 		consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, selected.Name)
 		content.WriteString(fmt.Sprintf("Console page: %s\n", consoleUrl))

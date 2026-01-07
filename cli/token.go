@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {
@@ -50,7 +50,8 @@ Examples:
 
 			// If no workspace specified, use current context
 			if workspace == "" {
-				workspace = sdk.CurrentContext().Workspace
+				ctx, _ := blaxel.CurrentContext()
+				workspace = ctx.Workspace
 			}
 
 			// Validate workspace
@@ -61,37 +62,28 @@ Examples:
 			}
 
 			// Load credentials for the workspace
-			credentials := sdk.LoadCredentials(workspace)
+			credentials, _ := blaxel.LoadCredentials(workspace)
 			if !credentials.IsValid() {
 				err := fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
 
-			// Get auth provider
-			authProvider := sdk.GetAuthProvider(credentials, workspace, core.GetBaseURL())
-
-			// Get headers (which will trigger token refresh if needed)
-			headers, err := authProvider.GetHeaders()
-			if err != nil {
-				err = fmt.Errorf("failed to retrieve token: %v", err)
-				core.PrintError("token", err)
-				core.ExitWithError(err)
-			}
-
-			// Extract token from headers
+			// Get token based on credential type
 			token := ""
-			if authHeader, ok := headers["X-Blaxel-Authorization"]; ok {
-				// Remove "Bearer " prefix if present
-				if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-					token = authHeader[7:]
-				} else {
-					token = authHeader
-				}
+			if credentials.APIKey != "" {
+				token = credentials.APIKey
+			} else if credentials.AccessToken != "" {
+				// TODO: Check if token needs refresh and refresh if needed
+				token = credentials.AccessToken
+			} else if credentials.ClientCredentials != "" {
+				// For client credentials, we'd need to exchange for an access token
+				// For now, just return the client credentials value
+				token = credentials.ClientCredentials
 			}
 
 			if token == "" {
-				err := fmt.Errorf("no token found in authentication headers")
+				err := fmt.Errorf("no token found in credentials")
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}

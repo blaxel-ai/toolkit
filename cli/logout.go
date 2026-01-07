@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {
@@ -14,6 +14,29 @@ func init() {
 	core.RegisterCommand("logout", func() *cobra.Command {
 		return LogoutCmd()
 	})
+}
+
+// ClearCredentials clears credentials for a workspace
+func clearCredentials(workspaceName string) error {
+	config, err := blaxel.LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	// Find and remove the workspace
+	for i, ws := range config.Workspaces {
+		if ws.Name == workspaceName {
+			config.Workspaces = append(config.Workspaces[:i], config.Workspaces[i+1:]...)
+			break
+		}
+	}
+
+	// Clear current workspace if it was the one being removed
+	if config.Context.Workspace == workspaceName {
+		config.Context.Workspace = ""
+	}
+
+	return blaxel.WriteConfig(config)
 }
 
 func LogoutCmd() *cobra.Command {
@@ -51,7 +74,11 @@ Examples:
   bl login my-workspace`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				workspaces := sdk.ListWorkspaces()
+				cfg, _ := blaxel.LoadConfig()
+				workspaces := make([]string, 0, len(cfg.Workspaces))
+				for _, ws := range cfg.Workspaces {
+					workspaces = append(workspaces, ws.Name)
+				}
 				if len(workspaces) == 0 {
 					err := fmt.Errorf("no authenticated workspaces found")
 					core.PrintError("Logout", err)
@@ -89,10 +116,10 @@ Examples:
 					selectedWorkspace = workspaces[0]
 				}
 
-				sdk.ClearCredentials(selectedWorkspace)
+				clearCredentials(selectedWorkspace)
 				core.PrintSuccess(fmt.Sprintf("Logged out from workspace %s", selectedWorkspace))
 			} else {
-				sdk.ClearCredentials(args[0])
+				clearCredentials(args[0])
 				core.PrintSuccess(fmt.Sprintf("Logged out from workspace %s", args[0]))
 			}
 		},

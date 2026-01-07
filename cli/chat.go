@@ -13,6 +13,8 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/core"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
+	requestoption "github.com/stainless-sdks/blaxel-go/option"
 )
 
 func init() {
@@ -159,17 +161,11 @@ func CheckResource(
 		return nil
 	}
 
-	// Call GetAgent with the required parameters
+	// Call Agents.Get with the required parameters
 	client := core.GetClient()
-	resp, err := client.GetAgent(ctx, resourceName, nil)
+	_, err := client.Agents.Get(ctx, resourceName, blaxel.AgentGetParams{})
 	if err != nil {
-		return fmt.Errorf("failed to get agent: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Check response status code
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("agent %s not found", resourceName)
+		return fmt.Errorf("agent %s not found: %w", resourceName, err)
 	}
 
 	return nil
@@ -192,27 +188,40 @@ func SendMessage(
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal message: %w", err)
 	}
-	headersMap := make(map[string]string)
+	opts := []requestoption.RequestOption{}
 	for _, header := range headers {
 		parts := strings.Split(header, ": ")
 		if len(parts) == 2 {
-			headersMap[parts[0]] = parts[1]
+			opts = append(opts, requestoption.WithHeader(parts[0], parts[1]))
 		}
 	}
+	if debug {
+		opts = append(opts, requestoption.WithDebugLog(nil))
+	}
 	client := core.GetClient()
-	response, err := client.Run(
-		ctx,
-		workspace,
-		resourceType,
-		resourceName,
-		"POST",
-		"/",
-		headersMap,
-		[]string{},
-		string(inputBody),
-		debug,
-		local,
-	)
+	var response *http.Response
+	if local {
+		response, err = client.RunLocal(
+			ctx,
+			"POST",
+			"/",
+			inputBody,
+			opts...,
+		)
+	} else {
+		response, err = client.Run(
+			ctx,
+			workspace,
+			resourceType,
+			resourceName,
+			"POST",
+			"/",
+			inputBody,
+			opts...,
+		)
+	}
+	defer func() { _ = response.Body.Close() }()
+
 	if err != nil {
 		return "", fmt.Errorf("failed to send message: %w", err)
 	}
@@ -255,20 +264,39 @@ func SendMessageStream(
 	headersMap["Accept"] = "text/event-stream"
 	headersMap["Cache-Control"] = "no-cache"
 
+	opts := []requestoption.RequestOption{}
+	for _, header := range headers {
+		parts := strings.Split(header, ": ")
+		if len(parts) == 2 {
+			opts = append(opts, requestoption.WithHeader(parts[0], parts[1]))
+		}
+	}
+	if debug {
+		opts = append(opts, requestoption.WithDebugLog(nil))
+	}
+	opts = append(opts, requestoption.WithQueryAdd("stream", "true"))
 	client := core.GetClient()
-	response, err := client.Run(
-		ctx,
-		workspace,
-		resourceType,
-		resourceName,
-		"POST",
-		"/",
-		headersMap,
-		[]string{"stream=true"},
-		string(inputBody),
-		debug,
-		local,
-	)
+	var response *http.Response
+	if local {
+		response, err = client.RunLocal(
+			ctx,
+			"POST",
+			"/",
+			inputBody,
+			opts...,
+		)
+	} else {
+		response, err = client.Run(
+			ctx,
+			workspace,
+			resourceType,
+			resourceName,
+			"POST",
+			"/",
+			inputBody,
+			opts...,
+		)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to send message: %w", err)
 	}

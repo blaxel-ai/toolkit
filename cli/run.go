@@ -6,20 +6,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {
 	core.RegisterCommand("run", func() *cobra.Command {
 		return RunCmd()
 	})
+}
+
+// Batch represents a batch of tasks for job execution
+type Batch struct {
+	Tasks []map[string]interface{} `json:"tasks"`
 }
 
 func RunCmd() *cobra.Command {
@@ -152,9 +158,8 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				resourceType = "sandbox"
 			}
 
-			client := core.GetClient()
 			workspace := core.GetWorkspace()
-			res, err := client.Run(
+			res, err := runRequest(
 				context.Background(),
 				workspace,
 				resourceType,
@@ -222,55 +227,107 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	return cmd
 }
 
+// runRequest executes a request to a blaxel resource
+func runRequest(
+	ctx context.Context,
+	workspace string,
+	resourceType string,
+	resourceName string,
+	method string,
+	path string,
+	headers map[string]string,
+	params []string,
+	data string,
+	debug bool,
+	local bool,
+) (*http.Response, error) {
+	var baseURL string
+	if local {
+		baseURL = "http://localhost:1338"
+	} else {
+		baseURL = blaxel.GetRunURL()
+	}
+
+	// Build the URL
+	url := fmt.Sprintf("%s/%s/%s/%s", baseURL, workspace, resourceType, resourceName)
+	if path != "" {
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		url += path
+	}
+
+	// Add query params
+	if len(params) > 0 {
+		url += "?" + strings.Join(params, "&")
+	}
+
+	if debug {
+		core.Print(fmt.Sprintf("Request URL: %s", url))
+		core.Print(fmt.Sprintf("Request Method: %s", method))
+		if data != "" {
+			core.Print(fmt.Sprintf("Request Body: %s", data))
+		}
+	}
+
+	// Create request
+	var bodyReader io.Reader
+	if data != "" {
+		bodyReader = strings.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	// Add authentication headers from credentials
+	credentials, _ := blaxel.LoadCredentials(workspace)
+	if credentials.APIKey != "" {
+		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.APIKey))
+	} else if credentials.AccessToken != "" {
+		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.AccessToken))
+	}
+
+	// Add workspace header
+	if workspace != "" {
+		req.Header.Set("X-Blaxel-Workspace", workspace)
+	}
+
+	// Make request
+	httpClient := &http.Client{}
+	return httpClient.Do(req)
+}
+
 func getModelDefaultPath(resourceName string) string {
 	client := core.GetClient()
-	res, err := client.GetModel(context.Background(), resourceName)
+	model, err := client.Models.Get(context.Background(), resourceName)
 	if err != nil {
 		return ""
 	}
-	defer func() { _ = res.Body.Close() }()
 
-	if res.StatusCode == 200 {
-		var model sdk.Model
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			return ""
-		}
-		err = json.Unmarshal(body, &model)
-		if err != nil {
-			return ""
-		}
-
-		integrationName := model.Spec.Runtime.Type
-		if integrationName != nil {
-			res, err := client.GetIntegration(context.Background(), *integrationName)
-			if err == nil {
-				defer func() { _ = res.Body.Close() }()
-				if res.StatusCode == 200 {
-					var integrationResponse sdk.Integration
-					body, err := io.ReadAll(res.Body)
-					if err != nil {
-						return ""
-					}
-
-					err = json.Unmarshal(body, &integrationResponse)
-					if err != nil {
-						return ""
-					}
-					endpoints := integrationResponse.Endpoints
-					if endpoints != nil {
-						key := ""
-						for path := range *endpoints {
-							if key == "" || strings.Contains(path, "completions") {
-								key = path
-							}
-						}
-						if key != "" {
-							core.PrintInfo(fmt.Sprintf("Using default path: %s, you can change it by specifying it with --path PATH", key))
-						}
-						return key
+	integrationName := string(model.Spec.Runtime.Type)
+	if integrationName != "" {
+		integration, err := client.Integrations.Get(context.Background(), integrationName)
+		if err == nil {
+			endpoints := integration.Endpoints
+			if endpoints != nil {
+				key := ""
+				for path := range endpoints {
+					if key == "" || strings.Contains(path, "completions") {
+						key = path
 					}
 				}
+				if key != "" {
+					core.PrintInfo(fmt.Sprintf("Using default path: %s, you can change it by specifying it with --path PATH", key))
+				}
+				return key
 			}
 		}
 	}
@@ -286,7 +343,7 @@ func runJobLocally(data string, folder string, config core.Config) {
 			core.PrintError("Run", fmt.Errorf("could not load .env file: %w", err))
 		}
 	}
-	batch := sdk.Batch{}
+	batch := Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
 		err = fmt.Errorf("invalid JSON: %w", err)

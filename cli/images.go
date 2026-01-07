@@ -1,16 +1,14 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // Note: Image commands are integrated directly into get.go and delete.go
@@ -98,37 +96,31 @@ func ListAllImages() {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	response, err := client.ListImages(ctx)
+	imageList, err := client.Images.List(ctx)
 	if err != nil {
 		err = fmt.Errorf("error listing images: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
-	defer func() { _ = response.Body.Close() }()
 
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		err = fmt.Errorf("error reading response: %v", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	if response.StatusCode == 404 {
+	if imageList == nil || len(*imageList) == 0 {
 		// No images found - return empty list
 		resource := getImageResource()
 		core.Output(*resource, []interface{}{}, core.GetOutputFormat())
 		return
 	}
 
-	if response.StatusCode >= 400 {
-		err := fmt.Errorf("error listing images: %s", buf.String())
+	// Convert to JSON for manipulation
+	jsonData, err := json.Marshal(imageList)
+	if err != nil {
+		err = fmt.Errorf("error parsing images: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
 
 	// Parse the response
 	var images []interface{}
-	if err := json.Unmarshal(buf.Bytes(), &images); err != nil {
+	if err := json.Unmarshal(jsonData, &images); err != nil {
 		err = fmt.Errorf("error parsing response: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
@@ -154,30 +146,24 @@ func getImage(resourceType, imageName, tag string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	response, err := client.GetImage(ctx, resourceType, imageName)
+	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
 	if err != nil {
 		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
-	defer func() { _ = response.Body.Close() }()
 
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		err = fmt.Errorf("error reading response: %v", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	if response.StatusCode >= 400 {
-		err := fmt.Errorf("error getting image %s/%s: %s", resourceType, imageName, buf.String())
+	// Convert to JSON for manipulation
+	jsonData, err := json.Marshal(imageResult)
+	if err != nil {
+		err = fmt.Errorf("error parsing image: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
 
 	// Parse the response
 	var image map[string]interface{}
-	if err := json.Unmarshal(buf.Bytes(), &image); err != nil {
+	if err := json.Unmarshal(jsonData, &image); err != nil {
 		err = fmt.Errorf("error parsing response: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
@@ -416,36 +402,23 @@ func deleteImage(resourceType, imageName, tag string) error {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	var response *http.Response
-	var err error
 	var identifier string
+	var err error
 
+	// For tag deletion, include the tag in the image name
+	imageRef := imageName
 	if tag != "" {
-		// Delete specific tag
+		imageRef = imageName + ":" + tag
 		identifier = fmt.Sprintf("%s/%s:%s", resourceType, imageName, tag)
-		// fmt.Printf("[DEBUG] Calling DeleteImageTag(ctx, '%s', '%s', '%s')\n", resourceType, imageName, tag)
-		response, err = client.DeleteImageTag(ctx, resourceType, imageName, tag)
 	} else {
-		// Delete entire image (all tags)
 		identifier = fmt.Sprintf("%s/%s", resourceType, imageName)
-		response, err = client.DeleteImage(ctx, resourceType, imageName)
 	}
+
+	_, err = client.Images.Delete(ctx, imageRef, blaxel.ImageDeleteParams{ResourceType: resourceType})
 
 	if err != nil {
 		fmt.Printf("Error deleting image %s: %v\n", identifier, err)
 		return err
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Printf("Error reading response: %v\n", err)
-		return err
-	}
-
-	if response.StatusCode >= 400 {
-		fmt.Printf("Error deleting image %s: %s\n", identifier, buf.String())
-		return fmt.Errorf("delete failed with status %d", response.StatusCode)
 	}
 
 	if tag != "" {

@@ -1,12 +1,8 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -146,6 +142,7 @@ separately if needed.`,
 
 func DeleteFn(resource *core.Resource, name string) error {
 	ctx := context.Background()
+
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Delete)
 	if funcValue.Kind() != reflect.Func {
@@ -154,25 +151,8 @@ func DeleteFn(resource *core.Resource, name string) error {
 		return err
 	}
 
-	// Determine the number of parameters the function expects
-	funcType := funcValue.Type()
-	numIn := funcType.NumIn()
-	isVariadic := funcType.IsVariadic()
-
-	// Calculate the number of required (non-variadic) parameters
-	requiredParams := numIn
-	if isVariadic {
-		requiredParams = numIn - 1 // Exclude the variadic parameter
-	}
-
-	// Build arguments - start with the ones we have
+	// Build arguments: (ctx, name, ...opts)
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
-
-	// Fill in any additional required parameters with zero values
-	for i := len(fnargs); i < requiredParams; i++ {
-		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
-	}
-	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -187,33 +167,8 @@ func DeleteFn(resource *core.Resource, name string) error {
 		return err
 	}
 
-	// Check if the first result is a pointer to http.Response
-	response, ok := results[0].Interface().(*http.Response)
-	if !ok {
-		err := fmt.Errorf("the result is not a pointer to http.Response")
-		fmt.Println(err)
-		return err
-	}
-	// Read the content of http.Response.Body
-	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if response.StatusCode >= 400 {
-		err := core.ErrorHandler(response.Request, resource.Kind, name, buf.String())
-		fmt.Println(err)
-		return err
-	}
-
-	// Check if the content is an array or an object
-	var res interface{}
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Println(err)
-		return err
-	}
+	// The new SDK returns typed responses, not *http.Response
+	// Success if we get here without error
 	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
 	return nil
 }

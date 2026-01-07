@@ -393,7 +393,7 @@ func runInstallationSteps(p *tea.Program, t Template, opts TemplateOptions) erro
 		branch = "develop"
 	}
 
-	cloneCmd := exec.Command("git", "clone", "-b", branch, "--progress", *t.Url, opts.Directory)
+	cloneCmd := exec.Command("git", "clone", "-b", branch, "--progress", t.URL, opts.Directory)
 	if err := cloneCmd.Run(); err != nil {
 		p.Send(stepFailedMsg{step: 1, err: fmt.Errorf("failed to clone: %w", err)})
 		return err
