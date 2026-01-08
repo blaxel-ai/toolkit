@@ -15,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	blaxel "github.com/stainless-sdks/blaxel-go"
+	"github.com/stainless-sdks/blaxel-go/option"
 )
 
 func init() {
@@ -227,7 +228,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	return cmd
 }
 
-// runRequest executes a request to a blaxel resource
+// runRequest executes a request to a blaxel resource using the SDK client
 func runRequest(
 	ctx context.Context,
 	workspace string,
@@ -241,68 +242,59 @@ func runRequest(
 	debug bool,
 	local bool,
 ) (*http.Response, error) {
-	var baseURL string
-	if local {
-		baseURL = "http://localhost:1338"
-	} else {
-		baseURL = blaxel.GetRunURL()
-	}
-
-	// Build the URL
-	url := fmt.Sprintf("%s/%s/%s/%s", baseURL, workspace, resourceType, resourceName)
-	if path != "" {
-		if !strings.HasPrefix(path, "/") {
-			path = "/" + path
-		}
-		url += path
-	}
+	// Build request options
+	opts := []option.RequestOption{}
 
 	// Add query params
-	if len(params) > 0 {
-		url += "?" + strings.Join(params, "&")
+	for _, param := range params {
+		parts := strings.SplitN(param, "=", 2)
+		if len(parts) == 2 {
+			opts = append(opts, option.WithQueryAdd(parts[0], parts[1]))
+		}
+	}
+
+	// Add custom headers
+	for k, v := range headers {
+		opts = append(opts, option.WithHeader(k, v))
+	}
+
+	// Ensure path starts with /
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
 
 	if debug {
-		core.Print(fmt.Sprintf("Request URL: %s", url))
+		baseURL := blaxel.GetRunURL()
+		if local {
+			baseURL = "http://localhost:1338"
+		}
+		fullURL := fmt.Sprintf("%s/%s/%s/%s%s", baseURL, workspace, resourceType, resourceName, path)
+		if len(params) > 0 {
+			fullURL += "?" + strings.Join(params, "&")
+		}
+		core.Print(fmt.Sprintf("Request URL: %s", fullURL))
 		core.Print(fmt.Sprintf("Request Method: %s", method))
 		if data != "" {
 			core.Print(fmt.Sprintf("Request Body: %s", data))
 		}
 	}
 
-	// Create request
-	var bodyReader io.Reader
+	// Parse request body if provided
+	var body []byte
 	if data != "" {
-		bodyReader = strings.NewReader(data)
+		body = []byte(data)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
-	if err != nil {
-		return nil, err
+	// Use SDK client to make the request
+	client := core.GetClient()
+
+	if local {
+		// For local, build the full path manually
+		return client.RunLocal(ctx, method, path, body, opts...)
 	}
 
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	// Add authentication headers from credentials
-	credentials, _ := blaxel.LoadCredentials(workspace)
-	if credentials.APIKey != "" {
-		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.APIKey))
-	} else if credentials.AccessToken != "" {
-		req.Header.Set("X-Blaxel-Authorization", fmt.Sprintf("Bearer %s", credentials.AccessToken))
-	}
-
-	// Add workspace header
-	if workspace != "" {
-		req.Header.Set("X-Blaxel-Workspace", workspace)
-	}
-
-	// Make request
-	httpClient := &http.Client{}
-	return httpClient.Do(req)
+	// Use Run for remote execution
+	return client.Run(ctx, workspace, resourceType, resourceName, method, path, body, opts...)
 }
 
 func getModelDefaultPath(resourceName string) string {
