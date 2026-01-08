@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -57,6 +58,15 @@ Examples:
 			// Validate workspace
 			if workspace == "" {
 				err := fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate")
+				core.PrintError("token", err)
+				core.ExitWithError(err)
+			}
+
+			// Get workspace to check if access is allowed + it refreshes the token if needed
+			client := core.GetClient()
+			_, err := client.Workspaces.Get(context.Background(), workspace)
+			if err != nil {
+				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
