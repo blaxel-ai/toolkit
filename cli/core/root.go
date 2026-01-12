@@ -417,6 +417,11 @@ func GetConfig() Config {
 	return config
 }
 
+// ResetConfig resets the config to its zero value (useful for testing)
+func ResetConfig() {
+	config = Config{}
+}
+
 // SetConfigType sets the config type
 func SetConfigType(t string) {
 	config.Type = t
@@ -425,6 +430,11 @@ func SetConfigType(t string) {
 // GetClient returns the current client
 func GetClient() *blaxel.Client {
 	return client
+}
+
+// SetClient sets the client (useful for testing)
+func SetClient(c *blaxel.Client) {
+	client = c
 }
 
 // GetWorkspace returns the current workspace
