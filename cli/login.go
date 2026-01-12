@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/auth"
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -56,11 +57,11 @@ Examples:
 
 After logging in, all commands will use this workspace by default.
 Override with --workspace flag: bl get agents --workspace other-workspace`,
-		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			workspace := "" // Default workspace
 			if len(args) > 0 {
-				workspace = args[0]
+				// Join all arguments and slugify to handle cases like "My Workspace" -> "my-workspace"
+				workspace = core.Slugify(strings.Join(args, " "))
 			}
 			if workspace == "" {
 				auth.LoginDevice(workspace)
