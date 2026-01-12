@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	blaxel "github.com/stainless-sdks/blaxel-go"
 	"github.com/stainless-sdks/blaxel-go/option"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -42,6 +43,7 @@ func RunCmd() *cobra.Command {
 	var envFiles []string
 	var commandSecrets []string
 	var folder string
+	var outputFormat string
 	cmd := &cobra.Command{
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
@@ -126,8 +128,25 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				fileContent, err := os.ReadFile(filePath)
 				if err != nil {
 					core.PrintError("Run", fmt.Errorf("error reading file: %w", err))
+					core.ExitWithError(err)
 				}
-				data = string(fileContent)
+
+				// Check if file is YAML and convert to JSON
+				if strings.HasSuffix(strings.ToLower(filePath), ".yaml") || strings.HasSuffix(strings.ToLower(filePath), ".yml") {
+					var yamlData interface{}
+					if err := yaml.Unmarshal(fileContent, &yamlData); err != nil {
+						core.PrintError("Run", fmt.Errorf("error parsing YAML file: %w", err))
+						core.ExitWithError(err)
+					}
+					jsonBytes, err := json.Marshal(yamlData)
+					if err != nil {
+						core.PrintError("Run", fmt.Errorf("error converting YAML to JSON: %w", err))
+						core.ExitWithError(err)
+					}
+					data = string(jsonBytes)
+				} else {
+					data = string(fileContent)
+				}
 			}
 
 			// Handle file upload if specified
@@ -144,13 +163,26 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				path = getModelDefaultPath(resourceName)
 			}
 
-			if (resourceType == "job" || resourceType == "jobs") && local {
+			isJob := resourceType == "job" || resourceType == "jobs"
+			isRawOutput := outputFormat == "json" || outputFormat == "yaml"
+
+			if isJob && local {
 				runJobLocally(data, folder, core.GetConfig())
 				os.Exit(0)
 			}
 
-			if (resourceType == "job" || resourceType == "jobs") && path == "" {
+			if isJob && path == "" {
 				path = "/executions"
+			}
+
+			// Print descriptive info for job execution (skip if raw output format)
+			if isJob && !isRawOutput {
+				core.PrintInfo(fmt.Sprintf("Starting job execution for '%s'...", resourceName))
+				// Parse and display batch info if available
+				var batch Batch
+				if err := json.Unmarshal([]byte(data), &batch); err == nil && len(batch.Tasks) > 0 {
+					core.PrintInfo(fmt.Sprintf("Batch contains %d task(s)", len(batch.Tasks)))
+				}
 			}
 			if resourceType == "mcp" {
 				resourceType = "functions"
@@ -202,13 +234,63 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				fmt.Println()
 			}
 
-			// Try to pretty print JSON response
-			var prettyJSON bytes.Buffer
-			if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-				core.Print(prettyJSON.String())
-			} else {
-				// If not JSON, print as string
-				core.Print(string(body))
+			// Handle job-specific success output (skip if raw output format)
+			if isJob && res.StatusCode < 400 && !isRawOutput {
+				// Try to extract execution_id from response for the log command hint
+				var responseData map[string]interface{}
+				executionID := ""
+				if err := json.Unmarshal(body, &responseData); err == nil {
+					if id, ok := responseData["execution_id"].(string); ok {
+						executionID = id
+					} else if id, ok := responseData["executionId"].(string); ok {
+						executionID = id
+					} else if id, ok := responseData["id"].(string); ok {
+						executionID = id
+					}
+				}
+
+				// Print monitor logs hint with command in white
+				if executionID != "" {
+					// Show short execution ID (first 8 chars) for readability
+					shortID := executionID
+					if len(shortID) > 8 {
+						shortID = shortID[:8]
+					}
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f --execution-id %s", resourceName, shortID))
+				} else {
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f", resourceName))
+				}
+				core.PrintSuccess(fmt.Sprintf("Job '%s' execution started successfully!", resourceName))
+				fmt.Println()
+			}
+
+			// Output based on format
+			switch outputFormat {
+			case "json":
+				// Raw JSON output
+				fmt.Println(string(body))
+			case "yaml":
+				// Convert JSON to YAML
+				var jsonData interface{}
+				if err := json.Unmarshal(body, &jsonData); err == nil {
+					yamlBytes, err := yaml.Marshal(jsonData)
+					if err == nil {
+						fmt.Print(string(yamlBytes))
+					} else {
+						fmt.Println(string(body))
+					}
+				} else {
+					fmt.Println(string(body))
+				}
+			default:
+				// Pretty print JSON response
+				var prettyJSON bytes.Buffer
+				if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+					core.Print(prettyJSON.String())
+				} else {
+					// If not JSON, print as string
+					core.Print(string(body))
+				}
 			}
 		},
 	}
@@ -225,6 +307,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format: json, yaml")
 	return cmd
 }
 

@@ -369,7 +369,8 @@ func formatLogOutput(logEntry monitor.LogEntry, noTimestamps bool, utc bool) str
 
 // fetchLogs fetches logs for a given time range
 func fetchLogs(workspace, resourceType, resourceName string, startTime, endTime time.Time, noTimestamps bool, utc bool, severity, search, taskID, executionID string) {
-	fetcher := monitor.NewLogFetcher(workspace, resourceType, resourceName, startTime, endTime, severity, search, taskID, executionID)
+	client := core.GetClient()
+	fetcher := monitor.NewLogFetcher(client, workspace, resourceType, resourceName, startTime, endTime, severity, search, taskID, executionID)
 	logs, err := fetcher.FetchLogs()
 	if err != nil {
 		core.PrintError("logs", err)
@@ -394,9 +395,18 @@ func followLogs(workspace, resourceType, resourceName string, startTime time.Tim
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	follower := monitor.NewLogFollower(workspace, resourceType, resourceName, startTime, severity, search, taskID, executionID, func(logEntry monitor.LogEntry) {
-		fmt.Println(formatLogOutput(logEntry, noTimestamps, utc))
-	})
+	client := core.GetClient()
+	follower := monitor.NewLogFollower(client, workspace, resourceType, resourceName, startTime, severity, search, taskID, executionID,
+		func(logEntry monitor.LogEntry) {
+			fmt.Println(formatLogOutput(logEntry, noTimestamps, utc))
+		},
+		func(err error) {
+			core.PrintWarning(fmt.Sprintf("Warning: %v\n", err))
+		},
+		func(info string) {
+			core.PrintInfo(info)
+		},
+	)
 
 	follower.Start()
 
