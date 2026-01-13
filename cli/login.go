@@ -60,9 +60,15 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 		Run: func(cmd *cobra.Command, args []string) {
 			workspace := "" // Default workspace
 			if len(args) > 0 {
-				// Join all arguments and slugify to handle cases like "My Workspace" -> "my-workspace"
-				workspace = core.Slugify(strings.Join(args, " "))
+				if len(args) > 1 {
+					// Join all arguments and slugify so "My Workspace" -> "my-workspace"
+					workspaceJoined := core.Slugify(strings.Join(args, " "))
+					core.PrintWarning("Login failed: did you mean bl login " + workspaceJoined + " ?")
+					return
+				}
+				workspace = args[0]
 			}
+
 			if workspace == "" {
 				auth.LoginDevice(workspace)
 				return
