@@ -331,14 +331,15 @@ func runJobLocally(data string, folder string, config core.Config, concurrent in
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 	var firstErr error
+	var outputMu sync.Mutex
 
 	// Start workers
 	for w := 0; w < concurrent; w++ {
 		wg.Add(1)
-		go func(workerID int) {
+		go func() {
 			defer wg.Done()
 			for job := range taskChan {
-				err := runSingleTaskParallel(job.index, job.task, folder, config, dotenvVars, workerID)
+				err := runSingleTaskParallel(job.index, job.task, folder, config, dotenvVars, &outputMu)
 				if err != nil {
 					errMu.Lock()
 					if firstErr == nil {
@@ -347,7 +348,7 @@ func runJobLocally(data string, folder string, config core.Config, concurrent in
 					errMu.Unlock()
 				}
 			}
-		}(w)
+		}()
 	}
 
 	// Send all tasks to the channel
@@ -456,9 +457,7 @@ func (w *prefixedWriter) Flush() {
 	}
 }
 
-var outputMu sync.Mutex
-
-func runSingleTaskParallel(i int, task map[string]interface{}, folder string, config core.Config, dotenvVars map[string]string, workerID int) error {
+func runSingleTaskParallel(i int, task map[string]interface{}, folder string, config core.Config, dotenvVars map[string]string, outputMu *sync.Mutex) error {
 	prefix := fmt.Sprintf("[Task %d]", i+1)
 
 	jsonencoded, err := json.Marshal(task)
@@ -498,13 +497,16 @@ func runSingleTaskParallel(i int, task map[string]interface{}, folder string, co
 	if err != nil {
 		return fmt.Errorf("error starting task %d with pty: %w", i+1, err)
 	}
-	defer ptmx.Close()
 
 	// Use prefixed writer for real-time streaming output from PTY
-	outputWriter := newPrefixedWriter(prefix, &outputMu)
+	outputWriter := newPrefixedWriter(prefix, outputMu)
 
 	// Read from PTY and write to prefixed writer
+	// io.Copy will return when the command exits and closes its end of the PTY
 	_, _ = io.Copy(outputWriter, ptmx)
+
+	// Close PTY immediately after io.Copy returns to release resources
+	ptmx.Close()
 
 	// Flush any remaining buffered output
 	outputWriter.Flush()
