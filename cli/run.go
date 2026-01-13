@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/blaxel-ai/toolkit/sdk"
+	"github.com/creack/pty"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
@@ -35,6 +37,7 @@ func RunCmd() *cobra.Command {
 	var envFiles []string
 	var commandSecrets []string
 	var folder string
+	var concurrent int
 	cmd := &cobra.Command{
 		Use:   "run resource-type resource-name",
 		Args:  cobra.ExactArgs(2),
@@ -77,6 +80,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 
   # Run job locally for testing (requires 'bl serve' in another terminal)
   bl run job my-job --local --file batch.json
+
+  # Run job locally with 4 concurrent workers
+  bl run job my-job --local --file batch.json --concurrent 4
 
   # Run model with custom endpoint
   bl run model my-model --path /v1/chat/completions --data '{"messages": [...]}'
@@ -138,7 +144,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			}
 
 			if (resourceType == "job" || resourceType == "jobs") && local {
-				runJobLocally(data, folder, core.GetConfig())
+				runJobLocally(data, folder, core.GetConfig(), concurrent)
 				os.Exit(0)
 			}
 
@@ -219,6 +225,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
+	cmd.Flags().IntVarP(&concurrent, "concurrent", "c", 1, "Number of concurrent workers for local job execution")
 	return cmd
 }
 
@@ -277,7 +284,7 @@ func getModelDefaultPath(resourceName string) string {
 	return ""
 }
 
-func runJobLocally(data string, folder string, config core.Config) {
+func runJobLocally(data string, folder string, config core.Config, concurrent int) {
 	// Load .env if it exists and merge into command environment
 	var dotenvVars map[string]string
 	if _, err := os.Stat(".env"); err == nil {
@@ -294,51 +301,229 @@ func runJobLocally(data string, folder string, config core.Config) {
 		core.ExitWithError(err)
 	}
 
-	for i, task := range batch.Tasks {
-		core.PrintInfo(fmt.Sprintf("Task %d:", i+1))
-		jsonencoded, err := json.Marshal(task)
-		if err != nil {
-			err = fmt.Errorf("error marshalling task: %w", err)
-			core.PrintError("Run", err)
-			core.ExitWithError(err)
-		}
-		core.PrintInfo(fmt.Sprintf("Arguments: %s", string(jsonencoded)))
-		cmd, err := server.FindJobCommand(task, folder, config)
-		if err != nil {
-			err = fmt.Errorf("error finding root cmd: %w", err)
-			core.PrintError("Run", err)
-			core.ExitWithError(err)
-		}
+	// Ensure concurrent is at least 1
+	if concurrent < 1 {
+		concurrent = 1
+	}
 
-		// Merge .env variables into the command's environment
-		if dotenvVars != nil {
-			envMap := map[string]string{}
-			for _, env := range os.Environ() {
-				parts := strings.SplitN(env, "=", 2)
-				if len(parts) >= 2 {
-					envMap[parts[0]] = strings.Join(parts[1:], "=")
+	// Cap concurrent to number of tasks
+	if concurrent > len(batch.Tasks) {
+		concurrent = len(batch.Tasks)
+	}
+
+	// If concurrent is 1, run sequentially (original behavior)
+	if concurrent == 1 {
+		for i, task := range batch.Tasks {
+			runSingleTask(i, task, folder, config, dotenvVars)
+		}
+		return
+	}
+
+	// Concurrent execution
+	core.PrintInfo(fmt.Sprintf("Running %d tasks with %d concurrent workers", len(batch.Tasks), concurrent))
+
+	type taskJob struct {
+		index int
+		task  map[string]interface{}
+	}
+
+	taskChan := make(chan taskJob, len(batch.Tasks))
+	var wg sync.WaitGroup
+	var errMu sync.Mutex
+	var firstErr error
+	var outputMu sync.Mutex
+
+	// Start workers
+	for w := 0; w < concurrent; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range taskChan {
+				err := runSingleTaskParallel(job.index, job.task, folder, config, dotenvVars, &outputMu)
+				if err != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = err
+					}
+					errMu.Unlock()
 				}
 			}
-			for k, v := range dotenvVars {
-				envMap[k] = v
-			}
-			cmd.Env = []string{}
-			for k, v := range envMap {
-				cmd.Env = append(cmd.Env, k+"="+v)
-			}
-		}
-
-		// Capture stdout and stderr
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		// Run the command and wait for it to complete
-		err = cmd.Run()
-		if err != nil {
-			err = fmt.Errorf("error executing task %d: %w", i+1, err)
-			core.PrintError("Run", err)
-			core.ExitWithError(err)
-		}
-		core.Print("")
+		}()
 	}
+
+	// Send all tasks to the channel
+	for i, task := range batch.Tasks {
+		taskChan <- taskJob{index: i, task: task}
+	}
+	close(taskChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
+
+	if firstErr != nil {
+		core.PrintError("Run", firstErr)
+		core.ExitWithError(firstErr)
+	}
+}
+
+func runSingleTask(i int, task map[string]interface{}, folder string, config core.Config, dotenvVars map[string]string) {
+	core.PrintInfo(fmt.Sprintf("Task %d:", i+1))
+	jsonencoded, err := json.Marshal(task)
+	if err != nil {
+		err = fmt.Errorf("error marshalling task: %w", err)
+		core.PrintError("Run", err)
+		core.ExitWithError(err)
+	}
+	core.PrintInfo(fmt.Sprintf("Arguments: %s", string(jsonencoded)))
+	cmd, err := server.FindJobCommand(task, folder, config)
+	if err != nil {
+		err = fmt.Errorf("error finding root cmd: %w", err)
+		core.PrintError("Run", err)
+		core.ExitWithError(err)
+	}
+
+	// Merge .env variables into the command's environment
+	if dotenvVars != nil {
+		envMap := map[string]string{}
+		for _, env := range os.Environ() {
+			parts := strings.SplitN(env, "=", 2)
+			if len(parts) >= 2 {
+				envMap[parts[0]] = strings.Join(parts[1:], "=")
+			}
+		}
+		for k, v := range dotenvVars {
+			envMap[k] = v
+		}
+		cmd.Env = []string{}
+		for k, v := range envMap {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+
+	// Capture stdout and stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Run the command and wait for it to complete
+	err = cmd.Run()
+	if err != nil {
+		err = fmt.Errorf("error executing task %d: %w", i+1, err)
+		core.PrintError("Run", err)
+		core.ExitWithError(err)
+	}
+	core.Print("")
+}
+
+// prefixedWriter writes each line with a prefix, using a mutex for thread-safe output
+type prefixedWriter struct {
+	prefix string
+	mu     *sync.Mutex
+	buf    []byte
+}
+
+func newPrefixedWriter(prefix string, mu *sync.Mutex) *prefixedWriter {
+	return &prefixedWriter{
+		prefix: prefix,
+		mu:     mu,
+		buf:    make([]byte, 0),
+	}
+}
+
+func (w *prefixedWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	w.buf = append(w.buf, p...)
+
+	for {
+		idx := bytes.IndexByte(w.buf, '\n')
+		if idx < 0 {
+			break
+		}
+		line := w.buf[:idx]
+		w.buf = w.buf[idx+1:]
+
+		w.mu.Lock()
+		fmt.Printf("%s %s\n", w.prefix, string(line))
+		w.mu.Unlock()
+	}
+	return n, nil
+}
+
+func (w *prefixedWriter) Flush() {
+	if len(w.buf) > 0 {
+		w.mu.Lock()
+		fmt.Printf("%s %s\n", w.prefix, string(w.buf))
+		w.mu.Unlock()
+		w.buf = w.buf[:0]
+	}
+}
+
+func runSingleTaskParallel(i int, task map[string]interface{}, folder string, config core.Config, dotenvVars map[string]string, outputMu *sync.Mutex) error {
+	prefix := fmt.Sprintf("[Task %d]", i+1)
+
+	jsonencoded, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("error marshalling task %d: %w", i+1, err)
+	}
+
+	outputMu.Lock()
+	core.PrintInfo(fmt.Sprintf("%s Starting - Arguments: %s", prefix, string(jsonencoded)))
+	outputMu.Unlock()
+
+	cmd, err := server.FindJobCommand(task, folder, config)
+	if err != nil {
+		return fmt.Errorf("error finding root cmd for task %d: %w", i+1, err)
+	}
+
+	// Merge .env variables into the command's environment
+	if dotenvVars != nil {
+		envMap := map[string]string{}
+		for _, env := range os.Environ() {
+			parts := strings.SplitN(env, "=", 2)
+			if len(parts) >= 2 {
+				envMap[parts[0]] = strings.Join(parts[1:], "=")
+			}
+		}
+		for k, v := range dotenvVars {
+			envMap[k] = v
+		}
+		cmd.Env = []string{}
+		for k, v := range envMap {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+
+	// Use PTY to run the command so stdout is line-buffered (programs detect TTY and use line buffering)
+	ptmx, err := pty.Start(cmd)
+	if err != nil {
+		return fmt.Errorf("error starting task %d with pty: %w", i+1, err)
+	}
+
+	// Use prefixed writer for real-time streaming output from PTY
+	outputWriter := newPrefixedWriter(prefix, outputMu)
+
+	// Read from PTY and write to prefixed writer
+	// io.Copy will return when the command exits and closes its end of the PTY
+	_, _ = io.Copy(outputWriter, ptmx)
+
+	// Close PTY immediately after io.Copy returns to release resources
+	ptmx.Close()
+
+	// Flush any remaining buffered output
+	outputWriter.Flush()
+
+	// Wait for the command to complete
+	err = cmd.Wait()
+
+	if err != nil {
+		outputMu.Lock()
+		core.PrintError("Run", fmt.Errorf("%s failed: %w", prefix, err))
+		outputMu.Unlock()
+		return fmt.Errorf("error executing task %d: %w", i+1, err)
+	}
+
+	outputMu.Lock()
+	core.PrintInfo(fmt.Sprintf("%s Completed", prefix))
+	outputMu.Unlock()
+
+	return nil
 }
