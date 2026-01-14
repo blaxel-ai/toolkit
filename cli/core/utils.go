@@ -382,6 +382,14 @@ func PrintInfo(message string) {
 		color.New(color.FgBlue).Sprint(message)))
 }
 
+// PrintInfoWithCommand prints an info message followed by a command in white
+func PrintInfoWithCommand(message string, command string) {
+	Print(fmt.Sprintf("%s %s %s\n",
+		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
+		color.New(color.FgBlue).Sprint(message),
+		color.New(color.FgWhite, color.Bold).Sprint(command)))
+}
+
 func Print(message string) {
 	if IsInteractiveMode() {
 		return
