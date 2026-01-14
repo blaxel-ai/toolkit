@@ -26,13 +26,15 @@ type TerminalMessage struct {
 
 // TerminalClient manages the websocket connection to a remote terminal
 type TerminalClient struct {
-	conn      *websocket.Conn
-	mu        sync.Mutex
-	done      chan struct{}
-	closeOnce sync.Once
-	oldState  *term.State
-	stdin     int
-	stdout    int
+	conn       *websocket.Conn
+	mu         sync.Mutex
+	done       chan struct{}
+	closeOnce  sync.Once
+	oldState   *term.State
+	stateMu    sync.Mutex // Protects oldState access
+	stdin      int
+	stdout     int
+	closedChan chan struct{} // Signals that Close() has completed
 }
 
 // NewTerminalClient creates a new terminal client and connects to the remote terminal
@@ -60,10 +62,11 @@ func NewTerminalClient(sandboxURL, token string) (*TerminalClient, error) {
 	}
 
 	return &TerminalClient{
-		conn:   conn,
-		done:   make(chan struct{}),
-		stdin:  int(os.Stdin.Fd()),
-		stdout: int(os.Stdout.Fd()),
+		conn:       conn,
+		done:       make(chan struct{}),
+		stdin:      int(os.Stdin.Fd()),
+		stdout:     int(os.Stdout.Fd()),
+		closedChan: make(chan struct{}),
 	}, nil
 }
 
@@ -106,7 +109,9 @@ func (t *TerminalClient) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to set raw mode: %w", err)
 	}
+	t.stateMu.Lock()
 	t.oldState = oldState
+	t.stateMu.Unlock()
 
 	// Ensure we restore terminal state on exit
 	defer t.restoreTerminal()
@@ -251,6 +256,8 @@ func (t *TerminalClient) sendResize() {
 
 // restoreTerminal restores the terminal to its original state
 func (t *TerminalClient) restoreTerminal() {
+	t.stateMu.Lock()
+	defer t.stateMu.Unlock()
 	if t.oldState != nil {
 		term.Restore(t.stdin, t.oldState)
 		t.oldState = nil
@@ -270,11 +277,20 @@ func (t *TerminalClient) Close() {
 			t.conn.Close()
 		}
 
-		// Signal done
+		// Signal done to unblock Run()
 		close(t.done)
 
-		// Exit immediately - os.Stdin.Read() cannot be interrupted in Go
-		// so we must exit the process to avoid hanging
-		os.Exit(0)
+		// Signal that Close() has completed
+		close(t.closedChan)
+
+		// Note: os.Stdin.Read() in writeLoop cannot be interrupted in Go.
+		// The goroutine will remain blocked until the process exits, which is
+		// acceptable since it will be cleaned up when the process terminates.
+		// We do NOT call os.Exit() here to allow proper cleanup by the caller.
 	})
+}
+
+// Done returns a channel that is closed when Close() has completed
+func (t *TerminalClient) Done() <-chan struct{} {
+	return t.closedChan
 }
