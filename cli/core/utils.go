@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -574,6 +575,74 @@ func CheckServerEnvUsage(folder string, language string) bool {
 		return nil
 	})
 	return found
+}
+
+// ParseDurationToSeconds parses a human-readable duration string and returns the number of seconds.
+// Supported formats: "30s", "5m", "1h", "2d", "1w" (seconds, minutes, hours, days, weeks)
+// Also accepts plain integers (interpreted as seconds).
+// Returns the value in seconds and any error encountered.
+func ParseDurationToSeconds(duration string) (int, error) {
+	duration = strings.TrimSpace(duration)
+	if duration == "" {
+		return 0, fmt.Errorf("empty duration string")
+	}
+
+	// Try parsing as plain integer first
+	if seconds, err := strconv.Atoi(duration); err == nil {
+		return seconds, nil
+	}
+
+	// Parse duration with suffix
+	re := regexp.MustCompile(`^(\d+)([smhdw])$`)
+	matches := re.FindStringSubmatch(strings.ToLower(duration))
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid duration format: %s (expected formats: 30s, 5m, 1h, 2d, 1w)", duration)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid numeric value in duration: %s", duration)
+	}
+
+	unit := matches[2]
+	switch unit {
+	case "s":
+		return value, nil
+	case "m":
+		return value * 60, nil
+	case "h":
+		return value * 60 * 60, nil
+	case "d":
+		return value * 60 * 60 * 24, nil
+	case "w":
+		return value * 60 * 60 * 24 * 7, nil
+	default:
+		return 0, fmt.Errorf("unknown duration unit: %s", unit)
+	}
+}
+
+// ConvertRuntimeTimeouts converts human-readable timeout values in a runtime config to seconds.
+// This modifies the runtime map in place, converting string timeout values to integers.
+func ConvertRuntimeTimeouts(runtime map[string]interface{}) error {
+	if runtime == nil {
+		return nil
+	}
+
+	// Convert timeout field if it's a string
+	if timeout, ok := runtime["timeout"]; ok {
+		switch v := timeout.(type) {
+		case string:
+			seconds, err := ParseDurationToSeconds(v)
+			if err != nil {
+				return fmt.Errorf("invalid timeout value: %w", err)
+			}
+			runtime["timeout"] = seconds
+		case int, int64, float64:
+			// Already a number, leave as is
+		}
+	}
+
+	return nil
 }
 
 // BuildServerEnvWarning returns a formatted warning message with language-specific

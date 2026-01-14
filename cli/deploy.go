@@ -476,6 +476,12 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime = *config.Runtime
 	}
 
+	// Convert human-readable timeout values (e.g., "1h", "30m") to seconds
+	if err := core.ConvertRuntimeTimeouts(runtime); err != nil {
+		core.PrintError("Deployment", err)
+		core.ExitWithError(err)
+	}
+
 	runtime["envs"] = core.GetUniqueEnvs()
 	if config.Type == "function" {
 		runtime["type"] = "mcp"
