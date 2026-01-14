@@ -273,18 +273,22 @@ var rootCmd = &cobra.Command{
 		// Check if workspace is required but not available
 		// Commands that don't require a workspace
 		workspaceExemptCommands := map[string]bool{
-			"login":      true,
-			"logout":     true,
-			"version":    true,
-			"upgrade":    true,
-			"workspaces": true,
-			"workspace":  true,
-			"ws":         true,
-			"completion": true,
-			"__complete": true,
-			"help":       true,
-			"new":        true,
-			"docs":       true,
+			"login":            true,
+			"logout":           true,
+			"version":          true,
+			"upgrade":          true,
+			"workspaces":       true,
+			"workspace":        true,
+			"ws":               true,
+			"completion":       true,
+			"__complete":       true,
+			"help":             true,
+			"new":              true,
+			"docs":             true,
+			"create-sandbox":   true,
+			"create-job":       true,
+			"create-mcp":       true,
+			"create-agent-app": true,
 		}
 
 		if !workspaceExemptCommands[cmd.Name()] {
