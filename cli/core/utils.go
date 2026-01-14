@@ -629,14 +629,50 @@ func ConvertRuntimeTimeouts(runtime map[string]interface{}) error {
 	}
 
 	// Convert timeout field if it's a string
-	if timeout, ok := runtime["timeout"]; ok {
+	if err := convertTimeoutField(runtime, "timeout"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ConvertTriggersTimeouts converts human-readable timeout values in triggers config to seconds.
+// This modifies the triggers slice in place, converting string timeout values to integers.
+func ConvertTriggersTimeouts(triggers *[]map[string]interface{}) error {
+	if triggers == nil {
+		return nil
+	}
+
+	for i, trigger := range *triggers {
+		if err := convertTimeoutField(trigger, "timeout"); err != nil {
+			return fmt.Errorf("trigger[%d]: %w", i, err)
+		}
+
+		// Also check nested configuration if present
+		if config, ok := trigger["configuration"].(map[string]interface{}); ok {
+			if err := convertTimeoutField(config, "timeout"); err != nil {
+				return fmt.Errorf("trigger[%d].configuration: %w", i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// convertTimeoutField converts a timeout field from string to seconds in a map.
+func convertTimeoutField(m map[string]interface{}, field string) error {
+	if m == nil {
+		return nil
+	}
+
+	if timeout, ok := m[field]; ok {
 		switch v := timeout.(type) {
 		case string:
 			seconds, err := ParseDurationToSeconds(v)
 			if err != nil {
-				return fmt.Errorf("invalid timeout value: %w", err)
+				return fmt.Errorf("invalid %s value: %w", field, err)
 			}
-			runtime["timeout"] = seconds
+			m[field] = seconds
 		case int, int64, float64:
 			// Already a number, leave as is
 		}

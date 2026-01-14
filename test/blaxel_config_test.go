@@ -176,3 +176,139 @@ func TestConvertRuntimeTimeouts(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertTriggersTimeouts(t *testing.T) {
+	tests := []struct {
+		name     string
+		triggers *[]map[string]interface{}
+		expected []int // expected timeout values for each trigger
+		wantErr  bool
+	}{
+		{
+			name: "single trigger with string timeout",
+			triggers: &[]map[string]interface{}{
+				{"id": "trigger1", "type": "http-async", "timeout": "15m"},
+			},
+			expected: []int{900},
+			wantErr:  false,
+		},
+		{
+			name: "multiple triggers with different formats",
+			triggers: &[]map[string]interface{}{
+				{"id": "trigger1", "timeout": "1h"},
+				{"id": "trigger2", "timeout": 300},
+				{"id": "trigger3", "timeout": "5m"},
+			},
+			expected: []int{3600, 300, 300},
+			wantErr:  false,
+		},
+		{
+			name: "trigger with nested configuration timeout",
+			triggers: &[]map[string]interface{}{
+				{
+					"id":   "trigger1",
+					"type": "http-async",
+					"configuration": map[string]interface{}{
+						"timeout": "10m",
+					},
+				},
+			},
+			expected: []int{0}, // top-level timeout is 0, but configuration.timeout should be converted
+			wantErr:  false,
+		},
+		{
+			name: "trigger without timeout",
+			triggers: &[]map[string]interface{}{
+				{"id": "trigger1", "type": "http"},
+			},
+			expected: []int{0},
+			wantErr:  false,
+		},
+		{
+			name:     "nil triggers",
+			triggers: nil,
+			expected: nil,
+			wantErr:  false,
+		},
+		{
+			name: "invalid timeout format",
+			triggers: &[]map[string]interface{}{
+				{"id": "trigger1", "timeout": "invalid"},
+			},
+			expected: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := core.ConvertTriggersTimeouts(tt.triggers)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("ConvertTriggersTimeouts() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("ConvertTriggersTimeouts() unexpected error: %v", err)
+				return
+			}
+
+			if tt.triggers != nil && tt.expected != nil {
+				for i, trigger := range *tt.triggers {
+					if tt.expected[i] == 0 {
+						continue // skip if no timeout expected
+					}
+					timeout, ok := trigger["timeout"]
+					if !ok {
+						t.Errorf("ConvertTriggersTimeouts() trigger[%d] timeout field missing", i)
+						continue
+					}
+					var result int
+					switch v := timeout.(type) {
+					case int:
+						result = v
+					case float64:
+						result = int(v)
+					default:
+						t.Errorf("ConvertTriggersTimeouts() trigger[%d] timeout has unexpected type: %T", i, timeout)
+						continue
+					}
+					if result != tt.expected[i] {
+						t.Errorf("ConvertTriggersTimeouts() trigger[%d] timeout = %d, expected %d", i, result, tt.expected[i])
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestConvertTriggersTimeouts_NestedConfiguration(t *testing.T) {
+	triggers := &[]map[string]interface{}{
+		{
+			"id":   "async-trigger",
+			"type": "http-async",
+			"configuration": map[string]interface{}{
+				"timeout": "30m",
+				"path":    "/webhook",
+			},
+		},
+	}
+
+	err := core.ConvertTriggersTimeouts(triggers)
+	if err != nil {
+		t.Fatalf("ConvertTriggersTimeouts() unexpected error: %v", err)
+	}
+
+	config := (*triggers)[0]["configuration"].(map[string]interface{})
+	timeout, ok := config["timeout"]
+	if !ok {
+		t.Fatal("ConvertTriggersTimeouts() configuration.timeout field missing")
+	}
+
+	if timeout != 1800 {
+		t.Errorf("ConvertTriggersTimeouts() configuration.timeout = %v, expected 1800", timeout)
+	}
+}

@@ -355,7 +355,13 @@ memory = 4096
 # type = "http"
 # [triggers.configuration]
 # path = "/webhook"
-# authenticationType = "public"`
+# authenticationType = "public"
+
+# Async HTTP triggers with timeout
+# [[triggers]]
+# id = "async-trigger"
+# type = "http-async"
+# timeout = "15m"  # Supports: 30s, 5m, 15m or plain seconds (900)`
 }
 
 // promptForDeploymentType prompts the user to select what they want to deploy
