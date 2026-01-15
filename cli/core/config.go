@@ -204,6 +204,7 @@ type Config struct {
 	DefaultSize *int                      `toml:"defaultSize,omitempty"`
 	Directory   string                    `toml:"directory,omitempty"`
 	Region      string                    `toml:"region,omitempty"`
+	Public      *bool                     `toml:"public,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
@@ -317,6 +318,7 @@ func getBlaxelTomlSample() string {
 	return `# Basic configuration
 type = "agent"  # Can be: agent, function, job, sandbox, volume-template
 name = "my-resource" # Optional, default to the directory name
+# public = true  # Optional, makes the agent publicly accessible (agent only)
 
 # Entrypoint configuration (optional)
 [entrypoint]

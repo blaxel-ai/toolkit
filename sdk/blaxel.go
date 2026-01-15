@@ -23,42 +23,225 @@ import (
 )
 
 const (
+	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 	BearerAuthScopes = "BearerAuth.Scopes"
+	OAuth2Scopes     = "OAuth2.Scopes"
 )
 
-// Agent Agent
+// Defines values for AgentRuntimeGeneration.
+const (
+	AgentRuntimeGenerationMk2 AgentRuntimeGeneration = "mk2"
+	AgentRuntimeGenerationMk3 AgentRuntimeGeneration = "mk3"
+)
+
+// Defines values for CustomDomainSpecStatus.
+const (
+	CustomDomainSpecStatusFailed   CustomDomainSpecStatus = "failed"
+	CustomDomainSpecStatusPending  CustomDomainSpecStatus = "pending"
+	CustomDomainSpecStatusVerified CustomDomainSpecStatus = "verified"
+)
+
+// Defines values for ExpirationPolicyAction.
+const (
+	Delete ExpirationPolicyAction = "delete"
+)
+
+// Defines values for ExpirationPolicyType.
+const (
+	Date      ExpirationPolicyType = "date"
+	TtlIdle   ExpirationPolicyType = "ttl-idle"
+	TtlMaxAge ExpirationPolicyType = "ttl-max-age"
+)
+
+// Defines values for FlavorType.
+const (
+	Cpu FlavorType = "cpu"
+	Gpu FlavorType = "gpu"
+)
+
+// Defines values for FunctionRuntimeGeneration.
+const (
+	FunctionRuntimeGenerationMk2 FunctionRuntimeGeneration = "mk2"
+	FunctionRuntimeGenerationMk3 FunctionRuntimeGeneration = "mk3"
+)
+
+// Defines values for FunctionSpecTransport.
+const (
+	HttpStream FunctionSpecTransport = "http-stream"
+	Websocket  FunctionSpecTransport = "websocket"
+)
+
+// Defines values for JobExecutionStatus.
+const (
+	JobExecutionStatusCancelled  JobExecutionStatus = "cancelled"
+	JobExecutionStatusCancelling JobExecutionStatus = "cancelling"
+	JobExecutionStatusFailed     JobExecutionStatus = "failed"
+	JobExecutionStatusPending    JobExecutionStatus = "pending"
+	JobExecutionStatusQueued     JobExecutionStatus = "queued"
+	JobExecutionStatusRunning    JobExecutionStatus = "running"
+	JobExecutionStatusSucceeded  JobExecutionStatus = "succeeded"
+	JobExecutionStatusTimeout    JobExecutionStatus = "timeout"
+)
+
+// Defines values for JobExecutionTaskStatus.
+const (
+	Cancelled   JobExecutionTaskStatus = "cancelled"
+	Failed      JobExecutionTaskStatus = "failed"
+	Pending     JobExecutionTaskStatus = "pending"
+	Reconciling JobExecutionTaskStatus = "reconciling"
+	Running     JobExecutionTaskStatus = "running"
+	Succeeded   JobExecutionTaskStatus = "succeeded"
+	Unspecified JobExecutionTaskStatus = "unspecified"
+)
+
+// Defines values for JobRuntimeGeneration.
+const (
+	Mk2 JobRuntimeGeneration = "mk2"
+	Mk3 JobRuntimeGeneration = "mk3"
+)
+
+// Defines values for ModelRuntimeType.
+const (
+	Anthropic          ModelRuntimeType = "anthropic"
+	AzureAiInference   ModelRuntimeType = "azure-ai-inference"
+	AzureMarketplace   ModelRuntimeType = "azure-marketplace"
+	AzureOpenaiService ModelRuntimeType = "azure-openai-service"
+	Cerebras           ModelRuntimeType = "cerebras"
+	Cohere             ModelRuntimeType = "cohere"
+	Deepseek           ModelRuntimeType = "deepseek"
+	Gemini             ModelRuntimeType = "gemini"
+	Groq               ModelRuntimeType = "groq"
+	HfPrivateEndpoint  ModelRuntimeType = "hf_private_endpoint"
+	HfPublicEndpoint   ModelRuntimeType = "hf_public_endpoint"
+	Huggingface        ModelRuntimeType = "huggingface"
+	Mcp                ModelRuntimeType = "mcp"
+	Mistral            ModelRuntimeType = "mistral"
+	Openai             ModelRuntimeType = "openai"
+	PublicModel        ModelRuntimeType = "public_model"
+	Vertexai           ModelRuntimeType = "vertexai"
+	Xai                ModelRuntimeType = "xai"
+)
+
+// Defines values for PolicyLocationType.
+const (
+	PolicyLocationTypeContinent PolicyLocationType = "continent"
+	PolicyLocationTypeCountry   PolicyLocationType = "country"
+	PolicyLocationTypeLocation  PolicyLocationType = "location"
+)
+
+// Defines values for PolicyResourceType.
+const (
+	PolicyResourceTypeAgent    PolicyResourceType = "agent"
+	PolicyResourceTypeFunction PolicyResourceType = "function"
+	PolicyResourceTypeModel    PolicyResourceType = "model"
+	PolicyResourceTypeSandbox  PolicyResourceType = "sandbox"
+)
+
+// Defines values for PolicySpecType.
+const (
+	PolicySpecTypeFlavor   PolicySpecType = "flavor"
+	PolicySpecTypeLocation PolicySpecType = "location"
+	PolicySpecTypeMaxToken PolicySpecType = "maxToken"
+)
+
+// Defines values for PortProtocol.
+const (
+	HTTP PortProtocol = "HTTP"
+	TCP  PortProtocol = "TCP"
+	UDP  PortProtocol = "UDP"
+)
+
+// Defines values for Status.
+const (
+	StatusBUILDING     Status = "BUILDING"
+	StatusDEACTIVATED  Status = "DEACTIVATED"
+	StatusDEACTIVATING Status = "DEACTIVATING"
+	StatusDELETING     Status = "DELETING"
+	StatusDEPLOYED     Status = "DEPLOYED"
+	StatusDEPLOYING    Status = "DEPLOYING"
+	StatusFAILED       Status = "FAILED"
+	StatusTERMINATED   Status = "TERMINATED"
+	StatusUPLOADING    Status = "UPLOADING"
+)
+
+// Defines values for TriggerType.
+const (
+	Cron      TriggerType = "cron"
+	Http      TriggerType = "http"
+	HttpAsync TriggerType = "http-async"
+)
+
+// Defines values for VolumeTemplateStateStatus.
+const (
+	VolumeTemplateStateStatusCreated VolumeTemplateStateStatus = "created"
+	VolumeTemplateStateStatusError   VolumeTemplateStateStatus = "error"
+	VolumeTemplateStateStatusReady   VolumeTemplateStateStatus = "ready"
+)
+
+// Defines values for VolumeTemplateVersionStatus.
+const (
+	VolumeTemplateVersionStatusCREATED VolumeTemplateVersionStatus = "CREATED"
+	VolumeTemplateVersionStatusFAILED  VolumeTemplateVersionStatus = "FAILED"
+	VolumeTemplateVersionStatusREADY   VolumeTemplateVersionStatus = "READY"
+)
+
+// Defines values for WorkspaceStatus.
+const (
+	WorkspaceStatusAccountBinded       WorkspaceStatus = "account_binded"
+	WorkspaceStatusAccountConfigured   WorkspaceStatus = "account_configured"
+	WorkspaceStatusCreated             WorkspaceStatus = "created"
+	WorkspaceStatusError               WorkspaceStatus = "error"
+	WorkspaceStatusReady               WorkspaceStatus = "ready"
+	WorkspaceStatusWorkspaceConfigured WorkspaceStatus = "workspace_configured"
+)
+
+// Agent Serverless AI agent deployment that runs your custom agent code as an auto-scaling API endpoint. Agents are deployed from your code repository and expose a global inference URL for querying.
 type Agent struct {
-	// Events Core events
+	// Events Events happening on a resource deployed on Blaxel
 	Events *CoreEvents `json:"events,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Agent specification
-	Spec *AgentSpec `json:"spec,omitempty"`
+	// Spec Configuration for an AI agent including runtime settings, repository source, and deployment triggers
+	Spec AgentSpec `json:"spec"`
 
-	// Status Agent status
-	Status *string `json:"status,omitempty"`
+	// Status Deployment status of a resource deployed on Blaxel
+	Status *Status `json:"status,omitempty"`
 }
 
-// AgentSpec defines model for AgentSpec.
+// AgentRuntime Runtime configuration defining how the AI agent is deployed and scaled globally
+type AgentRuntime struct {
+	// Envs Environment variables injected into the agent. Supports Kubernetes EnvVar format with valueFrom references.
+	Envs *[]Env `json:"envs,omitempty"`
+
+	// Generation Infrastructure generation: mk2 (containers, 2-10s cold starts, 15+ global regions) or mk3 (microVMs, sub-25ms cold starts)
+	Generation *AgentRuntimeGeneration `json:"generation,omitempty"`
+
+	// Image Container image built by Blaxel when deploying with 'bl deploy'. This field is auto-populated during deployment.
+	Image *string `json:"image,omitempty"`
+
+	// MaxScale Maximum number of concurrent agent instances for auto-scaling under load
+	MaxScale *int `json:"maxScale,omitempty"`
+
+	// Memory Memory allocation in megabytes. Also determines CPU allocation (CPU cores = memory in MB / 2048, e.g., 4096MB = 2 CPUs).
+	Memory *int `json:"memory,omitempty"`
+
+	// MinScale Minimum instances to keep warm. Set to 1+ to eliminate cold starts, 0 for scale-to-zero.
+	MinScale *int `json:"minScale,omitempty"`
+}
+
+// AgentRuntimeGeneration Infrastructure generation: mk2 (containers, 2-10s cold starts, 15+ global regions) or mk3 (microVMs, sub-25ms cold starts)
+type AgentRuntimeGeneration string
+
+// AgentSpec Configuration for an AI agent including runtime settings, repository source, and deployment triggers
 type AgentSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
+	// Enabled When false, the agent is disabled and will not serve inference requests
+	Enabled  *bool         `json:"enabled,omitempty"`
+	Policies *PoliciesList `json:"policies,omitempty"`
 
-	// Description Description, small description computed from the prompt
-	Description *string `json:"description,omitempty"`
-
-	// Enabled Enable or disable the resource
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
-	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
-	Policies               *PoliciesList               `json:"policies,omitempty"`
+	// Public When true, the agent is publicly accessible without authentication. Only available for mk3 generation.
+	Public *bool `json:"public,omitempty"`
 
 	// Repository Repository
 	Repository *Repository `json:"repository,omitempty"`
@@ -66,11 +249,8 @@ type AgentSpec struct {
 	// Revision Revision configuration
 	Revision *RevisionConfiguration `json:"revision,omitempty"`
 
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
-	Sandbox *bool `json:"sandbox,omitempty"`
+	// Runtime Runtime configuration defining how the AI agent is deployed and scaled globally
+	Runtime *AgentRuntime `json:"runtime,omitempty"`
 
 	// Triggers Triggers to use your agent
 	Triggers *Triggers `json:"triggers,omitempty"`
@@ -87,7 +267,7 @@ type ApiKey struct {
 	// CreatedBy The user or service account who created the resource
 	CreatedBy *string `json:"createdBy,omitempty"`
 
-	// ExpiresIn Duration until expiration (in seconds)
+	// ExpiresIn Duration until expiration. Supports formats like '30d' (30 days), '24h' (24 hours), '1w' (1 week). If not set, the API key never expires.
 	ExpiresIn *string `json:"expires_in,omitempty"`
 
 	// Id Api key id, to retrieve it from the API
@@ -99,7 +279,7 @@ type ApiKey struct {
 	// Sub User subject identifier
 	Sub *string `json:"sub,omitempty"`
 
-	// SubType Subject type
+	// SubType Subject type (user or service_account)
 	SubType *string `json:"sub_type,omitempty"`
 
 	// UpdatedAt The date and time when the resource was updated
@@ -154,34 +334,8 @@ type CoreEvent struct {
 	Type *string `json:"type,omitempty"`
 }
 
-// CoreEvents Core events
+// CoreEvents Events happening on a resource deployed on Blaxel
 type CoreEvents = []CoreEvent
-
-// CoreSpec Core specification
-type CoreSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
-
-	// Enabled Enable or disable the resource
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
-	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
-	Policies               *PoliciesList               `json:"policies,omitempty"`
-
-	// Revision Revision configuration
-	Revision *RevisionConfiguration `json:"revision,omitempty"`
-
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
-	Sandbox *bool `json:"sandbox,omitempty"`
-}
 
 // Country Configuration
 type Country struct {
@@ -210,16 +364,34 @@ type CreateJobExecutionRequest struct {
 	WorkspaceId *string `json:"workspaceId,omitempty"`
 }
 
+// CreateJobExecution Response returned when a job execution is successfully created. Contains identifiers and the tasks that will be executed.
+type CreateJobExecution struct {
+	// ExecutionId Unique identifier for the created execution. Use this ID to track execution status, retrieve logs, or cancel the execution.
+	ExecutionId *string `json:"executionId,omitempty"`
+
+	// Id Unique identifier for this request, used for idempotency and tracking. Auto-generated if not provided in the request.
+	Id *string `json:"id,omitempty"`
+
+	// JobId Name of the job that this execution belongs to
+	JobId *string `json:"jobId,omitempty"`
+
+	// Tasks Array of task configurations that will be executed in parallel according to the job's concurrency settings. Each task can have custom parameters.
+	Tasks *[]map[string]interface{} `json:"tasks,omitempty"`
+
+	// WorkspaceId Name of the workspace where the job execution was created
+	WorkspaceId *string `json:"workspaceId,omitempty"`
+}
+
 // CustomDomain Custom domain for preview deployments
 // The custom domain represents a base domain (e.g., example.com) that will be used
 // to serve preview deployments. Each preview will be accessible at a subdomain:
 // <preview-id>.preview.<base-domain> (e.g., abc123.preview.example.com)
 type CustomDomain struct {
 	// Metadata Custom domain metadata
-	Metadata *CustomDomainMetadata `json:"metadata,omitempty"`
+	Metadata CustomDomainMetadata `json:"metadata"`
 
 	// Spec Custom domain specification
-	Spec *CustomDomainSpec `json:"spec,omitempty"`
+	Spec CustomDomainSpec `json:"spec"`
 }
 
 // CustomDomainMetadata defines model for CustomDomainMetadata.
@@ -233,7 +405,7 @@ type CustomDomainMetadata struct {
 	// DisplayName Display name for the custom domain
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Labels Labels
+	// Labels Key-value pairs for organizing and filtering resources. Labels can be used to categorize resources by environment, project, team, or any custom taxonomy.
 	Labels *MetadataLabels `json:"labels,omitempty"`
 
 	// Name Domain name (e.g., "example.com")
@@ -261,7 +433,7 @@ type CustomDomainSpec struct {
 	Region *string `json:"region,omitempty"`
 
 	// Status Current status of the domain (pending, verified, failed)
-	Status *string `json:"status,omitempty"`
+	Status *CustomDomainSpecStatus `json:"status,omitempty"`
 
 	// TxtRecords Map of TXT record names to values for domain verification
 	TxtRecords *map[string]string `json:"txtRecords,omitempty"`
@@ -270,17 +442,65 @@ type CustomDomainSpec struct {
 	VerificationError *string `json:"verificationError,omitempty"`
 }
 
-// ExpirationPolicy Expiration policy for sandbox lifecycle management
-type ExpirationPolicy struct {
-	// Action Action to take when policy is triggered
-	Action *string `json:"action,omitempty"`
+// CustomDomainSpecStatus Current status of the domain (pending, verified, failed)
+type CustomDomainSpecStatus string
 
-	// Type Type of expiration policy
-	Type *string `json:"type,omitempty"`
+// Entrypoint Entrypoint of the artifact
+type Entrypoint struct {
+	// Args Args of the entrypoint
+	Args *[]map[string]interface{} `json:"args,omitempty"`
 
-	// Value Duration value (e.g., '1h', '24h', '7d')
+	// Command Command of the entrypoint
+	Command *string `json:"command,omitempty"`
+
+	// Env Env of the entrypoint
+	Env *map[string]string `json:"env,omitempty"`
+
+	// SuperGatewayArgs Super Gateway args of the entrypoint
+	SuperGatewayArgs *[]map[string]interface{} `json:"superGatewayArgs,omitempty"`
+}
+
+// Env Environment variable with name and value
+type Env struct {
+	// Name Name of the environment variable
+	Name *string `json:"name,omitempty"`
+
+	// Secret Whether the value is a secret
+	Secret *bool `json:"secret,omitempty"`
+
+	// Value Value of the environment variable
 	Value *string `json:"value,omitempty"`
 }
+
+// Error Standard error response returned by the API when a request fails
+type Error struct {
+	// Code HTTP status code of the error
+	Code *int `json:"code,omitempty"`
+
+	// Error Error type or code identifying the kind of error
+	Error string `json:"error"`
+
+	// Message Human-readable error message describing what went wrong
+	Message *string `json:"message,omitempty"`
+}
+
+// ExpirationPolicy Expiration policy for automatic sandbox cleanup based on time conditions
+type ExpirationPolicy struct {
+	// Action Action to take when the expiration condition is met
+	Action *ExpirationPolicyAction `json:"action,omitempty"`
+
+	// Type Type of expiration policy: ttl-idle (delete after inactivity), ttl-max-age (delete after total lifetime), or date (delete at specific time)
+	Type *ExpirationPolicyType `json:"type,omitempty"`
+
+	// Value Duration value for TTL policies (e.g., '30m', '24h', '7d') or ISO 8601 date for date policies
+	Value *string `json:"value,omitempty"`
+}
+
+// ExpirationPolicyAction Action to take when the expiration condition is met
+type ExpirationPolicyAction string
+
+// ExpirationPolicyType Type of expiration policy: ttl-idle (delete after inactivity), ttl-max-age (delete after total lifetime), or date (delete at specific time)
+type ExpirationPolicyType string
 
 // Flavor A type of hardware available for deployments
 type Flavor struct {
@@ -288,63 +508,96 @@ type Flavor struct {
 	Name *string `json:"name,omitempty"`
 
 	// Type Flavor type (e.g. cpu, gpu)
-	Type *string `json:"type,omitempty"`
+	Type *FlavorType `json:"type,omitempty"`
 }
+
+// FlavorType Flavor type (e.g. cpu, gpu)
+type FlavorType string
 
 // Flavors Types of hardware available for deployments
 type Flavors = []Flavor
 
-// Function Function
-type Function struct {
-	// Events Core events
-	Events *CoreEvents `json:"events,omitempty"`
+// Form Form of the artifact
+type Form struct {
+	// Config Config of the artifact
+	Config *map[string]interface{} `json:"config,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Oauth OAuth of the artifact
+	Oauth *OAuth `json:"oauth,omitempty"`
 
-	// Spec Function specification
-	Spec *FunctionSpec `json:"spec,omitempty"`
-
-	// Status Function status
-	Status *string `json:"status,omitempty"`
+	// Secrets Secrets of the artifact
+	Secrets *map[string]interface{} `json:"secrets,omitempty"`
 }
 
-// FunctionSpec defines model for FunctionSpec.
+// Function MCP server deployment that exposes tools for AI agents via the Model Context Protocol (MCP). Deployed as a serverless auto-scaling endpoint using streamable HTTP transport.
+type Function struct {
+	// Events Events happening on a resource deployed on Blaxel
+	Events *CoreEvents `json:"events,omitempty"`
+
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
+
+	// Spec Configuration for an MCP server function including runtime settings, transport protocol, and connected integrations
+	Spec FunctionSpec `json:"spec"`
+
+	// Status Deployment status of a resource deployed on Blaxel
+	Status *Status `json:"status,omitempty"`
+}
+
+// FunctionRuntime Runtime configuration defining how the MCP server function is deployed and scaled
+type FunctionRuntime struct {
+	// Envs Environment variables injected into the function. Supports Kubernetes EnvVar format with valueFrom references.
+	Envs *[]Env `json:"envs,omitempty"`
+
+	// Generation Infrastructure generation: mk2 (containers, 2-10s cold starts, 15+ global regions) or mk3 (microVMs, sub-25ms cold starts)
+	Generation *FunctionRuntimeGeneration `json:"generation,omitempty"`
+
+	// Image Container image built by Blaxel when deploying with 'bl deploy'. This field is auto-populated during deployment.
+	Image *string `json:"image,omitempty"`
+
+	// MaxScale Maximum number of concurrent function instances for auto-scaling
+	MaxScale *int `json:"maxScale,omitempty"`
+
+	// Memory Memory allocation in megabytes. Also determines CPU allocation (CPU cores = memory in MB / 2048, e.g., 4096MB = 2 CPUs).
+	Memory *int `json:"memory,omitempty"`
+
+	// MinScale Minimum instances to keep warm. Set to 1+ to eliminate cold starts, 0 for scale-to-zero.
+	MinScale *int `json:"minScale,omitempty"`
+}
+
+// FunctionRuntimeGeneration Infrastructure generation: mk2 (containers, 2-10s cold starts, 15+ global regions) or mk3 (microVMs, sub-25ms cold starts)
+type FunctionRuntimeGeneration string
+
+// FunctionSpec Configuration for an MCP server function including runtime settings, transport protocol, and connected integrations
 type FunctionSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
-
-	// Description Function description, very important for the agent function to work with an LLM
-	Description *string `json:"description,omitempty"`
-
-	// Enabled Enable or disable the resource
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
+	// Enabled When false, the function is disabled and will not serve requests
+	Enabled                *bool                       `json:"enabled,omitempty"`
 	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
 	Policies               *PoliciesList               `json:"policies,omitempty"`
+
+	// Public When true, the function is publicly accessible without authentication. Only available for mk3 generation.
+	Public *bool `json:"public,omitempty"`
 
 	// Revision Revision configuration
 	Revision *RevisionConfiguration `json:"revision,omitempty"`
 
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
+	// Runtime Runtime configuration defining how the MCP server function is deployed and scaled
+	Runtime *FunctionRuntime `json:"runtime,omitempty"`
 
-	// Sandbox Sandbox mode
-	Sandbox *bool `json:"sandbox,omitempty"`
+	// Transport Transport compatibility for the MCP, can be "websocket" or "http-stream"
+	Transport *FunctionSpecTransport `json:"transport,omitempty"`
 
 	// Triggers Triggers to use your agent
 	Triggers *Triggers `json:"triggers,omitempty"`
 }
 
+// FunctionSpecTransport Transport compatibility for the MCP, can be "websocket" or "http-stream"
+type FunctionSpecTransport string
+
 // Image defines model for Image.
 type Image struct {
-	Metadata *ImageMetadata `json:"metadata,omitempty"`
-	Spec     *ImageSpec     `json:"spec,omitempty"`
+	Metadata ImageMetadata `json:"metadata"`
+	Spec     ImageSpec     `json:"spec"`
 }
 
 // ImageMetadata defines model for ImageMetadata.
@@ -419,27 +672,27 @@ type Integration struct {
 	Repositories *[]IntegrationRepository `json:"repositories,omitempty"`
 }
 
-// IntegrationConnection Integration Connection
+// IntegrationConnection Configured connection to an external service (LLM provider, API, SaaS, database) storing credentials and settings for use by workspace resources.
 type IntegrationConnection struct {
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Integration connection specification
-	Spec *IntegrationConnectionSpec `json:"spec,omitempty"`
+	// Spec Specification defining the integration type, configuration parameters, and encrypted credentials
+	Spec IntegrationConnectionSpec `json:"spec"`
 }
 
-// IntegrationConnectionSpec Integration connection specification
+// IntegrationConnectionSpec Specification defining the integration type, configuration parameters, and encrypted credentials
 type IntegrationConnectionSpec struct {
-	// Config Additional configuration for the integration
+	// Config Non-sensitive configuration parameters for the integration (e.g., organization ID, region)
 	Config *map[string]string `json:"config,omitempty"`
 
-	// Integration Integration type
+	// Integration Integration provider type (e.g., openai, anthropic, github, slack)
 	Integration *string `json:"integration,omitempty"`
 
-	// Sandbox Sandbox mode
+	// Sandbox Whether this connection uses sandbox/test credentials instead of production
 	Sandbox *bool `json:"sandbox,omitempty"`
 
-	// Secret Integration secret
+	// Secret Encrypted credentials and API keys for authenticating with the external service
 	Secret *map[string]string `json:"secret,omitempty"`
 }
 
@@ -452,13 +705,13 @@ type IntegrationEndpoint struct {
 	Body *string `json:"body,omitempty"`
 
 	// IgnoreModels Integration endpoint ignore models
-	IgnoreModels *[]interface{} `json:"ignoreModels,omitempty"`
+	IgnoreModels *[]map[string]interface{} `json:"ignoreModels,omitempty"`
 
 	// Method Integration endpoint method
 	Method *string `json:"method,omitempty"`
 
 	// Models Integration endpoint models
-	Models *[]interface{} `json:"models,omitempty"`
+	Models *[]map[string]interface{} `json:"models,omitempty"`
 
 	// StreamKey Integration endpoint stream key
 	StreamKey *string `json:"streamKey,omitempty"`
@@ -524,19 +777,19 @@ type IntegrationRepository struct {
 	Url *string `json:"url,omitempty"`
 }
 
-// Job Job
+// Job Batch processing job definition for running parallel AI tasks. Jobs can execute multiple tasks concurrently with configurable parallelism, retries, and timeouts.
 type Job struct {
-	// Events Core events
+	// Events Events happening on a resource deployed on Blaxel
 	Events *CoreEvents `json:"events,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Job specification
-	Spec *JobSpec `json:"spec,omitempty"`
+	// Spec Configuration for a batch job including execution parameters, parallelism settings, and deployment region
+	Spec JobSpec `json:"spec"`
 
-	// Status Job status
-	Status *string `json:"status,omitempty"`
+	// Status Deployment status of a resource deployed on Blaxel
+	Status *Status `json:"status,omitempty"`
 }
 
 // JobExecution Job execution
@@ -545,7 +798,7 @@ type JobExecution struct {
 	Metadata *JobExecutionMetadata `json:"metadata,omitempty"`
 
 	// Spec Job execution specification
-	Spec *JobExecutionSpec `json:"spec,omitempty"`
+	Spec JobExecutionSpec `json:"spec"`
 
 	// Stats Job execution statistics
 	Stats *JobExecutionStats `json:"stats,omitempty"`
@@ -624,7 +877,7 @@ type JobExecutionStats struct {
 }
 
 // JobExecutionStatus Job execution status
-type JobExecutionStatus = string
+type JobExecutionStatus string
 
 // JobExecutionTask Job execution task
 type JobExecutionTask struct {
@@ -693,23 +946,43 @@ type JobExecutionTaskSpec struct {
 }
 
 // JobExecutionTaskStatus Job execution task status
-type JobExecutionTaskStatus = string
+type JobExecutionTaskStatus string
 
-// JobSpec defines model for JobSpec.
+// JobRuntime Runtime configuration defining how batch job tasks are executed with parallelism and retry settings
+type JobRuntime struct {
+	// Envs Environment variables injected into job tasks. Supports Kubernetes EnvVar format with valueFrom references.
+	Envs *[]Env `json:"envs,omitempty"`
+
+	// Generation Infrastructure generation: mk2 (containers, 2-10s cold starts) or mk3 (microVMs, sub-25ms cold starts)
+	Generation *JobRuntimeGeneration `json:"generation,omitempty"`
+
+	// Image Container image built by Blaxel when deploying with 'bl deploy'. This field is auto-populated during deployment.
+	Image *string `json:"image,omitempty"`
+
+	// MaxConcurrentTasks Maximum number of tasks that can run simultaneously within a single execution
+	MaxConcurrentTasks *int `json:"maxConcurrentTasks,omitempty"`
+
+	// MaxRetries Number of automatic retry attempts for failed tasks before marking as failed
+	MaxRetries *int `json:"maxRetries,omitempty"`
+
+	// Memory Memory allocation in megabytes. Also determines CPU allocation (CPU cores = memory in MB / 2048, e.g., 4096MB = 2 CPUs).
+	Memory *int `json:"memory,omitempty"`
+
+	// Ports Set of ports for a resource
+	Ports *Ports `json:"ports,omitempty"`
+
+	// Timeout Maximum execution time in seconds before a task is terminated
+	Timeout *int `json:"timeout,omitempty"`
+}
+
+// JobRuntimeGeneration Infrastructure generation: mk2 (containers, 2-10s cold starts) or mk3 (microVMs, sub-25ms cold starts)
+type JobRuntimeGeneration string
+
+// JobSpec Configuration for a batch job including execution parameters, parallelism settings, and deployment region
 type JobSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
-
-	// Enabled Enable or disable the resource
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
-	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
-	Policies               *PoliciesList               `json:"policies,omitempty"`
+	// Enabled When false, the job is disabled and new executions cannot be triggered
+	Enabled  *bool         `json:"enabled,omitempty"`
+	Policies *PoliciesList `json:"policies,omitempty"`
 
 	// Region Region where the job should be created (e.g. us-was-1, eu-lon-1)
 	Region *string `json:"region,omitempty"`
@@ -717,11 +990,8 @@ type JobSpec struct {
 	// Revision Revision configuration
 	Revision *RevisionConfiguration `json:"revision,omitempty"`
 
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
-	Sandbox *bool `json:"sandbox,omitempty"`
+	// Runtime Runtime configuration defining how batch job tasks are executed with parallelism and retry settings
+	Runtime *JobRuntime `json:"runtime,omitempty"`
 
 	// Triggers Triggers to use your agent
 	Triggers *Triggers `json:"triggers,omitempty"`
@@ -751,7 +1021,7 @@ type LocationResponse struct {
 // MCPDefinition defines model for MCPDefinition.
 type MCPDefinition struct {
 	// Categories Categories of the artifact
-	Categories *[]interface{} `json:"categories,omitempty"`
+	Categories *[]map[string]interface{} `json:"categories,omitempty"`
 
 	// ComingSoon If the artifact is coming soon
 	ComingSoon *bool `json:"coming_soon,omitempty"`
@@ -769,10 +1039,10 @@ type MCPDefinition struct {
 	Enterprise *bool `json:"enterprise,omitempty"`
 
 	// Entrypoint Entrypoint of the artifact
-	Entrypoint *map[string]interface{} `json:"entrypoint,omitempty"`
+	Entrypoint *Entrypoint `json:"entrypoint,omitempty"`
 
 	// Form Form of the artifact
-	Form *map[string]interface{} `json:"form,omitempty"`
+	Form *Form `json:"form,omitempty"`
 
 	// Hidden If the artifact is hidden
 	Hidden *bool `json:"hidden,omitempty"`
@@ -813,17 +1083,17 @@ type Metadata struct {
 	// CreatedBy The user or service account who created the resource
 	CreatedBy *string `json:"createdBy,omitempty"`
 
-	// DisplayName Model display name
+	// DisplayName Human-readable name for display in the UI. Can contain spaces and special characters, max 63 characters.
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Labels Labels
+	// Labels Key-value pairs for organizing and filtering resources. Labels can be used to categorize resources by environment, project, team, or any custom taxonomy.
 	Labels *MetadataLabels `json:"labels,omitempty"`
 
-	// Name Model name
-	Name *string `json:"name,omitempty"`
+	// Name Unique identifier for the resource within the workspace. Must be lowercase alphanumeric with hyphens, max 49 characters. Immutable after creation.
+	Name string `json:"name"`
 
-	// Plan Plan
-	Plan interface{} `json:"plan,omitempty"`
+	// Plan Billing plan tier applied to this resource (inherited from workspace account)
+	Plan *string `json:"plan,omitempty"`
 
 	// UpdatedAt The date and time when the resource was updated
 	UpdatedAt *string `json:"updatedAt,omitempty"`
@@ -831,40 +1101,52 @@ type Metadata struct {
 	// UpdatedBy The user or service account who updated the resource
 	UpdatedBy *string `json:"updatedBy,omitempty"`
 
-	// Url URL
+	// Url Auto-generated endpoint URL for accessing this resource (for agents, functions, models, sandboxes)
 	Url *string `json:"url,omitempty"`
 
-	// Workspace Workspace name
+	// Workspace Name of the workspace this resource belongs to (read-only, set automatically)
 	Workspace *string `json:"workspace,omitempty"`
 }
 
-// MetadataLabels Labels
+// MetadataLabels Key-value pairs for organizing and filtering resources. Labels can be used to categorize resources by environment, project, team, or any custom taxonomy.
 type MetadataLabels map[string]string
 
-// Model Logical object representing a model
+// Model Gateway endpoint to external LLM provider APIs (OpenAI, Anthropic, etc.) with unified access control, credentials management, and usage tracking.
 type Model struct {
-	// Events Core events
+	// Events Events happening on a resource deployed on Blaxel
 	Events *CoreEvents `json:"events,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Model specification
-	Spec *ModelSpec `json:"spec,omitempty"`
+	// Spec Configuration for a model gateway endpoint including provider type, credentials, and access policies
+	Spec ModelSpec `json:"spec"`
 
-	// Status Model status
-	Status *string `json:"status,omitempty"`
+	// Status Deployment status of a resource deployed on Blaxel
+	Status *Status `json:"status,omitempty"`
 }
 
-// ModelSpec defines model for ModelSpec.
-type ModelSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
+// ModelRuntime Configuration identifying which external LLM provider and model this gateway endpoint proxies to
+type ModelRuntime struct {
+	// EndpointName Provider-specific endpoint name (e.g., HuggingFace Inference Endpoints name)
+	EndpointName *string `json:"endpointName,omitempty"`
 
-	// Enabled Enable or disable the resource
+	// Model Model identifier at the provider (e.g., gpt-4.1, claude-sonnet-4-20250514, mistral-large-latest)
+	Model *string `json:"model,omitempty"`
+
+	// Organization Organization or account identifier at the provider (required for some providers like OpenAI)
+	Organization *string `json:"organization,omitempty"`
+
+	// Type LLM provider type determining the API protocol and authentication method
+	Type *ModelRuntimeType `json:"type,omitempty"`
+}
+
+// ModelRuntimeType LLM provider type determining the API protocol and authentication method
+type ModelRuntimeType string
+
+// ModelSpec Configuration for a model gateway endpoint including provider type, credentials, and access policies
+type ModelSpec struct {
+	// Enabled When false, the model endpoint is disabled and will not accept inference requests
 	Enabled *bool `json:"enabled,omitempty"`
 
 	// Flavors Types of hardware available for deployments
@@ -872,14 +1154,20 @@ type ModelSpec struct {
 	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
 	Policies               *PoliciesList               `json:"policies,omitempty"`
 
-	// Revision Revision configuration
-	Revision *RevisionConfiguration `json:"revision,omitempty"`
+	// Runtime Configuration identifying which external LLM provider and model this gateway endpoint proxies to
+	Runtime *ModelRuntime `json:"runtime,omitempty"`
 
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
+	// Sandbox When true, uses sandbox/test credentials from the integration connection
 	Sandbox *bool `json:"sandbox,omitempty"`
+}
+
+// OAuth OAuth of the artifact
+type OAuth struct {
+	// Scope Scope of the OAuth
+	Scope *[]map[string]interface{} `json:"scope,omitempty"`
+
+	// Type Type of the OAuth
+	Type *string `json:"type,omitempty"`
 }
 
 // OwnerFields Owner fields for Persistance
@@ -923,62 +1211,8 @@ type PendingInvitationAccept struct {
 	// Email User email
 	Email *string `json:"email,omitempty"`
 
-	// Workspace Workspace
+	// Workspace Tenant container that groups all Blaxel resources (agents, functions, models, etc.) with shared team access control and billing.
 	Workspace *Workspace `json:"workspace,omitempty"`
-}
-
-// PendingInvitationRender Pending invitation in workspace
-type PendingInvitationRender struct {
-	// Email User email
-	Email *string `json:"email,omitempty"`
-
-	// InvitedAt Invitation date
-	InvitedAt *string `json:"invitedAt,omitempty"`
-
-	// InvitedBy Invited by
-	InvitedBy *PendingInvitationRenderInvitedBy `json:"invitedBy,omitempty"`
-
-	// Role ACL role
-	Role *string `json:"role,omitempty"`
-
-	// Workspace Workspace
-	Workspace *PendingInvitationRenderWorkspace `json:"workspace,omitempty"`
-
-	// WorkspaceDetails Workspace details
-	WorkspaceDetails *PendingInvitationWorkspaceDetails `json:"workspaceDetails,omitempty"`
-}
-
-// PendingInvitationRenderInvitedBy Invited by
-type PendingInvitationRenderInvitedBy struct {
-	// Email User email
-	Email *string `json:"email,omitempty"`
-
-	// FamilyName User family name
-	FamilyName *string `json:"family_name,omitempty"`
-
-	// GivenName User given name
-	GivenName *string `json:"given_name,omitempty"`
-
-	// Sub User sub
-	Sub *string `json:"sub,omitempty"`
-}
-
-// PendingInvitationRenderWorkspace Workspace
-type PendingInvitationRenderWorkspace struct {
-	// DisplayName Workspace display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Workspace name
-	Name *string `json:"name,omitempty"`
-}
-
-// PendingInvitationWorkspaceDetails Workspace details
-type PendingInvitationWorkspaceDetails struct {
-	// Emails List of user emails in the workspace
-	Emails *[]interface{} `json:"emails,omitempty"`
-
-	// UserNumber Number of users in the workspace
-	UserNumber *float32 `json:"user_number,omitempty"`
 }
 
 // PoliciesList defines model for PoliciesList.
@@ -986,11 +1220,11 @@ type PoliciesList = []string
 
 // Policy Rule that controls how a deployment is made and served (e.g. location restrictions)
 type Policy struct {
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
 	// Spec Policy specification
-	Spec *PolicySpec `json:"spec,omitempty"`
+	Spec PolicySpec `json:"spec"`
 }
 
 // PolicyLocation Policy location
@@ -999,8 +1233,11 @@ type PolicyLocation struct {
 	Name *string `json:"name,omitempty"`
 
 	// Type Policy location type
-	Type *string `json:"type,omitempty"`
+	Type *PolicyLocationType `json:"type,omitempty"`
 }
+
+// PolicyLocationType Policy location type
+type PolicyLocationType string
 
 // PolicyLocations PolicyLocations is a local type that wraps a slice of Location
 type PolicyLocations = []PolicyLocation
@@ -1027,7 +1264,7 @@ type PolicyMaxTokens struct {
 }
 
 // PolicyResourceType PolicyResourceType is a type of resource, e.g. model, function, etc.
-type PolicyResourceType = string
+type PolicyResourceType string
 
 // PolicyResourceTypes PolicyResourceTypes is a local type that wraps a slice of PolicyResourceType
 type PolicyResourceTypes = []PolicyResourceType
@@ -1050,8 +1287,11 @@ type PolicySpec struct {
 	Sandbox *bool `json:"sandbox,omitempty"`
 
 	// Type Policy type, can be location or flavor
-	Type *string `json:"type,omitempty"`
+	Type *PolicySpecType `json:"type,omitempty"`
 }
+
+// PolicySpecType Policy type, can be location or flavor
+type PolicySpecType string
 
 // Port A port for a resource
 type Port struct {
@@ -1059,11 +1299,14 @@ type Port struct {
 	Name *string `json:"name,omitempty"`
 
 	// Protocol The protocol of the port
-	Protocol *string `json:"protocol,omitempty"`
+	Protocol *PortProtocol `json:"protocol,omitempty"`
 
 	// Target The target port of the port
-	Target *int `json:"target,omitempty"`
+	Target int `json:"target"`
 }
+
+// PortProtocol The protocol of the port
+type PortProtocol string
 
 // Ports Set of ports for a resource
 type Ports = []Port
@@ -1071,10 +1314,10 @@ type Ports = []Port
 // Preview Preview of a Resource
 type Preview struct {
 	// Metadata PreviewMetadata
-	Metadata *PreviewMetadata `json:"metadata,omitempty"`
+	Metadata PreviewMetadata `json:"metadata"`
 
 	// Spec Preview of a Resource
-	Spec *PreviewSpec `json:"spec,omitempty"`
+	Spec PreviewSpec `json:"spec"`
 }
 
 // PreviewMetadata defines model for PreviewMetadata.
@@ -1089,7 +1332,7 @@ type PreviewMetadata struct {
 	DisplayName *string `json:"displayName,omitempty"`
 
 	// Name Preview name
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// ResourceName Resource name
 	ResourceName *string `json:"resourceName,omitempty"`
@@ -1143,16 +1386,16 @@ type PreviewSpec struct {
 // PreviewToken Token for a Preview
 type PreviewToken struct {
 	// Metadata PreviewTokenMetadata
-	Metadata *PreviewTokenMetadata `json:"metadata,omitempty"`
+	Metadata PreviewTokenMetadata `json:"metadata"`
 
 	// Spec Spec for a Preview Token
-	Spec *PreviewTokenSpec `json:"spec,omitempty"`
+	Spec PreviewTokenSpec `json:"spec"`
 }
 
 // PreviewTokenMetadata PreviewTokenMetadata
 type PreviewTokenMetadata struct {
 	// Name Token name
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// PreviewName Preview name
 	PreviewName *string `json:"previewName,omitempty"`
@@ -1275,103 +1518,28 @@ type RevisionMetadata struct {
 	TrafficPercent *int `json:"trafficPercent,omitempty"`
 }
 
-// Runtime Set of configurations for a deployment
-type Runtime struct {
-	// Args The arguments to pass to the deployment runtime
-	Args *[]interface{} `json:"args,omitempty"`
-
-	// Command The command to run the deployment
-	Command *[]interface{} `json:"command,omitempty"`
-
-	// Configuration The configuration for the deployment
-	Configuration *map[string]interface{} `json:"configuration,omitempty"`
-
-	// Cpu The CPU for the deployment in cores, only available for private cluster
-	Cpu *int `json:"cpu,omitempty"`
-
-	// EndpointName Endpoint Name of the model. In case of hf_private_endpoint, it is the endpoint name. In case of hf_public_endpoint, it is not used.
-	EndpointName *string `json:"endpointName,omitempty"`
-
-	// Envs The env variables to set in the deployment. Should be a list of Kubernetes EnvVar types
-	Envs *[]interface{} `json:"envs,omitempty"`
-
-	// Expires The expiration date for the deployment in ISO 8601 format - 2024-12-31T23:59:59Z
-	Expires *string `json:"expires,omitempty"`
-
-	// Generation The generation of the deployment
-	Generation *string `json:"generation,omitempty"`
-
-	// Image The Docker image for the deployment
-	Image *string `json:"image,omitempty"`
-
-	// MaxConcurrentTasks The maximum number of concurrent task for an execution
-	MaxConcurrentTasks *int `json:"maxConcurrentTasks,omitempty"`
-
-	// MaxRetries The maximum number of retries for the deployment
-	MaxRetries *int `json:"maxRetries,omitempty"`
-
-	// MaxScale The minimum number of replicas for the deployment. Can be 0 or 1 (in which case the deployment is always running in at least one location).
-	MaxScale *int `json:"maxScale,omitempty"`
-
-	// Memory The memory for the deployment in MB
-	Memory *int `json:"memory,omitempty"`
-
-	// MetricPort The port to serve the metrics on
-	MetricPort *int `json:"metricPort,omitempty"`
-
-	// MinScale The maximum number of replicas for the deployment.
-	MinScale *int `json:"minScale,omitempty"`
-
-	// Model The slug name of the origin model at HuggingFace.
-	Model *string `json:"model,omitempty"`
-
-	// Organization The organization of the model
-	Organization *string `json:"organization,omitempty"`
-
-	// Ports Set of ports for a resource
-	Ports *Ports `json:"ports,omitempty"`
-
-	// StartupProbe The readiness probe. Should be a Kubernetes Probe type
-	StartupProbe *map[string]interface{} `json:"startupProbe,omitempty"`
-
-	// Timeout The timeout for the deployment in seconds
-	Timeout *int `json:"timeout,omitempty"`
-
-	// Transport The transport for the deployment, used by MCPs: "websocket" or "http-stream"
-	Transport *string `json:"transport,omitempty"`
-
-	// Ttl The TTL for the deployment in seconds - 30m, 24h, 7d
-	Ttl *string `json:"ttl,omitempty"`
-
-	// Type The type of origin for the deployment (hf_private_endpoint, hf_public_endpoint)
-	Type *string `json:"type,omitempty"`
-}
-
-// Sandbox Micro VM for running agentic tasks
+// Sandbox Lightweight virtual machine for secure AI code execution. Sandboxes resume from standby in under 25ms and automatically scale to zero after inactivity, preserving memory state including running processes and filesystem.
 type Sandbox struct {
-	// Events Core events
+	// Events Events happening on a resource deployed on Blaxel
 	Events *CoreEvents `json:"events,omitempty"`
 
 	// LastUsedAt Last time the sandbox was used (read-only, managed by the system)
 	LastUsedAt *string `json:"lastUsedAt,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Sandbox specification
-	Spec *SandboxSpec `json:"spec,omitempty"`
+	// Spec Configuration for a sandbox including its image, memory, ports, region, and lifecycle policies
+	Spec SandboxSpec `json:"spec"`
 
-	// Status Sandbox status
-	Status *string `json:"status,omitempty"`
-
-	// Ttl TTL timestamp for automatic deletion (optional, nil means no auto-deletion)
-	Ttl *int `json:"ttl,omitempty"`
+	// Status Deployment status of a resource deployed on Blaxel
+	Status *Status `json:"status,omitempty"`
 }
 
-// SandboxDefinition Sandbox definition for admin store operations
+// SandboxDefinition Pre-configured sandbox template available in the Sandbox Hub for quick deployment with predefined tools and configurations
 type SandboxDefinition struct {
 	// Categories Categories of the defintion
-	Categories *[]interface{} `json:"categories,omitempty"`
+	Categories *[]map[string]interface{} `json:"categories,omitempty"`
 
 	// ComingSoon If the definition is coming soon
 	ComingSoon *bool `json:"coming_soon,omitempty"`
@@ -1413,77 +1581,78 @@ type SandboxDefinition struct {
 	Url *string `json:"url,omitempty"`
 }
 
-// SandboxLifecycle Lifecycle configuration for sandbox management
+// SandboxError Error response returned by the CreateSandbox endpoint with extended details about the failure
+type SandboxError struct {
+	// Code Error code identifying the kind of error (e.g., INVALID_IMAGE, QUOTA_EXCEEDED)
+	Code string `json:"code"`
+
+	// Details Additional error details. For INVALID_IMAGE errors, includes requested_image and supported_images array.
+	Details *map[string]interface{} `json:"details,omitempty"`
+
+	// Message Human-readable error message describing what went wrong
+	Message string `json:"message"`
+
+	// SandboxName Name of the sandbox that failed to create
+	SandboxName *string `json:"sandbox_name,omitempty"`
+
+	// StatusCode HTTP status code
+	StatusCode *int `json:"status_code,omitempty"`
+
+	// Step Processing step where the error occurred
+	Step *string `json:"step,omitempty"`
+
+	// Timestamp ISO 8601 timestamp of when the error occurred
+	Timestamp *string `json:"timestamp,omitempty"`
+
+	// Workspace Workspace name where the sandbox creation was attempted
+	Workspace *string `json:"workspace,omitempty"`
+}
+
+// SandboxLifecycle Lifecycle configuration controlling automatic sandbox deletion based on idle time, max age, or specific dates
 type SandboxLifecycle struct {
-	// ExpirationPolicies List of expiration policies
+	// ExpirationPolicies List of expiration policies. Multiple policies can be combined; whichever condition is met first triggers the action.
 	ExpirationPolicies *[]ExpirationPolicy `json:"expirationPolicies,omitempty"`
 }
 
-// SandboxSpec defines model for SandboxSpec.
-type SandboxSpec struct {
-	// Configurations Optional configurations for the object
-	Configurations *struct {
-		// Key Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-		Key *SpecConfiguration `json:"key,omitempty"`
-	} `json:"configurations,omitempty"`
+// SandboxRuntime Runtime configuration defining how the sandbox VM is provisioned and its resource limits
+type SandboxRuntime struct {
+	// Envs Environment variables injected into the sandbox. Supports Kubernetes EnvVar format with valueFrom references.
+	Envs *[]Env `json:"envs,omitempty"`
 
-	// Enabled Enable or disable the resource
+	// Expires Absolute expiration timestamp in ISO 8601 format when the sandbox will be deleted
+	Expires *string `json:"expires,omitempty"`
+
+	// Image Sandbox image to use. Can be a public Blaxel image (e.g., blaxel/base-image:latest) or a custom template image built with 'bl deploy'.
+	Image *string `json:"image,omitempty"`
+
+	// Memory Memory allocation in megabytes. Also determines CPU allocation (CPU cores = memory in MB / 2048, e.g., 4096MB = 2 CPUs).
+	Memory *int `json:"memory,omitempty"`
+
+	// Ports Set of ports for a resource
+	Ports *Ports `json:"ports,omitempty"`
+
+	// Ttl Time-to-live duration after which the sandbox is automatically deleted (e.g., '30m', '24h', '7d')
+	Ttl *string `json:"ttl,omitempty"`
+}
+
+// SandboxSpec Configuration for a sandbox including its image, memory, ports, region, and lifecycle policies
+type SandboxSpec struct {
+	// Enabled When false, the sandbox is disabled and will not accept connections
 	Enabled *bool `json:"enabled,omitempty"`
 
-	// Flavors Types of hardware available for deployments
-	Flavors                *Flavors                    `json:"flavors,omitempty"`
-	IntegrationConnections *IntegrationConnectionsList `json:"integrationConnections,omitempty"`
-
-	// Lifecycle Lifecycle configuration for sandbox management
+	// Lifecycle Lifecycle configuration controlling automatic sandbox deletion based on idle time, max age, or specific dates
 	Lifecycle *SandboxLifecycle `json:"lifecycle,omitempty"`
-	Policies  *PoliciesList     `json:"policies,omitempty"`
 
-	// Region Region where the sandbox should be created (e.g. us-pdx-1, eu-lon-1)
+	// Region Region where the sandbox should be created (e.g. us-pdx-1, eu-lon-1). If not specified, defaults to the region closest to the user.
 	Region *string `json:"region,omitempty"`
 
-	// Revision Revision configuration
-	Revision *RevisionConfiguration `json:"revision,omitempty"`
-
-	// Runtime Set of configurations for a deployment
-	Runtime *Runtime `json:"runtime,omitempty"`
-
-	// Sandbox Sandbox mode
-	Sandbox *bool              `json:"sandbox,omitempty"`
+	// Runtime Runtime configuration defining how the sandbox VM is provisioned and its resource limits
+	Runtime *SandboxRuntime    `json:"runtime,omitempty"`
 	Volumes *VolumeAttachments `json:"volumes,omitempty"`
 }
 
-// SpecConfiguration Configuration, this is a key value storage. In your object you can retrieve the value with config[key]
-type SpecConfiguration struct {
-	// Secret ACconfiguration secret
-	Secret *bool `json:"secret,omitempty"`
-
-	// Value Configuration value
-	Value *string `json:"value,omitempty"`
-}
-
-// StartSandbox Response when starting a Sandbox
-type StartSandbox struct {
-	// Message Human readable message about the start operation
-	Message *string `json:"message,omitempty"`
-
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
-
-	// Status Status of the Sandbox start operation
-	Status *string `json:"status,omitempty"`
-}
-
-// StopSandbox Response when stopping a Sandbox
-type StopSandbox struct {
-	// Message Human readable message about the stop operation
-	Message *string `json:"message,omitempty"`
-
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
-
-	// Status Status of the Sandbox stop operation
-	Status *string `json:"status,omitempty"`
-}
+// Status Deployment status of a resource deployed on Blaxel
+type Status string
 
 // Template Blaxel template
 type Template struct {
@@ -1563,8 +1732,11 @@ type Trigger struct {
 	Id *string `json:"id,omitempty"`
 
 	// Type The type of trigger, can be http or http-async
-	Type *string `json:"type,omitempty"`
+	Type *TriggerType `json:"type,omitempty"`
 }
+
+// TriggerType The type of trigger, can be http or http-async
+type TriggerType string
 
 // TriggerConfiguration Trigger configuration
 type TriggerConfiguration struct {
@@ -1599,18 +1771,18 @@ type TriggerConfigurationTask = map[string]interface{}
 // Triggers Triggers to use your agent
 type Triggers = []Trigger
 
-// Volume Volume resource for persistent storage
+// Volume Persistent storage volume that can be attached to sandboxes for durable file storage across sessions. Volumes survive sandbox deletion and can be reattached to new sandboxes.
 type Volume struct {
-	// Events Core events
+	// Events Events happening on a resource deployed on Blaxel
 	Events *CoreEvents `json:"events,omitempty"`
 
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
-	// Spec Volume specification - immutable configuration
-	Spec *VolumeSpec `json:"spec,omitempty"`
+	// Spec Immutable volume configuration set at creation time (size and region cannot be changed after creation)
+	Spec VolumeSpec `json:"spec"`
 
-	// State Volume state - mutable runtime state
+	// State Current runtime state of the volume including attachment status
 	State *VolumeState `json:"state,omitempty"`
 
 	// Status Volume status computed from events
@@ -1620,49 +1792,49 @@ type Volume struct {
 	TerminatedAt *string `json:"terminatedAt,omitempty"`
 }
 
-// VolumeAttachment Volume attachment configuration for sandbox
+// VolumeAttachment Configuration for attaching a volume to a sandbox at a specific filesystem path
 type VolumeAttachment struct {
-	// MountPath Mount path in the container
+	// MountPath Absolute filesystem path where the volume will be mounted inside the sandbox
 	MountPath *string `json:"mountPath,omitempty"`
 
-	// Name Name of the volume to attach
+	// Name Name of the volume resource to attach (must exist in the same workspace and region)
 	Name *string `json:"name,omitempty"`
 
-	// ReadOnly Whether the volume is mounted as read-only
+	// ReadOnly If true, the volume is mounted read-only and cannot be modified by the sandbox
 	ReadOnly *bool `json:"readOnly,omitempty"`
 }
 
 // VolumeAttachments defines model for VolumeAttachments.
 type VolumeAttachments = []VolumeAttachment
 
-// VolumeSpec Volume specification - immutable configuration
+// VolumeSpec Immutable volume configuration set at creation time (size and region cannot be changed after creation)
 type VolumeSpec struct {
 	// InfrastructureId The internal infrastructure resource identifier for this volume
 	InfrastructureId *string `json:"infrastructureId,omitempty"`
 
-	// Region Region where the volume should be created (e.g. us-pdx-1, eu-lon-1)
+	// Region Deployment region for the volume (e.g., us-pdx-1, eu-lon-1). Must match the region of sandboxes it attaches to.
 	Region *string `json:"region,omitempty"`
 
-	// Size Size of the volume in MB
+	// Size Storage capacity in megabytes. Can be increased after creation but not decreased.
 	Size *int `json:"size,omitempty"`
 
-	// Template Volume template with revision (e.g. "mytemplate:1" or "mytemplate:latest")
+	// Template Volume template to initialize from, with optional revision (e.g., "mytemplate:1" or "mytemplate:latest")
 	Template *string `json:"template,omitempty"`
 }
 
-// VolumeState Volume state - mutable runtime state
+// VolumeState Current runtime state of the volume including attachment status
 type VolumeState struct {
-	// AttachedTo Resource this volume is attached to (e.g. "sandbox:my-sandbox", "model:my-model")
+	// AttachedTo Resource currently using this volume in format "type:name" (e.g., "sandbox:my-sandbox"). Empty if not attached.
 	AttachedTo *string `json:"attachedTo,omitempty"`
 }
 
 // VolumeTemplate Volume template for creating pre-configured volumes
 type VolumeTemplate struct {
-	// Metadata Metadata
-	Metadata *Metadata `json:"metadata,omitempty"`
+	// Metadata Common metadata fields shared by all Blaxel resources including name, labels, timestamps, and ownership information
+	Metadata Metadata `json:"metadata"`
 
 	// Spec Volume template specification
-	Spec *VolumeTemplateSpec `json:"spec,omitempty"`
+	Spec VolumeTemplateSpec `json:"spec"`
 
 	// State Volume template state
 	State *VolumeTemplateState `json:"state,omitempty"`
@@ -1689,11 +1861,14 @@ type VolumeTemplateState struct {
 	LatestVersion *string `json:"latestVersion,omitempty"`
 
 	// Status Status of the volume template (created, ready, error)
-	Status *string `json:"status,omitempty"`
+	Status *VolumeTemplateStateStatus `json:"status,omitempty"`
 
 	// VersionCount Total number of versions for this template
 	VersionCount *int `json:"versionCount,omitempty"`
 }
+
+// VolumeTemplateStateStatus Status of the volume template (created, ready, error)
+type VolumeTemplateStateStatus string
 
 // VolumeTemplateVersion Volume template version tracking individual versions of template content
 type VolumeTemplateVersion struct {
@@ -1710,7 +1885,7 @@ type VolumeTemplateVersion struct {
 	Region *string `json:"region,omitempty"`
 
 	// Status Status of the version (CREATED, READY, FAILED)
-	Status *string `json:"status,omitempty"`
+	Status *VolumeTemplateVersionStatus `json:"status,omitempty"`
 
 	// TemplateName Template name this version belongs to
 	TemplateName *string `json:"templateName,omitempty"`
@@ -1721,6 +1896,9 @@ type VolumeTemplateVersion struct {
 	// Workspace Workspace name
 	Workspace *string `json:"workspace,omitempty"`
 }
+
+// VolumeTemplateVersionStatus Status of the version (CREATED, READY, FAILED)
+type VolumeTemplateVersionStatus string
 
 // Workspace defines model for Workspace.
 type Workspace struct {
@@ -1739,8 +1917,8 @@ type Workspace struct {
 	// Id Autogenerated unique workspace id
 	Id *string `json:"id,omitempty"`
 
-	// Labels Workspace labels
-	Labels *map[string]interface{} `json:"labels,omitempty"`
+	// Labels Key-value pairs for organizing and filtering resources. Labels can be used to categorize resources by environment, project, team, or any custom taxonomy.
+	Labels *MetadataLabels `json:"labels,omitempty"`
 
 	// Name Workspace name
 	Name *string `json:"name,omitempty"`
@@ -1748,11 +1926,11 @@ type Workspace struct {
 	// Region Workspace write region
 	Region *string `json:"region,omitempty"`
 
-	// Runtime Workspace runtime
+	// Runtime Runtime configuration for the workspace infrastructure
 	Runtime *WorkspaceRuntime `json:"runtime,omitempty"`
 
 	// Status Workspace status (created, account_binded, account_configured, workspace_configured, ready, error)
-	Status *string `json:"status,omitempty"`
+	Status *WorkspaceStatus `json:"status,omitempty"`
 
 	// StatusReason Reason for current status (only set for error status)
 	StatusReason *string `json:"statusReason,omitempty"`
@@ -1764,9 +1942,12 @@ type Workspace struct {
 	UpdatedBy *string `json:"updatedBy,omitempty"`
 }
 
-// WorkspaceRuntime Workspace runtime
+// WorkspaceStatus Workspace status (created, account_binded, account_configured, workspace_configured, ready, error)
+type WorkspaceStatus string
+
+// WorkspaceRuntime Runtime configuration for the workspace infrastructure
 type WorkspaceRuntime struct {
-	// Generation Workspace generation
+	// Generation Infrastructure generation version for the workspace (affects available features and deployment behavior)
 	Generation *string `json:"generation,omitempty"`
 }
 
@@ -1796,19 +1977,19 @@ type WorkspaceUser struct {
 
 // GetAgentParams defines parameters for GetAgent.
 type GetAgentParams struct {
-	// ShowSecrets Show secret values (admin only)
+	// ShowSecrets Show secret values (requires workspace admin role)
 	ShowSecrets *bool `form:"show_secrets,omitempty" json:"show_secrets,omitempty"`
 }
 
 // GetFunctionParams defines parameters for GetFunction.
 type GetFunctionParams struct {
-	// ShowSecrets Show secret values (admin only)
+	// ShowSecrets Show secret values (requires workspace admin role)
 	ShowSecrets *bool `form:"show_secrets,omitempty" json:"show_secrets,omitempty"`
 }
 
 // GetJobParams defines parameters for GetJob.
 type GetJobParams struct {
-	// ShowSecrets Show secret values (admin only)
+	// ShowSecrets Show secret values (requires workspace admin role)
 	ShowSecrets *bool `form:"show_secrets,omitempty" json:"show_secrets,omitempty"`
 }
 
@@ -1821,9 +2002,21 @@ type ListJobExecutionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListPublicIpsParams defines parameters for ListPublicIps.
+type ListPublicIpsParams struct {
+	// Region Filter by region name (only returns mk3 region data)
+	Region *string `form:"region,omitempty" json:"region,omitempty"`
+}
+
+// CreateSandboxParams defines parameters for CreateSandbox.
+type CreateSandboxParams struct {
+	// CreateIfNotExist If true, return existing sandbox instead of 409 error when sandbox exists and is not in FAILED/TERMINATED/TERMINATING state
+	CreateIfNotExist *bool `form:"createIfNotExist,omitempty" json:"createIfNotExist,omitempty"`
+}
+
 // GetSandboxParams defines parameters for GetSandbox.
 type GetSandboxParams struct {
-	// ShowSecrets Show secret values (admin only)
+	// ShowSecrets Show secret values (requires workspace admin role)
 	ShowSecrets *bool `form:"show_secrets,omitempty" json:"show_secrets,omitempty"`
 }
 
@@ -1847,7 +2040,7 @@ type UpdateWorkspaceServiceAccountJSONBody struct {
 
 // CreateApiKeyForServiceAccountJSONBody defines parameters for CreateApiKeyForServiceAccount.
 type CreateApiKeyForServiceAccountJSONBody struct {
-	// ExpiresIn Expiration period for the API key
+	// ExpiresIn Expiration period for the API key. Supports formats like '30d' (30 days), '24h' (24 hours), '1w' (1 week). If not set, the API key never expires.
 	ExpiresIn *string `json:"expires_in,omitempty"`
 
 	// Name Name for the API key
@@ -1971,6 +2164,9 @@ type UpdateVolumeTemplateJSONRequestBody = VolumeTemplate
 
 // CreateVolumeJSONRequestBody defines body for CreateVolume for application/json ContentType.
 type CreateVolumeJSONRequestBody = Volume
+
+// UpdateVolumeJSONRequestBody defines body for UpdateVolume for application/json ContentType.
+type UpdateVolumeJSONRequestBody = Volume
 
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = Workspace
@@ -2270,11 +2466,8 @@ type ClientInterface interface {
 
 	UpdatePolicy(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListAllPendingInvitations request
-	ListAllPendingInvitations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListPublicIps request
-	ListPublicIps(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListPublicIps(ctx context.Context, params *ListPublicIpsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSandboxHubDefinitions request
 	ListSandboxHubDefinitions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2283,9 +2476,9 @@ type ClientInterface interface {
 	ListSandboxes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSandboxWithBody request with any body
-	CreateSandboxWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateSandboxWithBody(ctx context.Context, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CreateSandbox(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateSandbox(ctx context.Context, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSandbox request
 	DeleteSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2327,12 +2520,6 @@ type ClientInterface interface {
 
 	// DeleteSandboxPreviewToken request
 	DeleteSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartSandbox request
-	StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StopSandbox request
-	StopSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkspaceServiceAccounts request
 	GetWorkspaceServiceAccounts(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2418,6 +2605,11 @@ type ClientInterface interface {
 
 	// GetVolume request
 	GetVolume(ctx context.Context, volumeName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVolumeWithBody request with any body
+	UpdateVolumeWithBody(ctx context.Context, volumeName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateVolume(ctx context.Context, volumeName string, body UpdateVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListWorkspaces request
 	ListWorkspaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2624,9 +2816,6 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 	// Register CLI commands for UpdatePolicy
 	reg.CliCommand(ctx, "UpdatePolicy", c.UpdatePolicy)
 
-	// Register CLI commands for ListAllPendingInvitations
-	reg.CliCommand(ctx, "ListAllPendingInvitations", c.ListAllPendingInvitations)
-
 	// Register CLI commands for ListPublicIps
 	reg.CliCommand(ctx, "ListPublicIps", c.ListPublicIps)
 
@@ -2671,12 +2860,6 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for DeleteSandboxPreviewToken
 	reg.CliCommand(ctx, "DeleteSandboxPreviewToken", c.DeleteSandboxPreviewToken)
-
-	// Register CLI commands for StartSandbox
-	reg.CliCommand(ctx, "StartSandbox", c.StartSandbox)
-
-	// Register CLI commands for StopSandbox
-	reg.CliCommand(ctx, "StopSandbox", c.StopSandbox)
 
 	// Register CLI commands for GetWorkspaceServiceAccounts
 	reg.CliCommand(ctx, "GetWorkspaceServiceAccounts", c.GetWorkspaceServiceAccounts)
@@ -2746,6 +2929,9 @@ func (c *ClientWithResponses) RegisterCliCommands(reg register.Register, ctx con
 
 	// Register CLI commands for GetVolume
 	reg.CliCommand(ctx, "GetVolume", c.GetVolume)
+
+	// Register CLI commands for UpdateVolume
+	reg.CliCommand(ctx, "UpdateVolume", c.UpdateVolume)
 
 	// Register CLI commands for ListWorkspaces
 	reg.CliCommand(ctx, "ListWorkspaces", c.ListWorkspaces)
@@ -3628,20 +3814,8 @@ func (c *Client) UpdatePolicy(ctx context.Context, policyName string, body Updat
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListAllPendingInvitations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListAllPendingInvitationsRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListPublicIps(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListPublicIpsRequest(c.Server)
+func (c *Client) ListPublicIps(ctx context.Context, params *ListPublicIpsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPublicIpsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3676,8 +3850,8 @@ func (c *Client) ListSandboxes(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateSandboxWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateSandboxRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateSandboxWithBody(ctx context.Context, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3688,8 +3862,8 @@ func (c *Client) CreateSandboxWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) CreateSandbox(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateSandboxRequest(c.Server, body)
+func (c *Client) CreateSandbox(ctx context.Context, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSandboxRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3870,30 +4044,6 @@ func (c *Client) CreateSandboxPreviewToken(ctx context.Context, sandboxName stri
 
 func (c *Client) DeleteSandboxPreviewToken(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteSandboxPreviewTokenRequest(c.Server, sandboxName, previewName, tokenName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StartSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartSandboxRequest(c.Server, sandboxName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) StopSandbox(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopSandboxRequest(c.Server, sandboxName)
 	if err != nil {
 		return nil, err
 	}
@@ -4266,6 +4416,30 @@ func (c *Client) DeleteVolume(ctx context.Context, volumeName string, reqEditors
 
 func (c *Client) GetVolume(ctx context.Context, volumeName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetVolumeRequest(c.Server, volumeName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateVolumeWithBody(ctx context.Context, volumeName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVolumeRequestWithBody(c.Server, volumeName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateVolume(ctx context.Context, volumeName string, body UpdateVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVolumeRequest(c.Server, volumeName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6539,35 +6713,8 @@ func NewUpdatePolicyRequestWithBody(server string, policyName string, contentTyp
 	return req, nil
 }
 
-// NewListAllPendingInvitationsRequest generates requests for ListAllPendingInvitations
-func NewListAllPendingInvitationsRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/profile/invitations")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListPublicIpsRequest generates requests for ListPublicIps
-func NewListPublicIpsRequest(server string) (*http.Request, error) {
+func NewListPublicIpsRequest(server string, params *ListPublicIpsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -6583,6 +6730,28 @@ func NewListPublicIpsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Region != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "region", runtime.ParamLocationQuery, *params.Region); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -6648,18 +6817,18 @@ func NewListSandboxesRequest(server string) (*http.Request, error) {
 }
 
 // NewCreateSandboxRequest calls the generic CreateSandbox builder with application/json body
-func NewCreateSandboxRequest(server string, body CreateSandboxJSONRequestBody) (*http.Request, error) {
+func NewCreateSandboxRequest(server string, params *CreateSandboxParams, body CreateSandboxJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreateSandboxRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateSandboxRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreateSandboxRequestWithBody generates requests for CreateSandbox with any type of body
-func NewCreateSandboxRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreateSandboxRequestWithBody(server string, params *CreateSandboxParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -6675,6 +6844,28 @@ func NewCreateSandboxRequestWithBody(server string, contentType string, body io.
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.CreateIfNotExist != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "createIfNotExist", runtime.ParamLocationQuery, *params.CreateIfNotExist); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
@@ -7177,74 +7368,6 @@ func NewDeleteSandboxPreviewTokenRequest(server string, sandboxName string, prev
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewStartSandboxRequest generates requests for StartSandbox
-func NewStartSandboxRequest(server string, sandboxName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/sandboxes/%s/start", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewStopSandboxRequest generates requests for StopSandbox
-func NewStopSandboxRequest(server string, sandboxName string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sandboxName", runtime.ParamLocationPath, sandboxName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/sandboxes/%s/stop", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -8165,6 +8288,53 @@ func NewGetVolumeRequest(server string, volumeName string) (*http.Request, error
 	return req, nil
 }
 
+// NewUpdateVolumeRequest calls the generic UpdateVolume builder with application/json body
+func NewUpdateVolumeRequest(server string, volumeName string, body UpdateVolumeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVolumeRequestWithBody(server, volumeName, "application/json", bodyReader)
+}
+
+// NewUpdateVolumeRequestWithBody generates requests for UpdateVolume with any type of body
+func NewUpdateVolumeRequestWithBody(server string, volumeName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "volumeName", runtime.ParamLocationPath, volumeName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/volumes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListWorkspacesRequest generates requests for ListWorkspaces
 func NewListWorkspacesRequest(server string) (*http.Request, error) {
 	var err error
@@ -8670,9 +8840,9 @@ type ClientWithResponsesInterface interface {
 	ListJobExecutionsWithResponse(ctx context.Context, jobId string, params *ListJobExecutionsParams, reqEditors ...RequestEditorFn) (*ListJobExecutionsResponse, error)
 
 	// CreateJobExecutionWithBodyWithResponse request with any body
-	CreateJobExecutionWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJobExecutionResponse, error)
+	CreateJobExecutionWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateJobExecution, error)
 
-	CreateJobExecutionWithResponse(ctx context.Context, jobId string, body CreateJobExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJobExecutionResponse, error)
+	CreateJobExecutionWithResponse(ctx context.Context, jobId string, body CreateJobExecutionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateJobExecution, error)
 
 	// DeleteJobExecutionWithResponse request
 	DeleteJobExecutionWithResponse(ctx context.Context, jobId string, executionId string, reqEditors ...RequestEditorFn) (*DeleteJobExecutionResponse, error)
@@ -8730,11 +8900,8 @@ type ClientWithResponsesInterface interface {
 
 	UpdatePolicyWithResponse(ctx context.Context, policyName string, body UpdatePolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePolicyResponse, error)
 
-	// ListAllPendingInvitationsWithResponse request
-	ListAllPendingInvitationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllPendingInvitationsResponse, error)
-
 	// ListPublicIpsWithResponse request
-	ListPublicIpsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPublicIpsResponse, error)
+	ListPublicIpsWithResponse(ctx context.Context, params *ListPublicIpsParams, reqEditors ...RequestEditorFn) (*ListPublicIpsResponse, error)
 
 	// ListSandboxHubDefinitionsWithResponse request
 	ListSandboxHubDefinitionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxHubDefinitionsResponse, error)
@@ -8743,9 +8910,9 @@ type ClientWithResponsesInterface interface {
 	ListSandboxesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListSandboxesResponse, error)
 
 	// CreateSandboxWithBodyWithResponse request with any body
-	CreateSandboxWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
+	CreateSandboxWithBodyWithResponse(ctx context.Context, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
 
-	CreateSandboxWithResponse(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
+	CreateSandboxWithResponse(ctx context.Context, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error)
 
 	// DeleteSandboxWithResponse request
 	DeleteSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*DeleteSandboxResponse, error)
@@ -8787,12 +8954,6 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteSandboxPreviewTokenWithResponse request
 	DeleteSandboxPreviewTokenWithResponse(ctx context.Context, sandboxName string, previewName string, tokenName string, reqEditors ...RequestEditorFn) (*DeleteSandboxPreviewTokenResponse, error)
-
-	// StartSandboxWithResponse request
-	StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error)
-
-	// StopSandboxWithResponse request
-	StopSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StopSandboxResponse, error)
 
 	// GetWorkspaceServiceAccountsWithResponse request
 	GetWorkspaceServiceAccountsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWorkspaceServiceAccountsResponse, error)
@@ -8879,6 +9040,11 @@ type ClientWithResponsesInterface interface {
 	// GetVolumeWithResponse request
 	GetVolumeWithResponse(ctx context.Context, volumeName string, reqEditors ...RequestEditorFn) (*GetVolumeResponse, error)
 
+	// UpdateVolumeWithBodyWithResponse request with any body
+	UpdateVolumeWithBodyWithResponse(ctx context.Context, volumeName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVolumeResponse, error)
+
+	UpdateVolumeWithResponse(ctx context.Context, volumeName string, body UpdateVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVolumeResponse, error)
+
 	// ListWorkspacesWithResponse request
 	ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error)
 
@@ -8917,6 +9083,9 @@ type ListAgentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Agent
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -8939,6 +9108,11 @@ type CreateAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Agent
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -8961,6 +9135,10 @@ type DeleteAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Agent
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -8983,6 +9161,10 @@ type GetAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Agent
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9005,6 +9187,11 @@ type UpdateAgentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Agent
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9203,6 +9390,9 @@ type ListFunctionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Function
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9225,6 +9415,11 @@ type CreateFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Function
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9247,6 +9442,10 @@ type DeleteFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Function
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9269,6 +9468,10 @@ type GetFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Function
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9291,6 +9494,11 @@ type UpdateFunctionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Function
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9451,6 +9659,9 @@ type ListIntegrationConnectionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]IntegrationConnection
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9473,6 +9684,11 @@ type CreateIntegrationConnectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IntegrationConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9495,6 +9711,11 @@ type DeleteIntegrationConnectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IntegrationConnection
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9517,6 +9738,10 @@ type GetIntegrationConnectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IntegrationConnection
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9539,6 +9764,11 @@ type UpdateIntegrationConnectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *IntegrationConnection
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9711,7 +9941,7 @@ func (r DeleteJobResponse) StatusCode() int {
 type GetJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Model
+	JSON200      *Job
 }
 
 // Status returns HTTPResponse.Status
@@ -9777,7 +10007,7 @@ func (r ListJobExecutionsResponse) StatusCode() int {
 type CreateJobExecutionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *JobExecution
+	JSON200      *CreateJobExecution
 }
 
 // Status returns HTTPResponse.Status
@@ -9910,6 +10140,9 @@ type ListModelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Model
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9932,6 +10165,11 @@ type CreateModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Model
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9954,6 +10192,10 @@ type DeleteModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Model
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9976,6 +10218,10 @@ type GetModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Model
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -9998,6 +10244,11 @@ type UpdateModelResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Model
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -10148,28 +10399,6 @@ func (r UpdatePolicyResponse) StatusCode() int {
 	return 0
 }
 
-type ListAllPendingInvitationsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *[]PendingInvitationRender
-}
-
-// Status returns HTTPResponse.Status
-func (r ListAllPendingInvitationsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListAllPendingInvitationsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListPublicIpsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10218,6 +10447,9 @@ type ListSandboxesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Sandbox
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -10240,6 +10472,11 @@ type CreateSandboxResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Sandbox
+	JSON400      *SandboxError
+	JSON401      *SandboxError
+	JSON403      *SandboxError
+	JSON409      *SandboxError
+	JSON500      *SandboxError
 }
 
 // Status returns HTTPResponse.Status
@@ -10262,6 +10499,10 @@ type DeleteSandboxResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Sandbox
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -10284,6 +10525,10 @@ type GetSandboxResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Sandbox
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -10306,6 +10551,11 @@ type UpdateSandboxResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Sandbox
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -10497,50 +10747,6 @@ func (r DeleteSandboxPreviewTokenResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteSandboxPreviewTokenResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type StartSandboxResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *StartSandbox
-}
-
-// Status returns HTTPResponse.Status
-func (r StartSandboxResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StartSandboxResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type StopSandboxResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *StopSandbox
-}
-
-// Status returns HTTPResponse.Status
-func (r StopSandboxResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StopSandboxResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11035,6 +11241,9 @@ type ListVolumesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Volume
+	JSON401      *Error
+	JSON403      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11057,6 +11266,11 @@ type CreateVolumeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Volume
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11079,6 +11293,11 @@ type DeleteVolumeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Volume
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11101,6 +11320,10 @@ type GetVolumeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Volume
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11119,10 +11342,34 @@ func (r GetVolumeResponse) StatusCode() int {
 	return 0
 }
 
+type UpdateVolumeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Volume
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVolumeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVolumeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListWorkspacesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Workspace
+	JSON401      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11145,6 +11392,11 @@ type CreateWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Workspace
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON409      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11189,6 +11441,10 @@ type DeleteWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Workspace
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11211,6 +11467,10 @@ type GetWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Workspace
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11233,6 +11493,11 @@ type UpdateWorkspaceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Workspace
+	JSON400      *Error
+	JSON401      *Error
+	JSON403      *Error
+	JSON404      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -11941,18 +12206,9 @@ func (c *ClientWithResponses) UpdatePolicyWithResponse(ctx context.Context, poli
 	return ParseUpdatePolicyResponse(rsp)
 }
 
-// ListAllPendingInvitationsWithResponse request returning *ListAllPendingInvitationsResponse
-func (c *ClientWithResponses) ListAllPendingInvitationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllPendingInvitationsResponse, error) {
-	rsp, err := c.ListAllPendingInvitations(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListAllPendingInvitationsResponse(rsp)
-}
-
 // ListPublicIpsWithResponse request returning *ListPublicIpsResponse
-func (c *ClientWithResponses) ListPublicIpsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPublicIpsResponse, error) {
-	rsp, err := c.ListPublicIps(ctx, reqEditors...)
+func (c *ClientWithResponses) ListPublicIpsWithResponse(ctx context.Context, params *ListPublicIpsParams, reqEditors ...RequestEditorFn) (*ListPublicIpsResponse, error) {
+	rsp, err := c.ListPublicIps(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -11978,16 +12234,16 @@ func (c *ClientWithResponses) ListSandboxesWithResponse(ctx context.Context, req
 }
 
 // CreateSandboxWithBodyWithResponse request with arbitrary body returning *CreateSandboxResponse
-func (c *ClientWithResponses) CreateSandboxWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
-	rsp, err := c.CreateSandboxWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreateSandboxWithBodyWithResponse(ctx context.Context, params *CreateSandboxParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
+	rsp, err := c.CreateSandboxWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreateSandboxResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateSandboxWithResponse(ctx context.Context, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
-	rsp, err := c.CreateSandbox(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateSandboxWithResponse(ctx context.Context, params *CreateSandboxParams, body CreateSandboxJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSandboxResponse, error) {
+	rsp, err := c.CreateSandbox(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -12123,24 +12379,6 @@ func (c *ClientWithResponses) DeleteSandboxPreviewTokenWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseDeleteSandboxPreviewTokenResponse(rsp)
-}
-
-// StartSandboxWithResponse request returning *StartSandboxResponse
-func (c *ClientWithResponses) StartSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StartSandboxResponse, error) {
-	rsp, err := c.StartSandbox(ctx, sandboxName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartSandboxResponse(rsp)
-}
-
-// StopSandboxWithResponse request returning *StopSandboxResponse
-func (c *ClientWithResponses) StopSandboxWithResponse(ctx context.Context, sandboxName string, reqEditors ...RequestEditorFn) (*StopSandboxResponse, error) {
-	rsp, err := c.StopSandbox(ctx, sandboxName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStopSandboxResponse(rsp)
 }
 
 // GetWorkspaceServiceAccountsWithResponse request returning *GetWorkspaceServiceAccountsResponse
@@ -12414,6 +12652,23 @@ func (c *ClientWithResponses) GetVolumeWithResponse(ctx context.Context, volumeN
 	return ParseGetVolumeResponse(rsp)
 }
 
+// UpdateVolumeWithBodyWithResponse request with arbitrary body returning *UpdateVolumeResponse
+func (c *ClientWithResponses) UpdateVolumeWithBodyWithResponse(ctx context.Context, volumeName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVolumeResponse, error) {
+	rsp, err := c.UpdateVolumeWithBody(ctx, volumeName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVolumeResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateVolumeWithResponse(ctx context.Context, volumeName string, body UpdateVolumeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVolumeResponse, error) {
+	rsp, err := c.UpdateVolume(ctx, volumeName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVolumeResponse(rsp)
+}
+
 // ListWorkspacesWithResponse request returning *ListWorkspacesResponse
 func (c *ClientWithResponses) ListWorkspacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListWorkspacesResponse, error) {
 	rsp, err := c.ListWorkspaces(ctx, reqEditors...)
@@ -12540,6 +12795,27 @@ func ParseListAgentsResponse(rsp *http.Response) (*ListAgentsResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12565,6 +12841,41 @@ func ParseCreateAgentResponse(rsp *http.Response) (*CreateAgentResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -12592,6 +12903,34 @@ func ParseDeleteAgentResponse(rsp *http.Response) (*DeleteAgentResponse, error) 
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12618,6 +12957,34 @@ func ParseGetAgentResponse(rsp *http.Response) (*GetAgentResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12643,6 +13010,41 @@ func ParseUpdateAgentResponse(rsp *http.Response) (*UpdateAgentResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -12878,6 +13280,27 @@ func ParseListFunctionsResponse(rsp *http.Response) (*ListFunctionsResponse, err
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12903,6 +13326,41 @@ func ParseCreateFunctionResponse(rsp *http.Response) (*CreateFunctionResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -12930,6 +13388,34 @@ func ParseDeleteFunctionResponse(rsp *http.Response) (*DeleteFunctionResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12956,6 +13442,34 @@ func ParseGetFunctionResponse(rsp *http.Response) (*GetFunctionResponse, error) 
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -12981,6 +13495,41 @@ func ParseUpdateFunctionResponse(rsp *http.Response) (*UpdateFunctionResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -13170,6 +13719,27 @@ func ParseListIntegrationConnectionsResponse(rsp *http.Response) (*ListIntegrati
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13195,6 +13765,41 @@ func ParseCreateIntegrationConnectionResponse(rsp *http.Response) (*CreateIntegr
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -13222,6 +13827,41 @@ func ParseDeleteIntegrationConnectionResponse(rsp *http.Response) (*DeleteIntegr
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13248,6 +13888,34 @@ func ParseGetIntegrationConnectionResponse(rsp *http.Response) (*GetIntegrationC
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13273,6 +13941,41 @@ func ParseUpdateIntegrationConnectionResponse(rsp *http.Response) (*UpdateIntegr
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -13446,7 +14149,7 @@ func ParseGetJobResponse(rsp *http.Response) (*GetJobResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Model
+		var dest Job
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -13524,7 +14227,7 @@ func ParseCreateJobExecutionResponse(rsp *http.Response) (*CreateJobExecutionRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest JobExecution
+		var dest CreateJobExecution
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -13686,6 +14389,27 @@ func ParseListModelsResponse(rsp *http.Response) (*ListModelsResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13711,6 +14435,41 @@ func ParseCreateModelResponse(rsp *http.Response) (*CreateModelResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -13738,6 +14497,34 @@ func ParseDeleteModelResponse(rsp *http.Response) (*DeleteModelResponse, error) 
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13764,6 +14551,34 @@ func ParseGetModelResponse(rsp *http.Response) (*GetModelResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -13789,6 +14604,41 @@ func ParseUpdateModelResponse(rsp *http.Response) (*UpdateModelResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -13951,32 +14801,6 @@ func ParseUpdatePolicyResponse(rsp *http.Response) (*UpdatePolicyResponse, error
 	return response, nil
 }
 
-// ParseListAllPendingInvitationsResponse parses an HTTP response from a ListAllPendingInvitationsWithResponse call
-func ParseListAllPendingInvitationsResponse(rsp *http.Response) (*ListAllPendingInvitationsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListAllPendingInvitationsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []PendingInvitationRender
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListPublicIpsResponse parses an HTTP response from a ListPublicIpsWithResponse call
 func ParseListPublicIpsResponse(rsp *http.Response) (*ListPublicIpsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14050,6 +14874,27 @@ func ParseListSandboxesResponse(rsp *http.Response) (*ListSandboxesResponse, err
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -14075,6 +14920,41 @@ func ParseCreateSandboxResponse(rsp *http.Response) (*CreateSandboxResponse, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest SandboxError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest SandboxError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest SandboxError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest SandboxError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest SandboxError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -14102,6 +14982,34 @@ func ParseDeleteSandboxResponse(rsp *http.Response) (*DeleteSandboxResponse, err
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -14128,6 +15036,34 @@ func ParseGetSandboxResponse(rsp *http.Response) (*GetSandboxResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -14153,6 +15089,41 @@ func ParseUpdateSandboxResponse(rsp *http.Response) (*UpdateSandboxResponse, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -14360,58 +15331,6 @@ func ParseDeleteSandboxPreviewTokenResponse(rsp *http.Response) (*DeleteSandboxP
 			// Message Success message
 			Message *string `json:"message,omitempty"`
 		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStartSandboxResponse parses an HTTP response from a StartSandboxWithResponse call
-func ParseStartSandboxResponse(rsp *http.Response) (*StartSandboxResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StartSandboxResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest StartSandbox
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStopSandboxResponse parses an HTTP response from a StopSandboxWithResponse call
-func ParseStopSandboxResponse(rsp *http.Response) (*StopSandboxResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StopSandboxResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest StopSandbox
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -14985,6 +15904,27 @@ func ParseListVolumesResponse(rsp *http.Response) (*ListVolumesResponse, error) 
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -15010,6 +15950,41 @@ func ParseCreateVolumeResponse(rsp *http.Response) (*CreateVolumeResponse, error
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -15037,6 +16012,41 @@ func ParseDeleteVolumeResponse(rsp *http.Response) (*DeleteVolumeResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -15051,6 +16061,60 @@ func ParseGetVolumeResponse(rsp *http.Response) (*GetVolumeResponse, error) {
 	}
 
 	response := &GetVolumeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Volume
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVolumeResponse parses an HTTP response from a UpdateVolumeWithResponse call
+func ParseUpdateVolumeResponse(rsp *http.Response) (*UpdateVolumeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVolumeResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -15089,6 +16153,20 @@ func ParseListWorkspacesResponse(rsp *http.Response) (*ListWorkspacesResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -15114,6 +16192,41 @@ func ParseCreateWorkspaceResponse(rsp *http.Response) (*CreateWorkspaceResponse,
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -15167,6 +16280,34 @@ func ParseDeleteWorkspaceResponse(rsp *http.Response) (*DeleteWorkspaceResponse,
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -15193,6 +16334,34 @@ func ParseGetWorkspaceResponse(rsp *http.Response) (*GetWorkspaceResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil
@@ -15218,6 +16387,41 @@ func ParseUpdateWorkspaceResponse(rsp *http.Response) (*UpdateWorkspaceResponse,
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -15305,206 +16509,350 @@ func ParseLeaveWorkspaceResponse(rsp *http.Response) (*LeaveWorkspaceResponse, e
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"vEkCAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

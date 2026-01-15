@@ -555,6 +555,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	if len(config.Policies) > 0 {
 		Spec["policies"] = config.Policies
 	}
+	if config.Public != nil {
+		Spec["public"] = *config.Public
+	}
 	labels := map[string]interface{}{}
 	// Volume-template needs upload even without build
 	if !skipBuild || core.IsVolumeTemplate(config.Type) {
