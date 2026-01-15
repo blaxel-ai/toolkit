@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -574,6 +576,149 @@ func CheckServerEnvUsage(folder string, language string) bool {
 		return nil
 	})
 	return found
+}
+
+// MaxDurationSeconds is the maximum allowed duration in seconds (1 year).
+// This prevents integer overflow attacks with absurdly large timeout values.
+const MaxDurationSeconds = 365 * 24 * 60 * 60 // 31,536,000 seconds
+
+// ParseDurationToSeconds parses a human-readable duration string and returns the number of seconds.
+// Supported formats: "30s", "5m", "1h", "2d", "1w" (seconds, minutes, hours, days, weeks)
+// Also accepts plain integers (interpreted as seconds).
+// Returns the value in seconds and any error encountered.
+// Maximum allowed duration is 1 year (31,536,000 seconds) to prevent overflow.
+func ParseDurationToSeconds(duration string) (int, error) {
+	duration = strings.TrimSpace(duration)
+	if duration == "" {
+		return 0, fmt.Errorf("empty duration string")
+	}
+
+	// Try parsing as plain integer first
+	if seconds, err := strconv.Atoi(duration); err == nil {
+		if seconds < 0 {
+			return 0, fmt.Errorf("negative duration not allowed: %d", seconds)
+		}
+		if seconds > MaxDurationSeconds {
+			return 0, fmt.Errorf("duration exceeds maximum allowed (%d seconds / ~1 year): %d", MaxDurationSeconds, seconds)
+		}
+		return seconds, nil
+	}
+
+	// Parse duration with suffix
+	re := regexp.MustCompile(`^(\d+)([smhdw])$`)
+	matches := re.FindStringSubmatch(strings.ToLower(duration))
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid duration format: %s (expected formats: 30s, 5m, 1h, 2d, 1w)", duration)
+	}
+
+	value, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid numeric value in duration: %s", duration)
+	}
+
+	if value < 0 {
+		return 0, fmt.Errorf("negative duration not allowed: %s", duration)
+	}
+
+	// Define multipliers and max safe values for each unit to prevent overflow
+	// Max safe value = MaxDurationSeconds / multiplier
+	type unitConfig struct {
+		multiplier int
+		maxValue   int
+	}
+
+	units := map[string]unitConfig{
+		"s": {1, MaxDurationSeconds},                         // max: 31,536,000 seconds
+		"m": {60, MaxDurationSeconds / 60},                   // max: 525,600 minutes
+		"h": {60 * 60, MaxDurationSeconds / 3600},            // max: 8,760 hours
+		"d": {60 * 60 * 24, MaxDurationSeconds / 86400},      // max: 365 days
+		"w": {60 * 60 * 24 * 7, MaxDurationSeconds / 604800}, // max: 52 weeks
+	}
+
+	unit := matches[2]
+	config, ok := units[unit]
+	if !ok {
+		return 0, fmt.Errorf("unknown duration unit: %s", unit)
+	}
+
+	// Check bounds before multiplication to prevent overflow
+	if value > config.maxValue {
+		return 0, fmt.Errorf("duration exceeds maximum allowed (~1 year): %s (max: %d%s)", duration, config.maxValue, unit)
+	}
+
+	return value * config.multiplier, nil
+}
+
+// ParseDuration parses a human-readable duration string and returns a time.Duration.
+// Supported formats: "30s", "5m", "1h", "2d", "1w" (seconds, minutes, hours, days, weeks)
+// Also accepts plain integers (interpreted as seconds).
+// Maximum allowed duration is 1 year to prevent overflow.
+func ParseDuration(duration string) (time.Duration, error) {
+	seconds, err := ParseDurationToSeconds(duration)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(seconds) * time.Second, nil
+}
+
+// ConvertRuntimeTimeouts converts human-readable timeout values in a runtime config to seconds.
+// This modifies the runtime map in place, converting string timeout values to integers.
+func ConvertRuntimeTimeouts(runtime map[string]interface{}) error {
+	if runtime == nil {
+		return nil
+	}
+
+	// Convert timeout field if it's a string
+	if err := convertTimeoutField(runtime, "timeout"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ConvertTriggersTimeouts converts human-readable timeout values in triggers config to seconds.
+// This modifies the triggers slice in place, converting string timeout values to integers.
+func ConvertTriggersTimeouts(triggers *[]map[string]interface{}) error {
+	if triggers == nil {
+		return nil
+	}
+
+	for i, trigger := range *triggers {
+		if err := convertTimeoutField(trigger, "timeout"); err != nil {
+			return fmt.Errorf("trigger[%d]: %w", i, err)
+		}
+
+		// Also check nested configuration if present
+		if config, ok := trigger["configuration"].(map[string]interface{}); ok {
+			if err := convertTimeoutField(config, "timeout"); err != nil {
+				return fmt.Errorf("trigger[%d].configuration: %w", i, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// convertTimeoutField converts a timeout field from string to seconds in a map.
+func convertTimeoutField(m map[string]interface{}, field string) error {
+	if m == nil {
+		return nil
+	}
+
+	if timeout, ok := m[field]; ok {
+		switch v := timeout.(type) {
+		case string:
+			seconds, err := ParseDurationToSeconds(v)
+			if err != nil {
+				return fmt.Errorf("invalid %s value: %w", field, err)
+			}
+			m[field] = seconds
+		case int, int64, float64:
+			// Already a number, leave as is
+		}
+	}
+
+	return nil
 }
 
 // BuildServerEnvWarning returns a formatted warning message with language-specific
