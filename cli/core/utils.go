@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -577,10 +578,15 @@ func CheckServerEnvUsage(folder string, language string) bool {
 	return found
 }
 
+// MaxDurationSeconds is the maximum allowed duration in seconds (1 year).
+// This prevents integer overflow attacks with absurdly large timeout values.
+const MaxDurationSeconds = 365 * 24 * 60 * 60 // 31,536,000 seconds
+
 // ParseDurationToSeconds parses a human-readable duration string and returns the number of seconds.
 // Supported formats: "30s", "5m", "1h", "2d", "1w" (seconds, minutes, hours, days, weeks)
 // Also accepts plain integers (interpreted as seconds).
 // Returns the value in seconds and any error encountered.
+// Maximum allowed duration is 1 year (31,536,000 seconds) to prevent overflow.
 func ParseDurationToSeconds(duration string) (int, error) {
 	duration = strings.TrimSpace(duration)
 	if duration == "" {
@@ -589,6 +595,12 @@ func ParseDurationToSeconds(duration string) (int, error) {
 
 	// Try parsing as plain integer first
 	if seconds, err := strconv.Atoi(duration); err == nil {
+		if seconds < 0 {
+			return 0, fmt.Errorf("negative duration not allowed: %d", seconds)
+		}
+		if seconds > MaxDurationSeconds {
+			return 0, fmt.Errorf("duration exceeds maximum allowed (%d seconds / ~1 year): %d", MaxDurationSeconds, seconds)
+		}
 		return seconds, nil
 	}
 
@@ -604,21 +616,49 @@ func ParseDurationToSeconds(duration string) (int, error) {
 		return 0, fmt.Errorf("invalid numeric value in duration: %s", duration)
 	}
 
+	if value < 0 {
+		return 0, fmt.Errorf("negative duration not allowed: %s", duration)
+	}
+
+	// Define multipliers and max safe values for each unit to prevent overflow
+	// Max safe value = MaxDurationSeconds / multiplier
+	type unitConfig struct {
+		multiplier int
+		maxValue   int
+	}
+
+	units := map[string]unitConfig{
+		"s": {1, MaxDurationSeconds},                         // max: 31,536,000 seconds
+		"m": {60, MaxDurationSeconds / 60},                   // max: 525,600 minutes
+		"h": {60 * 60, MaxDurationSeconds / 3600},            // max: 8,760 hours
+		"d": {60 * 60 * 24, MaxDurationSeconds / 86400},      // max: 365 days
+		"w": {60 * 60 * 24 * 7, MaxDurationSeconds / 604800}, // max: 52 weeks
+	}
+
 	unit := matches[2]
-	switch unit {
-	case "s":
-		return value, nil
-	case "m":
-		return value * 60, nil
-	case "h":
-		return value * 60 * 60, nil
-	case "d":
-		return value * 60 * 60 * 24, nil
-	case "w":
-		return value * 60 * 60 * 24 * 7, nil
-	default:
+	config, ok := units[unit]
+	if !ok {
 		return 0, fmt.Errorf("unknown duration unit: %s", unit)
 	}
+
+	// Check bounds before multiplication to prevent overflow
+	if value > config.maxValue {
+		return 0, fmt.Errorf("duration exceeds maximum allowed (~1 year): %s (max: %d%s)", duration, config.maxValue, unit)
+	}
+
+	return value * config.multiplier, nil
+}
+
+// ParseDuration parses a human-readable duration string and returns a time.Duration.
+// Supported formats: "30s", "5m", "1h", "2d", "1w" (seconds, minutes, hours, days, weeks)
+// Also accepts plain integers (interpreted as seconds).
+// Maximum allowed duration is 1 year to prevent overflow.
+func ParseDuration(duration string) (time.Duration, error) {
+	seconds, err := ParseDurationToSeconds(duration)
+	if err != nil {
+		return 0, err
+	}
+	return time.Duration(seconds) * time.Second, nil
 }
 
 // ConvertRuntimeTimeouts converts human-readable timeout values in a runtime config to seconds.

@@ -61,6 +61,21 @@ func TestParseDurationToSeconds(t *testing.T) {
 		{"negative not supported", "-1h", 0, true},
 		{"decimal not supported", "1.5h", 0, true},
 		{"multiple units", "1h30m", 0, true},
+
+		// Overflow protection cases - values exceeding 1 year max
+		{"overflow seconds", "2147483647s", 0, true},        // int32 max
+		{"overflow weeks", "35791394w", 0, true},            // would overflow int32
+		{"overflow plain int", "999999999999", 0, true},     // exceeds max duration
+		{"overflow minutes", "999999999m", 0, true},         // exceeds max
+		{"overflow hours", "99999999h", 0, true},            // exceeds max
+		{"overflow days", "9999999d", 0, true},              // exceeds max
+		{"just over max weeks", "53w", 0, true},             // 53 weeks > 52 weeks max
+		{"just over max days", "366d", 0, true},             // 366 days > 365 days max
+
+		// Valid edge cases - at or near limits
+		{"max valid weeks", "52w", 52 * 7 * 24 * 60 * 60, false},   // 52 weeks = 31,449,600s
+		{"max valid days", "365d", 365 * 24 * 60 * 60, false},      // 365 days = 31,536,000s
+		{"large but valid hours", "8760h", 8760 * 60 * 60, false},  // 8760h = 365 days
 	}
 
 	for _, tt := range tests {
