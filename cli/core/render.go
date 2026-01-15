@@ -109,6 +109,7 @@ func truncateString(s string, maxLength int) string {
 }
 
 // formatVolumeSize formats volume size in MB to human-readable format
+// Note: The API returns size in MB
 func formatVolumeSize(sizeInMB int) string {
 	if sizeInMB >= 1024 {
 		sizeInGB := float64(sizeInMB) / 1024.0
@@ -141,21 +142,22 @@ func formatBytesSize(sizeInBytes int64) string {
 }
 
 // formatSizeValue formats a size value (from any path) into human-readable format
+// Note: The API returns volume sizes in bytes (not MB as originally documented)
 func formatSizeValue(value interface{}) string {
 	switch v := value.(type) {
 	case int:
-		return formatVolumeSize(v)
+		return formatBytesSize(int64(v))
 	case float64:
-		return formatVolumeSize(int(v))
+		return formatBytesSize(int64(v))
 	case *int:
 		if v != nil {
-			return formatVolumeSize(*v)
+			return formatBytesSize(int64(*v))
 		}
 	case string:
-		// Try to parse string as int
-		var size int
+		// Try to parse string as int64
+		var size int64
 		if _, err := fmt.Sscanf(v, "%d", &size); err == nil {
-			return formatVolumeSize(size)
+			return formatBytesSize(size)
 		}
 		return v
 	}
