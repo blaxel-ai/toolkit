@@ -20,6 +20,7 @@ func CreateSandboxCmd() *cobra.Command {
 		Aliases: []string{"cs"},
 		Short:   "Deprecated: use 'bl new sandbox' instead",
 		Long:    "This command has been deprecated. Please use 'bl new sandbox' instead.",
+		Hidden:  true,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.PrintError("create-sandbox", fmt.Errorf("this command has been deprecated. Please use 'bl new sandbox' instead"))
 		},

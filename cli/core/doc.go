@@ -18,6 +18,26 @@ func init() {
 	})
 }
 
+// fixCompletionDocs fixes the completion command's Long descriptions to use
+// Mintlify-compatible syntax. The default Cobra completion docs use
+// `source <(bl completion bash)` which breaks Mintlify's MDX parser.
+func fixCompletionDocs(cmd *cobra.Command) {
+	for _, child := range cmd.Commands() {
+		if child.Name() == "completion" {
+			for _, subCmd := range child.Commands() {
+				// Replace `source <(bl completion X)` with `eval "$(bl completion X)"`
+				// This syntax works in both bash/zsh and doesn't break Mintlify
+				subCmd.Long = strings.ReplaceAll(subCmd.Long, "source <(bl completion", "eval \"$(bl completion")
+				subCmd.Long = strings.ReplaceAll(subCmd.Long, "bash)", "bash)\"")
+				subCmd.Long = strings.ReplaceAll(subCmd.Long, "zsh)", "zsh)\"")
+				subCmd.Long = strings.ReplaceAll(subCmd.Long, "fish)", "fish)\"")
+				subCmd.Long = strings.ReplaceAll(subCmd.Long, "powershell)", "powershell)\"")
+			}
+			break
+		}
+	}
+}
+
 func DocCmd() *cobra.Command {
 	var format string
 	var outputDir string
@@ -28,6 +48,9 @@ func DocCmd() *cobra.Command {
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rootCmd.DisableAutoGenTag = true
+
+			// Fix completion docs to use Mintlify-compatible syntax
+			fixCompletionDocs(rootCmd)
 
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
 				return fmt.Errorf("failed to create output directory: %w", err)
