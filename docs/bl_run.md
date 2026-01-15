@@ -55,6 +55,9 @@ bl run resource-type resource-name [flags]
   # Run job locally for testing (requires 'bl serve' in another terminal)
   bl run job my-job --local --file batch.json
 
+  # Run job locally with 4 concurrent workers
+  bl run job my-job --local --file batch.json --concurrent 4
+
   # Run model with custom endpoint
   bl run model my-model --path /v1/chat/completions --data '{"messages": [...]}'
 
@@ -71,6 +74,7 @@ bl run resource-type resource-name [flags]
 ### Options
 
 ```
+  -c, --concurrent int       Number of concurrent workers for local job execution (default 1)
   -d, --data string          JSON body data for the inference request
       --debug                Debug mode
       --directory string     Directory to run the command from
@@ -80,6 +84,7 @@ bl run resource-type resource-name [flags]
   -h, --help                 help for run
       --local                Run locally
       --method string        HTTP method for the inference request (default "POST")
+  -o, --output string        Output format: json, yaml
       --params strings       Query params sent to the inference request
       --path string          path for the inference request
   -s, --secrets strings      Secrets to deploy
@@ -89,7 +94,6 @@ bl run resource-type resource-name [flags]
 ### Options inherited from parent commands
 
 ```
-  -o, --output string          Output format. One of: pretty,yaml,json,table
       --skip-version-warning   Skip version warning
   -u, --utc                    Enable UTC timezone
   -v, --verbose                Enable verbose output
