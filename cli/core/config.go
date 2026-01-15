@@ -332,8 +332,8 @@ MY_VAR = "my-value"
 memory = 4096
 # Job configuration (optional)
 # maxConcurrentTasks = 10
-# timeout = 900
-# maxRetries=0
+# timeout = "15m"  # Supports: 30s, 5m, 1h, 2d, 1w or plain seconds (900)
+# maxRetries = 0
 
 # Volumes for Sandbox (optional)
 # [[volumes]]
@@ -355,7 +355,13 @@ memory = 4096
 # type = "http"
 # [triggers.configuration]
 # path = "/webhook"
-# authenticationType = "public"`
+# authenticationType = "public"
+
+# Async HTTP triggers with timeout
+# [[triggers]]
+# id = "async-trigger"
+# type = "http-async"
+# timeout = "15m"  # Supports: 30s, 5m, 15m or plain seconds (900)`
 }
 
 // promptForDeploymentType prompts the user to select what they want to deploy

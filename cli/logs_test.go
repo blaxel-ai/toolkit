@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/stretchr/testify/assert"
 )
@@ -85,7 +86,7 @@ func TestParseDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseDuration(tt.input)
+			result, err := core.ParseDuration(tt.input)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -395,7 +396,7 @@ func TestParseDurationBoundaryValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseDuration(tt.input)
+			result, err := core.ParseDuration(tt.input)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

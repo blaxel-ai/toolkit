@@ -14,6 +14,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/getsentry/sentry-go v0.40.0
 	github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f
+	github.com/gorilla/websocket v1.5.3
 	github.com/jedib0t/go-pretty/v6 v6.6.7
 	github.com/joho/godotenv v1.5.1
 	github.com/qeesung/image2ascii v1.0.1

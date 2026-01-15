@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -58,35 +56,6 @@ func normalizeResourceType(resourceType string) (string, error) {
 	}
 
 	return "", fmt.Errorf("invalid resource type '%s'. Valid types: sandbox/sbx, job/j, agent/ag, function/fn/mcp", resourceType)
-}
-
-// parseDuration parses time duration strings like "3d", "1h", "10m", "24h"
-func parseDuration(duration string) (time.Duration, error) {
-	re := regexp.MustCompile(`^(\d+)([dhms])$`)
-	matches := re.FindStringSubmatch(duration)
-
-	if len(matches) != 3 {
-		return 0, fmt.Errorf("invalid duration format '%s'. Use format like: 3d, 1h, 10m, 24h", duration)
-	}
-
-	value, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, fmt.Errorf("invalid duration value: %v", err)
-	}
-
-	unit := matches[2]
-	switch unit {
-	case "d":
-		return time.Duration(value) * 24 * time.Hour, nil
-	case "h":
-		return time.Duration(value) * time.Hour, nil
-	case "m":
-		return time.Duration(value) * time.Minute, nil
-	case "s":
-		return time.Duration(value) * time.Second, nil
-	default:
-		return 0, fmt.Errorf("invalid duration unit '%s'. Use: d (days), h (hours), m (minutes), s (seconds)", unit)
-	}
 }
 
 // parseTimeFlag parses a time string flag value
@@ -265,7 +234,7 @@ Examples:
 				}
 			} else if period != "" {
 				// Use period (e.g., "3d", "1h")
-				duration, err := parseDuration(period)
+				duration, err := core.ParseDuration(period)
 				if err != nil {
 					core.PrintError("logs", err)
 					core.ExitWithError(err)

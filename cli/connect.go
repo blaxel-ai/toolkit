@@ -3,13 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"runtime"
+	"os"
 	"strings"
 
+	"github.com/blaxel-ai/toolkit/cli/connect"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 	blaxel "github.com/stainless-sdks/blaxel-go"
+	"golang.org/x/term"
 )
 
 func init() {
@@ -34,9 +35,12 @@ func ConnectSandboxCmd() *cobra.Command {
 		Use:     "sandbox [sandbox-name]",
 		Aliases: []string{"sb", "sbx"},
 		Short:   "Connect to a sandbox environment",
-		Long: `Connect to a sandbox environment by opening a terminal in your browser.
+		Long: `Connect to a sandbox environment with an interactive terminal session.
 
-This command opens a web-based terminal interface for your sandbox.
+This command opens a direct terminal connection to your sandbox, similar to SSH.
+The terminal supports full ANSI colors, cursor movement, and interactive applications.
+
+Press Ctrl+D to disconnect from the sandbox.
 
 Examples:
   bl connect sandbox my-sandbox
@@ -49,6 +53,13 @@ Examples:
 			ctx := cmd.Context()
 			if ctx == nil {
 				ctx = context.Background()
+			}
+
+			// Check if stdin is a terminal
+			if !term.IsTerminal(int(os.Stdin.Fd())) {
+				err := fmt.Errorf("this command requires an interactive terminal")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
 			// Get the current workspace
@@ -114,34 +125,31 @@ Examples:
 			if sandboxURL == "" {
 				sandboxURL = blaxel.BuildSandboxURL(workspace, sandboxName)
 			}
-			terminalURL := fmt.Sprintf("%s/terminal?token=%s", sandboxURL, token)
 
-			// Open in browser
-			core.Print(fmt.Sprintf("Opening terminal for sandbox '%s' in browser...\n", sandboxName))
-			if err := openBrowser(terminalURL); err != nil {
-				// If browser fails, print the URL for manual access
-				core.Print(fmt.Sprintf("Could not open browser automatically. Please open this URL:\n%s\n", terminalURL))
+			// Clear the terminal before connecting
+			fmt.Print("\033[2J\033[H")
+
+			// Print connection info
+			core.Print(fmt.Sprintf("Connecting to sandbox '%s'...\n", sandboxName))
+			core.Print("Press Ctrl+D to disconnect\n\n")
+
+			// Create and run terminal client
+			terminalClient, err := connect.NewTerminalClient(sandboxURL, token)
+			if err != nil {
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
+			defer terminalClient.Close()
+
+			// Run the terminal session (blocks until exit)
+			if err := terminalClient.Run(ctx); err != nil {
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
+			}
+
+			core.Print("\nDisconnected from sandbox.\n")
 		},
 	}
 
 	return cmd
-}
-
-// openBrowser opens the specified URL in the default browser
-func openBrowser(url string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "linux":
-		cmd = exec.Command("xdg-open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-
-	return cmd.Start()
 }
