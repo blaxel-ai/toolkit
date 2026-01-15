@@ -3,13 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/blaxel-ai/toolkit/cli/connect"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/cli/sandbox"
 	"github.com/blaxel-ai/toolkit/sdk"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func init() {
@@ -30,38 +31,21 @@ func ConnectCmd() *cobra.Command {
 }
 
 func ConnectSandboxCmd() *cobra.Command {
-	var debug bool
-	var url string
-
 	cmd := &cobra.Command{
 		Use:     "sandbox [sandbox-name]",
 		Aliases: []string{"sb", "sbx"},
 		Short:   "Connect to a sandbox environment",
-		Long: `Connect to a sandbox environment using an interactive shell interface.
+		Long: `Connect to a sandbox environment with an interactive terminal session.
 
-This command provides a terminal-like interface for:
-- Executing commands in the sandbox
-- Browsing files and directories
-- Managing the sandbox environment
+This command opens a direct terminal connection to your sandbox, similar to SSH.
+The terminal supports full ANSI colors, cursor movement, and interactive applications.
 
-The shell connects to your sandbox via MCP (Model Control Protocol) over WebSocket.
-
-Limitations:
-- Interactive commands (vim, nano, less, top) are not supported
-- Long-running commands may experience timeouts or interruptions
-- Use non-interactive alternatives (cat, echo, ps) instead
-
-Keyboard Shortcuts:
-- Enter: Execute command
-- ↑/↓: Navigate command history
-- Ctrl+L: Clear screen
-- Ctrl+C: Exit sandbox shell
+Press Ctrl+D to disconnect from the sandbox.
 
 Examples:
   bl connect sandbox my-sandbox
   bl connect sb my-sandbox
-  bl connect sandbox production-env
-  bl connect sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox`,
+  bl connect sbx production-env`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			sandboxName := args[0]
@@ -70,7 +54,15 @@ Examples:
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			// Get the current workspace from SDK context
+
+			// Check if stdin is a terminal
+			if !term.IsTerminal(int(os.Stdin.Fd())) {
+				err := fmt.Errorf("this command requires an interactive terminal")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
+			}
+
+			// Get the current workspace
 			currentContext := sdk.CurrentContext()
 			workspace := currentContext.Workspace
 			if workspace == "" {
@@ -79,100 +71,119 @@ Examples:
 				core.ExitWithError(err)
 			}
 
-			if url == "" {
-				client := core.GetClient()
-				// First, try to get the specific sandbox directly (more efficient)
-				response, err := client.GetSandboxWithResponse(ctx, sandboxName, &sdk.GetSandboxParams{})
-				if err != nil {
-					err = fmt.Errorf("error getting sandbox: %w", err)
-					core.PrintError("Connect", err)
-					core.ExitWithError(err)
-				}
-
-				if response.StatusCode() == 200 {
-					// Sandbox found, get the URL from metadata
-					if response.JSON200.Metadata.Url != nil && *response.JSON200.Metadata.Url != "" {
-						url = *response.JSON200.Metadata.Url
-					}
-				} else if response.StatusCode() == 404 {
-					// Sandbox not found, provide helpful error message with available sandboxes
-					err := fmt.Errorf("sandbox '%s' not found", sandboxName)
-					core.PrintError("Connect", err)
-
-					// Now list sandboxes to show available options
-					listResponse, listErr := client.ListSandboxesWithResponse(ctx)
-					if listErr == nil && listResponse.StatusCode() == 200 && listResponse.JSON200 != nil {
-						sandboxes := *listResponse.JSON200
-						if len(sandboxes) > 0 {
-							names := make([]string, 0, len(sandboxes))
-							for _, sandbox := range sandboxes {
-								if sandbox.Metadata != nil && sandbox.Metadata.Name != nil {
-									names = append(names, *sandbox.Metadata.Name)
-								}
-							}
-							if len(names) > 0 {
-								core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
-							}
-						}
-					}
-					core.Print(fmt.Sprintf("Create a new sandbox here: https://app.blaxel.ai/%s/global-agentic-network/sandboxes\n", workspace))
-					core.ExitWithError(err)
-				} else {
-					// Other error
-					err := fmt.Errorf("error getting sandbox: %s", response.Status())
-					core.PrintError("Connect", err)
-					core.ExitWithError(err)
-				}
-			}
-			// Prepare authentication headers based on available credentials
-			authHeaders := make(map[string]string)
-			// Load credentials for the workspace
+			// Load credentials
 			credentials := sdk.LoadCredentials(workspace)
 			if !credentials.IsValid() {
 				err := fmt.Errorf("no valid credentials found. Please run 'bl login' first")
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
-			if credentials.APIKey != "" {
-				authHeaders["X-Blaxel-Api-Key"] = credentials.APIKey
-			} else if credentials.AccessToken != "" {
-				authHeaders["Authorization"] = "Bearer " + credentials.AccessToken
-			} else if credentials.ClientCredentials != "" {
-				authHeaders["Authorization"] = "Basic " + credentials.ClientCredentials
+
+			// Refresh token if needed before connecting to websocket
+			apiURL := core.GetBaseURL()
+			authProvider := sdk.GetAuthProvider(credentials, workspace, apiURL)
+
+			// Try to refresh token based on auth provider type
+			var token string
+			switch p := authProvider.(type) {
+			case *sdk.BearerToken:
+				if err := p.RefreshIfNeeded(); err != nil {
+					core.PrintError("Connect", fmt.Errorf("failed to refresh token: %w", err))
+					core.ExitWithError(err)
+				}
+				token = p.GetCredentials().AccessToken
+			case *sdk.ClientCredentials:
+				if err := p.RefreshIfNeeded(); err != nil {
+					core.PrintError("Connect", fmt.Errorf("failed to refresh token: %w", err))
+					core.ExitWithError(err)
+				}
+				token = p.GetCredentials().AccessToken
+			default:
+				// Fallback for API key or other providers
+				token = credentials.AccessToken
+				if token == "" {
+					token = credentials.APIKey
+				}
 			}
 
-			// Use default URL if none provided
-			if url == "" {
-				url = fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName)
+			if token == "" {
+				err := fmt.Errorf("no access token or API key found. Please run 'bl login' first")
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
 			}
 
-			// Create the MCP-based sandbox shell with custom URL
-			shell, err := sandbox.NewSandboxShellWithURL(ctx, workspace, sandboxName, url, authHeaders)
+			// Get the sandbox to retrieve its URL
+			client := core.GetClient()
+			response, err := client.GetSandboxWithResponse(ctx, sandboxName, &sdk.GetSandboxParams{})
 			if err != nil {
-				err = fmt.Errorf("failed to connect to sandbox: %w", err)
+				err = fmt.Errorf("error getting sandbox: %w", err)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
 
-			// Initialize and run the Bubble Tea program
-			p := tea.NewProgram(shell, tea.WithAltScreen(), tea.WithMouseCellMotion())
+			if response.StatusCode() == 404 {
+				err := fmt.Errorf("sandbox '%s' not found", sandboxName)
+				core.PrintError("Connect", err)
 
-			if debug {
-				core.Print("Debug: Starting shell interface...")
+				// List available sandboxes
+				listResponse, listErr := client.ListSandboxesWithResponse(ctx)
+				if listErr == nil && listResponse.StatusCode() == 200 && listResponse.JSON200 != nil {
+					sandboxes := *listResponse.JSON200
+					if len(sandboxes) > 0 {
+						names := make([]string, 0, len(sandboxes))
+						for _, sb := range sandboxes {
+							if sb.Metadata != nil && sb.Metadata.Name != nil {
+								names = append(names, *sb.Metadata.Name)
+							}
+						}
+						if len(names) > 0 {
+							core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
+						}
+					}
+				}
+				core.Print(fmt.Sprintf("Create a new sandbox here: %s/%s/global-agentic-network/sandboxes\n", core.GetAppURL(), workspace))
+				core.ExitWithError(err)
 			}
 
-			core.SetInteractiveMode(true)
-			if _, err := p.Run(); err != nil {
-				core.SetInteractiveMode(false)
-				err = fmt.Errorf("failed to run sandbox connection: %w", err)
+			if response.StatusCode() != 200 {
+				err := fmt.Errorf("error getting sandbox: %s", response.Status())
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
-			core.SetInteractiveMode(false)
+
+			// Get sandbox URL
+			sandboxURL := ""
+			if response.JSON200 != nil && response.JSON200.Metadata != nil && response.JSON200.Metadata.Url != nil {
+				sandboxURL = *response.JSON200.Metadata.Url
+			}
+			if sandboxURL == "" {
+				sandboxURL = fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName)
+			}
+
+			// Clear the terminal before connecting
+			fmt.Print("\033[2J\033[H")
+
+			// Print connection info
+			core.Print(fmt.Sprintf("Connecting to sandbox '%s'...\n", sandboxName))
+			core.Print("Press Ctrl+D to disconnect\n\n")
+
+			// Create and run terminal client
+			terminalClient, err := connect.NewTerminalClient(sandboxURL, token)
+			if err != nil {
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
+			}
+			defer terminalClient.Close()
+
+			// Run the terminal session (blocks until exit)
+			if err := terminalClient.Run(ctx); err != nil {
+				core.PrintError("Connect", err)
+				core.ExitWithError(err)
+			}
+
+			core.Print("\nDisconnected from sandbox.\n")
 		},
 	}
 
-	cmd.Flags().BoolVar(&debug, "debug", false, "Enable debug mode")
-	cmd.Flags().StringVar(&url, "url", "", "Custom WebSocket URL for MCP connection (defaults to wss://run.blaxel.ai/$WORKSPACE/sandboxes/$SANDBOX_NAME)")
 	return cmd
 }
