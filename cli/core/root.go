@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	"github.com/stainless-sdks/blaxel-go/option"
 	"golang.org/x/term"
 )
 

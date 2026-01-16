@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	blaxel "github.com/stainless-sdks/blaxel-go"
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
 )
 

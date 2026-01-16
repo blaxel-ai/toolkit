@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 var (

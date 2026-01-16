@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

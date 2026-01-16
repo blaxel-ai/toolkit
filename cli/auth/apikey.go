@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/fatih/color"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func LoginApiKey(workspace string) {

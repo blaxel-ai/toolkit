@@ -17,6 +17,7 @@ import (
 	"archive/zip"
 	"net/http"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
@@ -24,7 +25,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	"github.com/stainless-sdks/blaxel-go/option"
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 )
 
 func TestJobExecutions(t *testing.T) {
@@ -77,7 +77,7 @@ func TestJobExecutions(t *testing.T) {
 			return
 		}
 
-		executionID := execution.Metadata.ID
+		executionID := execution.ExecutionID
 		t.Logf("Created execution: %s", executionID)
 
 		// Get the execution

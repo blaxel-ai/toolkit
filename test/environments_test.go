@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	blaxel "github.com/stainless-sdks/blaxel-go"
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 func TestDefaultEnvironment(t *testing.T) {
@@ -322,5 +322,3 @@ func BenchmarkSetEnvironment(b *testing.B) {
 		}
 	}
 }
-
-

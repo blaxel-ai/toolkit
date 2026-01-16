@@ -3,10 +3,10 @@ package cli
 import (
 	"fmt"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func init() {

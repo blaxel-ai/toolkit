@@ -3,8 +3,8 @@ package auth
 import (
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func TestCredentialsTypes(t *testing.T) {

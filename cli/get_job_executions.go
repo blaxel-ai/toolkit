@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // HandleJobNestedResource handles nested resources for jobs (like executions)

@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"strings"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	requestoption "github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/chat"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	requestoption "github.com/stainless-sdks/blaxel-go/option"
 )
 
 func init() {

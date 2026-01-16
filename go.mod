@@ -7,6 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
+	github.com/blaxel-ai/sdk-go v0.1.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -19,7 +20,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/qeesung/image2ascii v1.0.1
 	github.com/spf13/cobra v1.8.1
-	github.com/stainless-sdks/blaxel-go v0.0.0-20260108164051-2f7ad7d06893
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/term v0.29.0
 	gopkg.in/yaml.v2 v2.4.0

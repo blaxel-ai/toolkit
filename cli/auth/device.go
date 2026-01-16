@@ -9,9 +9,9 @@ import (
 	"os/exec"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/charmbracelet/huh"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // DeviceLogin represents a device login request

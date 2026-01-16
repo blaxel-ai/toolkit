@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 type Field struct {

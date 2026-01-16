@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	"github.com/stainless-sdks/blaxel-go/option"
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 )
 
 // WorkspaceLister interface for listing workspaces (allows mocking)

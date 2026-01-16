@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	"github.com/stainless-sdks/blaxel-go/option"
 )
 
 // BuildLogWatcher watches build logs for a resource

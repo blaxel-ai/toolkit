@@ -3,8 +3,8 @@ package auth
 import (
 	"fmt"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 func LoginClientCredentials(workspace string, clientCredentials string) {

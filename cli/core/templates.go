@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/charmbracelet/huh/spinner"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 type Templates []Template

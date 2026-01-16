@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 )
 
 // Note: Image commands are integrated directly into get.go and delete.go

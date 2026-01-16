@@ -94,7 +94,7 @@ make build
 make test
 
 # Update SDK dependency
-go get -u github.com/stainless-sdks/blaxel-go@latest
+go get -u github.com/blaxel-ai/sdk-go@latest
 ```
 
 ## Go SDK
@@ -103,8 +103,8 @@ The toolkit uses the Blaxel Go SDK for programmatic access to Blaxel APIs:
 
 ```go
 import (
-    blaxel "github.com/stainless-sdks/blaxel-go"
-    "github.com/stainless-sdks/blaxel-go/option"
+    blaxel "github.com/blaxel-ai/sdk-go"
+    "github.com/blaxel-ai/sdk-go/option"
 )
 
 // Create a client with API key

@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/connect"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
 	"golang.org/x/term"
 )
 

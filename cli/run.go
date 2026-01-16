@@ -11,13 +11,13 @@ import (
 	"strings"
 	"sync"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
 	"github.com/creack/pty"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
-	blaxel "github.com/stainless-sdks/blaxel-go"
-	"github.com/stainless-sdks/blaxel-go/option"
 	"gopkg.in/yaml.v3"
 )
 
