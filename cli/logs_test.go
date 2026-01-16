@@ -79,7 +79,7 @@ func TestParseDuration(t *testing.T) {
 		{"invalid format", "3x", 0, true},
 		{"no number", "d", 0, true},
 		{"empty", "", 0, true},
-		{"missing unit", "123", 0, true},
+		{"plain number as seconds", "123", 123 * time.Second, false},
 		{"invalid chars", "abc", 0, true},
 		{"negative", "-3d", 0, true},
 	}
