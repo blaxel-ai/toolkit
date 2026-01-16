@@ -333,7 +333,7 @@ func getModelDefaultPath(resourceName string) string {
 
 		integrationName := model.Spec.Runtime.Type
 		if integrationName != nil {
-			res, err := client.GetIntegration(context.Background(), *integrationName)
+			res, err := client.GetIntegration(context.Background(), string(*integrationName))
 			if err == nil {
 				defer func() { _ = res.Body.Close() }()
 				if res.StatusCode == 200 {
