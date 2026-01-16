@@ -23,7 +23,6 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl chat](bl_chat.md)	 - Chat with an agent
 * [bl completion](bl_completion.md)	 - Generate the autocompletion script for the specified shell
 * [bl connect](bl_connect.md)	 - Connect into your sandbox resources
-* [bl create-sandbox](bl_create-sandbox.md)	 - Deprecated: use 'bl new sandbox' instead
 * [bl delete](bl_delete.md)	 - Delete a resource
 * [bl deploy](bl_deploy.md)	 - Deploy on blaxel
 * [bl get](bl_get.md)	 - Get a resource

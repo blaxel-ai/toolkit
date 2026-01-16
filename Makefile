@@ -28,7 +28,6 @@ build-dev:
 doc:
 	rm -rf docs
 	go run main.go docs --format=markdown --output=docs
-	rm docs/bl_create-sandbox.md
 
 lint:
 	golangci-lint run

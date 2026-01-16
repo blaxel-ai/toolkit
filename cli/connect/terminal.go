@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
@@ -118,7 +117,7 @@ func (t *TerminalClient) Run(ctx context.Context) error {
 
 	// Handle Ctrl+C and other signals to restore terminal
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigChan, getInterruptSignals()...)
 	go func() {
 		select {
 		case <-sigChan:
@@ -128,7 +127,7 @@ func (t *TerminalClient) Run(ctx context.Context) error {
 		signal.Stop(sigChan)
 	}()
 
-	// Handle terminal resize (SIGWINCH)
+	// Handle terminal resize
 	t.setupResizeHandler()
 
 	// Start goroutine to read from websocket and write to stdout
@@ -215,43 +214,6 @@ func (t *TerminalClient) writeLoop(ctx context.Context) {
 			}
 		}
 	}
-}
-
-// setupResizeHandler sets up handling for terminal resize events
-func (t *TerminalClient) setupResizeHandler() {
-	sigwinch := make(chan os.Signal, 1)
-	signal.Notify(sigwinch, syscall.SIGWINCH)
-
-	go func() {
-		for {
-			select {
-			case <-t.done:
-				signal.Stop(sigwinch)
-				return
-			case <-sigwinch:
-				t.sendResize()
-			}
-		}
-	}()
-}
-
-// sendResize sends the current terminal size to the remote terminal
-func (t *TerminalClient) sendResize() {
-	cols, rows, err := term.GetSize(t.stdout)
-	if err != nil {
-		return
-	}
-
-	msg := TerminalMessage{
-		Type: "resize",
-		Cols: cols,
-		Rows: rows,
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	_ = t.conn.WriteJSON(msg)
 }
 
 // restoreTerminal restores the terminal to its original state

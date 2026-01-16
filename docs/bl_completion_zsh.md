@@ -13,21 +13,29 @@ Generate the autocompletion script for the zsh shell.
 If shell completion is not already enabled in your environment you will need
 to enable it.  You can execute the following once:
 
-	echo "autoload -U compinit; compinit" >> ~/.zshrc
+```bash
+echo "autoload -U compinit; compinit" >> ~/.zshrc
+```
 
 To load completions in your current shell session:
 
-	source <(bl completion zsh)
+```bash
+eval "$(bl completion zsh)"
+```
 
 To load completions for every new session, execute once:
 
 #### Linux:
 
-	bl completion zsh > "${fpath[1]}/_bl"
+```bash
+bl completion zsh > "${fpath[1]}/_bl"
+```
 
 #### macOS:
 
-	bl completion zsh > $(brew --prefix)/share/zsh/site-functions/_bl
+```bash
+bl completion zsh > $(brew --prefix)/share/zsh/site-functions/_bl
+```
 
 You will need to start a new shell for this setup to take effect.
 

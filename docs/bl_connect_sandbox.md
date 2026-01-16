@@ -8,31 +8,17 @@ Connect to a sandbox environment
 
 ### Synopsis
 
-Connect to a sandbox environment using an interactive shell interface.
+Connect to a sandbox environment with an interactive terminal session.
 
-This command provides a terminal-like interface for:
-- Executing commands in the sandbox
-- Browsing files and directories
-- Managing the sandbox environment
+This command opens a direct terminal connection to your sandbox, similar to SSH.
+The terminal supports full ANSI colors, cursor movement, and interactive applications.
 
-The shell connects to your sandbox via MCP (Model Control Protocol) over WebSocket.
-
-Limitations:
-- Interactive commands (vim, nano, less, top) are not supported
-- Long-running commands may experience timeouts or interruptions
-- Use non-interactive alternatives (cat, echo, ps) instead
-
-Keyboard Shortcuts:
-- Enter: Execute command
-- ↑/↓: Navigate command history
-- Ctrl+L: Clear screen
-- Ctrl+C: Exit sandbox shell
+Press Ctrl+D to disconnect from the sandbox.
 
 Examples:
   bl connect sandbox my-sandbox
   bl connect sb my-sandbox
-  bl connect sandbox production-env
-  bl connect sandbox my-sandbox --url wss://custom.domain.com/sandbox/my-sandbox
+  bl connect sbx production-env
 
 ```
 bl connect sandbox [sandbox-name] [flags]
@@ -41,9 +27,7 @@ bl connect sandbox [sandbox-name] [flags]
 ### Options
 
 ```
-      --debug        Enable debug mode
-  -h, --help         help for sandbox
-      --url string   Custom WebSocket URL for MCP connection (defaults to wss://run.blaxel.ai/$WORKSPACE/sandboxes/$SANDBOX_NAME)
+  -h, --help   help for sandbox
 ```
 
 ### Options inherited from parent commands
