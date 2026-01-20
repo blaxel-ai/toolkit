@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
 // HandleSandboxNestedResource handles nested resources for sandboxes (like processes)
 // Returns true if a nested resource was handled, false if this is a regular get
-func HandleSandboxNestedResource(args []string) bool {
+func HandleSandboxNestedResource(args []string, follow bool) bool {
 	if len(args) < 2 {
 		return false
 	}
@@ -26,7 +30,11 @@ func HandleSandboxNestedResource(args []string) bool {
 			processName := args[2]
 			// Check if logs subcommand is provided
 			if len(args) >= 4 && (args[3] == "logs" || args[3] == "log") {
-				getSandboxProcessLogs(sandboxName, processName)
+				if follow {
+					streamSandboxProcessLogs(sandboxName, processName)
+				} else {
+					getSandboxProcessLogs(sandboxName, processName)
+				}
 			} else {
 				// Get specific process
 				getSandboxProcess(sandboxName, processName)
@@ -217,5 +225,61 @@ func getSandboxProcessLogs(sandboxName, processName string) {
 				fmt.Fprint(os.Stderr, logs.Stderr)
 			}
 		}
+	}
+}
+
+// streamSandboxProcessLogs streams process logs in real-time using SDK's StreamLogs
+func streamSandboxProcessLogs(sandboxName, processName string) {
+	ctx := context.Background()
+	client := core.GetClient()
+
+	// Get the sandbox instance
+	sandboxInstance, err := client.Sandboxes.GetInstance(ctx, sandboxName)
+	if err != nil {
+		core.PrintError("Get", fmt.Errorf("failed to get sandbox instance '%s': %w", sandboxName, err))
+		os.Exit(1)
+	}
+
+	// Handle Ctrl+C gracefully
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	core.PrintInfo(fmt.Sprintf("Streaming logs for process '%s' in sandbox '%s'... (Press Ctrl+C to stop)", processName, sandboxName))
+
+	// Start streaming logs using SDK's StreamLogs
+	streamControl := sandboxInstance.Process.StreamLogs(ctx, processName, blaxel.ProcessStreamOptions{
+		OnLog: func(log string) {
+			printWithNewline(log)
+		},
+		OnStdout: func(stdout string) {
+			printWithNewline(stdout)
+		},
+		OnStderr: func(stderr string) {
+			printWithNewlineStderr(stderr)
+		},
+		OnError: func(err error) {
+			core.PrintError("Stream", err)
+		},
+	})
+
+	// Wait for interrupt signal
+	<-sigChan
+	streamControl.Close()
+	fmt.Println("\nStopped streaming logs.")
+}
+
+// printWithNewline prints a string and ensures it ends with a newline
+func printWithNewline(s string) {
+	fmt.Print(s)
+	if !strings.HasSuffix(s, "\n") {
+		fmt.Println()
+	}
+}
+
+// printWithNewlineStderr prints a string to stderr and ensures it ends with a newline
+func printWithNewlineStderr(s string) {
+	fmt.Fprint(os.Stderr, s)
+	if !strings.HasSuffix(s, "\n") {
+		fmt.Fprintln(os.Stderr)
 	}
 }

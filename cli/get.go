@@ -93,7 +93,10 @@ The command can list all resources of a type or get details for a specific one.`
   bl get sandbox my-sandbox processes my-process
 
   # Get logs for a process in a sandbox
-  bl get sandbox my-sandbox processes my-process logs`,
+  bl get sandbox my-sandbox processes my-process logs
+
+  # Stream process logs in real-time (like tail -f)
+  bl get sandbox my-sandbox processes my-process logs -f`,
 	}
 	var watch bool
 	resources := core.GetResources()
@@ -114,6 +117,9 @@ The command can list all resources of a type or get details for a specific one.`
 		// Capture resource in closure for ValidArgsFunction
 		resourceKind := resource.Kind
 
+		// Follow flag for streaming process logs (sandbox only)
+		var follow bool
+
 		subcmd := &cobra.Command{
 			Use:               resource.Plural,
 			Aliases:           aliases,
@@ -130,7 +136,7 @@ The command can list all resources of a type or get details for a specific one.`
 
 				if resource.Kind == "Sandbox" && len(args) >= 2 {
 					// Check if this is a nested resource request (e.g., processes)
-					if HandleSandboxNestedResource(args) {
+					if HandleSandboxNestedResource(args, follow) {
 						return
 					}
 				}
@@ -170,6 +176,12 @@ The command can list all resources of a type or get details for a specific one.`
 				}
 			},
 		}
+
+		// Add -f flag for streaming process logs (sandbox only)
+		if resource.Kind == "Sandbox" {
+			subcmd.Flags().BoolVarP(&follow, "follow", "f", false, "Stream process logs in real-time")
+		}
+
 		cmd.AddCommand(subcmd)
 	}
 	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
