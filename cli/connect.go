@@ -149,14 +149,14 @@ Examples:
 				core.ExitWithError(err)
 			}
 
-		// Get sandbox URL
-		sandboxURL := ""
-		if response.JSON200 != nil && response.JSON200.Metadata.Url != nil {
-			sandboxURL = *response.JSON200.Metadata.Url
-		}
-		if sandboxURL == "" {
-			sandboxURL = fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName)
-		}
+			// Get sandbox URL
+			sandboxURL := ""
+			if response.JSON200 != nil && response.JSON200.Metadata.Url != nil {
+				sandboxURL = *response.JSON200.Metadata.Url
+			}
+			if sandboxURL == "" {
+				sandboxURL = fmt.Sprintf("%s/%s/sandboxes/%s", core.GetRunURL(), workspace, sandboxName)
+			}
 
 			// Clear the terminal before connecting
 			fmt.Print("\033[2J\033[H")
