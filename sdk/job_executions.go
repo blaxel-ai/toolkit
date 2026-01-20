@@ -99,7 +99,7 @@ func (h *JobExecutionHelper) GetStatus(ctx context.Context, executionID string) 
 		return "UNKNOWN", nil
 	}
 
-	return *execution.Status, nil
+	return string(*execution.Status), nil
 }
 
 // Cancel cancels a specific job execution

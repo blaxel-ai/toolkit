@@ -132,9 +132,7 @@ Examples:
 					if len(sandboxes) > 0 {
 						names := make([]string, 0, len(sandboxes))
 						for _, sb := range sandboxes {
-							if sb.Metadata != nil && sb.Metadata.Name != nil {
-								names = append(names, *sb.Metadata.Name)
-							}
+							names = append(names, sb.Metadata.Name)
 						}
 						if len(names) > 0 {
 							core.Print(fmt.Sprintf("Available sandboxes: %s\n", strings.Join(names, ", ")))
@@ -153,7 +151,7 @@ Examples:
 
 			// Get sandbox URL
 			sandboxURL := ""
-			if response.JSON200 != nil && response.JSON200.Metadata != nil && response.JSON200.Metadata.Url != nil {
+			if response.JSON200 != nil && response.JSON200.Metadata.Url != nil {
 				sandboxURL = *response.JSON200.Metadata.Url
 			}
 			if sandboxURL == "" {
