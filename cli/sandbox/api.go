@@ -47,7 +47,7 @@ func GetSandboxURL(ctx context.Context, workspace, sandboxName string) (string, 
 
 	// Extract the URL from metadata
 	sandbox := response.JSON200
-	if sandbox != nil {
+	if sandbox != nil && sandbox.Metadata.Url != nil {
 		return *sandbox.Metadata.Url, nil
 	}
 
