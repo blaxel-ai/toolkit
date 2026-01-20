@@ -39,9 +39,10 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 
 func GetImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "image [resourceType/imageName[:tag]]",
-		Aliases: []string{"images", "img"},
-		Short:   "Get image information",
+		Use:               "image [resourceType/imageName[:tag]]",
+		Aliases:           []string{"images", "img"},
+		Short:             "Get image information",
+		ValidArgsFunction: GetImageValidArgsFunction(),
 		Long: `Get information about container images.
 
 Usage patterns:
@@ -345,9 +346,10 @@ func formatBytes(bytes int64) string {
 
 func DeleteImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "image resourceType/imageName[:tag] [resourceType/imageName[:tag]...]",
-		Aliases: []string{"images", "img"},
-		Short:   "Delete images or image tags",
+		Use:               "image resourceType/imageName[:tag] [resourceType/imageName[:tag]...]",
+		Aliases:           []string{"images", "img"},
+		Short:             "Delete images or image tags",
+		ValidArgsFunction: GetImageValidArgsFunction(),
 		Long: `Delete container images or specific tags.
 
 Usage patterns:

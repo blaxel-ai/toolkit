@@ -83,7 +83,17 @@ The command can list all resources of a type or get details for a specific one.`
   bl get job my-job execution <execution-id>
 
   # Monitor sandbox status
-  bl get sandbox my-sandbox --watch`,
+  bl get sandbox my-sandbox --watch
+
+  # List processes in a sandbox
+  bl get sandbox my-sandbox processes
+  bl get sbx my-sandbox ps
+
+  # Get specific process in a sandbox
+  bl get sandbox my-sandbox processes my-process
+
+  # Get logs for a process in a sandbox
+  bl get sandbox my-sandbox processes my-process logs`,
 	}
 	var watch bool
 	resources := core.GetResources()
@@ -101,15 +111,26 @@ The command can list all resources of a type or get details for a specific one.`
 			continue
 		}
 
+		// Capture resource in closure for ValidArgsFunction
+		resourceKind := resource.Kind
+
 		subcmd := &cobra.Command{
-			Use:     resource.Plural,
-			Aliases: aliases,
-			Short:   fmt.Sprintf("Get a %s", resource.Kind),
+			Use:               resource.Plural,
+			Aliases:           aliases,
+			Short:             fmt.Sprintf("Get a %s", resource.Kind),
+			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
-				// Special handling for nested resources (e.g., job executions)
+				// Special handling for nested resources (e.g., job executions, sandbox processes)
 				if resource.Kind == "Job" && len(args) >= 2 {
 					// Check if this is a nested resource request
 					if HandleJobNestedResource(args) {
+						return
+					}
+				}
+
+				if resource.Kind == "Sandbox" && len(args) >= 2 {
+					// Check if this is a nested resource request (e.g., processes)
+					if HandleSandboxNestedResource(args) {
 						return
 					}
 				}

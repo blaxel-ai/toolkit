@@ -29,9 +29,10 @@ func ChatCmd() *cobra.Command {
 	var headerFlags []string
 
 	cmd := &cobra.Command{
-		Use:   "chat [agent-name]",
-		Args:  cobra.ExactArgs(1),
-		Short: "Chat with an agent",
+		Use:               "chat [agent-name]",
+		Args:              cobra.ExactArgs(1),
+		Short:             "Chat with an agent",
+		ValidArgsFunction: GetChatValidArgsFunction(),
 		Long: `Start an interactive chat session with a deployed agent.
 
 This command opens a terminal-based chat interface where you can send messages

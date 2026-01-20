@@ -32,9 +32,10 @@ func ConnectCmd() *cobra.Command {
 
 func ConnectSandboxCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "sandbox [sandbox-name]",
-		Aliases: []string{"sb", "sbx"},
-		Short:   "Connect to a sandbox environment",
+		Use:               "sandbox [sandbox-name]",
+		Aliases:           []string{"sb", "sbx"},
+		Short:             "Connect to a sandbox environment",
+		ValidArgsFunction: GetConnectSandboxValidArgsFunction(),
 		Long: `Connect to a sandbox environment with an interactive terminal session.
 
 This command opens a direct terminal connection to your sandbox, similar to SSH.

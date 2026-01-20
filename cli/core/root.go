@@ -346,6 +346,26 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// completeWorkspaceNames returns a list of workspace names from the local config for shell completion
+func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	// Load config from ~/.blaxel/config.yaml
+	config, err := blaxel.LoadConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var names []string
+	for _, ws := range config.Workspaces {
+		if ws.Name != "" {
+			if toComplete == "" || strings.HasPrefix(ws.Name, toComplete) {
+				names = append(names, ws.Name)
+			}
+		}
+	}
+
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
@@ -355,6 +375,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
 	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
+
+	// Register workspace flag completion
+	_ = rootCmd.RegisterFlagCompletionFunc("workspace", completeWorkspaceNames)
 
 	// Add all registered commands to the root command
 	for _, cmdFunc := range commandRegistry {

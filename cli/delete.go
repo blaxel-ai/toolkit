@@ -113,10 +113,14 @@ separately if needed.`,
 			continue
 		}
 
+		// Capture resource kind in closure for ValidArgsFunction
+		resourceKind := resource.Kind
+
 		subcmd := &cobra.Command{
-			Use:     fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
-			Aliases: aliases,
-			Short:   fmt.Sprintf("Delete %s", resource.Singular),
+			Use:               fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
+			Aliases:           aliases,
+			Short:             fmt.Sprintf("Delete %s", resource.Singular),
+			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
 					err := fmt.Errorf("no resource name provided")

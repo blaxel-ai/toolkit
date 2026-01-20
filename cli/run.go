@@ -48,9 +48,10 @@ func RunCmd() *cobra.Command {
 	var concurrent int
 	var outputFormat string
 	cmd := &cobra.Command{
-		Use:   "run resource-type resource-name",
-		Args:  cobra.ExactArgs(2),
-		Short: "Run a resource on blaxel",
+		Use:               "run resource-type resource-name",
+		Args:              cobra.ExactArgs(2),
+		Short:             "Run a resource on blaxel",
+		ValidArgsFunction: GetRunValidArgsFunction(),
 		Long: `Execute a Blaxel resource with custom input data.
 
 Different resource types behave differently when run:

@@ -20,9 +20,10 @@ func ListOrSetWorkspacesCmd() *cobra.Command {
 	var current bool
 
 	cmd := &cobra.Command{
-		Use:     "workspaces [workspace]",
-		Aliases: []string{"ws", "workspace"},
-		Short:   "List all workspaces with the current workspace highlighted, set optionally a new current workspace",
+		Use:               "workspaces [workspace]",
+		Aliases:           []string{"ws", "workspace"},
+		Short:             "List all workspaces with the current workspace highlighted, set optionally a new current workspace",
+		ValidArgsFunction: GetWorkspaceValidArgsFunction(),
 		Long: `List and manage Blaxel workspaces.
 
 A workspace is an isolated environment within Blaxel that contains your

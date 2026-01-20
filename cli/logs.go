@@ -113,8 +113,9 @@ func LogsCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "logs RESOURCE_TYPE RESOURCE_NAME",
-		Short: "View logs for a resource",
+		Use:               "logs RESOURCE_TYPE RESOURCE_NAME",
+		Short:             "View logs for a resource",
+		ValidArgsFunction: GetLogsValidArgsFunction(),
 		Long: `View logs for Blaxel resources.
 
 The logs command displays logs for agents, jobs, sandboxes, and functions.
