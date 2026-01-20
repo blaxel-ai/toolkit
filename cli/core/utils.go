@@ -492,7 +492,7 @@ func CheckServerEnvUsage(folder string, language string) bool {
 	case "python":
 		extensions = []string{".py"}
 	case "typescript":
-		extensions = []string{".ts", ".js", ".tsx", ".jsx"}
+		extensions = []string{".mjs", ".mts", ".ts", ".js", ".tsx", ".jsx"}
 	case "go":
 		extensions = []string{".go"}
 	default:
