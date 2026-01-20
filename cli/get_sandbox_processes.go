@@ -11,6 +11,7 @@ import (
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"gopkg.in/yaml.v3"
 )
 
 // HandleSandboxNestedResource handles nested resources for sandboxes (like processes)
@@ -74,7 +75,14 @@ func listSandboxProcesses(sandboxName string) {
 		return
 	}
 
-	// Convert ProcessResponse structs to maps for output formatting
+	// Check output format
+	outputFormat := core.GetOutputFormat()
+	if outputFormat == "json" || outputFormat == "yaml" {
+		outputProcessData(processes, outputFormat)
+		return
+	}
+
+	// For table output, convert to maps
 	jsonData, err := json.Marshal(processes)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to marshal processes: %w", err))
@@ -102,7 +110,7 @@ func listSandboxProcesses(sandboxName string) {
 		},
 	}
 
-	core.Output(resource, slices, core.GetOutputFormat())
+	core.Output(resource, slices, outputFormat)
 }
 
 func getSandboxProcess(sandboxName, processName string) {
@@ -128,7 +136,14 @@ func getSandboxProcess(sandboxName, processName string) {
 		os.Exit(1)
 	}
 
-	// Convert ProcessResponse struct to map for output formatting
+	// Check output format
+	outputFormat := core.GetOutputFormat()
+	if outputFormat == "json" || outputFormat == "yaml" {
+		outputProcessData(process, outputFormat)
+		return
+	}
+
+	// For table output, convert to map
 	jsonData, err := json.Marshal(process)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to marshal process: %w", err))
@@ -157,7 +172,7 @@ func getSandboxProcess(sandboxName, processName string) {
 		},
 	}
 
-	core.Output(resource, []interface{}{processMap}, core.GetOutputFormat())
+	core.Output(resource, []interface{}{processMap}, outputFormat)
 }
 
 func getSandboxProcessLogs(sandboxName, processName string) {
@@ -226,6 +241,35 @@ func getSandboxProcessLogs(sandboxName, processName string) {
 			}
 		}
 	}
+}
+
+// outputProcessData outputs process data in JSON or YAML format
+func outputProcessData(data interface{}, format string) {
+	// First convert to JSON to handle unexported fields in SDK structs
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		core.PrintError("Get", fmt.Errorf("failed to marshal process data: %w", err))
+		os.Exit(1)
+	}
+
+	if format == "json" {
+		fmt.Println(string(jsonData))
+		return
+	}
+
+	// For YAML, unmarshal JSON to generic type first to avoid reflection issues
+	var genericData interface{}
+	if err := json.Unmarshal(jsonData, &genericData); err != nil {
+		core.PrintError("Get", fmt.Errorf("failed to unmarshal process data: %w", err))
+		os.Exit(1)
+	}
+
+	yamlData, err := yaml.Marshal(genericData)
+	if err != nil {
+		core.PrintError("Get", fmt.Errorf("failed to marshal process data to YAML: %w", err))
+		os.Exit(1)
+	}
+	fmt.Print(string(yamlData))
 }
 
 // streamSandboxProcessLogs streams process logs in real-time using SDK's StreamLogs
