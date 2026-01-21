@@ -291,7 +291,13 @@ var rootCmd = &cobra.Command{
 			"create-agent-app": true,
 		}
 
-		if !workspaceExemptCommands[cmd.Name()] {
+		// Check if command or its parent is exempt (for subcommands like "completion zsh")
+		isExempt := workspaceExemptCommands[cmd.Name()]
+		if !isExempt && cmd.Parent() != nil {
+			isExempt = workspaceExemptCommands[cmd.Parent().Name()]
+		}
+
+		if !isExempt {
 			// Check if BL_WORKSPACE is set or if there are workspaces in config
 			if workspace == "" {
 				cfg, _ := blaxel.LoadConfig()
@@ -542,6 +548,14 @@ func promptForTracking() {
 	// Skip if tracking is already configured
 	if blaxel.IsTrackingConfigured() {
 		return
+	}
+
+	// Skip for completion and version commands
+	if len(os.Args) > 1 {
+		cmd := os.Args[1]
+		if cmd == "completion" || cmd == "__complete" || cmd == "version" {
+			return
+		}
 	}
 
 	// Skip in CI environments
