@@ -15,7 +15,7 @@ func TestJobExecutions(t *testing.T) {
 	os.Setenv("BL_ENV", "dev")
 	core.SetEnvs()
 
-	workspace := "charles"
+	workspace := "charlou-dev"
 	jobName := "mk3"
 
 	// Get credentials
@@ -93,6 +93,123 @@ func TestJobExecutions(t *testing.T) {
 		} else {
 			t.Log("Execution cancelled successfully")
 		}
+	})
+
+	// Test running job without overrides
+	t.Run("Run Job Without Overrides", func(t *testing.T) {
+		tasks := []map[string]interface{}{
+			{"name": "Richard"},
+			{"name": "John"},
+		}
+
+		executionID, err := helper.Run(ctx, &tasks, nil)
+		if err != nil {
+			t.Errorf("Failed to run job: %v", err)
+			return
+		}
+
+		t.Logf("Created execution via Run: %s", executionID)
+
+		// Verify execution was created
+		execution, err := helper.Get(ctx, executionID)
+		if err != nil {
+			t.Errorf("Failed to get execution: %v", err)
+			return
+		}
+
+		t.Logf("Execution status: %s", *execution.Status)
+	})
+
+	// Test running job with memory override
+	t.Run("Run Job With Memory Override", func(t *testing.T) {
+		tasks := []map[string]interface{}{
+			{"name": "MemoryTest"},
+		}
+		memory := 2048
+		options := &sdk.RunOptions{
+			Memory: &memory,
+		}
+
+		executionID, err := helper.Run(ctx, &tasks, options)
+		if err != nil {
+			t.Errorf("Failed to run job: %v", err)
+			return
+		}
+
+		t.Logf("Created execution with memory override: %s", executionID)
+
+		// Verify execution was created
+		execution, err := helper.Get(ctx, executionID)
+		if err != nil {
+			t.Errorf("Failed to get execution: %v", err)
+			return
+		}
+
+		t.Logf("Execution status: %s", *execution.Status)
+	})
+
+	// Test running job with env overrides
+	t.Run("Run Job With Env Overrides", func(t *testing.T) {
+		tasks := []map[string]interface{}{
+			{"name": "EnvTest"},
+		}
+		env := map[string]interface{}{
+			"CUSTOM_VAR": "test_value",
+			"DEBUG_MODE": "true",
+		}
+		options := &sdk.RunOptions{
+			Env: &env,
+		}
+
+		executionID, err := helper.Run(ctx, &tasks, options)
+		if err != nil {
+			t.Errorf("Failed to run job: %v", err)
+			return
+		}
+
+		t.Logf("Created execution with env overrides: %s", executionID)
+
+		// Verify execution was created
+		execution, err := helper.Get(ctx, executionID)
+		if err != nil {
+			t.Errorf("Failed to get execution: %v", err)
+			return
+		}
+
+		t.Logf("Execution status: %s", *execution.Status)
+	})
+
+	// Test running job with both memory and env overrides
+	t.Run("Run Job With Both Overrides", func(t *testing.T) {
+		tasks := []map[string]interface{}{
+			{"name": "CombinedTest"},
+		}
+		memory := 1024
+		env := map[string]interface{}{
+			"TEST_ENV":  "production",
+			"LOG_LEVEL": "info",
+		}
+		options := &sdk.RunOptions{
+			Memory: &memory,
+			Env:    &env,
+		}
+
+		executionID, err := helper.Run(ctx, &tasks, options)
+		if err != nil {
+			t.Errorf("Failed to run job: %v", err)
+			return
+		}
+
+		t.Logf("Created execution with both overrides: %s", executionID)
+
+		// Verify execution was created
+		execution, err := helper.Get(ctx, executionID)
+		if err != nil {
+			t.Errorf("Failed to get execution: %v", err)
+			return
+		}
+
+		t.Logf("Execution status: %s", *execution.Status)
 	})
 }
 

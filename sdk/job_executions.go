@@ -115,3 +115,35 @@ func (h *JobExecutionHelper) Cancel(ctx context.Context, executionID string) err
 
 	return nil
 }
+
+// RunOptions contains optional parameters for job execution
+type RunOptions struct {
+	// Environment variable overrides (merged with job's environment)
+	Env *map[string]interface{}
+	// Memory override in megabytes (must be <= job's configured memory)
+	Memory *int
+	// Custom execution ID
+	ExecutionID *string
+}
+
+// Run executes the job with the provided tasks and optional overrides
+// This is a convenience wrapper around Create that accepts tasks and options separately
+func (h *JobExecutionHelper) Run(ctx context.Context, tasks *[]map[string]interface{}, options *RunOptions) (string, error) {
+	request := CreateJobExecutionRequest{
+		Tasks: tasks,
+	}
+
+	if options != nil {
+		if options.Env != nil {
+			request.Env = options.Env
+		}
+		if options.Memory != nil {
+			request.Memory = options.Memory
+		}
+		if options.ExecutionID != nil {
+			request.ExecutionId = options.ExecutionID
+		}
+	}
+
+	return h.Create(ctx, request)
+}
