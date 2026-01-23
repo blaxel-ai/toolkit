@@ -539,8 +539,12 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
-		if config.Region != "" {
-			Spec["region"] = config.Region
+		region := config.Region
+		if region == "" {
+			region = os.Getenv("BL_REGION")
+		}
+		if region != "" {
+			Spec["region"] = region
 		}
 		if config.Volumes != nil {
 			Spec["volumes"] = *config.Volumes
