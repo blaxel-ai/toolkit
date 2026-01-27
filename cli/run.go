@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/creack/pty"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
@@ -23,6 +25,11 @@ func init() {
 	core.RegisterCommand("run", func() *cobra.Command {
 		return RunCmd()
 	})
+}
+
+// Batch represents a batch of tasks for job execution
+type Batch struct {
+	Tasks []map[string]interface{} `json:"tasks"`
 }
 
 func RunCmd() *cobra.Command {
@@ -41,9 +48,10 @@ func RunCmd() *cobra.Command {
 	var concurrent int
 	var outputFormat string
 	cmd := &cobra.Command{
-		Use:   "run resource-type resource-name",
-		Args:  cobra.ExactArgs(2),
-		Short: "Run a resource on blaxel",
+		Use:               "run resource-type resource-name",
+		Args:              cobra.ExactArgs(2),
+		Short:             "Run a resource on blaxel",
+		ValidArgsFunction: GetRunValidArgsFunction(),
 		Long: `Execute a Blaxel resource with custom input data.
 
 Different resource types behave differently when run:
@@ -178,7 +186,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			if isJob && !isRawOutput {
 				core.PrintInfo(fmt.Sprintf("Starting job execution for '%s'...", resourceName))
 				// Parse and display batch info if available
-				var batch sdk.Batch
+				var batch Batch
 				if err := json.Unmarshal([]byte(data), &batch); err == nil && len(batch.Tasks) > 0 {
 					core.PrintInfo(fmt.Sprintf("Batch contains %d task(s)", len(batch.Tasks)))
 				}
@@ -190,9 +198,8 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				resourceType = "sandbox"
 			}
 
-			client := core.GetClient()
 			workspace := core.GetWorkspace()
-			res, err := client.Run(
+			res, err := runRequest(
 				context.Background(),
 				workspace,
 				resourceType,
@@ -312,55 +319,98 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	return cmd
 }
 
+// runRequest executes a request to a blaxel resource using the SDK client
+func runRequest(
+	ctx context.Context,
+	workspace string,
+	resourceType string,
+	resourceName string,
+	method string,
+	path string,
+	headers map[string]string,
+	params []string,
+	data string,
+	debug bool,
+	local bool,
+) (*http.Response, error) {
+	// Build request options
+	opts := []option.RequestOption{}
+
+	// Add query params
+	for _, param := range params {
+		parts := strings.SplitN(param, "=", 2)
+		if len(parts) == 2 {
+			opts = append(opts, option.WithQueryAdd(parts[0], parts[1]))
+		}
+	}
+
+	// Add custom headers
+	for k, v := range headers {
+		opts = append(opts, option.WithHeader(k, v))
+	}
+
+	// Ensure path starts with /
+	if path != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	if debug {
+		baseURL := blaxel.GetRunURL()
+		if local {
+			baseURL = "http://localhost:1338"
+		}
+		fullURL := fmt.Sprintf("%s/%s/%s/%s%s", baseURL, workspace, resourceType, resourceName, path)
+		if len(params) > 0 {
+			fullURL += "?" + strings.Join(params, "&")
+		}
+		core.Print(fmt.Sprintf("Request URL: %s", fullURL))
+		core.Print(fmt.Sprintf("Request Method: %s", method))
+		if data != "" {
+			core.Print(fmt.Sprintf("Request Body: %s", data))
+		}
+	}
+
+	// Parse request body if provided
+	var body []byte
+	if data != "" {
+		body = []byte(data)
+	}
+
+	// Use SDK client to make the request
+	client := core.GetClient()
+
+	if local {
+		// For local, build the full path manually
+		return client.RunLocal(ctx, method, path, body, opts...)
+	}
+
+	// Use Run for remote execution
+	return client.Run(ctx, workspace, resourceType, resourceName, method, path, body, opts...)
+}
+
 func getModelDefaultPath(resourceName string) string {
 	client := core.GetClient()
-	res, err := client.GetModel(context.Background(), resourceName)
+	model, err := client.Models.Get(context.Background(), resourceName)
 	if err != nil {
 		return ""
 	}
-	defer func() { _ = res.Body.Close() }()
 
-	if res.StatusCode == 200 {
-		var model sdk.Model
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			return ""
-		}
-		err = json.Unmarshal(body, &model)
-		if err != nil {
-			return ""
-		}
-
-		integrationName := model.Spec.Runtime.Type
-		if integrationName != nil {
-			res, err := client.GetIntegration(context.Background(), string(*integrationName))
-			if err == nil {
-				defer func() { _ = res.Body.Close() }()
-				if res.StatusCode == 200 {
-					var integrationResponse sdk.Integration
-					body, err := io.ReadAll(res.Body)
-					if err != nil {
-						return ""
-					}
-
-					err = json.Unmarshal(body, &integrationResponse)
-					if err != nil {
-						return ""
-					}
-					endpoints := integrationResponse.Endpoints
-					if endpoints != nil {
-						key := ""
-						for path := range *endpoints {
-							if key == "" || strings.Contains(path, "completions") {
-								key = path
-							}
-						}
-						if key != "" {
-							core.PrintInfo(fmt.Sprintf("Using default path: %s, you can change it by specifying it with --path PATH", key))
-						}
-						return key
+	integrationName := string(model.Spec.Runtime.Type)
+	if integrationName != "" {
+		integration, err := client.Integrations.Get(context.Background(), integrationName)
+		if err == nil {
+			endpoints := integration.Endpoints
+			if endpoints != nil {
+				key := ""
+				for path := range endpoints {
+					if key == "" || strings.Contains(path, "completions") {
+						key = path
 					}
 				}
+				if key != "" {
+					core.PrintInfo(fmt.Sprintf("Using default path: %s, you can change it by specifying it with --path PATH", key))
+				}
+				return key
 			}
 		}
 	}
@@ -376,7 +426,7 @@ func runJobLocally(data string, folder string, config core.Config, concurrent in
 			core.PrintError("Run", fmt.Errorf("could not load .env file: %w", err))
 		}
 	}
-	batch := sdk.Batch{}
+	batch := Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
 		err = fmt.Errorf("invalid JSON: %w", err)

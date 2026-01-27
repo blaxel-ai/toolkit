@@ -3,21 +3,21 @@ package core
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/charmbracelet/huh/spinner"
 )
 
 type Templates []Template
 type Template struct {
-	sdk.Template
+	blaxel.Template
 	Language string
 	Type     string
 }
@@ -43,24 +43,30 @@ type IgnoreDir struct {
 
 func RetrieveTemplates(templateType string) (Templates, error) {
 	templates := Templates{}
-	resp, err := client.ListTemplatesWithResponse(context.Background())
-	if err != nil {
-		return nil, err
+	client := GetClient()
+	if client == nil {
+		return nil, fmt.Errorf("client not initialized")
 	}
-	if resp.StatusCode() != http.StatusOK {
-		if resp.StatusCode() == http.StatusUnauthorized || resp.StatusCode() == http.StatusForbidden {
-			//nolint:staticcheck
+	resp, err := client.Templates.List(context.Background())
+	if err != nil {
+		// Check if it's an authentication error
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "403") {
 			return nil, fmt.Errorf("Authentication required. Please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
 		}
-		return nil, fmt.Errorf("server error: received HTTP %d response", resp.StatusCode())
+		return nil, err
 	}
-	for _, template := range *resp.JSON200 {
-		if template.Topics != nil {
-			if slices.Contains(*template.Topics, templateType) {
+	if resp == nil {
+		return templates, nil
+	}
+	for _, template := range *resp {
+		if len(template.Topics) > 0 {
+			topics := template.Topics
+			if slices.Contains(topics, templateType) {
 				language := ""
-				if slices.Contains(*template.Topics, "python") {
+				if slices.Contains(topics, "python") {
 					language = "python"
-				} else if slices.Contains(*template.Topics, "typescript") {
+				} else if slices.Contains(topics, "typescript") {
 					language = "typescript"
 				}
 				templates = append(templates, Template{
@@ -242,7 +248,7 @@ func (t Templates) FilterByLanguage(language string) Templates {
 
 func (t Templates) Find(name string) (Template, error) {
 	for _, template := range t {
-		if *template.Name == name {
+		if template.Name == name {
 			return template, nil
 		}
 	}
@@ -263,7 +269,7 @@ func (t Template) Clone(opts TemplateOptions) error {
 		return fmt.Errorf("git is not available on your system. Please install git and try again")
 	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
-	cloneDirCmd := exec.Command("git", "clone", "-b", branch, *t.Url, opts.Directory)
+	cloneDirCmd := exec.Command("git", "clone", "-b", branch, t.URL, opts.Directory)
 	if err := cloneDirCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone templates repository: %w", err)
 	}
@@ -294,8 +300,8 @@ func CreateDefaultTemplateOptions(directory, templateName string, templates Temp
 	// Find the template by name (supports both full name and display name)
 	var foundTemplate *Template
 	for _, template := range templates {
-		key := regexp.MustCompile(`^\d+-`).ReplaceAllString(*template.Name, "")
-		if *template.Name == templateName || key == templateName {
+		key := regexp.MustCompile(`^\d+-`).ReplaceAllString(template.Name, "")
+		if template.Name == templateName || key == templateName {
 			foundTemplate = &template
 			break
 		}
@@ -314,7 +320,7 @@ func CreateDefaultTemplateOptions(directory, templateName string, templates Temp
 	return TemplateOptions{
 		ProjectName:  directory, // Use directory name as default project name
 		Directory:    directory,
-		TemplateName: *foundTemplate.Name,
+		TemplateName: foundTemplate.Name,
 		Language:     foundTemplate.Language,
 		Author:       author,
 	}

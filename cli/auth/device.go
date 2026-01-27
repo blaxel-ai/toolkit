@@ -9,15 +9,52 @@ import (
 	"os/exec"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/charmbracelet/huh"
 )
 
-func LoginDevice(workspace string) {
-	url := core.GetBaseURL() + "/login/device"
+// DeviceLogin represents a device login request
+type DeviceLogin struct {
+	ClientID string `json:"client_id"`
+	Scope    string `json:"scope"`
+}
 
-	payload := sdk.DeviceLogin{
+// DeviceLoginResponse represents the response from device login
+type DeviceLoginResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
+}
+
+// DeviceLoginFinalizeRequest represents a device login finalize request
+type DeviceLoginFinalizeRequest struct {
+	GrantType  string `json:"grant_type"`
+	ClientID   string `json:"client_id"`
+	DeviceCode string `json:"device_code"`
+}
+
+// DeviceLoginFinalizeResponse represents the response from device login finalize
+type DeviceLoginFinalizeResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+}
+
+// AuthErrorResponse represents an error response from auth
+type AuthErrorResponse struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+}
+
+func LoginDevice(workspace string) {
+	url := blaxel.BuildOAuthDeviceURL()
+
+	payload := DeviceLogin{
 		ClientID: "blaxel",
 		Scope:    "offline_access",
 	}
@@ -41,7 +78,7 @@ func LoginDevice(workspace string) {
 
 	body, _ := io.ReadAll(res.Body)
 
-	var deviceLoginResponse sdk.DeviceLoginResponse
+	var deviceLoginResponse DeviceLoginResponse
 	if err := json.Unmarshal(body, &deviceLoginResponse); err != nil {
 		err = fmt.Errorf("error unmarshalling response: %w", err)
 		core.PrintError("Login", err)
@@ -63,9 +100,9 @@ func LoginDevice(workspace string) {
 
 func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	time.Sleep(3 * time.Second)
-	url := core.GetBaseURL() + "/oauth/token"
+	url := blaxel.BuildOAuthTokenURL()
 
-	payload := sdk.DeviceLoginFinalizeRequest{
+	payload := DeviceLoginFinalizeRequest{
 		GrantType:  "urn:ietf:params:oauth:grant-type:device_code",
 		ClientID:   "blaxel",
 		DeviceCode: deviceCode,
@@ -104,7 +141,7 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	// Check for authorization_pending in error response
 	if res.StatusCode == http.StatusBadRequest {
-		var errorResponse sdk.AuthErrorResponse
+		var errorResponse AuthErrorResponse
 		if err := json.Unmarshal(body, &errorResponse); err == nil {
 			if errorResponse.Error == "authorization_pending" {
 				// Authorization is pending - keep polling
@@ -120,7 +157,7 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 		}
 	}
 
-	var finalizeResponse sdk.DeviceLoginFinalizeResponse
+	var finalizeResponse DeviceLoginFinalizeResponse
 	if err := json.Unmarshal(body, &finalizeResponse); err != nil {
 		panic(err)
 	}
@@ -132,7 +169,7 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 		core.ExitWithError(err)
 	}
 
-	creds := sdk.Credentials{
+	creds := blaxel.Credentials{
 		AccessToken:  finalizeResponse.AccessToken,
 		RefreshToken: finalizeResponse.RefreshToken,
 		ExpiresIn:    finalizeResponse.ExpiresIn,
@@ -149,34 +186,31 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 			return
 		}
 		if len(workspaces) == 0 {
-			err := fmt.Errorf("no workspaces are available for your account.\nVisit https://app.blaxel.ai to create one")
+			err := fmt.Errorf("no workspaces are available for your account.\nVisit %s to create one", blaxel.GetAppURL())
 			core.PrintError("Login", err)
 			core.ExitWithError(err)
 			return
 		}
 
 		// Get workspaces the user is already connected to
-		connectedWorkspaces := sdk.ListWorkspaces()
+		cfg, _ := blaxel.LoadConfig()
 		connectedWorkspaceSet := make(map[string]bool)
-		for _, ws := range connectedWorkspaces {
-			connectedWorkspaceSet[ws] = true
+		for _, ws := range cfg.Workspaces {
+			connectedWorkspaceSet[ws.Name] = true
 		}
 
 		// If only one workspace, use it directly
 		if len(workspaces) == 1 {
-			workspace = *workspaces[0].Name
+			workspace = workspaces[0].Name
 		} else {
 			// Create options for huh form
 			options := make([]huh.Option[string], 0, len(workspaces))
 			for _, ws := range workspaces {
-				if ws.Name == nil {
-					continue
+				displayName := ws.Name
+				if connectedWorkspaceSet[ws.Name] {
+					displayName = fmt.Sprintf("%s (already connected)", ws.Name)
 				}
-				displayName := *ws.Name
-				if connectedWorkspaceSet[*ws.Name] {
-					displayName = fmt.Sprintf("%s (already connected)", *ws.Name)
-				}
-				options = append(options, huh.NewOption(displayName, *ws.Name))
+				options = append(options, huh.NewOption(displayName, ws.Name))
 			}
 
 			// Create huh form for workspace selection
@@ -200,8 +234,8 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 			}
 		}
 
-		sdk.SaveCredentials(workspace, creds)
-		sdk.SetCurrentWorkspace(workspace)
+		blaxel.SaveCredentials(workspace, creds)
+		blaxel.SetCurrentWorkspace(workspace)
 		core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 		return
 	}
@@ -210,8 +244,8 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	if err != nil {
 		core.PrintError("Login", fmt.Errorf("error accessing workspace %s : %w", workspace, err))
 	} else {
-		sdk.SaveCredentials(workspace, creds)
-		sdk.SetCurrentWorkspace(workspace)
+		blaxel.SaveCredentials(workspace, creds)
+		blaxel.SetCurrentWorkspace(workspace)
 		core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 	}
 }

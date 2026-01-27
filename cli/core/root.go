@@ -8,21 +8,18 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-var BASE_URL = "https://api.blaxel.ai/v0"
-var APP_URL = "https://app.blaxel.ai"
-var RUN_URL = "https://run.blaxel.ai"
-var REGISTRY_URL = "https://us.registry.blaxel.ai"
 var GITHUB_RELEASES_URL = "https://api.github.com/repos/blaxel-ai/toolkit/releases"
 var UPDATE_CLI_DOC_URL = "https://docs.blaxel.ai/cli-reference/introduction#update"
 
@@ -218,30 +215,11 @@ func isNewerVersion(latestVersion, currentVersion string) bool {
 	return latest.GreaterThan(current)
 }
 
-func initEnv(env string) {
-	switch env {
-	case "dev":
-		BASE_URL = "https://api.blaxel.dev/v0"
-		APP_URL = "https://app.blaxel.dev"
-		RUN_URL = "https://run.blaxel.dev"
-		REGISTRY_URL = "https://eu.registry.blaxel.dev"
-	case "local":
-		BASE_URL = "http://localhost:8080/v0"
-		APP_URL = "http://localhost:3000"
-		RUN_URL = "https://run.blaxel.dev"
-		REGISTRY_URL = "https://eu.registry.blaxel.dev"
-	}
-}
-
-func init() {
-	initEnv(os.Getenv("BL_ENV"))
-}
-
 var envFiles []string
 var config Config
 var workspace string
 var outputFormat string
-var client *sdk.ClientWithResponses
+var client *blaxel.Client
 var verbose bool
 var version string
 
@@ -285,7 +263,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		setEnvs()
+		blaxel.ApplyEnvironmentOverrides()
 
 		// Skip config reading for deploy command as it handles its own config logic with special type prompting
 		if cmd.Name() != "deploy" {
@@ -313,25 +291,31 @@ var rootCmd = &cobra.Command{
 			"create-agent-app": true,
 		}
 
-		if !workspaceExemptCommands[cmd.Name()] {
+		// Check if command or its parent is exempt (for subcommands like "completion zsh")
+		isExempt := workspaceExemptCommands[cmd.Name()]
+		if !isExempt && cmd.Parent() != nil {
+			isExempt = workspaceExemptCommands[cmd.Parent().Name()]
+		}
+
+		if !isExempt {
 			// Check if BL_WORKSPACE is set or if there are workspaces in config
 			if workspace == "" {
-				workspaces := sdk.ListWorkspaces()
-				if len(workspaces) == 0 {
+				cfg, _ := blaxel.LoadConfig()
+				if len(cfg.Workspaces) == 0 {
 					PrintError("Login required", fmt.Errorf("no workspace configured. Please run 'bl login' first to authenticate"))
 					Exit(1)
 				}
 			}
 		}
 
-		credentials := sdk.LoadCredentials(workspace)
+		credentials, _ := blaxel.LoadCredentials(workspace)
 		if !credentials.IsValid() && workspace != "" {
 			PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
 			PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
 		}
 
 		// Get OS/arch and commit info for User-Agent
-		osArch := runtime.GOOS + "/" + runtime.GOARCH
+		osArch := goruntime.GOOS + "/" + goruntime.GOARCH
 		commitHash := "unknown"
 
 		// Check if commit was injected at build time via ldflags
@@ -343,54 +327,52 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		headers := map[string]string{
-			"User-Agent": fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash),
+		userAgent := fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash)
+
+		// Build client options
+		opts := []option.RequestOption{
+			option.WithHeader("User-Agent", userAgent),
 		}
 
-		c, err := sdk.NewClientWithCredentials(
-			sdk.RunClientWithCredentials{
-				ApiURL:      BASE_URL,
-				RunURL:      RUN_URL,
-				Credentials: credentials,
-				Workspace:   workspace,
-				Headers:     headers,
-			},
-		)
+		if workspace != "" {
+			opts = append(opts, option.WithWorkspace(workspace))
+		}
+
+		c, err := blaxel.NewClientFromConfig(workspace, opts...)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create client: %w", err)
 		}
 		client = c
 
 		// Register SDK CLI commands
 		ctx := context.Background()
-		reg := &Operations{
-			BaseURL:     BASE_URL,
-			RunURL:      RUN_URL,
-			AppURL:      APP_URL,
-			RegistryURL: REGISTRY_URL,
-		}
-		client.RegisterCliCommands(reg, ctx)
+		RegisterResourceOperations(ctx)
 
-		// TODO: Handle SDK command registration if needed
 		return nil
 	},
 }
 
-func setEnvs() {
-	if url := os.Getenv("BL_API_URL"); url != "" {
-		BASE_URL = url
+// completeWorkspaceNames returns a list of workspace names from the local config for shell completion
+func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	// Load config from ~/.blaxel/config.yaml
+	config, err := blaxel.LoadConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-	if runUrl := os.Getenv("BL_RUN_URL"); runUrl != "" {
-		RUN_URL = runUrl
+
+	var names []string
+	for _, ws := range config.Workspaces {
+		if ws.Name != "" {
+			if toComplete == "" || strings.HasPrefix(ws.Name, toComplete) {
+				names = append(names, ws.Name)
+			}
+		}
 	}
-	if appUrl := os.Getenv("BL_APP_URL"); appUrl != "" {
-		APP_URL = appUrl
-	}
+
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
-	setEnvs()
-
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
 
@@ -399,6 +381,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
 	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
+
+	// Register workspace flag completion
+	_ = rootCmd.RegisterFlagCompletionFunc("workspace", completeWorkspaceNames)
 
 	// Add all registered commands to the root command
 	for _, cmdFunc := range commandRegistry {
@@ -413,11 +398,12 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 		if envWorkspace := os.Getenv("BL_WORKSPACE"); envWorkspace != "" {
 			workspace = envWorkspace
 		} else {
-			workspace = sdk.CurrentContext().Workspace
+			ctx, _ := blaxel.CurrentContext()
+			workspace = ctx.Workspace
 		}
-		env := sdk.LoadEnv(workspace)
-		initEnv(env)
 	}
+	blaxel.InitializeEnvironment(workspace)
+
 	if version == "" {
 		version = releaseVersion
 	}
@@ -432,34 +418,6 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	SetSentryTag("workspace", workspace)
 
 	return rootCmd.Execute()
-}
-
-func GetBaseURL() string {
-	return BASE_URL
-}
-
-func GetRunURL() string {
-	return RUN_URL
-}
-
-func GetAppURL() string {
-	return APP_URL
-}
-
-func GetRegistryURL() string {
-	return REGISTRY_URL
-}
-
-func SetEnvs() {
-	if url := os.Getenv("BL_API_URL"); url != "" {
-		BASE_URL = url
-	}
-	if runUrl := os.Getenv("BL_RUN_URL"); runUrl != "" {
-		RUN_URL = runUrl
-	}
-	if appUrl := os.Getenv("BL_APP_URL"); appUrl != "" {
-		APP_URL = appUrl
-	}
 }
 
 func CheckForUpdates(currentVersion string) {
@@ -492,14 +450,24 @@ func GetConfig() Config {
 	return config
 }
 
+// ResetConfig resets the config to its zero value (useful for testing)
+func ResetConfig() {
+	config = Config{}
+}
+
 // SetConfigType sets the config type
 func SetConfigType(t string) {
 	config.Type = t
 }
 
 // GetClient returns the current client
-func GetClient() *sdk.ClientWithResponses {
+func GetClient() *blaxel.Client {
 	return client
+}
+
+// SetClient sets the client (useful for testing)
+func SetClient(c *blaxel.Client) {
+	client = c
 }
 
 // GetWorkspace returns the current workspace
@@ -578,8 +546,16 @@ func IsTerminalInteractive() bool {
 // Only prompts in interactive mode and not in CI environments.
 func promptForTracking() {
 	// Skip if tracking is already configured
-	if sdk.IsTrackingConfigured() {
+	if blaxel.IsTrackingConfigured() {
 		return
+	}
+
+	// Skip for completion and version commands
+	if len(os.Args) > 1 {
+		cmd := os.Args[1]
+		if cmd == "completion" || cmd == "__complete" || cmd == "version" {
+			return
+		}
 	}
 
 	// Skip in CI environments
@@ -606,7 +582,7 @@ func promptForTracking() {
 		enabled = false
 	}
 
-	sdk.SetTracking(enabled)
+	blaxel.SetTracking(enabled)
 
 	if enabled {
 		fmt.Println("✓ Tracking enabled. Thank you for helping improve Blaxel!")

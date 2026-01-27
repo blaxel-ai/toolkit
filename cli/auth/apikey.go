@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 	"github.com/fatih/color"
 )
 
@@ -31,7 +31,7 @@ func LoginApiKey(workspace string) {
 	}
 
 	// Create credentials struct and marshal to JSON
-	creds := sdk.Credentials{
+	creds := blaxel.Credentials{
 		APIKey: apiKey,
 	}
 
@@ -42,7 +42,7 @@ func LoginApiKey(workspace string) {
 		core.ExitWithError(err)
 	}
 
-	sdk.SaveCredentials(workspace, creds)
-	sdk.SetCurrentWorkspace(workspace)
+	blaxel.SaveCredentials(workspace, creds)
+	blaxel.SetCurrentWorkspace(workspace)
 	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 }

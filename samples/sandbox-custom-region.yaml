@@ -6,7 +6,7 @@ metadata:
 spec:
   region: us-pdx-1
   runtime:
-    image: blaxel/prod-base:latest
+    image: blaxel/base-image:latest
     generation: mk3
     memory: 2048
 ---
@@ -18,7 +18,7 @@ metadata:
 spec:
   region: eu-lon-1
   runtime:
-    image: blaxel/prod-base:latest
+    image: blaxel/base-image:latest
     generation: mk3
     memory: 2048
 ---
@@ -30,6 +30,6 @@ metadata:
 spec:
   region: us-was-1
   runtime:
-    image: blaxel/prod-base:latest
+    image: blaxel/base-image:latest
     generation: mk3
     memory: 2048

@@ -75,7 +75,7 @@ Run `bl --help` or `bl <command> --help` for detailed usage.
 ```
 .
 ├── cli/          # CLI command implementations
-├── sdk/          # Go SDK for Blaxel APIs
+├── mcp/          # MCP client implementation
 ├── vscode/       # VSCode extension
 ├── docs/         # Auto-generated command documentation
 ├── samples/      # Example configurations
@@ -93,19 +93,28 @@ make build
 # Run tests
 make test
 
-# Generate SDK from OpenAPI spec
-make sdk
+# Update SDK dependency
+go get -u github.com/blaxel-ai/sdk-go@latest
 ```
 
 ## Go SDK
 
-The toolkit includes a Go SDK for programmatic access to Blaxel APIs:
+The toolkit uses the Blaxel Go SDK for programmatic access to Blaxel APIs:
 
 ```go
-import "github.com/blaxel-ai/toolkit/sdk"
+import (
+    blaxel "github.com/blaxel-ai/sdk-go"
+    "github.com/blaxel-ai/sdk-go/option"
+)
 
-// Use the SDK in your Go applications
-client := sdk.NewClient(apiKey)
+// Create a client with API key
+client := blaxel.NewClient(option.WithAPIKey("your-api-key"))
+
+// Or use environment-based authentication
+client, _ := blaxel.NewDefaultClient()
+
+// Use the SDK
+agents, _ := client.Agents.List(ctx)
 ```
 
 ## License

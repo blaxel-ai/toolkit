@@ -17,6 +17,7 @@ import (
 	"archive/zip"
 	"net/http"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
@@ -578,69 +579,41 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	var body []byte
-	var statusCode int
+	var result interface{}
 	var err error
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Agents.Get(ctx, name, blaxel.AgentGetParams{})
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Functions.Get(ctx, name, blaxel.FunctionGetParams{})
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
 		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
 	}
 
 	if err != nil {
+		// Check if it's a not found error
+		var apiErr *blaxel.Error
+		if isBlaxelErrorDeploy(err, &apiErr) && apiErr.StatusCode == 404 {
+			return nil, fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name)
+		}
 		return nil, err
 	}
 
-	if statusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name)
-	}
-
-	if statusCode >= 400 {
-		return nil, fmt.Errorf("error getting %s %s: %d", resourceType, name, statusCode)
+	// Convert result to map
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
 	}
 
 	var resource map[string]interface{}
-	if err := json.Unmarshal(body, &resource); err != nil {
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
 		return nil, err
 	}
 
@@ -651,51 +624,20 @@ func getResourceStatus(resourceType, name string) (string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	var body []byte
-	var statusCode int
+	var result interface{}
 	var err error
 
 	switch resourceType {
 	case "agent":
-		resp, errGet := client.GetAgentWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Agents.Get(ctx, name, blaxel.AgentGetParams{})
 	case "function":
-		resp, errGet := client.GetFunctionWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Functions.Get(ctx, name, blaxel.FunctionGetParams{})
 	case "job":
-		resp, errGet := client.GetJobWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
-		resp, errGet := client.GetSandboxWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
 	case "volume-template", "volumetemplate", "vt":
-		resp, errGet := client.GetVolumeTemplateWithResponse(ctx, name, nil)
-		if errGet != nil {
-			err = errGet
-		} else {
-			body = resp.Body
-			statusCode = resp.StatusCode()
-		}
+		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
 		return "", fmt.Errorf("unknown resource type: %s", resourceType)
 	}
@@ -704,12 +646,14 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		return "", err
 	}
 
-	if statusCode >= 400 {
-		return "", fmt.Errorf("error getting %s %s: %d", resourceType, name, statusCode)
+	// Convert result to map
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return "", err
 	}
 
 	var resource map[string]interface{}
-	if err := json.Unmarshal(body, &resource); err != nil {
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
 		return "", err
 	}
 
@@ -1426,7 +1370,7 @@ func (d *Deployment) Ready() {
 	}
 
 	currentWorkspace := core.GetWorkspace()
-	appUrl := core.GetAppURL()
+	appUrl := blaxel.GetAppURL()
 	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
 
 	// Check for callback secret (only for agents, only shown on first deployment)
@@ -1982,4 +1926,13 @@ func getDeployCommands(dryRun bool, defaultName string) ([]server.PackageCommand
 		commands = append(commands, command)
 	}
 	return commands, nil
+}
+
+// isBlaxelErrorDeploy checks if an error is a blaxel API error and sets the apiErr pointer
+func isBlaxelErrorDeploy(err error, apiErr **blaxel.Error) bool {
+	if e, ok := err.(*blaxel.Error); ok {
+		*apiErr = e
+		return true
+	}
+	return false
 }

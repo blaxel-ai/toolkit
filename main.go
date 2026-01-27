@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/blaxel-ai/toolkit/sdk"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 
 func main() {
 	// Initialize Sentry for error tracking only if tracking is enabled
-	if sdk.IsTrackingEnabled() {
+	if blaxel.IsTrackingEnabled() {
 		err := core.InitSentry(core.SentryConfig{
 			DSN:     sentryDSN,
 			Release: version,

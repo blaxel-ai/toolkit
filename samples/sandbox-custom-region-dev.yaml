@@ -6,6 +6,6 @@ metadata:
 spec:
   region: eu-dub-1
   runtime:
-    image: blaxel/dev-base:latest
+    image: blaxel/base-image:latest
     generation: mk3
     memory: 2048

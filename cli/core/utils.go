@@ -44,8 +44,8 @@ func handleSecret(filePath string, content string) (string, error) {
 		nameMatch := nameRegex.FindStringSubmatch(content)
 		if len(nameMatch) > 1 {
 			name := strings.TrimSpace(nameMatch[1])
-			response, err := client.GetIntegrationConnectionWithResponse(context.Background(), name)
-			if err == nil && response.StatusCode() == 200 {
+			_, err := client.Integrations.Connections.Get(context.Background(), name)
+			if err == nil {
 				return content, nil
 			}
 		}
@@ -446,11 +446,6 @@ func Pluralize(word string) string {
 // GetResults is a public wrapper for getResults
 func GetResults(action string, filePath string, recursive bool) ([]Result, error) {
 	return getResults(action, filePath, recursive)
-}
-
-// GetResources returns the resources slice
-func GetResources() []*Resource {
-	return resources
 }
 
 func IsVolumeTemplate(resourceType string) bool {

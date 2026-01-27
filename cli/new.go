@@ -38,9 +38,10 @@ func NewCmd() *cobra.Command {
 	var noTTY bool
 
 	cmd := &cobra.Command{
-		Use:   "new [type] [directory]",
-		Args:  cobra.RangeArgs(0, 2),
-		Short: "Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)",
+		Use:               "new [type] [directory]",
+		Args:              cobra.RangeArgs(0, 2),
+		Short:             "Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)",
+		ValidArgsFunction: GetNewValidArgsFunction(),
 		Long: `Create a new Blaxel resource from templates.
 
 This command scaffolds a new project with the necessary configuration files,

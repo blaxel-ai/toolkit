@@ -1,17 +1,5 @@
 ARGS:= $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
-sdk:
-	@echo "Downloading controlplane definition from blaxel-ai/controlplane"
-	@curl -H "Authorization: token $$(gh auth token)" \
-		-H "Accept: application/vnd.github.v3.raw" \
-		-o ./definition.yml \
-		https://api.github.com/repos/blaxel-ai/controlplane/contents/api/api/definitions/controlplane.yml?ref=main
-	oapi-codegen -package=sdk \
-		-generate=types,client,spec \
-		-o=sdk/blaxel.go \
-		-templates=./templates/go \
-		definition.yml
-
 # Get git commit hash automatically
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 GIT_COMMIT_SHORT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -27,11 +15,6 @@ build:
 		fi; \
 		cp ~/.local/bin/blaxel ~/.local/bin/bl; \
 	fi
-
-# Build SDK examples/tests with commit hash
-build-sdk:
-	@echo "🔨 Building SDK with commit: $(GIT_COMMIT_SHORT)"
-	go build -ldflags "-X github.com/blaxel-ai/toolkit/sdk.commitHash=$(GIT_COMMIT)" ./sdk/...
 
 # Development build without goreleaser
 build-dev:
@@ -70,7 +53,6 @@ test-integration:
 
 install:
 	brew install goreleaser
-	uv pip install openapi-python-client
 
 tag:
 	git tag -a v$(ARGS) -m "Release v$(ARGS)"
@@ -83,4 +65,4 @@ clean:
 %:
 	@:
 
-.PHONY: sdk test test-integration
+.PHONY: test test-integration

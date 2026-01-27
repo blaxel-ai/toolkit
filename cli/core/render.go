@@ -72,7 +72,7 @@ func retrieveKey(itemMap map[string]interface{}, key string) string {
 	// Try to navigate through the nested structure
 	value := navigateToKey(itemMap, keys)
 	if value != nil {
-		if str, ok := value.(string); ok {
+		if str := valueToString(value); str != "" {
 			return str
 		}
 	}
@@ -81,20 +81,42 @@ func retrieveKey(itemMap map[string]interface{}, key string) string {
 	if metadata, ok := itemMap["metadata"].(map[string]interface{}); ok {
 		// Try full key first
 		if value, ok := metadata[key]; ok {
-			if str, ok := value.(string); ok {
+			if str := valueToString(value); str != "" {
 				return str
 			}
 		}
 		// Try just the last part of the key
 		lastKey := keys[len(keys)-1]
 		if value, ok := metadata[lastKey]; ok {
-			if str, ok := value.(string); ok {
+			if str := valueToString(value); str != "" {
 				return str
 			}
 		}
 	}
 
 	return "-"
+}
+
+// valueToString converts various types to string representation
+func valueToString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case int:
+		return fmt.Sprintf("%d", v)
+	case int64:
+		return fmt.Sprintf("%d", v)
+	case float64:
+		// Check if it's a whole number
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%g", v)
+	case bool:
+		return fmt.Sprintf("%t", v)
+	default:
+		return ""
+	}
 }
 
 // truncateString truncates a string to the specified max length with ellipsis

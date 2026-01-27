@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/signal"
 	"reflect"
@@ -84,7 +83,34 @@ The command can list all resources of a type or get details for a specific one.`
   bl get job my-job execution <execution-id>
 
   # Monitor sandbox status
-  bl get sandbox my-sandbox --watch`,
+  bl get sandbox my-sandbox --watch
+
+  # List processes in a sandbox
+  bl get sandbox my-sandbox process
+  bl get sbx my-sandbox ps
+
+  # Get specific process in a sandbox
+  bl get sandbox my-sandbox process my-process
+
+  # --- Filtering with jq ---
+
+  # Get names of all jobs with status DELETING
+  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'
+
+  # Get names of all deployed sandboxes
+  bl get sandboxes -o json | jq -r '.[] | select(.status == "DEPLOYED") | .metadata.name'
+
+  # Get all agents with name containing "test"
+  bl get agents -o json | jq -r '.[] | select(.metadata.name | contains("test")) | .metadata.name'
+
+  # Get sandboxes with specific label (e.g., environment=dev)
+  bl get sandboxes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name'
+
+  # Get jobs created in the last 24 hours
+  bl get jobs -o json | jq -r '.[] | .metadata.name'
+
+  # Count resources by status
+  bl get agents -o json | jq 'group_by(.status) | map({status: .[0].status, count: length})'`,
 	}
 	var watch bool
 	resources := core.GetResources()
@@ -102,15 +128,26 @@ The command can list all resources of a type or get details for a specific one.`
 			continue
 		}
 
+		// Capture resource in closure for ValidArgsFunction
+		resourceKind := resource.Kind
+
 		subcmd := &cobra.Command{
-			Use:     resource.Plural,
-			Aliases: aliases,
-			Short:   fmt.Sprintf("Get a %s", resource.Kind),
+			Use:               resource.Plural,
+			Aliases:           aliases,
+			Short:             fmt.Sprintf("Get a %s", resource.Kind),
+			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
-				// Special handling for nested resources (e.g., job executions)
+				// Special handling for nested resources (e.g., job executions, sandbox processes)
 				if resource.Kind == "Job" && len(args) >= 2 {
 					// Check if this is a nested resource request
 					if HandleJobNestedResource(args) {
+						return
+					}
+				}
+
+				if resource.Kind == "Sandbox" && len(args) >= 2 {
+					// Check if this is a nested resource request (e.g., processes)
+					if HandleSandboxNestedResource(args) {
 						return
 					}
 				}
@@ -150,6 +187,7 @@ The command can list all resources of a type or get details for a specific one.`
 				}
 			},
 		}
+
 		cmd.AddCommand(subcmd)
 	}
 	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
@@ -159,6 +197,7 @@ The command can list all resources of a type or get details for a specific one.`
 func GetFn(resource *core.Resource, name string) {
 	ctx := context.Background()
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resource.Kind, name)
+
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
 	if funcValue.Kind() != reflect.Func {
@@ -167,25 +206,26 @@ func GetFn(resource *core.Resource, name string) {
 		core.ExitWithError(err)
 	}
 
-	// Determine the number of parameters the function expects
-	funcType := funcValue.Type()
-	numIn := funcType.NumIn()
-	isVariadic := funcType.IsVariadic()
-
-	// Calculate the number of required (non-variadic) parameters
-	requiredParams := numIn
-	if isVariadic {
-		requiredParams = numIn - 1 // Exclude the variadic parameter
-	}
-
-	// Build arguments - start with the ones we have
+	// Build arguments: (ctx, name, ...opts)
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
 
-	// Fill in any additional required parameters with zero values
-	for i := len(fnargs); i < requiredParams; i++ {
-		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	// Check if the function expects more arguments (e.g., params struct)
+	// Some SDK methods like Jobs.Get require (ctx, name, params, ...opts)
+	// Others like Policies.Get only have (ctx, name, ...opts)
+	// We need to add zero values for any non-variadic params between name and the variadic opts
+	funcType := funcValue.Type()
+	if funcType.NumIn() > 2 {
+		// For variadic functions, the last param is the variadic (e.g., ...option.RequestOption)
+		// We need to add parameters between index 2 and the variadic parameter
+		lastNonVariadicIdx := funcType.NumIn()
+		if funcType.IsVariadic() {
+			lastNonVariadicIdx = funcType.NumIn() - 1
+		}
+		for i := 2; i < lastNonVariadicIdx; i++ {
+			paramsType := funcType.In(i)
+			fnargs = append(fnargs, reflect.Zero(paramsType))
+		}
 	}
-	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -200,33 +240,28 @@ func GetFn(resource *core.Resource, name string) {
 		core.ExitWithError(err)
 	}
 
-	// Check if the first result is a pointer to http.Response
-	response, ok := results[0].Interface().(*http.Response)
-	if !ok {
-		err := fmt.Errorf("%s%s", formattedError, "the result is not a pointer to http.Response")
+	// The new SDK returns typed responses, not *http.Response
+	// Convert result to interface{} for output
+	result := results[0].Interface()
+	if result == nil {
+		err := fmt.Errorf("%s%s", formattedError, "no result returned")
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
-	// Read the content of http.Response.Body
-	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
+
+	// Convert to JSON and back to interface{} for consistent handling
+	jsonData, err := json.Marshal(result)
+	if err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
 		core.ExitWithError(err)
 	}
 
-	if response.StatusCode >= 400 {
-		msg := fmt.Sprintf("Resource %s:%s error: %s", resource.Kind, name, buf.String())
-		fmt.Println(msg)
-		core.ExitWithError(errors.New(msg))
-	}
-
-	// Check if the content is an array or an object
 	var res interface{}
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
+	if err := json.Unmarshal(jsonData, &res); err != nil {
 		fmt.Printf("%s%v\n", formattedError, err)
 		core.ExitWithError(err)
 	}
+
 	core.Output(*resource, []interface{}{res}, core.GetOutputFormat())
 }
 
@@ -250,55 +285,38 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 		return nil, fmt.Errorf("fn is not a valid function")
 	}
 
-	// Determine the number of parameters the function expects
-	funcType := funcValue.Type()
-	numIn := funcType.NumIn()
-	isVariadic := funcType.IsVariadic()
-
-	// Calculate the number of required (non-variadic) parameters
-	requiredParams := numIn
-	if isVariadic {
-		requiredParams = numIn - 1 // Exclude the variadic parameter
-	}
-
-	// Build arguments - start with context
+	// Build arguments: (ctx, ...opts)
 	fnargs := []reflect.Value{reflect.ValueOf(ctx)}
-
-	// Fill in any additional required parameters with zero values
-	for i := len(fnargs); i < requiredParams; i++ {
-		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
-	}
-	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
+
 	// Handle the results based on your needs
 	if len(results) <= 1 {
 		return nil, nil
 	}
+
 	if err, ok := results[1].Interface().(error); ok && err != nil {
 		return nil, fmt.Errorf("%s%v", formattedError, err)
 	}
-	// Check if the first result is a pointer to http.Response
-	response, ok := results[0].Interface().(*http.Response)
-	if !ok {
-		return nil, fmt.Errorf("the result is not a pointer to http.Response")
-	}
-	// Read the content of http.Response.Body
-	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		return nil, err
-	}
-	if response.StatusCode >= 400 {
-		return nil, fmt.Errorf("resource %s error: %s", resource.Kind, buf.String())
+
+	// The new SDK returns typed responses (e.g., *[]Agent), not *http.Response
+	result := results[0].Interface()
+	if result == nil {
+		return nil, errors.New("no result returned")
 	}
 
-	// Check if the content is an array or an object
-	var slices []interface{}
-	if err := json.Unmarshal(buf.Bytes(), &slices); err != nil {
+	// Convert to JSON and back to []interface{} for consistent handling
+	jsonData, err := json.Marshal(result)
+	if err != nil {
 		return nil, err
 	}
+
+	var slices []interface{}
+	if err := json.Unmarshal(jsonData, &slices); err != nil {
+		return nil, err
+	}
+
 	return slices, nil
 }
 

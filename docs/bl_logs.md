@@ -19,6 +19,15 @@ Resource Types (with aliases):
 - agents (agent, ag)
 - functions (function, fn, mcp, mcps)
 
+Sandbox Process Logs:
+For sandboxes, you can view logs for a specific process by adding the process name:
+  bl logs sandbox my-sandbox my-process
+
+Job Execution Logs:
+For jobs, you can filter logs by execution ID and task ID:
+  bl logs job my-job <execution-id>
+  bl logs job my-job <execution-id> <task-id>
+
 Time Filtering:
 By default, logs from the last 1 hour are displayed.
 In follow mode (--follow), the last 15 minutes are shown as context, then new logs
@@ -46,14 +55,27 @@ Use comma-separated values: --severity ERROR,FATAL
 Search:
 Use --search to filter logs by text content. Only logs containing the search term will be displayed.
 
-Job-Specific Filtering:
-When viewing logs for jobs, you can filter by specific task or execution:
-- --task-id: Filter logs for a specific task ID
-- --execution-id: Filter logs for a specific execution ID
-
 Examples:
   # View logs for a specific sandbox (last 1 hour - default)
   bl logs sandbox my-sandbox
+
+  # View logs for a specific process in a sandbox
+  bl logs sandbox my-sandbox my-process
+
+  # Stream process logs in real-time
+  bl logs sandbox my-sandbox my-process --follow
+
+  # View all logs for a job
+  bl logs job my-job
+
+  # View logs for a specific job execution
+  bl logs job my-job exec-abc123
+
+  # View logs for a specific task within an execution
+  bl logs job my-job exec-abc123 task-456
+
+  # Follow job execution logs in real-time
+  bl logs job my-job exec-abc123 --follow
 
   # Follow logs in real-time (shows last 15 minutes, then streams new logs)
   bl logs sandbox my-sandbox --follow
@@ -63,9 +85,6 @@ Examples:
 
   # View logs from last 3 days
   bl logs job my-job --period 3d
-
-  # View logs with 1 hour period (explicit)
-  bl logs sandbox my-sandbox --period 1h
 
   # View logs for a specific time range
   bl logs agent my-agent --start 2024-01-01T00:00:00Z --end 2024-01-01T23:59:59Z
@@ -82,38 +101,27 @@ Examples:
   # Search for specific text in logs
   bl logs agent my-agent --search "error"
 
-  # Filter job logs by task ID
-  bl logs job my-job --task-id task-123
-
-  # Filter job logs by execution ID
-  bl logs job my-job --execution-id exec-456
-
-  # Combine filters
-  bl logs job my-job --severity ERROR --search "timeout" --task-id task-123
-
   # Using aliases
   bl logs sbx my-sandbox --follow
   bl logs j my-job --period 1h
   bl logs fn my-function --follow
 
 ```
-bl logs RESOURCE_TYPE RESOURCE_NAME [flags]
+bl logs RESOURCE_TYPE RESOURCE_NAME [NESTED_ARGS...] [flags]
 ```
 
 ### Options
 
 ```
-      --end string            End time for logs (RFC3339 format or YYYY-MM-DD)
-      --execution-id string   Filter logs by execution ID (job resources only)
-  -f, --follow                Follow log output (like tail -f)
-  -h, --help                  help for logs
-      --no-timestamps         Hide timestamps in log output
-  -p, --period string         Time period to fetch logs (e.g., 3d, 1h, 10m, 24h)
-      --search string         Search for logs containing specific text
-      --severity string       Filter by severity levels (comma-separated): FATAL,ERROR,WARNING,INFO,DEBUG,TRACE,UNKNOWN
-      --start string          Start time for logs (RFC3339 format or YYYY-MM-DD)
-      --task-id string        Filter logs by task ID (job resources only)
-      --utc                   Display timestamps in UTC instead of local timezone
+      --end string        End time for logs (RFC3339 format or YYYY-MM-DD)
+  -f, --follow            Follow log output (like tail -f)
+  -h, --help              help for logs
+      --no-timestamps     Hide timestamps in log output
+  -p, --period string     Time period to fetch logs (e.g., 3d, 1h, 10m, 24h)
+      --search string     Search for logs containing specific text
+      --severity string   Filter by severity levels (comma-separated): FATAL,ERROR,WARNING,INFO,DEBUG,TRACE,UNKNOWN
+      --start string      Start time for logs (RFC3339 format or YYYY-MM-DD)
+      --utc               Display timestamps in UTC instead of local timezone
 ```
 
 ### Options inherited from parent commands

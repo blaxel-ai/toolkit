@@ -1,12 +1,8 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -68,7 +64,27 @@ separately if needed.`,
 
   # Safe deletion workflow
   bl get agent my-agent    # Review resource first
-  bl delete agent my-agent # Delete after confirmation`,
+  bl delete agent my-agent # Delete after confirmation
+
+  # --- Bulk deletion with jq filtering ---
+
+  # Delete all jobs with status DELETING
+  bl delete jobs $(bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name')
+
+  # Delete all sandboxes with status FAILED
+  bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.status == "FAILED") | .metadata.name')
+
+  # Delete all agents with name containing "test"
+  bl delete agents $(bl get agents -o json | jq -r '.[] | select(.metadata.name | contains("test")) | .metadata.name')
+
+  # Delete all volumes with specific label (e.g., environment=dev)
+  bl delete volumes $(bl get volumes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name')
+
+  # Delete all sandboxes matching a regex pattern (e.g., starts with "temp-")
+  bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.metadata.name | test("^temp-")) | .metadata.name')
+
+  # Preview what would be deleted (dry run - just list names)
+  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'`,
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
@@ -117,10 +133,14 @@ separately if needed.`,
 			continue
 		}
 
+		// Capture resource kind in closure for ValidArgsFunction
+		resourceKind := resource.Kind
+
 		subcmd := &cobra.Command{
-			Use:     fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
-			Aliases: aliases,
-			Short:   fmt.Sprintf("Delete %s", resource.Singular),
+			Use:               fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
+			Aliases:           aliases,
+			Short:             fmt.Sprintf("Delete %s", resource.Singular),
+			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
 					err := fmt.Errorf("no resource name provided")
@@ -146,6 +166,7 @@ separately if needed.`,
 
 func DeleteFn(resource *core.Resource, name string) error {
 	ctx := context.Background()
+
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Delete)
 	if funcValue.Kind() != reflect.Func {
@@ -154,25 +175,25 @@ func DeleteFn(resource *core.Resource, name string) error {
 		return err
 	}
 
-	// Determine the number of parameters the function expects
-	funcType := funcValue.Type()
-	numIn := funcType.NumIn()
-	isVariadic := funcType.IsVariadic()
-
-	// Calculate the number of required (non-variadic) parameters
-	requiredParams := numIn
-	if isVariadic {
-		requiredParams = numIn - 1 // Exclude the variadic parameter
-	}
-
-	// Build arguments - start with the ones we have
+	// Build arguments: (ctx, name, ...opts)
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
 
-	// Fill in any additional required parameters with zero values
-	for i := len(fnargs); i < requiredParams; i++ {
-		fnargs = append(fnargs, reflect.Zero(funcType.In(i)))
+	// Check if the function expects more arguments (e.g., params struct)
+	// Some SDK methods may require (ctx, name, params, ...opts)
+	// We need to add zero values for any non-variadic params between name and the variadic opts
+	funcType := funcValue.Type()
+	if funcType.NumIn() > 2 {
+		// For variadic functions, the last param is the variadic (e.g., ...option.RequestOption)
+		// We need to add parameters between index 2 and the variadic parameter
+		lastNonVariadicIdx := funcType.NumIn()
+		if funcType.IsVariadic() {
+			lastNonVariadicIdx = funcType.NumIn() - 1
+		}
+		for i := 2; i < lastNonVariadicIdx; i++ {
+			paramsType := funcType.In(i)
+			fnargs = append(fnargs, reflect.Zero(paramsType))
+		}
 	}
-	// Note: variadic reqEditors will be handled automatically by Call
 
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
@@ -187,33 +208,8 @@ func DeleteFn(resource *core.Resource, name string) error {
 		return err
 	}
 
-	// Check if the first result is a pointer to http.Response
-	response, ok := results[0].Interface().(*http.Response)
-	if !ok {
-		err := fmt.Errorf("the result is not a pointer to http.Response")
-		fmt.Println(err)
-		return err
-	}
-	// Read the content of http.Response.Body
-	defer func() { _ = response.Body.Close() }() // Ensure to close the ReadCloser
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, response.Body); err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if response.StatusCode >= 400 {
-		err := core.ErrorHandler(response.Request, resource.Kind, name, buf.String())
-		fmt.Println(err)
-		return err
-	}
-
-	// Check if the content is an array or an object
-	var res interface{}
-	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		fmt.Println(err)
-		return err
-	}
+	// The new SDK returns typed responses, not *http.Response
+	// Success if we get here without error
 	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
 	return nil
 }

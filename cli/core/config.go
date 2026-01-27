@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/blaxel-ai/toolkit/sdk"
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/charmbracelet/huh"
 	"github.com/fatih/color"
 )
@@ -40,7 +40,7 @@ var resources = []*Resource{
 		Short:    "pol",
 		Plural:   "policies",
 		Singular: "policy",
-		SpecType: reflect.TypeOf(sdk.Policy{}),
+		SpecType: reflect.TypeOf(blaxel.Policy{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -52,7 +52,7 @@ var resources = []*Resource{
 		Short:    "ml",
 		Plural:   "models",
 		Singular: "model",
-		SpecType: reflect.TypeOf(sdk.Model{}),
+		SpecType: reflect.TypeOf(blaxel.Model{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -66,7 +66,7 @@ var resources = []*Resource{
 		Plural:   "functions",
 		Singular: "function",
 		Aliases:  []string{"mcp", "mcps"},
-		SpecType: reflect.TypeOf(sdk.Function{}),
+		SpecType: reflect.TypeOf(blaxel.Function{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -80,7 +80,7 @@ var resources = []*Resource{
 		Short:    "ag",
 		Plural:   "agents",
 		Singular: "agent",
-		SpecType: reflect.TypeOf(sdk.Agent{}),
+		SpecType: reflect.TypeOf(blaxel.Agent{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -94,7 +94,7 @@ var resources = []*Resource{
 		Short:    "ic",
 		Plural:   "integrationconnections",
 		Singular: "integrationconnection",
-		SpecType: reflect.TypeOf(sdk.IntegrationConnection{}),
+		SpecType: reflect.TypeOf(blaxel.IntegrationConnection{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -106,7 +106,7 @@ var resources = []*Resource{
 		Short:    "sbx",
 		Plural:   "sandboxes",
 		Singular: "sandbox",
-		SpecType: reflect.TypeOf(sdk.Sandbox{}),
+		SpecType: reflect.TypeOf(blaxel.Sandbox{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -121,7 +121,7 @@ var resources = []*Resource{
 		Short:    "jb",
 		Plural:   "jobs",
 		Singular: "job",
-		SpecType: reflect.TypeOf(sdk.Job{}),
+		SpecType: reflect.TypeOf(blaxel.Job{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -135,7 +135,7 @@ var resources = []*Resource{
 		Short:    "vol",
 		Plural:   "volumes",
 		Singular: "volume",
-		SpecType: reflect.TypeOf(sdk.Volume{}),
+		SpecType: reflect.TypeOf(blaxel.Volume{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -150,7 +150,7 @@ var resources = []*Resource{
 		Short:    "vt",
 		Plural:   "volumetemplates",
 		Singular: "volumetemplate",
-		SpecType: reflect.TypeOf(sdk.VolumeTemplate{}),
+		SpecType: reflect.TypeOf(blaxel.VolumeTemplate{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -165,7 +165,7 @@ var resources = []*Resource{
 		Short:    "img",
 		Plural:   "images",
 		Singular: "image",
-		SpecType: reflect.TypeOf(sdk.Image{}),
+		SpecType: reflect.TypeOf(blaxel.Image{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},

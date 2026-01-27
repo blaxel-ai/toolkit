@@ -157,7 +157,7 @@ func runCreateFlow(
 }
 
 func templateDisplayName(t Template) string {
-	return regexp.MustCompile(`^\d+-`).ReplaceAllString(*t.Name, "")
+	return regexp.MustCompile(`^\d+-`).ReplaceAllString(t.Name, "")
 }
 
 // PromptTemplateOptions presents a unified interactive form to collect
@@ -181,7 +181,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 
 	stripRe := regexp.MustCompile(`^\d+-`)
 	isBlank := func(t Template) bool {
-		name := strings.ToLower(stripRe.ReplaceAllString(*t.Name, ""))
+		name := strings.ToLower(stripRe.ReplaceAllString(t.Name, ""))
 		return strings.Contains(name, "template-blank") || strings.HasPrefix(name, "blank-") || name == "blank"
 	}
 
@@ -204,7 +204,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 			}
 		}
 		options.Language = templates[0].Language
-		options.TemplateName = *templates[0].Name
+		options.TemplateName = templates[0].Name
 		options.ProjectName = options.Directory
 		return options
 	}
@@ -271,7 +271,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 
 	// If exactly one template for language, auto-select it
 	if len(filtered) == 1 {
-		options.TemplateName = *filtered[0].Name
+		options.TemplateName = filtered[0].Name
 		options.ProjectName = options.Directory
 		return options
 	}
@@ -286,7 +286,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 	}
 
 	if startChoice == "plain" && blankTemplate != nil {
-		options.TemplateName = *blankTemplate.Name
+		options.TemplateName = blankTemplate.Name
 		options.ProjectName = options.Directory
 		return options
 	}
@@ -300,9 +300,9 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 				if isBlank(t) {
 					continue
 				}
-				key := stripRe.ReplaceAllString(*t.Name, "")
+				key := stripRe.ReplaceAllString(t.Name, "")
 				key = strings.TrimPrefix(key, "template-")
-				templateOptions = append(templateOptions, huh.NewOption(key, *t.Name))
+				templateOptions = append(templateOptions, huh.NewOption(key, t.Name))
 			}
 		}).
 		Run()
