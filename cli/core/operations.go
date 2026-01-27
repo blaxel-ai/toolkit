@@ -61,7 +61,7 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.List = c.Volumes.List
 			resource.Get = c.Volumes.Get
 			resource.Delete = c.Volumes.Delete
-			// Volumes don't have Update - use New for creates
+			resource.Put = c.Volumes.Update
 			resource.Post = c.Volumes.New
 		case "VolumeTemplate":
 			resource.List = c.VolumeTemplates.List
