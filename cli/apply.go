@@ -327,9 +327,14 @@ func setBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
 				// Unmarshal directly from the original YAML JSON into the Param type
 				// This preserves only the fields that were in the YAML
 				newVal := reflect.New(field.Type).Interface()
-				if json.Unmarshal(srcJSON, newVal) == nil {
-					dstField.Set(reflect.ValueOf(newVal).Elem())
+				if err := json.Unmarshal(srcJSON, newVal); err != nil {
+					// Log unmarshal errors in verbose mode to help debug YAML field issues
+					if core.GetVerbose() {
+						core.PrintWarning(fmt.Sprintf("Failed to unmarshal field %s: %v", field.Name, err))
+					}
+					continue
 				}
+				dstField.Set(reflect.ValueOf(newVal).Elem())
 			}
 		}
 	}
@@ -380,12 +385,15 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		if err == nil {
 			// Get the integration name from the resource object for the edit URL
 			var resourceMap map[string]interface{}
-			resourceJson, _ := json.Marshal(resourceObject)
-			json.Unmarshal(resourceJson, &resourceMap)
 			integrationName := ""
-			if spec, ok := resourceMap["spec"].(map[string]interface{}); ok {
-				if integration, ok := spec["integration"].(string); ok {
-					integrationName = integration
+			resourceJson, jsonErr := json.Marshal(resourceObject)
+			if jsonErr == nil {
+				if unmarshalErr := json.Unmarshal(resourceJson, &resourceMap); unmarshalErr == nil {
+					if spec, ok := resourceMap["spec"].(map[string]interface{}); ok {
+						if integration, ok := spec["integration"].(string); ok {
+							integrationName = integration
+						}
+					}
 				}
 			}
 			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", blaxel.GetAppURL(), core.GetWorkspace(), integrationName)

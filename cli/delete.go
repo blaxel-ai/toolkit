@@ -158,6 +158,23 @@ func DeleteFn(resource *core.Resource, name string) error {
 	// Build arguments: (ctx, name, ...opts)
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
 
+	// Check if the function expects more arguments (e.g., params struct)
+	// Some SDK methods may require (ctx, name, params, ...opts)
+	// We need to add zero values for any non-variadic params between name and the variadic opts
+	funcType := funcValue.Type()
+	if funcType.NumIn() > 2 {
+		// For variadic functions, the last param is the variadic (e.g., ...option.RequestOption)
+		// We need to add parameters between index 2 and the variadic parameter
+		lastNonVariadicIdx := funcType.NumIn()
+		if funcType.IsVariadic() {
+			lastNonVariadicIdx = funcType.NumIn() - 1
+		}
+		for i := 2; i < lastNonVariadicIdx; i++ {
+			paramsType := funcType.In(i)
+			fnargs = append(fnargs, reflect.Zero(paramsType))
+		}
+	}
+
 	// Call the function with the arguments
 	results := funcValue.Call(fnargs)
 

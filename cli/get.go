@@ -190,12 +190,21 @@ func GetFn(resource *core.Resource, name string) {
 	fnargs := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(name)}
 
 	// Check if the function expects more arguments (e.g., params struct)
-	// Some SDK methods like Jobs.Get require (ctx, name, params)
+	// Some SDK methods like Jobs.Get require (ctx, name, params, ...opts)
+	// Others like Policies.Get only have (ctx, name, ...opts)
+	// We need to add zero values for any non-variadic params between name and the variadic opts
 	funcType := funcValue.Type()
 	if funcType.NumIn() > 2 {
-		// Create a zero value of the third parameter type (the params struct)
-		paramsType := funcType.In(2)
-		fnargs = append(fnargs, reflect.Zero(paramsType))
+		// For variadic functions, the last param is the variadic (e.g., ...option.RequestOption)
+		// We need to add parameters between index 2 and the variadic parameter
+		lastNonVariadicIdx := funcType.NumIn()
+		if funcType.IsVariadic() {
+			lastNonVariadicIdx = funcType.NumIn() - 1
+		}
+		for i := 2; i < lastNonVariadicIdx; i++ {
+			paramsType := funcType.In(i)
+			fnargs = append(fnargs, reflect.Zero(paramsType))
+		}
 	}
 
 	// Call the function with the arguments
