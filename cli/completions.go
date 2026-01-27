@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -125,16 +127,55 @@ func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) 
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, sbx := range *sandboxes {
 		if sbx.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(sbx.Metadata.Name, toComplete) {
-				names = append(names, sbx.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if sbx.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, sbx.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				if sbx.Status != "" {
+					descParts = append(descParts, string(sbx.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: sbx.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteSandboxProcessNames returns a list of process names for a given sandbox
@@ -156,16 +197,60 @@ func CompleteSandboxProcessNames(sandboxName string, toComplete string) ([]strin
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	// Filter and collect processes with their timestamps for sorting
+	type processWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []processWithTime
+
 	for _, proc := range *processes {
 		if proc.Name != "" {
 			if toComplete == "" || strings.HasPrefix(proc.Name, toComplete) {
-				names = append(names, proc.Name)
+				// Format: name\tDATE status
+				var descParts []string
+				var ts time.Time
+				if proc.StartedAt != "" {
+					// Parse and format the date
+					if t, err := time.Parse(time.RFC3339, proc.StartedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					} else {
+						descParts = append(descParts, proc.StartedAt)
+					}
+				}
+				if proc.Status != "" {
+					descParts = append(descParts, string(proc.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, processWithTime{name: proc.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent to avoid cluttered display
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank number to show order even if shell sorts alphabetically
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered))) // Calculate padding width
+	for i, p := range filtered {
+		if p.desc != "" {
+			completions = append(completions, p.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, p.desc))
+		} else {
+			completions = append(completions, p.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteJobNames returns a list of job names for shell completion
@@ -182,16 +267,55 @@ func CompleteJobNames(cmd *cobra.Command, args []string, toComplete string) ([]s
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, job := range *jobs {
 		if job.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(job.Metadata.Name, toComplete) {
-				names = append(names, job.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if job.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, job.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				if job.Status != "" {
+					descParts = append(descParts, string(job.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: job.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteJobExecutionIDs returns a list of execution IDs for a given job
@@ -208,16 +332,140 @@ func CompleteJobExecutionIDs(jobName string, toComplete string) ([]string, cobra
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var ids []string
+	// Filter and collect executions with their timestamps for sorting
+	type execWithTime struct {
+		id        string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []execWithTime
+
 	for _, exec := range *executions {
 		if exec.Metadata.ID != "" {
 			if toComplete == "" || strings.HasPrefix(exec.Metadata.ID, toComplete) {
-				ids = append(ids, exec.Metadata.ID)
+				// Format: id\tDATE status
+				var descParts []string
+				var ts time.Time
+				// Try StartedAt first, then CreatedAt as fallback
+				timeStr := exec.Metadata.StartedAt
+				if timeStr == "" {
+					timeStr = exec.Metadata.CreatedAt
+				}
+				if timeStr != "" {
+					// Parse and format the date
+					if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					} else {
+						descParts = append(descParts, timeStr)
+					}
+				}
+				if exec.Status != "" {
+					descParts = append(descParts, string(exec.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, execWithTime{id: exec.Metadata.ID, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return ids, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first), then by ID for stability
+	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i].timestamp.Equal(filtered[j].timestamp) {
+			return filtered[i].id > filtered[j].id // descending by ID when times equal
+		}
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent to avoid cluttered display
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank number to show order even if shell sorts alphabetically
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered))) // Calculate padding width
+	for i, e := range filtered {
+		if e.desc != "" {
+			completions = append(completions, e.id+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, e.desc))
+		} else {
+			completions = append(completions, e.id)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+}
+
+// CompleteJobExecutionTaskIDs returns a list of task IDs for a given job execution
+func CompleteJobExecutionTaskIDs(jobName, executionID, toComplete string) ([]string, cobra.ShellCompDirective) {
+	ctx, cancel := completionContext()
+	defer cancel()
+	client := getClientForCompletion()
+	if client == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	execution, err := client.Jobs.Executions.Get(ctx, executionID, blaxel.JobExecutionGetParams{JobID: jobName})
+	if err != nil || execution == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Use execution.Tasks (runtime data) instead of execution.Spec.Tasks (specification)
+	if execution.Tasks == nil || len(execution.Tasks) == 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Collect tasks with their info for completion
+	type taskInfo struct {
+		id   string
+		desc string
+	}
+	var completions []taskInfo
+
+	for i, task := range execution.Tasks {
+		// Task ID is metadata.name or "task{index}" if name is empty
+		taskID := task.Metadata.Name
+		if taskID == "" {
+			taskID = fmt.Sprintf("task%d", i)
+		}
+
+		if toComplete == "" || strings.HasPrefix(taskID, toComplete) {
+			// Build description from timestamp and status
+			var descParts []string
+
+			// Get timestamp from task metadata
+			timeStr := task.Metadata.StartedAt
+			if timeStr == "" {
+				timeStr = task.Metadata.CreatedAt
+			}
+			if timeStr != "" {
+				if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+					descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+				}
+			}
+
+			// Get status from task
+			if task.Status != "" {
+				descParts = append(descParts, task.Status)
+			}
+
+			desc := strings.Join(descParts, " ")
+
+			completions = append(completions, taskInfo{id: taskID, desc: desc})
+		}
+	}
+
+	// Build completion strings (preserve order from API, which is typically by index)
+	var result []string
+	for _, t := range completions {
+		if t.desc != "" {
+			result = append(result, t.id+"\t"+t.desc)
+		} else {
+			result = append(result, t.id)
+		}
+	}
+
+	return result, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteAgentNames returns a list of agent names for shell completion
@@ -234,16 +482,55 @@ func CompleteAgentNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, agent := range *agents {
 		if agent.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(agent.Metadata.Name, toComplete) {
-				names = append(names, agent.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if agent.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, agent.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				if agent.Status != "" {
+					descParts = append(descParts, string(agent.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: agent.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteFunctionNames returns a list of function names for shell completion
@@ -260,16 +547,55 @@ func CompleteFunctionNames(cmd *cobra.Command, args []string, toComplete string)
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, fn := range *functions {
 		if fn.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(fn.Metadata.Name, toComplete) {
-				names = append(names, fn.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if fn.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, fn.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				if fn.Status != "" {
+					descParts = append(descParts, string(fn.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: fn.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteModelNames returns a list of model names for shell completion
@@ -286,16 +612,55 @@ func CompleteModelNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, model := range *models {
 		if model.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(model.Metadata.Name, toComplete) {
-				names = append(names, model.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if model.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, model.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				if model.Status != "" {
+					descParts = append(descParts, string(model.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: model.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompleteVolumeNames returns a list of volume names for shell completion
@@ -312,16 +677,52 @@ func CompleteVolumeNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, vol := range *volumes {
 		if vol.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(vol.Metadata.Name, toComplete) {
-				names = append(names, vol.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if vol.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, vol.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: vol.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // CompletePolicyNames returns a list of policy names for shell completion
@@ -338,16 +739,52 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var names []string
+	type resourceWithTime struct {
+		name      string
+		desc      string
+		timestamp time.Time
+	}
+	var filtered []resourceWithTime
+
 	for _, pol := range *policies {
 		if pol.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(pol.Metadata.Name, toComplete) {
-				names = append(names, pol.Metadata.Name)
+				var descParts []string
+				var ts time.Time
+				if pol.Metadata.CreatedAt != "" {
+					if t, err := time.Parse(time.RFC3339, pol.Metadata.CreatedAt); err == nil {
+						ts = t
+						descParts = append(descParts, t.Local().Format("2006-01-02 15:04:05"))
+					}
+				}
+				desc := strings.Join(descParts, " ")
+				filtered = append(filtered, resourceWithTime{name: pol.Metadata.Name, desc: desc, timestamp: ts})
 			}
 		}
 	}
 
-	return names, cobra.ShellCompDirectiveNoFileComp
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].timestamp.After(filtered[j].timestamp)
+	})
+
+	// Limit to 20 most recent
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+
+	// Build completion strings with rank
+	var completions []string
+	width := len(fmt.Sprintf("%d", len(filtered)))
+	for i, r := range filtered {
+		if r.desc != "" {
+			completions = append(completions, r.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, r.desc))
+		} else {
+			completions = append(completions, r.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
 }
 
 // GetSandboxValidArgsFunction returns a ValidArgsFunction for sandbox commands
@@ -384,15 +821,6 @@ func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toCom
 				}
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
-
-		case 3:
-			// Complete "logs" keyword for process with description
-			var completions []string
-			keyword := "logs"
-			if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
-				completions = append(completions, keyword+"\tView process logs")
-			}
-			return completions, cobra.ShellCompDirectiveNoFileComp
 
 		default:
 			return nil, cobra.ShellCompDirectiveNoFileComp
@@ -596,6 +1024,8 @@ var logsResourceTypesWithDesc = []struct {
 // It handles completions for:
 // - resource types (first arg)
 // - resource names (second arg)
+// - process names for sandboxes OR execution IDs for jobs (third arg, optional)
+// - task IDs for jobs (fourth arg, optional)
 func GetLogsValidArgsFunction() func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
@@ -621,6 +1051,29 @@ func GetLogsValidArgsFunction() func(cmd *cobra.Command, args []string, toComple
 				return CompleteAgentNames(cmd, args, toComplete)
 			case "function", "fn", "mcp", "mcps", "functions":
 				return CompleteFunctionNames(cmd, args, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+
+		case 2:
+			// Complete process names for sandboxes OR execution IDs for jobs
+			resourceType := strings.ToLower(args[0])
+			switch resourceType {
+			case "sandbox", "sbx", "sandboxes":
+				sandboxName := args[1]
+				return CompleteSandboxProcessNames(sandboxName, toComplete)
+			case "job", "j", "jb", "jobs":
+				jobName := args[1]
+				return CompleteJobExecutionIDs(jobName, toComplete)
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+
+		case 3:
+			// Complete task IDs for jobs
+			resourceType := strings.ToLower(args[0])
+			if resourceType == "job" || resourceType == "j" || resourceType == "jb" || resourceType == "jobs" {
+				jobName := args[1]
+				executionID := args[2]
+				return CompleteJobExecutionTaskIDs(jobName, executionID, toComplete)
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 

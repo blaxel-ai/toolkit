@@ -16,7 +16,7 @@ import (
 
 // HandleSandboxNestedResource handles nested resources for sandboxes (like processes)
 // Returns true if a nested resource was handled, false if this is a regular get
-func HandleSandboxNestedResource(args []string, follow bool) bool {
+func HandleSandboxNestedResource(args []string) bool {
 	if len(args) < 2 {
 		return false
 	}
@@ -29,17 +29,8 @@ func HandleSandboxNestedResource(args []string, follow bool) bool {
 		// Check if process name is provided
 		if len(args) >= 3 {
 			processName := args[2]
-			// Check if logs subcommand is provided
-			if len(args) >= 4 && (args[3] == "logs" || args[3] == "log") {
-				if follow {
-					streamSandboxProcessLogs(sandboxName, processName)
-				} else {
-					getSandboxProcessLogs(sandboxName, processName)
-				}
-			} else {
-				// Get specific process
-				getSandboxProcess(sandboxName, processName)
-			}
+			// Get specific process
+			getSandboxProcess(sandboxName, processName)
 		} else {
 			// List all processes for this sandbox
 			listSandboxProcesses(sandboxName)
@@ -287,8 +278,6 @@ func streamSandboxProcessLogs(sandboxName, processName string) {
 	// Handle Ctrl+C gracefully
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	core.PrintInfo(fmt.Sprintf("Streaming logs for process '%s' in sandbox '%s'... (Press Ctrl+C to stop)", processName, sandboxName))
 
 	// Start streaming logs using SDK's StreamLogs
 	streamControl := sandboxInstance.Process.StreamLogs(ctx, processName, blaxel.ProcessStreamOptions{

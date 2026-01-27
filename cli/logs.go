@@ -108,12 +108,10 @@ func LogsCmd() *cobra.Command {
 		utc          bool
 		severity     string
 		search       string
-		taskID       string
-		executionID  string
 	)
 
 	cmd := &cobra.Command{
-		Use:               "logs RESOURCE_TYPE RESOURCE_NAME",
+		Use:               "logs RESOURCE_TYPE RESOURCE_NAME [NESTED_ARGS...]",
 		Short:             "View logs for a resource",
 		ValidArgsFunction: GetLogsValidArgsFunction(),
 		Long: `View logs for Blaxel resources.
@@ -126,6 +124,15 @@ Resource Types (with aliases):
 - jobs (job, j, jb)
 - agents (agent, ag)
 - functions (function, fn, mcp, mcps)
+
+Sandbox Process Logs:
+For sandboxes, you can view logs for a specific process by adding the process name:
+  bl logs sandbox my-sandbox my-process
+
+Job Execution Logs:
+For jobs, you can filter logs by execution ID and task ID:
+  bl logs job my-job <execution-id>
+  bl logs job my-job <execution-id> <task-id>
 
 Time Filtering:
 By default, logs from the last 1 hour are displayed.
@@ -154,14 +161,27 @@ Use comma-separated values: --severity ERROR,FATAL
 Search:
 Use --search to filter logs by text content. Only logs containing the search term will be displayed.
 
-Job-Specific Filtering:
-When viewing logs for jobs, you can filter by specific task or execution:
-- --task-id: Filter logs for a specific task ID
-- --execution-id: Filter logs for a specific execution ID
-
 Examples:
   # View logs for a specific sandbox (last 1 hour - default)
   bl logs sandbox my-sandbox
+
+  # View logs for a specific process in a sandbox
+  bl logs sandbox my-sandbox my-process
+
+  # Stream process logs in real-time
+  bl logs sandbox my-sandbox my-process --follow
+
+  # View all logs for a job
+  bl logs job my-job
+
+  # View logs for a specific job execution
+  bl logs job my-job exec-abc123
+
+  # View logs for a specific task within an execution
+  bl logs job my-job exec-abc123 task-456
+
+  # Follow job execution logs in real-time
+  bl logs job my-job exec-abc123 --follow
 
   # Follow logs in real-time (shows last 15 minutes, then streams new logs)
   bl logs sandbox my-sandbox --follow
@@ -171,9 +191,6 @@ Examples:
 
   # View logs from last 3 days
   bl logs job my-job --period 3d
-
-  # View logs with 1 hour period (explicit)
-  bl logs sandbox my-sandbox --period 1h
 
   # View logs for a specific time range
   bl logs agent my-agent --start 2024-01-01T00:00:00Z --end 2024-01-01T23:59:59Z
@@ -190,20 +207,11 @@ Examples:
   # Search for specific text in logs
   bl logs agent my-agent --search "error"
 
-  # Filter job logs by task ID
-  bl logs job my-job --task-id task-123
-
-  # Filter job logs by execution ID
-  bl logs job my-job --execution-id exec-456
-
-  # Combine filters
-  bl logs job my-job --severity ERROR --search "timeout" --task-id task-123
-
   # Using aliases
   bl logs sbx my-sandbox --follow
   bl logs j my-job --period 1h
   bl logs fn my-function --follow`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.RangeArgs(2, 4),
 		Run: func(cmd *cobra.Command, args []string) {
 			resourceType := args[0]
 			resourceName := args[1]
@@ -213,6 +221,34 @@ Examples:
 			if err != nil {
 				core.PrintError("logs", err)
 				core.ExitWithError(err)
+			}
+
+			// Parse nested arguments based on resource type
+			var executionID, taskID, processName string
+			if len(args) >= 3 {
+				switch canonicalType {
+				case "sandbox":
+					processName = args[2]
+				case "job":
+					executionID = args[2]
+					if len(args) >= 4 {
+						taskID = args[3]
+					}
+				default:
+					err := fmt.Errorf("extra arguments are only valid for sandbox (process) or job (execution/task) resources")
+					core.PrintError("logs", err)
+					core.ExitWithError(err)
+				}
+			}
+
+			// Handle sandbox process logs
+			if canonicalType == "sandbox" && processName != "" {
+				if follow {
+					streamSandboxProcessLogs(resourceName, processName)
+				} else {
+					getSandboxProcessLogs(resourceName, processName)
+				}
+				return
 			}
 
 			// Determine time range
@@ -309,8 +345,6 @@ Examples:
 	cmd.Flags().BoolVar(&utc, "utc", false, "Display timestamps in UTC instead of local timezone")
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter by severity levels (comma-separated): FATAL,ERROR,WARNING,INFO,DEBUG,TRACE,UNKNOWN")
 	cmd.Flags().StringVar(&search, "search", "", "Search for logs containing specific text")
-	cmd.Flags().StringVar(&taskID, "task-id", "", "Filter logs by task ID (job resources only)")
-	cmd.Flags().StringVar(&executionID, "execution-id", "", "Filter logs by execution ID (job resources only)")
 
 	return cmd
 }

@@ -69,6 +69,13 @@ The command can list all resources of a type or get details for a specific one.
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
+
+  # List processes in a sandbox
+  bl get sandbox my-sandbox process
+  bl get sbx my-sandbox ps
+
+  # Get specific process in a sandbox
+  bl get sandbox my-sandbox process my-process
 ```
 
 ### Options
