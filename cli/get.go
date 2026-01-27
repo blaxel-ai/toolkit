@@ -90,7 +90,27 @@ The command can list all resources of a type or get details for a specific one.`
   bl get sbx my-sandbox ps
 
   # Get specific process in a sandbox
-  bl get sandbox my-sandbox process my-process`,
+  bl get sandbox my-sandbox process my-process
+
+  # --- Filtering with jq ---
+
+  # Get names of all jobs with status DELETING
+  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'
+
+  # Get names of all deployed sandboxes
+  bl get sandboxes -o json | jq -r '.[] | select(.status == "DEPLOYED") | .metadata.name'
+
+  # Get all agents with name containing "test"
+  bl get agents -o json | jq -r '.[] | select(.metadata.name | contains("test")) | .metadata.name'
+
+  # Get sandboxes with specific label (e.g., environment=dev)
+  bl get sandboxes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name'
+
+  # Get jobs created in the last 24 hours
+  bl get jobs -o json | jq -r '.[] | .metadata.name'
+
+  # Count resources by status
+  bl get agents -o json | jq 'group_by(.status) | map({status: .[0].status, count: length})'`,
 	}
 	var watch bool
 	resources := core.GetResources()

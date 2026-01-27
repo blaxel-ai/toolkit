@@ -64,7 +64,27 @@ separately if needed.`,
 
   # Safe deletion workflow
   bl get agent my-agent    # Review resource first
-  bl delete agent my-agent # Delete after confirmation`,
+  bl delete agent my-agent # Delete after confirmation
+
+  # --- Bulk deletion with jq filtering ---
+
+  # Delete all jobs with status DELETING
+  bl delete jobs $(bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name')
+
+  # Delete all sandboxes with status FAILED
+  bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.status == "FAILED") | .metadata.name')
+
+  # Delete all agents with name containing "test"
+  bl delete agents $(bl get agents -o json | jq -r '.[] | select(.metadata.name | contains("test")) | .metadata.name')
+
+  # Delete all volumes with specific label (e.g., environment=dev)
+  bl delete volumes $(bl get volumes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name')
+
+  # Delete all sandboxes matching a regex pattern (e.g., starts with "temp-")
+  bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.metadata.name | test("^temp-")) | .metadata.name')
+
+  # Preview what would be deleted (dry run - just list names)
+  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'`,
 		Run: func(cmd *cobra.Command, args []string) {
 			results, err := core.GetResults("delete", filePath, recursive)
 			if err != nil {
