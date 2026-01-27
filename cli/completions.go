@@ -102,14 +102,14 @@ func GetWorkspaceValidArgsFunction() func(cmd *cobra.Command, args []string, toC
 	}
 }
 
-// sandboxNestedResourceKeywords are the keywords that indicate nested resources for sandboxes
+// sandboxNestedResourceKeywords are the keywords that indicate nested resources for sandboxes (for matching user input)
 var sandboxNestedResourceKeywords = []string{"processes", "process", "proc", "procs", "ps"}
 
-// processLogsKeywords are the keywords for getting process logs
+// processLogsKeywords are the keywords for getting process logs (for matching user input)
 var processLogsKeywords = []string{"logs", "log"}
 
 // jobNestedResourceKeywords are the keywords that indicate nested resources for jobs
-var jobNestedResourceKeywords = []string{"executions", "execution"}
+var jobNestedResourceKeywords = []string{"execution"}
 
 // CompleteSandboxNames returns a list of sandbox names for shell completion
 func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -353,7 +353,7 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 // GetSandboxValidArgsFunction returns a ValidArgsFunction for sandbox commands
 // It handles completions for:
 // - sandbox names (first arg)
-// - nested resource keywords like "processes" (second arg)
+// - nested resource keywords like "process" (second arg)
 // - process names (third arg)
 // - "logs" keyword (fourth arg)
 func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -364,19 +364,19 @@ func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toCom
 			return CompleteSandboxNames(cmd, args, toComplete)
 
 		case 1:
-			// Complete nested resource keywords (processes, etc.)
+			// Complete nested resource keywords with description
 			var completions []string
-			for _, keyword := range sandboxNestedResourceKeywords {
-				if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
-					completions = append(completions, keyword)
-				}
+			keyword := "process"
+			if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
+				completions = append(completions, keyword+"\tList or get sandbox processes")
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
 
 		case 2:
 			// Check if the second arg is a process-related keyword
 			sandboxName := args[0]
-			keyword := args[1]
+			keyword := strings.ToLower(args[1])
+			// Accept all aliases for flexibility
 			for _, k := range sandboxNestedResourceKeywords {
 				if keyword == k {
 					// Complete process names
@@ -386,12 +386,11 @@ func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toCom
 			return nil, cobra.ShellCompDirectiveNoFileComp
 
 		case 3:
-			// Complete "logs" keyword for process
+			// Complete "logs" keyword for process with description
 			var completions []string
-			for _, keyword := range processLogsKeywords {
-				if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
-					completions = append(completions, keyword)
-				}
+			keyword := "logs"
+			if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
+				completions = append(completions, keyword+"\tView process logs")
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
 
@@ -404,7 +403,7 @@ func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toCom
 // GetJobValidArgsFunction returns a ValidArgsFunction for job commands
 // It handles completions for:
 // - job names (first arg)
-// - nested resource keywords like "executions" (second arg)
+// - nested resource keywords like "execution" (second arg)
 // - execution IDs (third arg)
 func GetJobValidArgsFunction() func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -414,24 +413,22 @@ func GetJobValidArgsFunction() func(cmd *cobra.Command, args []string, toComplet
 			return CompleteJobNames(cmd, args, toComplete)
 
 		case 1:
-			// Complete nested resource keywords (executions, etc.)
+			// Complete nested resource keywords with description
 			var completions []string
-			for _, keyword := range jobNestedResourceKeywords {
-				if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
-					completions = append(completions, keyword)
-				}
+			keyword := "execution"
+			if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
+				completions = append(completions, keyword+"\tList or get job executions")
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
 
 		case 2:
 			// Check if the second arg is an execution-related keyword
 			jobName := args[0]
-			keyword := args[1]
-			for _, k := range jobNestedResourceKeywords {
-				if keyword == k {
-					// Complete execution IDs
-					return CompleteJobExecutionIDs(jobName, toComplete)
-				}
+			keyword := strings.ToLower(args[1])
+			// Accept both "execution" and "executions" for flexibility
+			if keyword == "execution" || keyword == "executions" {
+				// Complete execution IDs
+				return CompleteJobExecutionIDs(jobName, toComplete)
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 
@@ -584,12 +581,15 @@ func GetImageValidArgsFunction() func(cmd *cobra.Command, args []string, toCompl
 	}
 }
 
-// logsResourceTypes are the valid resource types for logs command
-var logsResourceTypes = []string{
-	"sandbox", "sbx", "sandboxes",
-	"job", "j", "jb", "jobs",
-	"agent", "ag", "agents",
-	"function", "fn", "mcp", "mcps", "functions",
+// logsResourceTypesWithDesc are the valid resource types for logs command with descriptions
+var logsResourceTypesWithDesc = []struct {
+	name string
+	desc string
+}{
+	{"sandbox", "Isolated execution environment"},
+	{"job", "Batch processing task"},
+	{"agent", "AI agent application"},
+	{"function", "MCP server / function"},
 }
 
 // GetLogsValidArgsFunction returns a ValidArgsFunction for the logs command
@@ -600,11 +600,11 @@ func GetLogsValidArgsFunction() func(cmd *cobra.Command, args []string, toComple
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
 		case 0:
-			// Complete resource types
+			// Complete resource types with descriptions
 			var completions []string
-			for _, rt := range logsResourceTypes {
-				if toComplete == "" || strings.HasPrefix(rt, toComplete) {
-					completions = append(completions, rt)
+			for _, rt := range logsResourceTypesWithDesc {
+				if toComplete == "" || strings.HasPrefix(rt.name, toComplete) {
+					completions = append(completions, rt.name+"\t"+rt.desc)
 				}
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
@@ -650,13 +650,16 @@ func GetChatValidArgsFunction() func(cmd *cobra.Command, args []string, toComple
 	}
 }
 
-// runResourceTypes are the valid resource types for the run command
-var runResourceTypes = []string{
-	"agent", "agents", "ag",
-	"model", "models", "ml",
-	"job", "jobs", "jb",
-	"function", "functions", "fn", "mcp", "mcps",
-	"sandbox", "sandboxes", "sbx", "sb",
+// runResourceTypesWithDesc are the valid resource types for run command with descriptions
+var runResourceTypesWithDesc = []struct {
+	name string
+	desc string
+}{
+	{"agent", "AI agent application"},
+	{"model", "AI model configuration"},
+	{"job", "Batch processing task"},
+	{"function", "MCP server / function"},
+	{"sandbox", "Isolated execution environment"},
 }
 
 // GetRunValidArgsFunction returns a ValidArgsFunction for the run command
@@ -667,11 +670,11 @@ func GetRunValidArgsFunction() func(cmd *cobra.Command, args []string, toComplet
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
 		case 0:
-			// Complete resource types
+			// Complete resource types with descriptions
 			var completions []string
-			for _, rt := range runResourceTypes {
-				if toComplete == "" || strings.HasPrefix(rt, toComplete) {
-					completions = append(completions, rt)
+			for _, rt := range runResourceTypesWithDesc {
+				if toComplete == "" || strings.HasPrefix(rt.name, toComplete) {
+					completions = append(completions, rt.name+"\t"+rt.desc)
 				}
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
@@ -696,5 +699,37 @@ func GetRunValidArgsFunction() func(cmd *cobra.Command, args []string, toComplet
 		default:
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
+	}
+}
+
+// newResourceTypesWithDesc are the valid resource types for new command with descriptions
+var newResourceTypesWithDesc = []struct {
+	name string
+	desc string
+}{
+	{"agent", "AI agent application"},
+	{"mcp", "MCP server (Model Context Protocol)"},
+	{"sandbox", "Isolated execution environment"},
+	{"job", "Batch processing task"},
+	{"volumetemplate", "Volume template for persistent storage"},
+}
+
+// GetNewValidArgsFunction returns a ValidArgsFunction for the new command
+// It handles completions for:
+// - resource types (first arg)
+func GetNewValidArgsFunction() func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) == 0 {
+			// Complete resource types with descriptions
+			var completions []string
+			for _, rt := range newResourceTypesWithDesc {
+				if toComplete == "" || strings.HasPrefix(rt.name, toComplete) {
+					completions = append(completions, rt.name+"\t"+rt.desc)
+				}
+			}
+			return completions, cobra.ShellCompDirectiveNoFileComp
+		}
+		// Second arg is directory name - use default file completion
+		return nil, cobra.ShellCompDirectiveDefault
 	}
 }

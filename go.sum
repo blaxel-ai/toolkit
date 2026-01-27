@@ -24,6 +24,8 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/blaxel-ai/sdk-go v0.3.1 h1:dnMMIr9pepDiX9/I6jivX8WPtqwKh2IasAtRKjxvPnI=
 github.com/blaxel-ai/sdk-go v0.3.1/go.mod h1:spaPnMdldJr5Z0WwiPZp45SgzSc2ABT2kEjyan+nJkk=
+github.com/blaxel-ai/sdk-go v0.6.0 h1:Dvg4z62GePjMJdgHAQyBfqKqMp/OVcATSb06oisTyDA=
+github.com/blaxel-ai/sdk-go v0.6.0/go.mod h1:spaPnMdldJr5Z0WwiPZp45SgzSc2ABT2kEjyan+nJkk=
 github.com/catppuccin/go v0.2.0 h1:ktBeIrIP42b/8FGiScP9sgrWOss3lw0Z5SktRoithGA=
 github.com/catppuccin/go v0.2.0/go.mod h1:8IHJuMGaUUjQM82qBrGNBv7LFq6JI3NnQCF6MOlZjpc=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
