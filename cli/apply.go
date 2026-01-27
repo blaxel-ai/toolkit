@@ -387,13 +387,13 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 			var resourceMap map[string]interface{}
 			integrationName := ""
 			resourceJson, jsonErr := json.Marshal(resourceObject)
-			if jsonErr == nil {
-				if unmarshalErr := json.Unmarshal(resourceJson, &resourceMap); unmarshalErr == nil {
-					if spec, ok := resourceMap["spec"].(map[string]interface{}); ok {
-						if integration, ok := spec["integration"].(string); ok {
-							integrationName = integration
-						}
-					}
+			if jsonErr != nil {
+				core.PrintWarning(fmt.Sprintf("Failed to marshal resource for edit URL: %v", jsonErr))
+			} else if unmarshalErr := json.Unmarshal(resourceJson, &resourceMap); unmarshalErr != nil {
+				core.PrintWarning(fmt.Sprintf("Failed to unmarshal resource for edit URL: %v", unmarshalErr))
+			} else if spec, ok := resourceMap["spec"].(map[string]interface{}); ok {
+				if integration, ok := spec["integration"].(string); ok {
+					integrationName = integration
 				}
 			}
 			editUrl := fmt.Sprintf("%s/%s/workspace/settings/integrations/%s", blaxel.GetAppURL(), core.GetWorkspace(), integrationName)
