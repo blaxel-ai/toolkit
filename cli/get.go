@@ -80,7 +80,7 @@ The command can list all resources of a type or get details for a specific one.`
   bl get job my-job executions
 
   # Get specific execution for a job
-  bl get job my-job execution <execution-id>
+  bl get job my-job execution EXECUTION_ID
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
@@ -106,7 +106,7 @@ The command can list all resources of a type or get details for a specific one.`
   # Get sandboxes with specific label (e.g., environment=dev)
   bl get sandboxes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name'
 
-  # Get jobs created in the last 24 hours
+  # Get all job names
   bl get jobs -o json | jq -r '.[] | .metadata.name'
 
   # Count resources by status

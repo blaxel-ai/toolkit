@@ -131,8 +131,8 @@ For sandboxes, you can view logs for a specific process by adding the process na
 
 Job Execution Logs:
 For jobs, you can filter logs by execution ID and task ID:
-  bl logs job my-job <execution-id>
-  bl logs job my-job <execution-id> <task-id>
+  bl logs job my-job my-execution-id
+  bl logs job my-job my-execution-id my-task-id
 
 Time Filtering:
 By default, logs from the last 1 hour are displayed.

@@ -62,24 +62,19 @@ bl delete [flags]
   bl delete agent my-agent # Delete after confirmation
 
   # --- Bulk deletion with jq filtering ---
+  # WARNING: Bulk deletions are irreversible. Always preview first!
 
-  # Delete all jobs with status DELETING
+  # STEP 1: Preview what would be deleted (ALWAYS DO THIS FIRST)
+  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'
+
+  # STEP 2: After verifying the list, proceed with deletion
   bl delete jobs $(bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name')
 
-  # Delete all sandboxes with status FAILED
+  # More bulk deletion examples (always preview first):
   bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.status == "FAILED") | .metadata.name')
-
-  # Delete all agents with name containing "test"
   bl delete agents $(bl get agents -o json | jq -r '.[] | select(.metadata.name | contains("test")) | .metadata.name')
-
-  # Delete all volumes with specific label (e.g., environment=dev)
   bl delete volumes $(bl get volumes -o json | jq -r '.[] | select(.metadata.labels.environment == "dev") | .metadata.name')
-
-  # Delete all sandboxes matching a regex pattern (e.g., starts with "temp-")
   bl delete sandboxes $(bl get sandboxes -o json | jq -r '.[] | select(.metadata.name | test("^temp-")) | .metadata.name')
-
-  # Preview what would be deleted (dry run - just list names)
-  bl get jobs -o json | jq -r '.[] | select(.status == "DELETING") | .metadata.name'
 ```
 
 ### Options
