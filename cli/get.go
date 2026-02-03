@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strings"
 	"syscall"
 	"time"
 
@@ -168,13 +169,6 @@ The command can list all resources of a type or get details for a specific one.`
 					seconds := 2
 					duration := time.Duration(seconds) * time.Second
 
-					// Execute immediately before starting the ticker
-					if isNestedResource && nestedResourceFn != nil {
-						executeNestedResourceWatch(nestedResourceFn, seconds)
-					} else {
-						executeAndDisplayWatch(args, *resource, seconds)
-					}
-
 					// Create a ticker to periodically fetch updates
 					ticker := time.NewTicker(duration)
 					defer ticker.Stop()
@@ -183,9 +177,17 @@ The command can list all resources of a type or get details for a specific one.`
 					sigChan := make(chan os.Signal, 1)
 					signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-					// Listen for 'q' key press
+					// Listen for 'q' key press - start BEFORE first execution
+					// so terminal is in raw mode consistently for all output
 					quitChan := make(chan struct{})
 					go listenForQuit(quitChan)
+
+					// Execute immediately before starting the ticker
+					if isNestedResource && nestedResourceFn != nil {
+						executeNestedResourceWatch(nestedResourceFn, seconds)
+					} else {
+						executeAndDisplayWatch(args, *resource, seconds)
+					}
 
 					for {
 						select {
@@ -382,8 +384,12 @@ func executeNestedResourceWatch(fn func(), seconds int) {
 	fmt.Print("\033[2J\033[H")
 
 	// Print the timestamp and output
-	fmt.Printf("Every %ds: %s\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
-	fmt.Print(buf.String())
+	// Use \r\n for raw mode compatibility (listenForQuit puts terminal in raw mode)
+	fmt.Printf("Every %ds: %s\r\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
+	// Convert \n to \r\n for raw mode compatibility
+	output := strings.ReplaceAll(buf.String(), "\r\n", "\n") // Normalize first
+	output = strings.ReplaceAll(output, "\n", "\r\n")        // Then convert
+	fmt.Print(output)
 }
 
 // Helper function to execute and display results
@@ -419,8 +425,12 @@ func executeAndDisplayWatch(args []string, resource core.Resource, seconds int) 
 	fmt.Print("\033[2J\033[H")
 
 	// Print the timestamp and output
-	fmt.Printf("Every %ds: %s\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
-	fmt.Print(buf.String())
+	// Use \r\n for raw mode compatibility (listenForQuit puts terminal in raw mode)
+	fmt.Printf("Every %ds: %s\r\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
+	// Convert \n to \r\n for raw mode compatibility
+	output := strings.ReplaceAll(buf.String(), "\r\n", "\n") // Normalize first
+	output = strings.ReplaceAll(output, "\n", "\r\n")        // Then convert
+	fmt.Print(output)
 }
 
 // listenForQuit listens for 'q' key press and signals to quit
