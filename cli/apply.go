@@ -142,7 +142,7 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	applyResults := []ApplyResult{}
 	resources := core.GetResources()
 
-	// À ce stade, results contient tous vos documents YAML
+	// At this point, results contains all your YAML documents
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {

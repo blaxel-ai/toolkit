@@ -1,6 +1,6 @@
-# Interactive Deployment Mode
+# Deployment Mode
 
-The interactive deployment mode provides a real-time Terminal User Interface (TUI) for monitoring and tracking the deployment process of Blaxel resources.
+The deployment process provides a real-time Terminal User Interface (TUI) for monitoring and tracking the deployment of Blaxel resources.
 
 ## Features
 
@@ -22,7 +22,7 @@ The interactive deployment mode provides a real-time Terminal User Interface (TU
 ### 3. Interactive Navigation
 - **↑/↓ or k/j**: Navigate between resources
 - **l**: Toggle build log visibility
-- **q or Ctrl+C**: Quit the interactive mode
+- **q or Ctrl+C**: Quit the deployment mode
 
 ### 4. Concurrent Deployments
 - Multiple resources are deployed in parallel for faster overall deployment
@@ -30,27 +30,27 @@ The interactive deployment mode provides a real-time Terminal User Interface (TU
 
 ## Usage
 
-### Basic Interactive Deployment
+### Basic Deployment
 ```bash
-bl deploy --interactive
+bl deploy
 ```
 
-### Testing with Mock Mode
-Mock mode simulates the deployment process without making actual API calls:
+### Non-Interactive Mode
+Use `--yes` to skip interactive prompts (useful for CI/CD):
 ```bash
-bl deploy --interactive --mock
+bl deploy --yes
 ```
 
 ### Combined with Other Flags
 ```bash
-# Interactive deployment with custom name
-bl deploy --interactive --name my-custom-app
+# Deployment with custom name
+bl deploy --name my-custom-app
 
-# Interactive deployment from subdirectory
-bl deploy --interactive --directory ./my-app
+# Deployment from subdirectory
+bl deploy --directory ./my-app
 
-# Interactive deployment with environment file
-bl deploy --interactive --env-file .env.production
+# Deployment with environment file
+bl deploy --env-file .env.production
 ```
 
 ## Architecture
@@ -85,27 +85,10 @@ Deployment Process → Status Updates → Model Updates
 
 ## Testing
 
-### Using the Test Script
-A comprehensive test script is provided at `test/test_interactive_deploy.sh`:
-
-```bash
-# Make it executable
-chmod +x test/test_interactive_deploy.sh
-
-# Run the test menu
-./test/test_interactive_deploy.sh
-```
-
-The test script provides:
-1. Mock mode testing
-2. Dry run testing
-3. Multiple resource testing
-4. Real deployment testing
-
 ### Manual Testing
 1. Create a test project with a `blaxel.toml` file
-2. Run `bl deploy --interactive --mock` to test without deployment
-3. Run `bl deploy --interactive` for real deployment (requires credentials)
+2. Run `bl deploy --dry-run` to test without actual deployment
+3. Run `bl deploy` for real deployment (requires credentials)
 
 ## Implementation Notes
 

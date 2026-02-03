@@ -312,7 +312,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
-	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to pass to the execution")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
 	cmd.Flags().IntVarP(&concurrent, "concurrent", "c", 1, "Number of concurrent workers for local job execution")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format: json, yaml")
