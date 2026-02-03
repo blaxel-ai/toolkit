@@ -137,18 +137,29 @@ The command can list all resources of a type or get details for a specific one.`
 			Short:             fmt.Sprintf("Get a %s", resource.Kind),
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
-				// Special handling for nested resources (e.g., job executions, sandbox processes)
+				// Check if this is a nested resource request
+				isNestedResource := false
+				var nestedResourceFn func()
+
 				if resource.Kind == "Job" && len(args) >= 2 {
-					// Check if this is a nested resource request
-					if HandleJobNestedResource(args) {
-						return
+					// Check if this looks like a nested resource request
+					nestedResource := args[1]
+					if nestedResource == "executions" || nestedResource == "execution" {
+						isNestedResource = true
+						nestedResourceFn = func() {
+							HandleJobNestedResource(args)
+						}
 					}
 				}
 
 				if resource.Kind == "Sandbox" && len(args) >= 2 {
-					// Check if this is a nested resource request (e.g., processes)
-					if HandleSandboxNestedResource(args) {
-						return
+					// Check if this looks like a nested resource request
+					nestedResource := args[1]
+					if nestedResource == "processes" || nestedResource == "process" || nestedResource == "proc" || nestedResource == "procs" || nestedResource == "ps" {
+						isNestedResource = true
+						nestedResourceFn = func() {
+							HandleSandboxNestedResource(args)
+						}
 					}
 				}
 
@@ -157,7 +168,11 @@ The command can list all resources of a type or get details for a specific one.`
 					duration := time.Duration(seconds) * time.Second
 
 					// Execute immediately before starting the ticker
-					executeAndDisplayWatch(args, *resource, seconds)
+					if isNestedResource && nestedResourceFn != nil {
+						executeNestedResourceWatch(nestedResourceFn, seconds)
+					} else {
+						executeAndDisplayWatch(args, *resource, seconds)
+					}
 
 					// Create a ticker to periodically fetch updates
 					ticker := time.NewTicker(duration)
@@ -170,13 +185,23 @@ The command can list all resources of a type or get details for a specific one.`
 					for {
 						select {
 						case <-ticker.C:
-							executeAndDisplayWatch(args, *resource, seconds)
+							if isNestedResource && nestedResourceFn != nil {
+								executeNestedResourceWatch(nestedResourceFn, seconds)
+							} else {
+								executeAndDisplayWatch(args, *resource, seconds)
+							}
 						case <-sigChan:
 							fmt.Println("\nStopped watching.")
 							return
 						}
 					}
 				} else {
+					// Non-watch mode
+					if isNestedResource && nestedResourceFn != nil {
+						nestedResourceFn()
+						return
+					}
+
 					if len(args) == 0 {
 						ListFn(resource)
 						return
@@ -318,6 +343,36 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	}
 
 	return slices, nil
+}
+
+// executeNestedResourceWatch executes a nested resource function and displays results with watch formatting
+func executeNestedResourceWatch(fn func(), seconds int) {
+	// Create a pipe to capture output
+	r, w, _ := os.Pipe()
+	// Save the original stdout
+	stdout := os.Stdout
+	// Set stdout to our pipe
+	os.Stdout = w
+
+	// Execute the nested resource function
+	fn()
+
+	// Close the write end of the pipe
+	_ = w.Close()
+
+	// Read the output from the pipe
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+
+	// Restore stdout
+	os.Stdout = stdout
+
+	// Clear the screen
+	fmt.Print("\033[2J\033[H")
+
+	// Print the timestamp and output
+	fmt.Printf("Every %ds: %s\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
+	fmt.Print(buf.String())
 }
 
 // Helper function to execute and display results

@@ -263,9 +263,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 					if len(shortID) > 8 {
 						shortID = shortID[:8]
 					}
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f --execution-id %s", resourceName, shortID))
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s %s -f", resourceName, shortID))
 				} else {
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f", resourceName))
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s -f", resourceName))
 				}
 				core.PrintSuccess(fmt.Sprintf("Job '%s' execution started successfully!", resourceName))
 				fmt.Println()
