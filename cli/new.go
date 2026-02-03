@@ -131,7 +131,7 @@ After Creation:
 			case newTypeVolumeTemplate:
 				core.RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
-				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volume-template", t))
+				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volumetemplate", t))
 			}
 		},
 	}

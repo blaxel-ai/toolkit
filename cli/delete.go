@@ -88,7 +88,7 @@ separately if needed.`,
 				core.ExitWithError(err)
 			}
 
-			// À ce stade, results contient tous vos documents YAML
+			// At this point, results contains all your YAML documents
 			hasFailures := false
 			for _, result := range results {
 				for _, resource := range core.GetResources() {

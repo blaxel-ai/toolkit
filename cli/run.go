@@ -263,9 +263,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 					if len(shortID) > 8 {
 						shortID = shortID[:8]
 					}
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f --execution-id %s", resourceName, shortID))
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s %s -f", resourceName, shortID))
 				} else {
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs jobs %s -f", resourceName))
+					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s -f", resourceName))
 				}
 				core.PrintSuccess(fmt.Sprintf("Job '%s' execution started successfully!", resourceName))
 				fmt.Println()
@@ -312,7 +312,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
-	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
+	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to pass to the execution")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
 	cmd.Flags().IntVarP(&concurrent, "concurrent", "c", 1, "Number of concurrent workers for local job execution")
 	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format: json, yaml")

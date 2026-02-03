@@ -75,11 +75,9 @@ Run `bl --help` or `bl <command> --help` for detailed usage.
 ```
 .
 ├── cli/          # CLI command implementations
-├── mcp/          # MCP client implementation
-├── vscode/       # VSCode extension
 ├── docs/         # Auto-generated command documentation
 ├── samples/      # Example configurations
-└── templates/    # Code generation templates
+└── test/         # Integration tests
 ```
 
 ## Development

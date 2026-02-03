@@ -82,10 +82,10 @@ To list all authenticated workspaces, run without arguments.`,
 				workspaces = append(workspaces, ws.Name)
 			}
 
-			// En-têtes avec largeurs fixes
+			// Headers with fixed widths
 			fmt.Printf("%-30s %-20s\n", "NAME", "CURRENT")
 
-			// Afficher chaque workspace avec les mêmes largeurs fixes
+			// Display each workspace with the same fixed widths
 			for _, workspace := range workspaces {
 				current := " "
 				if workspace == currentWorkspace {

@@ -242,8 +242,8 @@ Workflow:
 		},
 	}
 
-	cmd.Flags().IntVarP(&port, "port", "p", 1338, "Bind socket to this host")
-	cmd.Flags().StringVarP(&host, "host", "H", "0.0.0.0", "Bind socket to this port. If 0, an available port will be picked")
+	cmd.Flags().IntVarP(&port, "port", "p", 1338, "Bind socket to this port")
+	cmd.Flags().StringVarP(&host, "host", "H", "0.0.0.0", "Bind socket to this host. If 0.0.0.0, listens on all interfaces")
 	cmd.Flags().BoolVarP(&hotreload, "hotreload", "", false, "Watch for changes in the project")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", true, "Serve the project recursively")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Serve the project from a sub directory")

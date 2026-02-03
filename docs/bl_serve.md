@@ -68,9 +68,9 @@ bl serve [flags]
   -d, --directory string   Serve the project from a sub directory
   -e, --env-file strings   Environment file to load (default [.env])
   -h, --help               help for serve
-  -H, --host string        Bind socket to this port. If 0, an available port will be picked (default "0.0.0.0")
+  -H, --host string        Bind socket to this host. If 0.0.0.0, listens on all interfaces (default "0.0.0.0")
       --hotreload          Watch for changes in the project
-  -p, --port int           Bind socket to this host (default 1338)
+  -p, --port int           Bind socket to this port (default 1338)
   -r, --recursive          Serve the project recursively (default true)
   -s, --secrets strings    Secrets to deploy
 ```
