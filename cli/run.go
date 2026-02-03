@@ -384,8 +384,9 @@ func runRequest(
 		return client.RunLocal(ctx, method, path, body, opts...)
 	}
 
-	// Use Run for remote execution
-	return client.Run(ctx, workspace, resourceType, resourceName, method, path, body, opts...)
+	// Use RunWithMetadata for remote execution - it fetches the resource's metadata URL first
+	// and uses that if available (for agent, function/mcp, sandbox), otherwise falls back to default URL
+	return client.RunWithMetadata(ctx, workspace, resourceType, resourceName, method, path, body, opts...)
 }
 
 func getModelDefaultPath(resourceName string) string {
