@@ -15,6 +15,7 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func init() {
@@ -182,6 +183,10 @@ The command can list all resources of a type or get details for a specific one.`
 					sigChan := make(chan os.Signal, 1)
 					signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
+					// Listen for 'q' key press
+					quitChan := make(chan struct{})
+					go listenForQuit(quitChan)
+
 					for {
 						select {
 						case <-ticker.C:
@@ -191,6 +196,9 @@ The command can list all resources of a type or get details for a specific one.`
 								executeAndDisplayWatch(args, *resource, seconds)
 							}
 						case <-sigChan:
+							fmt.Println("\nStopped watching.")
+							return
+						case <-quitChan:
 							fmt.Println("\nStopped watching.")
 							return
 						}
@@ -364,6 +372,9 @@ func executeNestedResourceWatch(fn func(), seconds int) {
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 
+	// Close the read end of the pipe to avoid file descriptor leak
+	_ = r.Close()
+
 	// Restore stdout
 	os.Stdout = stdout
 
@@ -398,6 +409,9 @@ func executeAndDisplayWatch(args []string, resource core.Resource, seconds int) 
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r)
 
+	// Close the read end of the pipe to avoid file descriptor leak
+	_ = r.Close()
+
 	// Restore stdout
 	os.Stdout = stdout
 
@@ -407,4 +421,38 @@ func executeAndDisplayWatch(args []string, resource core.Resource, seconds int) 
 	// Print the timestamp and output
 	fmt.Printf("Every %ds: %s\n", seconds, time.Now().Format("Mon Jan 2 15:04:05 2006"))
 	fmt.Print(buf.String())
+}
+
+// listenForQuit listens for 'q' key press and signals to quit
+func listenForQuit(quitChan chan struct{}) {
+	// Check if stdin is a terminal
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		return
+	}
+
+	// Set terminal to raw mode to capture single key presses
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return
+	}
+	defer term.Restore(fd, oldState)
+
+	buf := make([]byte, 1)
+	for {
+		n, err := os.Stdin.Read(buf)
+		if err != nil || n == 0 {
+			return
+		}
+		// Check for 'q' or 'Q'
+		if buf[0] == 'q' || buf[0] == 'Q' {
+			close(quitChan)
+			return
+		}
+		// Also handle Ctrl+C (ASCII 3)
+		if buf[0] == 3 {
+			close(quitChan)
+			return
+		}
+	}
 }

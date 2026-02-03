@@ -40,9 +40,6 @@ make build-dev
 
 # Full release build with goreleaser
 make build
-
-# Build SDK only
-make build-sdk
 ```
 
 ### Testing
@@ -67,35 +64,20 @@ make doc
 
 This creates markdown files in the `docs/` directory.
 
-### Updating SDK
-
-The SDK is auto-generated from the Blaxel API OpenAPI spec:
-
-```bash
-make sdk
-```
-
-This downloads the latest API definition and regenerates `sdk/blaxel.go`.
-
 ## Project Structure
 
 ```
 cli/            # CLI command implementations
 ├── auth/       # Authentication commands
 ├── chat/       # Chat interface
+├── connect/    # Sandbox connection
 ├── core/       # Core utilities and config
 ├── deploy/     # Deployment logic
-└── sandbox/    # Sandbox connection
+├── monitor/    # Logs monitoring
+└── server/     # Local serve commands
 
-sdk/            # Go SDK
-├── blaxel.go   # Auto-generated API client
-├── mcp/        # MCP protocol implementation
-└── *.go        # Authentication and utilities
-
-vscode/         # VSCode extension source
 docs/           # Auto-generated CLI docs
 samples/        # Example YAML configurations
-templates/      # Code generation templates
 test/           # Integration tests
 ```
 
