@@ -310,13 +310,33 @@ func (m *InteractiveModel) View() string {
 				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
 				s.WriteString("\n")
 			} else {
-				appUrl := blaxel.GetAppURL()
-				currentWorkspace := core.GetWorkspace()
-				availableAt := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
-				core.PrintSuccess(fmt.Sprintf("Deployment applied successfull\n%s", availableAt))
-				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully! Deployment available at: "))
-				s.WriteString(availableAt)
-				s.WriteString("\n")
+				runUrl := blaxel.GetRunURL()
+				consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, m.resources[0].Name)
+				labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+				cmdStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Bold(true)
+
+				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
+				s.WriteString("\n\n")
+				s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Console:"), cmdStyle.Render(consoleUrl)))
+				s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Status: "), cmdStyle.Render(fmt.Sprintf("bl get %s %s --watch", config.Type, m.resources[0].Name))))
+
+				// Show logs hint for resource types that support it
+				switch config.Type {
+				case "agent", "function", "sandbox", "job":
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Logs:   "), cmdStyle.Render(fmt.Sprintf("bl logs %s %s", config.Type, m.resources[0].Name))))
+				}
+
+				// Show run/curl hints for resource types that support it
+				switch config.Type {
+				case "agent":
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, m.resources[0].Name))))
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
+				case "function", "sandbox", "model":
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s", config.Type, m.resources[0].Name))))
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
+				case "job":
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -f batch.json", config.Type, m.resources[0].Name))))
+				}
 
 				// Display callback secret if present (only for agents)
 				if len(m.resources) > 0 && config.Type == "agent" {

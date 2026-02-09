@@ -1370,14 +1370,40 @@ func (d *Deployment) Ready() {
 
 	currentWorkspace := core.GetWorkspace()
 	appUrl := blaxel.GetAppURL()
-	availableAt := fmt.Sprintf("It is available at: %s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
+	runUrl := blaxel.GetRunURL()
+	consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
+
+	core.PrintSuccess("Deployment applied successfully")
+	fmt.Println()
+	core.PrintInfoWithCommand("Console:", consoleUrl)
+	core.PrintInfoWithCommand("Status: ", fmt.Sprintf("bl get %s %s --watch", config.Type, d.name))
+
+	// Show logs hint for resource types that support it
+	switch config.Type {
+	case "agent", "function", "sandbox", "job":
+		core.PrintInfoWithCommand("Logs:   ", fmt.Sprintf("bl logs %s %s", config.Type, d.name))
+	}
+
+	// Show run/curl hints for resource types that support it
+	switch config.Type {
+	case "agent":
+		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, d.name))
+		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
+	case "function", "sandbox", "model":
+		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s", config.Type, d.name))
+		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
+	case "job":
+		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -f batch.json", config.Type, d.name))
+	}
 
 	// Check for callback secret (only for agents, only shown on first deployment)
-	var callbackSecretMsg string
 	if config.Type == "agent" && d.callbackSecret != "" {
-		callbackSecretMsg = fmt.Sprintf("\n\nAsync Callback Configuration:\n  Callback Secret: %s\n  Use this secret to verify webhook callbacks from Blaxel\n\n  Run your async agent with: %s", d.callbackSecret, color.New(color.FgBlue).Sprintf("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", d.name))
+		fmt.Println()
+		fmt.Printf("  Async Callback Configuration:\n")
+		fmt.Printf("  Callback Secret: %s\n", color.New(color.FgGreen).Sprint(d.callbackSecret))
+		fmt.Printf("  Use this secret to verify webhook callbacks from Blaxel\n\n")
+		core.PrintInfoWithCommand("  Run async:", fmt.Sprintf("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", d.name))
 	}
-	core.PrintSuccess(fmt.Sprintf("Deployment applied successfully\n%s%s", availableAt, callbackSecretMsg))
 }
 
 // progressReader wraps an io.Reader and reports progress
