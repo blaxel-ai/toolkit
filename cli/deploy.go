@@ -1388,10 +1388,10 @@ func (d *Deployment) Ready() {
 	switch config.Type {
 	case "agent":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, d.name))
-		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
+		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
 	case "function", "sandbox", "model":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s", config.Type, d.name))
-		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
+		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
 	case "job":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -f batch.json", config.Type, d.name))
 	}

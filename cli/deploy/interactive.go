@@ -330,10 +330,10 @@ func (m *InteractiveModel) View() string {
 				switch config.Type {
 				case "agent":
 					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, m.resources[0].Name))))
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
 				case "function", "sandbox", "model":
 					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s", config.Type, m.resources[0].Name))))
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H 'X-Blaxel-Workspace: %s' -H 'X-Blaxel-Authorization: '$(bl token) %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
+					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, m.resources[0].Name))))
 				case "job":
 					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -f batch.json", config.Type, m.resources[0].Name))))
 				}
