@@ -423,13 +423,13 @@ setup_tracking() {
   if [ -t 0 ]; then
     # Running interactively - ask user via stdin
     echo ""
-    printf "Do you want to enable anonymous error tracking to help improve Blaxel? [Y/n] "
+    printf "Help us improve the CLI faster by sending anonymous error reports? [Y/n] "
     read -r response
   else
     # Running non-interactively (piped from curl) - ask user via /dev/tty if available
     if [ -e /dev/tty ]; then
       echo "" > /dev/tty
-      printf "Do you want to enable anonymous error tracking to help improve Blaxel? [Y/n] " > /dev/tty
+      printf "Help us improve the CLI faster by sending anonymous error reports? [Y/n] " > /dev/tty
       read -r response < /dev/tty
     else
       # No TTY available - default to enabled (tracking: true)
