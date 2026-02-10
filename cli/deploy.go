@@ -248,6 +248,7 @@ type Deployment struct {
 	progressCallback       func(status string, progress int)
 	uploadProgressCallback func(bytesUploaded, totalBytes int64)
 	callbackSecret         string
+	metadataURL            string
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -679,11 +680,14 @@ func (d *Deployment) Apply() error {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
-	// Store callback secret from first result if present
-	var callbackSecret string
-	if len(applyResults) > 0 && applyResults[0].Result.CallbackSecret != "" {
-		callbackSecret = applyResults[0].Result.CallbackSecret
-		d.callbackSecret = callbackSecret
+	// Store callback secret and metadata URL from first result if present
+	if len(applyResults) > 0 {
+		if applyResults[0].Result.CallbackSecret != "" {
+			d.callbackSecret = applyResults[0].Result.CallbackSecret
+		}
+		if applyResults[0].Result.MetadataURL != "" {
+			d.metadataURL = applyResults[0].Result.MetadataURL
+		}
 	}
 
 	for _, result := range applyResults {
@@ -925,6 +929,11 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	if applyResults[0].Result.CallbackSecret != "" {
 		resource.SetCallbackSecret(applyResults[0].Result.CallbackSecret)
 		model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", applyResults[0].Result.CallbackSecret))
+	}
+
+	// Store metadata URL from apply result
+	if applyResults[0].Result.MetadataURL != "" {
+		resource.SetMetadataURL(applyResults[0].Result.MetadataURL)
 	}
 
 	// Handle upload if there's an upload URL
@@ -1236,6 +1245,10 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 							resource.SetCallbackSecret(result.Result.CallbackSecret)
 							model.AddBuildLog(idx, fmt.Sprintf("Callback secret configured: %s", result.Result.CallbackSecret))
 						}
+						// Store metadata URL from apply result
+						if result.Result.MetadataURL != "" {
+							resource.SetMetadataURL(result.Result.MetadataURL)
+						}
 					}
 					model.AddBuildLog(idx, "Resource applied, monitoring status...")
 
@@ -1370,7 +1383,6 @@ func (d *Deployment) Ready() {
 
 	currentWorkspace := core.GetWorkspace()
 	appUrl := blaxel.GetAppURL()
-	runUrl := blaxel.GetRunURL()
 	consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
 
 	core.PrintSuccess("Deployment applied successfully")
@@ -1384,25 +1396,27 @@ func (d *Deployment) Ready() {
 		core.PrintInfoWithCommand("Logs:   ", fmt.Sprintf("bl logs %s %s", config.Type, d.name))
 	}
 
-	// Show run/curl hints for resource types that support it
+	// Show run/curl hints (workload is still deploying at this point)
+	fmt.Println()
+	core.PrintInfo("Once deployed, you can run your workload with:")
+
 	switch config.Type {
 	case "agent":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, d.name))
-		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
 	case "function", "sandbox", "model":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s", config.Type, d.name))
-		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: $(bl token)\" %s/%s/%s", currentWorkspace, runUrl, config.Type, d.name))
 	case "job":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -f batch.json", config.Type, d.name))
+	}
+
+	if d.metadataURL != "" {
+		core.PrintInfoWithCommand("Curl:   ", fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: Bearer $(bl token)\" %s", currentWorkspace, d.metadataURL))
 	}
 
 	// Check for callback secret (only for agents, only shown on first deployment)
 	if config.Type == "agent" && d.callbackSecret != "" {
 		fmt.Println()
-		fmt.Printf("  Async Callback Configuration:\n")
-		fmt.Printf("  Callback Secret: %s\n", color.New(color.FgGreen).Sprint(d.callbackSecret))
-		fmt.Printf("  Use this secret to verify webhook callbacks from Blaxel\n\n")
-		core.PrintInfoWithCommand("  Run async:", fmt.Sprintf("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", d.name))
+		core.PrintInfoWithCommand("Run async:", fmt.Sprintf("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", d.name))
 	}
 }
 
