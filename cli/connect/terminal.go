@@ -192,10 +192,12 @@ func (t *TerminalClient) writeLoop(ctx context.Context) {
 		}
 
 		if n > 0 {
-			// Check for Ctrl+D (EOT, 0x04) - local exit shortcut
+			// Check for Ctrl+D (EOT, 0x04) - send exit to remote terminal then disconnect
+			hasCtrlD := false
 			for i := 0; i < n; i++ {
 				if buf[i] == 0x04 {
-					return // This will trigger Close() via defer
+					hasCtrlD = true
+					break
 				}
 			}
 
@@ -211,6 +213,18 @@ func (t *TerminalClient) writeLoop(ctx context.Context) {
 
 			if err != nil {
 				return
+			}
+
+			if hasCtrlD {
+				// Send "exit" command to ensure the remote shell terminates
+				exitMsg := TerminalMessage{
+					Type: "input",
+					Data: "exit\n",
+				}
+				t.mu.Lock()
+				_ = t.conn.WriteJSON(exitMsg)
+				t.mu.Unlock()
+				return // This will trigger Close() via defer
 			}
 		}
 	}

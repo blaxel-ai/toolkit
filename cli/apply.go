@@ -25,6 +25,7 @@ type ResourceOperationResult struct {
 	UploadURL      string
 	ErrorMsg       string
 	CallbackSecret string
+	MetadataURL    string
 }
 
 type ApplyResult struct {
@@ -375,6 +376,27 @@ func extractCallbackSecret(response interface{}) string {
 	return ""
 }
 
+// extractMetadataURL extracts the metadata URL from an API response
+func extractMetadataURL(response interface{}) string {
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return ""
+	}
+
+	var resource map[string]interface{}
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
+		return ""
+	}
+
+	if metadata, ok := resource["metadata"].(map[string]interface{}); ok {
+		if url, ok := metadata["url"].(string); ok {
+			return url
+		}
+	}
+
+	return ""
+}
+
 func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
 	failedResponse := ResourceOperationResult{
 		Status: "failed",
@@ -421,8 +443,9 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	}
 
 	result := ResourceOperationResult{
-		Status:    "configured",
-		UploadURL: opResult.UploadURL,
+		Status:      "configured",
+		UploadURL:   opResult.UploadURL,
+		MetadataURL: extractMetadataURL(opResult.Response),
 	}
 
 	// Extract callback secret from response for agents
@@ -449,8 +472,9 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	}
 
 	result := ResourceOperationResult{
-		Status:    "created",
-		UploadURL: opResult.UploadURL,
+		Status:      "created",
+		UploadURL:   opResult.UploadURL,
+		MetadataURL: extractMetadataURL(opResult.Response),
 	}
 
 	// Extract callback secret from response for agents
