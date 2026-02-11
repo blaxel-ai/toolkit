@@ -398,9 +398,6 @@ func extractMetadataURL(response interface{}) string {
 }
 
 func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
-	failedResponse := ResourceOperationResult{
-		Status: "failed",
-	}
 	if resource.Kind == "IntegrationConnection" {
 		client := core.GetClient()
 		_, err := client.Integrations.Connections.Get(context.Background(), name)
@@ -435,8 +432,12 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 				return PostFn(resource, resourceName, name, resourceObject)
 			}
 		}
+		errorMsg := extractErrorMessage(err)
 		core.Print(fmt.Sprintf("%s%v", formattedError, err))
-		return &failedResponse
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: errorMsg,
+		}
 	}
 	if opResult == nil {
 		return nil
@@ -458,17 +459,21 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 }
 
 func PostFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
-	failedResponse := ResourceOperationResult{
-		Status: "failed",
-	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
 	opResult, err := handleResourceOperation(resource, name, resourceObject, "post")
 	if err != nil {
+		errorMsg := extractErrorMessage(err)
 		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
-		return &failedResponse
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: errorMsg,
+		}
 	}
 	if opResult == nil {
-		return &failedResponse
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: "operation returned no result",
+		}
 	}
 
 	result := ResourceOperationResult{
@@ -493,4 +498,28 @@ func isBlaxelError(err error, apiErr **blaxel.Error) bool {
 		return true
 	}
 	return false
+}
+
+// extractErrorMessage extracts a user-friendly error message from an error
+// If the error is a blaxel API error, it parses the JSON response to get the error field
+// Otherwise, it returns the error's string representation
+func extractErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	var apiErr *blaxel.Error
+	if isBlaxelError(err, &apiErr) {
+		// Try to parse the raw JSON response to get the error message
+		rawJSON := apiErr.RawJSON()
+		if rawJSON != "" {
+			var errorModel core.ErrorModel
+			if jsonErr := json.Unmarshal([]byte(rawJSON), &errorModel); jsonErr == nil && errorModel.Error != "" {
+				return errorModel.Error
+			}
+		}
+	}
+
+	// Fall back to the error string
+	return err.Error()
 }
