@@ -37,7 +37,7 @@ uname_os() {
 uname_arch() {
   arch=$(uname -m)
   case $arch in
-    aarch64)    arch="x86_64" ;;
+    aarch64)    arch="arm64" ;;
     x86_64)     arch="x86_64" ;;
     x86-64)     arch="x86_64" ;;
     x64)        arch="x86_64" ;;
@@ -223,12 +223,117 @@ fi
 
 TARBALL_URL=https://github.com/${OWNER}/${REPO}/releases/download/${VERSION}/${NAME}
 
+# --- Shared helper functions for installer setup ---
+
+# Detect if running in a CI environment
+is_ci() {
+  [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${GITLAB_CI:-}" ] || [ -n "${CIRCLECI:-}" ] || [ -n "${TRAVIS:-}" ] || [ -n "${JENKINS_URL:-}" ] || [ -n "${BUILDKITE:-}" ]
+}
+
+# Detect the user's shell name
+# Sets the global DETECTED_SHELL variable
+detect_shell() {
+  DETECTED_SHELL=""
+
+  # Detect shell from $SHELL environment variable first (most reliable)
+  if [ -n "${SHELL:-}" ]; then
+    DETECTED_SHELL=$(basename "$SHELL")
+  else
+    # Fallback: try to detect from parent process
+    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+    if [ -n "$parent_pid" ]; then
+      DETECTED_SHELL=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
+    fi
+
+    # Final fallback: try to detect from process
+    if [ -z "$DETECTED_SHELL" ]; then
+      DETECTED_SHELL=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+    fi
+  fi
+
+  # If still no shell detected, check if fish config exists
+  if [ -z "$DETECTED_SHELL" ] || [ "$DETECTED_SHELL" = "sh" ]; then
+    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
+      DETECTED_SHELL="fish"
+    fi
+  fi
+}
+
+# Detect the RC file for the given shell
+# Sets the global DETECTED_RC_FILE (display path) and DETECTED_RC_FILE_PATH (absolute path)
+# Arguments: $1 = shell name, $2 = "strict" to return 1 for unsupported shells (optional)
+detect_rc_file() {
+  local shell_name="$1"
+  local mode="$2"
+  DETECTED_RC_FILE=""
+  DETECTED_RC_FILE_PATH=""
+
+  case "$shell_name" in
+    zsh)
+      DETECTED_RC_FILE="~/.zshrc"
+      DETECTED_RC_FILE_PATH="$HOME/.zshrc"
+      ;;
+    bash)
+      # Check for .bash_profile first (macOS default), then .bashrc
+      if [ -f "$HOME/.bash_profile" ]; then
+        DETECTED_RC_FILE="~/.bash_profile"
+        DETECTED_RC_FILE_PATH="$HOME/.bash_profile"
+      else
+        DETECTED_RC_FILE="~/.bashrc"
+        DETECTED_RC_FILE_PATH="$HOME/.bashrc"
+      fi
+      ;;
+    fish)
+      DETECTED_RC_FILE="~/.config/fish/config.fish"
+      DETECTED_RC_FILE_PATH="$HOME/.config/fish/config.fish"
+      ;;
+    tcsh|csh)
+      if [ "$mode" = "strict" ]; then return 1; fi
+      DETECTED_RC_FILE="~/.cshrc"
+      DETECTED_RC_FILE_PATH="$HOME/.cshrc"
+      ;;
+    ksh|mksh)
+      if [ "$mode" = "strict" ]; then return 1; fi
+      DETECTED_RC_FILE="~/.kshrc"
+      DETECTED_RC_FILE_PATH="$HOME/.kshrc"
+      ;;
+    *)
+      if [ "$mode" = "strict" ]; then return 1; fi
+      DETECTED_RC_FILE="~/.profile"
+      DETECTED_RC_FILE_PATH="$HOME/.profile"
+      ;;
+  esac
+  return 0
+}
+
+# Prompt the user with a question, handling both interactive and non-interactive (piped) modes
+# Arguments: $1 = prompt message
+# Sets the global PROMPT_RESPONSE variable
+# Returns 1 if no TTY is available (caller should handle the fallback)
+prompt_user() {
+  local message="$1"
+  PROMPT_RESPONSE=""
+
+  if [ -t 0 ]; then
+    # Running interactively - ask user via stdin
+    printf "%s" "$message"
+    read -r PROMPT_RESPONSE
+  elif [ -e /dev/tty ]; then
+    # Running non-interactively (piped from curl) - ask user via /dev/tty
+    printf "%s" "$message" > /dev/tty
+    read -r PROMPT_RESPONSE < /dev/tty
+  else
+    # No TTY available
+    return 1
+  fi
+  return 0
+}
+
+# --- Installer setup functions ---
+
 # Function to detect shell and provide PATH instructions
 setup_path_interactive() {
   local bin_path="$1"
-  local shell_name=""
-  local rc_file=""
-  local rc_file_path=""
 
   # Skip PATH setup for system directories that are already in PATH
   case "$bin_path" in
@@ -243,62 +348,15 @@ setup_path_interactive() {
       ;;
   esac
 
-  # Detect shell from $SHELL environment variable first (most reliable)
-  if [ -n "$SHELL" ]; then
-    shell_name=$(basename "$SHELL")
-  else
-    # Fallback: try to detect from parent process
-    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
-    if [ -n "$parent_pid" ]; then
-      shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
-    fi
-
-    # Final fallback: try to detect from process
-    if [ -z "$shell_name" ]; then
-      shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
-    fi
-  fi
-
-  # If still no shell detected, check if fish config exists
-  if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
-    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
-      shell_name="fish"
-    fi
-  fi
-
-  # Determine the appropriate RC file based on shell
+  detect_shell
+  local shell_name="$DETECTED_SHELL"
+  detect_rc_file "$shell_name"
+  local rc_file="$DETECTED_RC_FILE"
+  local rc_file_path="$DETECTED_RC_FILE_PATH"
+  # For unknown shells, label it generically
   case "$shell_name" in
-    zsh)
-      rc_file="~/.zshrc"
-      rc_file_path="$HOME/.zshrc"
-      ;;
-    bash)
-      # Check for .bash_profile first (macOS default), then .bashrc
-      if [ -f "$HOME/.bash_profile" ]; then
-        rc_file="~/.bash_profile"
-        rc_file_path="$HOME/.bash_profile"
-      else
-        rc_file="~/.bashrc"
-        rc_file_path="$HOME/.bashrc"
-      fi
-      ;;
-    fish)
-      rc_file="~/.config/fish/config.fish"
-      rc_file_path="$HOME/.config/fish/config.fish"
-      ;;
-    tcsh|csh)
-      rc_file="~/.cshrc"
-      rc_file_path="$HOME/.cshrc"
-      ;;
-    ksh|mksh)
-      rc_file="~/.kshrc"
-      rc_file_path="$HOME/.kshrc"
-      ;;
-    *)
-      rc_file="~/.profile"
-      rc_file_path="$HOME/.profile"
-      shell_name="shell"
-      ;;
+    zsh|bash|fish|tcsh|csh|ksh|mksh) ;;
+    *) shell_name="shell" ;;
   esac
 
   echo ""
@@ -313,47 +371,23 @@ setup_path_interactive() {
     return
   fi
 
-  # Check if running in CI environment
-  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
-    echo "Detected CI environment - skipping PATH modification."
-    return
-  fi
-
   echo "To get started, you need ${BINARY} in your PATH environment variable."
   echo ""
 
-  # Check if running interactively
-  if [ -t 0 ]; then
-    # Running interactively - ask user via stdin
-    printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "
-    read -r response
-
-    case "$response" in
-      [yY]|[yY][eE][sS])
-        response="y"
-        ;;
-      *)
-        response="n"
-        ;;
+  # BL_INSTALL_PATH=true/false bypasses CI check and prompt
+  local response="n"
+  if [ "${BL_INSTALL_PATH:-}" = "true" ]; then
+    response="y"
+  elif [ "${BL_INSTALL_PATH:-}" = "false" ]; then
+    response="n"
+  elif is_ci; then
+    echo "Detected CI environment - skipping PATH modification."
+    return
+  elif prompt_user "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] "; then
+    case "$PROMPT_RESPONSE" in
+      [yY]|[yY][eE][sS]) response="y" ;;
+      *) response="n" ;;
     esac
-  else
-    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
-    if [ -e /dev/tty ]; then
-      printf "Do you want to automatically add ${BINARY} to your PATH by modifying $rc_file? [y/N] " > /dev/tty
-      read -r response < /dev/tty
-
-      case "$response" in
-        [yY]|[yY][eE][sS])
-          response="y"
-          ;;
-        *)
-          response="n"
-          ;;
-      esac
-    else
-      # No TTY available - default to no
-      response="n"
-    fi
   fi
 
   case "$response" in
@@ -403,59 +437,44 @@ setup_path_interactive() {
 }
 
 # Function to setup shell completions
+# Installs completion scripts to the shell's native completions directory
+# so they are auto-loaded without modifying RC files.
 setup_completion() {
   local bin_path="$1"
-  local shell_name=""
-  local rc_file=""
-  local rc_file_path=""
 
-  # Check if running in CI environment - skip completion prompt
-  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
+  # BL_INSTALL_COMPLETION=true/false bypasses CI check and prompt
+  if [ "${BL_INSTALL_COMPLETION:-}" = "false" ]; then
     return
   fi
 
-  # Detect shell from $SHELL environment variable first (most reliable)
-  if [ -n "$SHELL" ]; then
-    shell_name=$(basename "$SHELL")
-  else
-    # Fallback: try to detect from parent process
-    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
-    if [ -n "$parent_pid" ]; then
-      shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
-    fi
-
-    # Final fallback: try to detect from process
-    if [ -z "$shell_name" ]; then
-      shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+  if [ "${BL_INSTALL_COMPLETION:-}" != "true" ]; then
+    if is_ci; then
+      return
     fi
   fi
 
-  # If still no shell detected, check if fish config exists
-  if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
-    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
-      shell_name="fish"
-    fi
-  fi
+  detect_shell
+  local shell_name="$DETECTED_SHELL"
+  local completion_dir=""
+  local completion_file=""
 
-  # Determine the appropriate RC file based on shell
   case "$shell_name" in
     zsh)
-      rc_file="~/.zshrc"
-      rc_file_path="$HOME/.zshrc"
+      # Use the standard zsh completions dir; create it if needed
+      # Many systems auto-load from /usr/local/share/zsh/site-functions
+      # but that requires root, so prefer a user-level dir
+      completion_dir="${ZSH_COMPLETION_DIR:-${HOME}/.zsh/completions}"
+      completion_file="${completion_dir}/_${BINARY_SHORT_NAME}"
       ;;
     bash)
-      # Check for .bash_profile first (macOS default), then .bashrc
-      if [ -f "$HOME/.bash_profile" ]; then
-        rc_file="~/.bash_profile"
-        rc_file_path="$HOME/.bash_profile"
-      else
-        rc_file="~/.bashrc"
-        rc_file_path="$HOME/.bashrc"
-      fi
+      # bash-completion 2.x auto-loads from this user directory
+      completion_dir="${BASH_COMPLETION_USER_DIR:-${HOME}/.local/share/bash-completion/completions}"
+      completion_file="${completion_dir}/${BINARY_SHORT_NAME}"
       ;;
     fish)
-      rc_file="~/.config/fish/config.fish"
-      rc_file_path="$HOME/.config/fish/config.fish"
+      # Fish auto-loads from this directory
+      completion_dir="${HOME}/.config/fish/completions"
+      completion_file="${completion_dir}/${BINARY_SHORT_NAME}.fish"
       ;;
     *)
       # Unsupported shell for completions - skip silently
@@ -463,49 +482,80 @@ setup_completion() {
       ;;
   esac
 
-  # Check if completion is already configured
-  if [ -f "$rc_file_path" ] && grep -q "${BINARY_SHORT_NAME} completion" "$rc_file_path"; then
+  # Check if completion is already installed
+  if [ -f "$completion_file" ]; then
     return
   fi
 
-  local response=""
-
-  # Check if running interactively
-  if [ -t 0 ]; then
-    # Running interactively - ask user via stdin
+  if [ "${BL_INSTALL_COMPLETION:-}" != "true" ]; then
     echo ""
-    printf "Do you want to install command completions? [Y/n] "
-    read -r response
-  else
-    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
-    if [ -e /dev/tty ]; then
-      echo "" > /dev/tty
-      printf "Do you want to install command completions? [Y/n] " > /dev/tty
-      read -r response < /dev/tty
-    else
-      # No TTY available - skip completion setup
+    if ! prompt_user "Do you want to install command completions? [Y/n] "; then
       return
     fi
+
+    case "$PROMPT_RESPONSE" in
+      [nN]|[nN][oO])
+        return
+        ;;
+    esac
   fi
 
-  # Determine if user wants completions (default to yes)
-  case "$response" in
-    [nN]|[nN][oO])
-      return
-      ;;
-  esac
+  mkdir -p "$completion_dir"
 
-  # Add completion command to the RC file
-  if [ "$shell_name" = "fish" ]; then
-    # Create the directory if it doesn't exist
-    mkdir -p "$(dirname "$rc_file_path")"
-    printf "\n# Added by %s installer - command completions\n%s completion fish | source\n" "$BINARY" "$BINARY_SHORT_NAME" >> "$rc_file_path"
+  # Generate completion script directly into the completions directory
+  if "${bin_path}/${BINARY_SHORT_NAME}" completion "$shell_name" > "$completion_file" 2>/dev/null; then
+    # For bash: prepend a shim that defines _get_comp_words_by_ref if
+    # the bash-completion package is not installed (e.g. macOS default bash).
+    if [ "$shell_name" = "bash" ] && ! grep -q "Shim: provide _get_comp_words_by_ref" "$completion_file" 2>/dev/null; then
+      local tmp_file="${completion_file}.tmp"
+      cat > "$tmp_file" <<'BASH_SHIM'
+# Shim: provide _get_comp_words_by_ref if bash-completion is not installed.
+# This allows completions to work on macOS default bash (3.2) without
+# requiring 'brew install bash-completion'.
+if ! type _get_comp_words_by_ref >/dev/null 2>&1; then
+    _get_comp_words_by_ref() {
+        local exclude cur_ words_ cword_
+        if [ "$1" = "-n" ]; then
+            exclude=$2
+            shift 2
+        fi
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                cur)   cur="${COMP_WORDS[COMP_CWORD]}" ;;
+                prev)  prev="${COMP_WORDS[COMP_CWORD-1]}" ;;
+                words) eval words='("${COMP_WORDS[@]}")' ;;
+                cword) cword=$COMP_CWORD ;;
+            esac
+            shift
+        done
+    }
+fi
+
+BASH_SHIM
+      cat "$completion_file" >> "$tmp_file"
+      mv "$tmp_file" "$completion_file"
+    fi
+    echo "✓ Command completions installed to $completion_file"
+    if [ "$shell_name" = "zsh" ]; then
+      # Zsh needs the completions dir in fpath; check if it's already there
+      detect_rc_file "$shell_name"
+      if [ -n "$DETECTED_RC_FILE_PATH" ] && ! grep -q "${completion_dir}" "$DETECTED_RC_FILE_PATH" 2>/dev/null; then
+        printf "\n# Added by %s installer - completions directory\nfpath=(%s \$fpath)\nautoload -Uz compinit && compinit\n" "$BINARY" "$completion_dir" >> "$DETECTED_RC_FILE_PATH"
+        echo "  Added $completion_dir to fpath in $DETECTED_RC_FILE"
+      fi
+    fi
+    echo "  Restart your shell to enable completions."
   else
-    printf "\n# Added by %s installer - command completions\neval \"\$(%s completion %s)\"\n" "$BINARY" "$BINARY_SHORT_NAME" "$shell_name" >> "$rc_file_path"
+    # Fallback: binary might not be in PATH yet, clean up empty file
+    rm -f "$completion_file"
+    echo "⚠ Could not generate completions (${BINARY_SHORT_NAME} not yet in PATH)."
+    echo "  Run this after restarting your shell:"
+    case "$shell_name" in
+      zsh)  echo "    ${BINARY_SHORT_NAME} completion zsh > $completion_file" ;;
+      bash) echo "    ${BINARY_SHORT_NAME} completion bash > $completion_file" ;;
+      fish) echo "    ${BINARY_SHORT_NAME} completion fish > $completion_file" ;;
+    esac
   fi
-
-  echo "✓ Command completions added to $rc_file"
-  echo "  Restart your shell or run: source $rc_file"
 }
 
 # Function to setup tracking preference
@@ -513,9 +563,15 @@ setup_tracking() {
   local config_dir="$HOME/.blaxel"
   local config_file="$config_dir/config.yaml"
 
-  # Check if running in CI environment - skip tracking prompt
-  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
+  # BL_INSTALL_TRACKING=true/false bypasses CI check and prompt
+  if [ "${BL_INSTALL_TRACKING:-}" = "false" ]; then
     return
+  fi
+
+  if [ "${BL_INSTALL_TRACKING:-}" != "true" ]; then
+    if is_ci; then
+      return
+    fi
   fi
 
   # Check if tracking is already configured
@@ -523,36 +579,23 @@ setup_tracking() {
     return
   fi
 
-  local response=""
+  local tracking_value="true"
 
-  # Check if running interactively
-  if [ -t 0 ]; then
-    # Running interactively - ask user via stdin
+  if [ "${BL_INSTALL_TRACKING:-}" != "true" ]; then
     echo ""
-    printf "Help us improve Blaxel faster by sending anonymous error reports? [Y/n] "
-    read -r response
-  else
-    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
-    if [ -e /dev/tty ]; then
-      echo "" > /dev/tty
-      printf "Help us improve Blaxel faster by sending anonymous error reports? [Y/n] " > /dev/tty
-      read -r response < /dev/tty
-    else
-      # No TTY available - default to enabled (tracking: true)
+    if ! prompt_user "Help us improve Blaxel faster by sending anonymous error reports? [Y/n] "; then
       return
     fi
+
+    case "$PROMPT_RESPONSE" in
+      [nN]|[nN][oO])
+        tracking_value="false"
+        ;;
+    esac
   fi
 
   # Create config directory if it doesn't exist
   mkdir -p "$config_dir"
-
-  # Determine tracking value based on response (default to true)
-  local tracking_value="true"
-  case "$response" in
-    [nN]|[nN][oO])
-      tracking_value="false"
-      ;;
-  esac
 
   # Write or append tracking to config file
   if [ -f "$config_file" ]; then
