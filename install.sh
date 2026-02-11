@@ -402,6 +402,112 @@ setup_path_interactive() {
   echo "To get started, run: ${BINARY_SHORT_NAME} --help"
 }
 
+# Function to setup shell completions
+setup_completion() {
+  local bin_path="$1"
+  local shell_name=""
+  local rc_file=""
+  local rc_file_path=""
+
+  # Check if running in CI environment - skip completion prompt
+  if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ] || [ -n "$GITLAB_CI" ] || [ -n "$CIRCLECI" ] || [ -n "$TRAVIS" ] || [ -n "$JENKINS_URL" ] || [ -n "$BUILDKITE" ]; then
+    return
+  fi
+
+  # Detect shell from $SHELL environment variable first (most reliable)
+  if [ -n "$SHELL" ]; then
+    shell_name=$(basename "$SHELL")
+  else
+    # Fallback: try to detect from parent process
+    parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+    if [ -n "$parent_pid" ]; then
+      shell_name=$(ps -o comm= -p "$parent_pid" 2>/dev/null | sed 's/^-//')
+    fi
+
+    # Final fallback: try to detect from process
+    if [ -z "$shell_name" ]; then
+      shell_name=$(ps -p $$ -o comm= 2>/dev/null | sed 's/^-//')
+    fi
+  fi
+
+  # If still no shell detected, check if fish config exists
+  if [ -z "$shell_name" ] || [ "$shell_name" = "sh" ]; then
+    if [ -f "$HOME/.config/fish/config.fish" ] || command -v fish >/dev/null 2>&1; then
+      shell_name="fish"
+    fi
+  fi
+
+  # Determine the appropriate RC file based on shell
+  case "$shell_name" in
+    zsh)
+      rc_file="~/.zshrc"
+      rc_file_path="$HOME/.zshrc"
+      ;;
+    bash)
+      # Check for .bash_profile first (macOS default), then .bashrc
+      if [ -f "$HOME/.bash_profile" ]; then
+        rc_file="~/.bash_profile"
+        rc_file_path="$HOME/.bash_profile"
+      else
+        rc_file="~/.bashrc"
+        rc_file_path="$HOME/.bashrc"
+      fi
+      ;;
+    fish)
+      rc_file="~/.config/fish/config.fish"
+      rc_file_path="$HOME/.config/fish/config.fish"
+      ;;
+    *)
+      # Unsupported shell for completions - skip silently
+      return
+      ;;
+  esac
+
+  # Check if completion is already configured
+  if [ -f "$rc_file_path" ] && grep -q "${BINARY_SHORT_NAME} completion" "$rc_file_path"; then
+    return
+  fi
+
+  local response=""
+
+  # Check if running interactively
+  if [ -t 0 ]; then
+    # Running interactively - ask user via stdin
+    echo ""
+    printf "Do you want to install command completions? [Y/n] "
+    read -r response
+  else
+    # Running non-interactively (piped from curl) - ask user via /dev/tty if available
+    if [ -e /dev/tty ]; then
+      echo "" > /dev/tty
+      printf "Do you want to install command completions? [Y/n] " > /dev/tty
+      read -r response < /dev/tty
+    else
+      # No TTY available - skip completion setup
+      return
+    fi
+  fi
+
+  # Determine if user wants completions (default to yes)
+  case "$response" in
+    [nN]|[nN][oO])
+      return
+      ;;
+  esac
+
+  # Add completion command to the RC file
+  if [ "$shell_name" = "fish" ]; then
+    # Create the directory if it doesn't exist
+    mkdir -p "$(dirname "$rc_file_path")"
+    printf "\n# Added by %s installer - command completions\n%s completion fish | source\n" "$BINARY" "$BINARY_SHORT_NAME" >> "$rc_file_path"
+  else
+    printf "\n# Added by %s installer - command completions\neval \"\$(%s completion %s)\"\n" "$BINARY" "$BINARY_SHORT_NAME" "$shell_name" >> "$rc_file_path"
+  fi
+
+  echo "✓ Command completions added to $rc_file"
+  echo "  Restart your shell or run: source $rc_file"
+}
+
 # Function to setup tracking preference
 setup_tracking() {
   local config_dir="$HOME/.blaxel"
@@ -485,6 +591,7 @@ execute() {
   fi
 
   setup_path_interactive "$ABSOLUTE_BINDIR"
+  setup_completion "$ABSOLUTE_BINDIR"
   setup_tracking
 }
 
