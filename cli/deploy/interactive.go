@@ -282,10 +282,10 @@ func (m *InteractiveModel) View() string {
 
 				// Show error details
 				if statusText != "" {
-					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(statusText)))
+					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(statusText)))
 				}
 				if err != nil {
-					s.WriteString(fmt.Sprintf("     Error: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(err.Error())))
+					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(err.Error())))
 				}
 
 				// Show console URL and logs command for failed resources
