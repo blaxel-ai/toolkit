@@ -433,7 +433,7 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 			}
 		}
 		errorMsg := extractErrorMessage(err)
-		core.Print(fmt.Sprintf("%s%v", formattedError, err))
+		core.Print(fmt.Sprintf("%s%s\n", formattedError, errorMsg))
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
@@ -463,7 +463,7 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 	opResult, err := handleResourceOperation(resource, name, resourceObject, "post")
 	if err != nil {
 		errorMsg := extractErrorMessage(err)
-		core.Print(fmt.Sprintf("%s%v\n", formattedError, err))
+		core.Print(fmt.Sprintf("%s%s\n", formattedError, errorMsg))
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
@@ -500,9 +500,11 @@ func isBlaxelError(err error, apiErr **blaxel.Error) bool {
 	return false
 }
 
-// extractErrorMessage extracts a user-friendly error message from an error
-// If the error is a blaxel API error, it parses the JSON response to get the error field
-// Otherwise, it returns the error's string representation
+// extractErrorMessage extracts a user-friendly error message from an error.
+// If the error is a blaxel API error, it parses the JSON response to get the
+// human-readable message. It checks for both "message" and "error" fields since
+// different API endpoints use different field names.
+// Otherwise, it returns the error's string representation.
 func extractErrorMessage(err error) string {
 	if err == nil {
 		return ""
@@ -513,9 +515,22 @@ func extractErrorMessage(err error) string {
 		// Try to parse the raw JSON response to get the error message
 		rawJSON := apiErr.RawJSON()
 		if rawJSON != "" {
-			var errorModel core.ErrorModel
-			if jsonErr := json.Unmarshal([]byte(rawJSON), &errorModel); jsonErr == nil && errorModel.Error != "" {
-				return errorModel.Error
+			// Use a flexible struct that handles both "message" and "error" fields,
+			// as well as string or numeric "code" values
+			var parsed struct {
+				Message string      `json:"message"`
+				Error   string      `json:"error"`
+				Code    interface{} `json:"code"`
+			}
+			if jsonErr := json.Unmarshal([]byte(rawJSON), &parsed); jsonErr == nil {
+				// Prefer "message" field (used by sandbox and other newer APIs)
+				if parsed.Message != "" {
+					return parsed.Message
+				}
+				// Fall back to "error" field (used by older APIs)
+				if parsed.Error != "" {
+					return parsed.Error
+				}
 			}
 		}
 	}

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -680,6 +679,17 @@ func (d *Deployment) Apply() error {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
+	// Check if any resources failed to apply
+	for _, result := range applyResults {
+		if result.Result.Status == "failed" {
+			errorMsg := result.Result.ErrorMsg
+			if errorMsg == "" {
+				errorMsg = "apply operation failed"
+			}
+			return fmt.Errorf("failed to apply %s/%s: %s", result.Kind, result.Name, errorMsg)
+		}
+	}
+
 	// Store callback secret and metadata URL from first result if present
 	if len(applyResults) > 0 {
 		if applyResults[0].Result.CallbackSecret != "" {
@@ -916,12 +926,12 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	}
 
 	if applyResults[0].Result.Status == "failed" {
-		errorDetails := "apply operation failed"
-		if applyResults[0].Result.ErrorMsg != "" {
-			errorDetails = applyResults[0].Result.ErrorMsg
-			model.AddBuildLog(idx, fmt.Sprintf("API Error: %s", errorDetails))
+		errorDetails := applyResults[0].Result.ErrorMsg
+		if errorDetails == "" {
+			errorDetails = "Apply failed"
 		}
-		model.UpdateResource(idx, deploy.StatusFailed, "Apply failed", fmt.Errorf("%s", errorDetails))
+		model.AddBuildLog(idx, fmt.Sprintf("API Error: %s", errorDetails))
+		model.UpdateResource(idx, deploy.StatusFailed, errorDetails, nil)
 		return
 	}
 
@@ -1234,12 +1244,16 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, fmt.Sprintf("Failed to apply resource: %v", err))
 						return
 					}
-					for _, result := range results {
-						if result.Result.Status == "failed" {
-							model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", errors.New(result.Result.ErrorMsg))
-							model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %v", result.Name, result.Result.ErrorMsg))
-							return
+				for _, result := range results {
+					if result.Result.Status == "failed" {
+						errorDetails := result.Result.ErrorMsg
+						if errorDetails == "" {
+							errorDetails = "Failed to apply"
 						}
+						model.UpdateResource(idx, deploy.StatusFailed, errorDetails, nil)
+						model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %s", result.Name, errorDetails))
+						return
+					}
 						// Store callback secret from apply result if present (only available on first deployment)
 						if result.Result.CallbackSecret != "" {
 							resource.SetCallbackSecret(result.Result.CallbackSecret)
