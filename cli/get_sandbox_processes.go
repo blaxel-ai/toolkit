@@ -281,9 +281,6 @@ func streamSandboxProcessLogs(sandboxName, processName string) {
 
 	// Start streaming logs using SDK's StreamLogs
 	streamControl := sandboxInstance.Process.StreamLogs(ctx, processName, blaxel.ProcessStreamOptions{
-		OnLog: func(log string) {
-			printWithNewline(log)
-		},
 		OnStdout: func(stdout string) {
 			printWithNewline(stdout)
 		},
