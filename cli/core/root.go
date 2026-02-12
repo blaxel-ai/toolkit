@@ -306,12 +306,12 @@ var rootCmd = &cobra.Command{
 					Exit(1)
 				}
 			}
-		}
 
-		credentials, _ := blaxel.LoadCredentials(workspace)
-		if !credentials.IsValid() && workspace != "" {
-			PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
-			PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
+			credentials, _ := blaxel.LoadCredentials(workspace)
+			if !credentials.IsValid() && workspace != "" {
+				PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
+				PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
+			}
 		}
 
 		// Get OS/arch and commit info for User-Agent

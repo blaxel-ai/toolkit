@@ -65,4 +65,8 @@ clean:
 %:
 	@:
 
-.PHONY: test test-integration
+test-install:
+	@echo "🧪 Running install.sh tests in Docker..."
+	./test/install/run_tests.sh
+
+.PHONY: test test-integration test-install
