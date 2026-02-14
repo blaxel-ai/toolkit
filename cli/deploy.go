@@ -252,8 +252,7 @@ type Deployment struct {
 
 func (d *Deployment) Generate(skipBuild bool) error {
 	if d.name == "" {
-		split := strings.Split(filepath.Join(d.cwd, d.folder), "/")
-		d.name = split[len(split)-1]
+		d.name = filepath.Base(filepath.Join(d.cwd, d.folder))
 	}
 
 	// Slugify the name to ensure it's URL-safe
@@ -1244,16 +1243,16 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, fmt.Sprintf("Failed to apply resource: %v", err))
 						return
 					}
-				for _, result := range results {
-					if result.Result.Status == "failed" {
-						errorDetails := result.Result.ErrorMsg
-						if errorDetails == "" {
-							errorDetails = "Failed to apply"
+					for _, result := range results {
+						if result.Result.Status == "failed" {
+							errorDetails := result.Result.ErrorMsg
+							if errorDetails == "" {
+								errorDetails = "Failed to apply"
+							}
+							model.UpdateResource(idx, deploy.StatusFailed, errorDetails, nil)
+							model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %s", result.Name, errorDetails))
+							return
 						}
-						model.UpdateResource(idx, deploy.StatusFailed, errorDetails, nil)
-						model.AddBuildLog(idx, fmt.Sprintf("Resource %s failed to apply: %s", result.Name, errorDetails))
-						return
-					}
 						// Store callback secret from apply result if present (only available on first deployment)
 						if result.Result.CallbackSecret != "" {
 							resource.SetCallbackSecret(result.Result.CallbackSecret)
@@ -1548,18 +1547,25 @@ func (d *Deployment) IgnoredPaths() []string {
 }
 
 func (d *Deployment) shouldIgnorePath(path string, ignoredPaths []string) bool {
+	sep := string(filepath.Separator)
 	for _, ignoredPath := range ignoredPaths {
 		if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
 			return true
 		}
-		if strings.Contains(path, "/"+ignoredPath+"/") {
+		if strings.Contains(path, sep+ignoredPath+sep) {
 			return true
 		}
-		if strings.HasSuffix(path, "/"+ignoredPath) {
+		if strings.HasSuffix(path, sep+ignoredPath) {
 			return true
 		}
 	}
 	return false
+}
+
+// toArchivePath normalizes a file path for use in zip/tar archives.
+// Archives must always use forward slashes regardless of the host OS.
+func toArchivePath(p string) string {
+	return strings.ReplaceAll(p, "\\", "/")
 }
 
 type archiveWriter interface {
@@ -1650,6 +1656,9 @@ func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
 			return err
 		}
 
+		// Normalize to forward slashes for archive paths (zip/tar expect forward slashes)
+		relPath = toArchivePath(relPath)
+
 		err = writer.addFile(path, relPath)
 		if err != nil {
 			return err
@@ -1736,6 +1745,9 @@ func (d *Deployment) Tar() error {
 }
 
 func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, headerName string) error {
+	// Normalize header name to forward slashes (zip spec requires forward slashes)
+	headerName = toArchivePath(headerName)
+
 	if _, err := os.Stat(filePath); err == nil {
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
@@ -1778,6 +1790,9 @@ func (d *Deployment) addFileToZip(zipWriter *zip.Writer, filePath string, header
 }
 
 func (d *Deployment) addFileToTar(tarWriter *tar.Writer, filePath string, headerName string) error {
+	// Normalize header name to forward slashes (tar spec expects forward slashes)
+	headerName = toArchivePath(headerName)
+
 	if _, err := os.Lstat(filePath); err == nil {
 		// Use Lstat instead of Stat to not follow symlinks
 		fileInfo, err := os.Lstat(filePath)

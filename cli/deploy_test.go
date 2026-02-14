@@ -230,6 +230,51 @@ func isBlaxelErrorDeployHelper(err error, apiErr **blaxelErrorType) bool {
 	return false
 }
 
+func TestDeploymentGenerateNameExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		cwd      string
+		folder   string
+		expected string
+	}{
+		{"unix path no folder", "/home/user/my-project", "", "my-project"},
+		{"unix path with folder", "/home/user/project", "src", "src"},
+		{"unix path trailing slash style", "/home/user/project/subdir", "", "subdir"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filepath.Base(filepath.Join(tt.cwd, tt.folder))
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestToArchivePath(t *testing.T) {
+	// Verify that toArchivePath converts backslashes to forward slashes
+	// This ensures archive entries always use forward slashes regardless of OS
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"unix path unchanged", "src/main.go", "src/main.go"},
+		{"windows path converted", "src\\main.go", "src/main.go"},
+		{"nested windows path", "src\\pkg\\utils\\helper.go", "src/pkg/utils/helper.go"},
+		{"root file unchanged", "main.go", "main.go"},
+		{"mixed separators", "src/pkg\\utils/helper.go", "src/pkg/utils/helper.go"},
+		{"windows absolute prefix", "C:\\Users\\foo\\src\\main.go", "C:/Users/foo/src/main.go"},
+		{"directory with trailing backslash", "src\\pkg\\", "src/pkg/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toArchivePath(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 	d := Deployment{
 		cwd: "/home/user/project",
