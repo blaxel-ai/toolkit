@@ -51,7 +51,7 @@ func handleSecret(filePath string, content string) (string, error) {
 		}
 	}
 
-	fileName := strings.Split(filePath, "/")[len(strings.Split(filePath, "/"))-1]
+	fileName := filepath.Base(filePath)
 	re := regexp.MustCompile(`\$secrets.([A-Za-z0-9_]+)|\${\s?secrets.([A-Za-z0-9_]+)\s?}`)
 	matches := re.FindAllStringSubmatch(content, -1)
 	if len(matches) == 0 {
@@ -112,7 +112,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 		}
 		// If the path is a directory, read all files in the directory
 		if fileInfo.IsDir() {
-			if n > 0 && !recursive && strings.Contains(filePath, "/") {
+			if n > 0 && !recursive && strings.Contains(filePath, string(filepath.Separator)) {
 				return nil, nil
 			}
 			return handleDirectory(action, filePath, recursive, n)

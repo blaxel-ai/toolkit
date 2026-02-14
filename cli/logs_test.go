@@ -283,7 +283,7 @@ func TestFormatLogOutput(t *testing.T) {
 func TestLogsCmd(t *testing.T) {
 	cmd := LogsCmd()
 
-	assert.Equal(t, "logs RESOURCE_TYPE RESOURCE_NAME", cmd.Use)
+	assert.Equal(t, "logs RESOURCE_TYPE RESOURCE_NAME [NESTED_ARGS...]", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotEmpty(t, cmd.Long)
 
@@ -314,11 +314,7 @@ func TestLogsCmd(t *testing.T) {
 	searchFlag := cmd.Flags().Lookup("search")
 	assert.NotNil(t, searchFlag)
 
-	taskIDFlag := cmd.Flags().Lookup("task-id")
-	assert.NotNil(t, taskIDFlag)
-
-	executionIDFlag := cmd.Flags().Lookup("execution-id")
-	assert.NotNil(t, executionIDFlag)
+	// task-id and execution-id are now positional args (NESTED_ARGS), not flags
 }
 
 func TestLogsCmdLongDescription(t *testing.T) {

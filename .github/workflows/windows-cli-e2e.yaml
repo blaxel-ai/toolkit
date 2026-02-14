@@ -1,0 +1,57 @@
+name: Windows CLI E2E Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows-cli-e2e:
+    runs-on: windows-latest
+    env:
+      BL_API_KEY: ${{ secrets.BL_API_KEY }}
+      BL_WORKSPACE: ${{ secrets.BL_WORKSPACE }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          check-latest: true
+          cache: true
+
+      - name: Build CLI
+        run: |
+          go build -o bl.exe .
+          echo "${{ github.workspace }}" >> $env:GITHUB_PATH
+
+      - name: Verify CLI
+        run: bl version
+
+      - name: Login to Blaxel
+        run: bl login $env:BL_WORKSPACE
+
+      - name: Create agent from template
+        run: |
+          $agentName = "ci-win-test-${{ github.run_id }}"
+          echo "AGENT_NAME=$agentName" >> $env:GITHUB_ENV
+          bl new agent $agentName -t template-blank-py -y
+
+      - name: Deploy agent
+        run: |
+          cd $env:AGENT_NAME
+          bl deploy -y
+
+      - name: Wait for deployment to be ready
+        run: Start-Sleep -Seconds 30
+
+      - name: View agent logs
+        run: bl logs agent $env:AGENT_NAME --period 5m
+
+      - name: Cleanup - Delete agent
+        if: always()
+        run: |
+          if ($env:AGENT_NAME) {
+            bl delete agent $env:AGENT_NAME
+          }
