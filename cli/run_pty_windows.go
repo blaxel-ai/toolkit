@@ -18,8 +18,8 @@ func startCmdWithOutput(cmd *exec.Cmd) (io.ReadCloser, error) {
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 	if err := cmd.Start(); err != nil {
-		pr.Close()
 		pw.Close()
+		pr.Close()
 		return nil, err
 	}
 	// Close the write end in the parent process. The child process holds its
