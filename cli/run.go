@@ -15,7 +15,6 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/server"
-	"github.com/creack/pty"
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -626,21 +625,22 @@ func runSingleTaskParallel(i int, task map[string]interface{}, folder string, co
 		}
 	}
 
-	// Use PTY to run the command so stdout is line-buffered (programs detect TTY and use line buffering)
-	ptmx, err := pty.Start(cmd)
+	// Start the command with merged stdout+stderr output.
+	// On Unix this uses a PTY so child processes use line-buffered output.
+	// On Windows this falls back to an os.Pipe.
+	reader, err := startCmdWithOutput(cmd)
 	if err != nil {
-		return fmt.Errorf("error starting task %d with pty: %w", i+1, err)
+		return fmt.Errorf("error starting task %d: %w", i+1, err)
 	}
 
-	// Use prefixed writer for real-time streaming output from PTY
+	// Use prefixed writer for real-time streaming output
 	outputWriter := newPrefixedWriter(prefix, outputMu)
 
-	// Read from PTY and write to prefixed writer
-	// io.Copy will return when the command exits and closes its end of the PTY
-	_, _ = io.Copy(outputWriter, ptmx)
+	// io.Copy will return when the command exits and the read end gets EOF
+	_, _ = io.Copy(outputWriter, reader)
 
-	// Close PTY immediately after io.Copy returns to release resources
-	ptmx.Close()
+	// Close the reader to release resources
+	reader.Close()
 
 	// Flush any remaining buffered output
 	outputWriter.Flush()
