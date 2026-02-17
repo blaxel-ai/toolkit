@@ -23,8 +23,7 @@ func generateRandomDirectoryName(resourceType string) string {
 	for i := range randomStr {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
-			randomStr[i] = charset[0]
-			continue
+			panic(fmt.Sprintf("failed to generate random directory name: %v", err))
 		}
 		randomStr[i] = charset[n.Int64()]
 	}
