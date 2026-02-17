@@ -512,6 +512,7 @@ func CheckServerEnvUsage(folder string, language string) bool {
 			".swift",      // Swift
 			".scala",      // Scala
 			".ex", ".exs", // Elixir
+			".sh", ".bash", ".zsh", // Shell
 		}
 	}
 
@@ -540,17 +541,21 @@ func CheckServerEnvUsage(folder string, language string) bool {
 			return nil
 		}
 
-		// Check if file has a matching extension
-		ext := filepath.Ext(path)
-		hasMatchingExt := false
-		for _, e := range extensions {
-			if ext == e {
-				hasMatchingExt = true
-				break
+		// Check if file has a matching extension or is a Dockerfile
+		fileName := d.Name()
+		isDockerfile := fileName == "Dockerfile" || strings.HasPrefix(fileName, "Dockerfile.")
+		if !isDockerfile {
+			ext := filepath.Ext(path)
+			hasMatchingExt := false
+			for _, e := range extensions {
+				if ext == e {
+					hasMatchingExt = true
+					break
+				}
 			}
-		}
-		if !hasMatchingExt {
-			return nil
+			if !hasMatchingExt {
+				return nil
+			}
 		}
 
 		// Read file content
