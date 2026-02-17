@@ -113,8 +113,9 @@ build
 }
 
 func TestDeploymentShouldIgnorePath(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
 	d := Deployment{
-		cwd: "/home/user/project",
+		cwd: cwd,
 	}
 
 	ignoredPaths := []string{".git", "node_modules", "dist"}
@@ -124,13 +125,13 @@ func TestDeploymentShouldIgnorePath(t *testing.T) {
 		path     string
 		expected bool
 	}{
-		{"git directory", "/home/user/project/.git", true},
-		{"nested git", "/home/user/project/subdir/.git/", true},
-		{"node_modules", "/home/user/project/node_modules", true},
-		{"nested node_modules", "/home/user/project/packages/node_modules/file.js", true},
-		{"dist folder", "/home/user/project/dist", true},
-		{"regular file", "/home/user/project/src/main.go", false},
-		{"similar name", "/home/user/project/src/distribution", false},
+		{"git directory", filepath.Join(cwd, ".git"), true},
+		{"nested git", filepath.Join(cwd, "subdir", ".git") + string(filepath.Separator), true},
+		{"node_modules", filepath.Join(cwd, "node_modules"), true},
+		{"nested node_modules", filepath.Join(cwd, "packages", "node_modules", "file.js"), true},
+		{"dist folder", filepath.Join(cwd, "dist"), true},
+		{"regular file", filepath.Join(cwd, "src", "main.go"), false},
+		{"similar name", filepath.Join(cwd, "src", "distribution"), false},
 	}
 
 	for _, tt := range tests {
@@ -276,8 +277,9 @@ func TestToArchivePath(t *testing.T) {
 }
 
 func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
 	d := Deployment{
-		cwd: "/home/user/project",
+		cwd: cwd,
 	}
 
 	// Note: shouldIgnorePath uses string matching, not glob patterns
@@ -288,13 +290,13 @@ func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 		path     string
 		expected bool
 	}{
-		{"logs directory", "/home/user/project/logs", true},
-		{"logs prefix start", "/home/user/project/logs/error.log", true},
-		{"build dir", "/home/user/project/build/output", true},
-		{"tmp directory", "/home/user/project/tmp", true},
-		{"go file", "/home/user/project/main.go", false},
-		{"js file", "/home/user/project/app.js", false},
-		{"nested logs", "/home/user/project/src/logs/debug.log", true},
+		{"logs directory", filepath.Join(cwd, "logs"), true},
+		{"logs prefix start", filepath.Join(cwd, "logs", "error.log"), true},
+		{"build dir", filepath.Join(cwd, "build", "output"), true},
+		{"tmp directory", filepath.Join(cwd, "tmp"), true},
+		{"go file", filepath.Join(cwd, "main.go"), false},
+		{"js file", filepath.Join(cwd, "app.js"), false},
+		{"nested logs", filepath.Join(cwd, "src", "logs", "debug.log"), true},
 	}
 
 	for _, tt := range tests {

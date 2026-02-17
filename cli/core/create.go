@@ -1,13 +1,13 @@
 package core
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"os"
 	"os/user"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
@@ -19,13 +19,14 @@ func generateRandomDirectoryName(resourceType string) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const length = 5
 
-	// Initialize random seed
-	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	// Generate random string
 	randomStr := make([]byte, length)
 	for i := range randomStr {
-		randomStr[i] = charset[rnd.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			randomStr[i] = charset[0]
+			continue
+		}
+		randomStr[i] = charset[n.Int64()]
 	}
 
 	return fmt.Sprintf("%s-%s", resourceType, string(randomStr))

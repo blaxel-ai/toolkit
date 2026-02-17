@@ -280,10 +280,15 @@ func TestReadWriteVersionCache(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	// Save original HOME and restore
+	// Save original HOME/USERPROFILE and restore
 	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
+	originalUserProfile := os.Getenv("USERPROFILE")
+	defer func() {
+		os.Setenv("HOME", originalHome)
+		os.Setenv("USERPROFILE", originalUserProfile)
+	}()
 	os.Setenv("HOME", tempDir)
+	os.Setenv("USERPROFILE", tempDir)
 
 	// Create the .blaxel directory
 	err = os.MkdirAll(filepath.Join(tempDir, ".blaxel"), 0755)
@@ -312,6 +317,7 @@ func TestReadWriteVersionCache(t *testing.T) {
 		defer os.RemoveAll(newTempDir)
 
 		os.Setenv("HOME", newTempDir)
+		os.Setenv("USERPROFILE", newTempDir)
 
 		cache, err := readVersionCache()
 		assert.NoError(t, err)
