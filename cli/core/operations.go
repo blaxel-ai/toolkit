@@ -74,6 +74,12 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Get = c.Images.Get
 			resource.Delete = c.Images.Delete
 			// Images don't have Put/Post operations
+		case "Drive":
+			resource.List = c.Drives.List
+			resource.Get = c.Drives.Get
+			resource.Delete = c.Drives.Delete
+			resource.Put = c.Drives.Update
+			resource.Post = c.Drives.New
 		}
 	}
 }
