@@ -16,6 +16,8 @@ func init() {
 }
 
 func TokenCmd() *cobra.Command {
+	fence := "```"
+
 	cmd := &cobra.Command{
 		Use:   "token [workspace]",
 		Short: "Retrieve authentication token for a workspace",
@@ -34,13 +36,19 @@ refreshed if it's expired or about to expire.
 
 Examples:
   # Get token for current workspace
-  bl token
+` + fence + `
+bl token
+` + fence + `
 
   # Get token for specific workspace
-  bl token my-workspace
+` + fence + `
+bl token my-workspace
+` + fence + `
 
   # Use in scripts (get just the token value)
-  export TOKEN=$(bl token)`,
+` + fence + `
+export TOKEN=$(bl token)
+` + fence + ``,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Determine workspace
