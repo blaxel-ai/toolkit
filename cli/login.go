@@ -18,6 +18,8 @@ func init() {
 }
 
 func LoginCmd() *cobra.Command {
+	fence := "```"
+
 	cmd := &cobra.Command{
 		Use:   "login [workspace]",
 		Short: "Login to Blaxel",
@@ -42,29 +44,32 @@ across sessions. Use 'bl logout' to remove stored credentials.
 
 Examples:
   # Interactive login (shows menu to choose method)
-  ```
-  bl login my-workspace
-  ```
+` + fence + `
+bl login my-workspace
+` + fence + `
 
   # Login without workspace (will prompt for workspace)
-  ```
-  bl login
-  ```
+` + fence + `
+bl login
+` + fence + `
 
   # API key authentication (non-interactive)
-  ```
-  export BL_API_KEY=your-api-key
-  bl login my-workspace
-  ```
+` + fence + `
+export BL_API_KEY=your-api-key
+bl login my-workspace
+` + fence + `
 
   # Client credentials for CI/CD
-  ```
-  export BL_CLIENT_CREDENTIALS=your-credentials
-  bl login my-workspace
-  ```
+` + fence + `
+export BL_CLIENT_CREDENTIALS=your-credentials
+bl login my-workspace
+` + fence + `
 
 After logging in, all commands will use this workspace by default.
-Override with --workspace flag: bl get agents --workspace other-workspace`,
+Override with --workspace flag:
+` + fence + `
+bl get agents --workspace other-workspace
+` + fence + ``,
 		Run: func(cmd *cobra.Command, args []string) {
 			workspace := "" // Default workspace
 			if len(args) > 0 {
@@ -97,6 +102,7 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 			showLoginMenu(workspace)
 		},
 	}
+
 	return cmd
 }
 
