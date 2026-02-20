@@ -41,19 +41,22 @@ Credentials are stored securely in your system's credential store and persist
 across sessions. Use 'bl logout' to remove stored credentials.
 
 Examples:
-  # Interactive login (shows menu to choose method)
-  bl login my-workspace
 
-  # Login without workspace (will prompt for workspace)
-  bl login
+` + "```bash" + `
+# Interactive login (shows menu to choose method)
+bl login my-workspace
 
-  # API key authentication (non-interactive)
-  ` + "`export BL_API_KEY=your-api-key`" + `
-  bl login my-workspace
+# Login without workspace (will prompt for workspace)
+bl login
 
-  # Client credentials for CI/CD
-  ` + "`export BL_CLIENT_CREDENTIALS=your-credentials`" + `
-  bl login my-workspace
+# API key authentication (non-interactive)
+export BL_API_KEY=your-api-key
+bl login my-workspace
+
+# Client credentials for CI/CD
+export BL_CLIENT_CREDENTIALS=your-credentials
+bl login my-workspace
+` + "```" + `
 
 After logging in, all commands will use this workspace by default.
 Override with --workspace flag: bl get agents --workspace other-workspace`,

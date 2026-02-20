@@ -33,14 +33,17 @@ The token is retrieved from your stored credentials and will be automatically
 refreshed if it's expired or about to expire.
 
 Examples:
-  # Get token for current workspace
-  bl token
 
-  # Get token for specific workspace
-  bl token my-workspace
+` + "```bash" + `
+# Get token for current workspace
+bl token
 
-  # Use in scripts (get just the token value)
-  ` + "`export TOKEN=$(bl token)`" + ``,
+# Get token for specific workspace
+bl token my-workspace
+
+# Use in scripts (get just the token value)
+export TOKEN=$(bl token)
+` + "```" + ``,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Determine workspace
