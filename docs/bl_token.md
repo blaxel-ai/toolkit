@@ -29,7 +29,7 @@ Examples:
   bl token my-workspace
 
   # Use in scripts (get just the token value)
-  export TOKEN=$(bl token)
+  `export TOKEN=$(bl token)`
 
 ```
 bl token [workspace] [flags]

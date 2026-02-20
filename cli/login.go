@@ -48,11 +48,11 @@ Examples:
   bl login
 
   # API key authentication (non-interactive)
-  export BL_API_KEY=your-api-key
+  ` + "`export BL_API_KEY=your-api-key`" + `
   bl login my-workspace
 
   # Client credentials for CI/CD
-  export BL_CLIENT_CREDENTIALS=your-credentials
+  ` + "`export BL_CLIENT_CREDENTIALS=your-credentials`" + `
   bl login my-workspace
 
 After logging in, all commands will use this workspace by default.

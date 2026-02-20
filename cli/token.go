@@ -40,7 +40,7 @@ Examples:
   bl token my-workspace
 
   # Use in scripts (get just the token value)
-  export TOKEN=$(bl token)`,
+  ` + "`export TOKEN=$(bl token)`" + ``,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Determine workspace
