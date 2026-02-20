@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Drive
+metadata:
+  name: test-drive
+spec:
+  size: 50
+  region: eu-dub-1
