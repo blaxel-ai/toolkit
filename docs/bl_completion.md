@@ -4,13 +4,48 @@ slug: bl_completion
 ---
 ## bl completion
 
-Generate the autocompletion script for the specified shell
+Generate shell completion scripts
 
 ### Synopsis
 
-Generate the autocompletion script for bl for the specified shell.
-See each sub-command's help for details on how to use the generated script.
+Generate shell completion scripts for bl.
+To load completions:
 
+Bash:
+  eval "$(bl completion bash)"
+
+  # To load completions for each session, execute once:
+  # Linux:
+  mkdir -p ~/.local/share/bash-completion/completions
+  bl completion bash > ~/.local/share/bash-completion/completions/bl
+
+  # macOS:
+  bl completion bash > $(brew --prefix)/etc/bash_completion.d/bl
+
+Zsh:
+  eval "$(bl completion zsh)"
+
+  # To load completions for each session, execute once:
+  mkdir -p ~/.zsh/completions
+  bl completion zsh > ~/.zsh/completions/_bl
+
+Fish:
+  bl completion fish | source
+
+  # To load completions for each session, execute once:
+  bl completion fish > ~/.config/fish/completions/bl.fish
+
+PowerShell:
+  bl completion powershell | Out-String | Invoke-Expression
+
+  # To load completions for each session, execute once:
+  bl completion powershell > bl.ps1
+  # and source this file from your PowerShell profile.
+
+
+```
+bl completion [bash|zsh|fish|powershell]
+```
 
 ### Options
 
@@ -31,8 +66,4 @@ See each sub-command's help for details on how to use the generated script.
 ### SEE ALSO
 
 * [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
-* [bl completion bash](bl_completion_bash.md)	 - Generate the autocompletion script for bash
-* [bl completion fish](bl_completion_fish.md)	 - Generate the autocompletion script for fish
-* [bl completion powershell](bl_completion_powershell.md)	 - Generate the autocompletion script for powershell
-* [bl completion zsh](bl_completion_zsh.md)	 - Generate the autocompletion script for zsh
 

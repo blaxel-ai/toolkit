@@ -87,7 +87,7 @@ bl run resource-type resource-name [flags]
   -o, --output string        Output format: json, yaml
       --params strings       Query params sent to the inference request
       --path string          path for the inference request
-  -s, --secrets strings      Secrets to deploy
+  -s, --secrets strings      Secrets to pass to the execution
       --upload-file string   This transfers the specified local file to the remote URL
 ```
 

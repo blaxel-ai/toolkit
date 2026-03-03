@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ -z "$BL_API_KEY" ] || [ -z "$BL_WORKSPACE" ]; then
+  echo "Skipping integration tests: BL_API_KEY or BL_WORKSPACE not set"
+  exit 0
+fi
+
 echo "========================================="
 echo "Testing GET command for all resources"
 echo "========================================="
