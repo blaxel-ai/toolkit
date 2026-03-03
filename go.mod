@@ -2,12 +2,12 @@ module github.com/blaxel-ai/toolkit
 
 go 1.24.0
 
-toolchain go1.24.2
+toolchain go1.24.10
 
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/blaxel-ai/sdk-go v0.12.2
+	github.com/blaxel-ai/sdk-go v0.13.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -61,7 +61,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
-	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect

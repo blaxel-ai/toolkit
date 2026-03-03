@@ -174,6 +174,21 @@ var resources = []*Resource{
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
+	{
+		Kind:     "Drive",
+		Short:    "drv",
+		Plural:   "drives",
+		Singular: "drive",
+		SpecType: reflect.TypeOf(blaxel.Drive{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "metadata.workspace"},
+			{Key: "NAME", Value: "metadata.name"},
+			{Key: "SIZE", Value: "spec.size", Special: "size"},
+			{Key: "REGION", Value: "spec.region"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "metadata.createdAt", Special: "date"},
+		},
+	},
 }
 
 type Package struct {

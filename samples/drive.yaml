@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Drive
+metadata:
+  name: my-data-drive
+  displayName: "Production Data Drive"
+  labels:
+    environment: prod
+    project: analytics
+    team: data-science
+spec:
+  # Size in GB (gigabytes)
+  size: 100
+  
+  # Region where the drive will be created
+  region: eu-dub-1
