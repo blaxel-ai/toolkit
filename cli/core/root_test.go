@@ -79,52 +79,52 @@ func TestIsCIEnvironment(t *testing.T) {
 	defer func() {
 		for k, v := range originalEnvVars {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
 
 	// Clear all CI env vars first
 	clearCIEnvVars := func() {
-		os.Unsetenv("CI")
-		os.Unsetenv("GITHUB_ACTIONS")
-		os.Unsetenv("GITLAB_CI")
-		os.Unsetenv("BUILDKITE")
-		os.Unsetenv("CIRCLECI")
-		os.Unsetenv("TRAVIS")
-		os.Unsetenv("JENKINS_URL")
-		os.Unsetenv("TEAMCITY_VERSION")
+		_ = os.Unsetenv("CI")
+		_ = os.Unsetenv("GITHUB_ACTIONS")
+		_ = os.Unsetenv("GITLAB_CI")
+		_ = os.Unsetenv("BUILDKITE")
+		_ = os.Unsetenv("CIRCLECI")
+		_ = os.Unsetenv("TRAVIS")
+		_ = os.Unsetenv("JENKINS_URL")
+		_ = os.Unsetenv("TEAMCITY_VERSION")
 	}
 
 	t.Run("CI=true", func(t *testing.T) {
 		clearCIEnvVars()
-		os.Setenv("CI", "true")
+		_ = os.Setenv("CI", "true")
 		assert.True(t, IsCIEnvironment())
 	})
 
 	t.Run("CI=1", func(t *testing.T) {
 		clearCIEnvVars()
-		os.Setenv("CI", "1")
+		_ = os.Setenv("CI", "1")
 		assert.True(t, IsCIEnvironment())
 	})
 
 	t.Run("GITHUB_ACTIONS=true", func(t *testing.T) {
 		clearCIEnvVars()
-		os.Setenv("GITHUB_ACTIONS", "true")
+		_ = os.Setenv("GITHUB_ACTIONS", "true")
 		assert.True(t, IsCIEnvironment())
 	})
 
 	t.Run("GITLAB_CI=true", func(t *testing.T) {
 		clearCIEnvVars()
-		os.Setenv("GITLAB_CI", "true")
+		_ = os.Setenv("GITLAB_CI", "true")
 		assert.True(t, IsCIEnvironment())
 	})
 
 	t.Run("JENKINS_URL set", func(t *testing.T) {
 		clearCIEnvVars()
-		os.Setenv("JENKINS_URL", "http://jenkins.example.com")
+		_ = os.Setenv("JENKINS_URL", "http://jenkins.example.com")
 		assert.True(t, IsCIEnvironment())
 	})
 
@@ -278,17 +278,17 @@ func TestReadWriteVersionCache(t *testing.T) {
 	// Create a temp directory for testing
 	tempDir, err := os.MkdirTemp("", "version_cache_test")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Save original HOME/USERPROFILE and restore
 	originalHome := os.Getenv("HOME")
 	originalUserProfile := os.Getenv("USERPROFILE")
 	defer func() {
-		os.Setenv("HOME", originalHome)
-		os.Setenv("USERPROFILE", originalUserProfile)
+		_ = os.Setenv("HOME", originalHome)
+		_ = os.Setenv("USERPROFILE", originalUserProfile)
 	}()
-	os.Setenv("HOME", tempDir)
-	os.Setenv("USERPROFILE", tempDir)
+	_ = os.Setenv("HOME", tempDir)
+	_ = os.Setenv("USERPROFILE", tempDir)
 
 	// Create the .blaxel directory
 	err = os.MkdirAll(filepath.Join(tempDir, ".blaxel"), 0755)
@@ -314,10 +314,10 @@ func TestReadWriteVersionCache(t *testing.T) {
 		// Use a new temp dir without a cache file
 		newTempDir, err := os.MkdirTemp("", "no_cache_test")
 		assert.NoError(t, err)
-		defer os.RemoveAll(newTempDir)
+		defer func() { _ = os.RemoveAll(newTempDir) }()
 
-		os.Setenv("HOME", newTempDir)
-		os.Setenv("USERPROFILE", newTempDir)
+		_ = os.Setenv("HOME", newTempDir)
+		_ = os.Setenv("USERPROFILE", newTempDir)
 
 		cache, err := readVersionCache()
 		assert.NoError(t, err)
@@ -433,7 +433,7 @@ func TestReadConfigTomlWrapper(t *testing.T) {
 	// Create a temp directory with a blaxel.toml file
 	tempDir, err := os.MkdirTemp("", "config_toml_test")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Write a test blaxel.toml file
 	// Note: entrypoint uses "prod" and "dev" as TOML tags
@@ -453,7 +453,7 @@ dev = "python main.py --dev"
 	assert.NoError(t, err)
 	originalConfig := config
 	defer func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir)
 		config = originalConfig
 	}()
 
@@ -480,14 +480,14 @@ func TestReadConfigTomlWithMissingFile(t *testing.T) {
 	// Create an empty temp directory
 	tempDir, err := os.MkdirTemp("", "no_config_test")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Save original directory and config
 	originalDir, err := os.Getwd()
 	assert.NoError(t, err)
 	originalConfig := config
 	defer func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir)
 		config = originalConfig
 	}()
 
@@ -503,7 +503,7 @@ func TestReadSecretsWrapper(t *testing.T) {
 	// Create a temp directory with a .env file
 	tempDir, err := os.MkdirTemp("", "secrets_test")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Write a test .env file
 	envContent := `SECRET_KEY=secret_value
@@ -517,7 +517,7 @@ API_TOKEN=my_api_token
 	assert.NoError(t, err)
 	originalEnvFiles := envFiles
 	defer func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir)
 		envFiles = originalEnvFiles
 	}()
 

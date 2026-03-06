@@ -20,7 +20,13 @@ func LoginClientCredentials(workspace string, clientCredentials string) {
 		core.ExitWithError(err)
 	}
 
-	blaxel.SaveCredentials(workspace, creds)
-	blaxel.SetCurrentWorkspace(workspace)
+	if err := blaxel.SaveCredentials(workspace, creds); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
+		core.ExitWithError(err)
+	}
+	if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
+		core.ExitWithError(err)
+	}
 	fmt.Println("Successfully stored client credentials")
 }

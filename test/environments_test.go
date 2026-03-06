@@ -123,17 +123,16 @@ func TestCustomURLSetters(t *testing.T) {
 func TestEnvironmentOverridesFromEnvVars(t *testing.T) {
 	blaxel.SetEnvironment(blaxel.EnvProduction)
 	defer func() {
-		// Cleanup env vars
-		os.Unsetenv("BL_API_URL")
-		os.Unsetenv("BL_RUN_URL")
-		os.Unsetenv("BL_APP_URL")
+		_ = os.Unsetenv("BL_API_URL")
+		_ = os.Unsetenv("BL_RUN_URL")
+		_ = os.Unsetenv("BL_APP_URL")
 		blaxel.SetEnvironment(blaxel.EnvProduction)
 	}()
 
 	// Set environment variables
-	os.Setenv("BL_API_URL", "https://override.api.example.com/v0")
-	os.Setenv("BL_RUN_URL", "https://override.run.example.com")
-	os.Setenv("BL_APP_URL", "https://override.app.example.com")
+	_ = os.Setenv("BL_API_URL", "https://override.api.example.com/v0")
+	_ = os.Setenv("BL_RUN_URL", "https://override.run.example.com")
+	_ = os.Setenv("BL_APP_URL", "https://override.app.example.com")
 
 	blaxel.ApplyEnvironmentOverrides()
 
@@ -153,12 +152,12 @@ func TestEnvironmentOverridesFromEnvVars(t *testing.T) {
 func TestPartialEnvironmentOverrides(t *testing.T) {
 	blaxel.SetEnvironment(blaxel.EnvProduction)
 	defer func() {
-		os.Unsetenv("BL_API_URL")
+		_ = os.Unsetenv("BL_API_URL")
 		blaxel.SetEnvironment(blaxel.EnvProduction)
 	}()
 
 	// Only override base URL
-	os.Setenv("BL_API_URL", "https://override.api.example.com/v0")
+	_ = os.Setenv("BL_API_URL", "https://override.api.example.com/v0")
 
 	blaxel.ApplyEnvironmentOverrides()
 
@@ -282,12 +281,12 @@ func TestInitializeEnvironment(t *testing.T) {
 	// For now, test with empty workspace which should default to production
 
 	defer func() {
-		os.Unsetenv("BL_API_URL")
+		_ = os.Unsetenv("BL_API_URL")
 		blaxel.SetEnvironment(blaxel.EnvProduction)
 	}()
 
 	// Set an env var override
-	os.Setenv("BL_API_URL", "https://test.override.com/v0")
+	_ = os.Setenv("BL_API_URL", "https://test.override.com/v0")
 
 	// Initialize with empty workspace (should use production + env overrides)
 	blaxel.InitializeEnvironment("")

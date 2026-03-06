@@ -116,10 +116,16 @@ Examples:
 					selectedWorkspace = workspaces[0]
 				}
 
-				clearCredentials(selectedWorkspace)
+				if err := clearCredentials(selectedWorkspace); err != nil {
+					core.PrintError("Logout", err)
+					core.ExitWithError(err)
+				}
 				core.PrintSuccess(fmt.Sprintf("Logged out from workspace %s", selectedWorkspace))
 			} else {
-				clearCredentials(args[0])
+				if err := clearCredentials(args[0]); err != nil {
+					core.PrintError("Logout", err)
+					core.ExitWithError(err)
+				}
 				core.PrintSuccess(fmt.Sprintf("Logged out from workspace %s", args[0]))
 			}
 		},

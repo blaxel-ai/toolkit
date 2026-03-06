@@ -120,7 +120,7 @@ func TestModuleLanguage(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "module_language_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("detects python with pyproject.toml", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "python_pyproject")
@@ -181,7 +181,7 @@ func TestHasPythonEntryFile(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "python_entry_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("finds main.py", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "main_py")
@@ -220,7 +220,7 @@ func TestHasGoEntryFile(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "go_entry_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("finds main.go", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "main_go")
@@ -251,7 +251,7 @@ func TestHasTypeScriptEntryFile(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "ts_entry_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("finds index.js", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "index_js")
@@ -339,12 +339,12 @@ func TestBuildServerEnvWarning(t *testing.T) {
 func TestCheckServerEnvUsage(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "check_server_env_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Save and restore original working directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Change to temp directory
 	err = os.Chdir(tempDir)

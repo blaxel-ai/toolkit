@@ -251,7 +251,7 @@ func TestApplyWithYAMLFileParsing(t *testing.T) {
 	// Create a temporary directory for test files
 	tempDir, err := os.MkdirTemp("", "apply_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a test YAML file
 	yamlContent := `apiVersion: blaxel.ai/v1alpha1
@@ -349,7 +349,7 @@ func TestApplyWithDirectoryParsing(t *testing.T) {
 	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "apply_dir_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create multiple YAML files
 	yaml1 := `apiVersion: blaxel.ai/v1alpha1

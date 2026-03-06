@@ -15,7 +15,7 @@ func TestConfigParsing(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "config_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("parses basic agent config", func(t *testing.T) {
 		configContent := `
@@ -420,13 +420,13 @@ func TestReadConfigTomlNoFile(t *testing.T) {
 	// Create a temp directory without blaxel.toml
 	tempDir, err := os.MkdirTemp("", "config_test_nofile")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Reset config
 	config = Config{}
@@ -447,7 +447,7 @@ func TestReadConfigTomlWithFile(t *testing.T) {
 	// Create a temp directory with blaxel.toml
 	tempDir, err := os.MkdirTemp("", "config_test_withfile")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	configContent := `
 type = "function"
@@ -460,7 +460,7 @@ workspace = "test-workspace"
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Reset config
 	config = Config{}

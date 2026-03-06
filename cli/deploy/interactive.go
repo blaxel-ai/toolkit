@@ -282,22 +282,22 @@ func (m *InteractiveModel) View() string {
 
 				// Show error details
 				if statusText != "" {
-					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(statusText)))
+					fmt.Fprintf(&s, "     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render(statusText))
 				}
 				if err != nil {
-					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(err.Error())))
+					fmt.Fprintf(&s, "     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(err.Error()))
 				}
 
 				// Show console URL and logs command for failed resources
 				resourceType := strings.ToLower(kind)
 				consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, name)
-				s.WriteString(fmt.Sprintf("     Console: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(consoleUrl)))
-				s.WriteString(fmt.Sprintf("     Logs:    %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(fmt.Sprintf("bl logs %s %s", resourceType, name))))
+				fmt.Fprintf(&s, "     Console: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(consoleUrl))
+				fmt.Fprintf(&s, "     Logs:    %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Render(fmt.Sprintf("bl logs %s %s", resourceType, name)))
 			} else {
 				line = statusStyles[StatusComplete].Render(line)
 				s.WriteString(line + "\n")
 				if statusText != "" {
-					s.WriteString(fmt.Sprintf("     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(statusText)))
+					fmt.Fprintf(&s, "     %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(statusText))
 				}
 			}
 		}
@@ -322,28 +322,28 @@ func (m *InteractiveModel) View() string {
 
 				s.WriteString(statusStyles[StatusComplete].Render("✓ All resources deployed successfully!"))
 				s.WriteString("\n\n")
-				s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Console:"), cmdStyle.Render(consoleUrl)))
-				s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Status: "), cmdStyle.Render(fmt.Sprintf("bl get %s %s --watch", config.Type, m.resources[0].Name))))
+				fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Console:"), cmdStyle.Render(consoleUrl))
+				fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Status: "), cmdStyle.Render(fmt.Sprintf("bl get %s %s --watch", config.Type, m.resources[0].Name)))
 
 				// Show logs hint for resource types that support it
 				switch config.Type {
 				case "agent", "function", "sandbox", "job":
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Logs:   "), cmdStyle.Render(fmt.Sprintf("bl logs %s %s", config.Type, m.resources[0].Name))))
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Logs:   "), cmdStyle.Render(fmt.Sprintf("bl logs %s %s", config.Type, m.resources[0].Name)))
 				}
 
 				// Show run/curl hints for resource types that support it
 				switch config.Type {
 				case "agent":
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, m.resources[0].Name))))
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, m.resources[0].Name)))
 				case "function", "sandbox", "model":
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s", config.Type, m.resources[0].Name))))
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s", config.Type, m.resources[0].Name)))
 				case "job":
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -f batch.json", config.Type, m.resources[0].Name))))
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -f batch.json", config.Type, m.resources[0].Name)))
 				}
 
 				// Show curl hint using metadata URL from the API response
 				if metadataURL != "" {
-					s.WriteString(fmt.Sprintf("  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: Bearer $(bl token)\" %s", currentWorkspace, metadataURL))))
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Curl:   "), cmdStyle.Render(fmt.Sprintf("curl -H \"X-Blaxel-Workspace: %s\" -H \"X-Blaxel-Authorization: Bearer $(bl token)\" %s", currentWorkspace, metadataURL)))
 				}
 
 				// Display callback secret if present (only for agents)
@@ -355,11 +355,11 @@ func (m *InteractiveModel) View() string {
 						s.WriteString("\n")
 						s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true).Render("Async Callback Configuration:"))
 						s.WriteString("\n")
-						s.WriteString(fmt.Sprintf("  Callback Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(callbackSecret)))
+						fmt.Fprintf(&s, "  Callback Secret: %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render(callbackSecret))
 						s.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("  Use this secret to verify webhook callbacks from Blaxel"))
 						s.WriteString("\n")
 						runCommand := lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Render("bl run agent %s --params async=true -d '{\"inputs\": \"Hello world\"}'", m.resources[0].Name)
-						s.WriteString(fmt.Sprintf("  Run your async agent with: %s", runCommand))
+						fmt.Fprintf(&s, "  Run your async agent with: %s", runCommand)
 					}
 				}
 			}
@@ -436,13 +436,13 @@ func (m *InteractiveModel) updateContent() {
 	defer selected.mu.RUnlock()
 
 	var content strings.Builder
-	content.WriteString(fmt.Sprintf("Resource: %s/%s\n", selected.Kind, selected.Name))
-	content.WriteString(fmt.Sprintf("Status: %s\n", getStatusText(selected.Status)))
+	fmt.Fprintf(&content, "Resource: %s/%s\n", selected.Kind, selected.Name)
+	fmt.Fprintf(&content, "Status: %s\n", getStatusText(selected.Status))
 	if selected.StatusText != "" {
-		content.WriteString(fmt.Sprintf("Details: %s\n", selected.StatusText))
+		fmt.Fprintf(&content, "Details: %s\n", selected.StatusText)
 	}
 	if selected.Error != nil {
-		content.WriteString(fmt.Sprintf("Error: %s\n", selected.Error))
+		fmt.Fprintf(&content, "Error: %s\n", selected.Error)
 	}
 
 	// Add console page URL (skip for volume-template)
@@ -452,7 +452,7 @@ func (m *InteractiveModel) updateContent() {
 		appUrl := blaxel.GetAppURL()
 		resourceType := strings.ToLower(selected.Kind)
 		consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, resourceType, selected.Name)
-		content.WriteString(fmt.Sprintf("Console page: %s\n", consoleUrl))
+		fmt.Fprintf(&content, "Console page: %s\n", consoleUrl)
 	}
 
 	if m.showLogs && len(selected.BuildLogs) > 0 {

@@ -127,7 +127,7 @@ func TestErrorHandlerIntegration(t *testing.T) {
 	t.Run("processes error from HTTP response", func(t *testing.T) {
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"error": "Resource not found", "code": 404, "stack": []}`))
+			_, _ = w.Write([]byte(`{"error": "Resource not found", "code": 404, "stack": []}`))
 		})
 
 		server := httptest.NewServer(handler)
@@ -138,7 +138,7 @@ func TestErrorHandlerIntegration(t *testing.T) {
 
 		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// In real usage, we'd read the body and pass to ErrorHandler
 		// Here we just verify the server returns what we expect

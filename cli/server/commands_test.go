@@ -124,7 +124,7 @@ func TestFindRootCmdAsString(t *testing.T) {
 	t.Run("returns error when no entrypoint and unknown language", func(t *testing.T) {
 		tempDir, err := os.MkdirTemp("", "unknown_lang")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		cfg := RootCmdConfig{
 			Folder:    tempDir,
@@ -139,7 +139,7 @@ func TestFindRootCmdAsString(t *testing.T) {
 	t.Run("returns error for hotreload with no dev entrypoint and unknown language", func(t *testing.T) {
 		tempDir, err := os.MkdirTemp("", "unknown_lang")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		cfg := RootCmdConfig{
 			Folder:    tempDir,
@@ -155,7 +155,7 @@ func TestFindRootCmdAsString(t *testing.T) {
 func TestFindPythonEntryFile(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "python_entry")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("finds main.py", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "main_dir")
@@ -207,7 +207,7 @@ func TestFindPythonEntryFile(t *testing.T) {
 func TestHasPythonEntryFile(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "has_python")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("returns true when entry file exists", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "has_entry")
@@ -242,7 +242,7 @@ func TestFindPythonExecutable(t *testing.T) {
 func TestFindRootCmdAsStringWithAutoDetection(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "rootcmd_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("detects python with main.py", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "python_auto")
@@ -297,9 +297,9 @@ func TestGetServeCommandsPortCollision(t *testing.T) {
 	// Create temp directory and change to it
 	tempDir, err := os.MkdirTemp("", "port_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// This should fail due to port collision
 	// Note: The function exits on error, so we can't easily test this
@@ -347,11 +347,11 @@ func TestFindPackageManagerExecutable(t *testing.T) {
 func TestGetPackageJson(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "packagejson_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	t.Run("reads valid package.json", func(t *testing.T) {
 		require.NoError(t, os.Chdir(tempDir))
@@ -402,11 +402,11 @@ func TestGetPackageJson(t *testing.T) {
 func TestFindTSPackageManagerLockFile(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "lockfile_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	t.Run("finds pnpm-lock.yaml", func(t *testing.T) {
 		pnpmDir := filepath.Join(tempDir, "pnpm")
@@ -462,11 +462,11 @@ func TestFindTSPackageManagerLockFile(t *testing.T) {
 func TestFindTSPackageManager(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "pkgmgr_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	t.Run("returns pnpm for pnpm-lock.yaml", func(t *testing.T) {
 		pnpmDir := filepath.Join(tempDir, "pnpm")
@@ -501,11 +501,11 @@ func TestFindTSPackageManager(t *testing.T) {
 func TestFindTSRootCmdAsString(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "tsroot_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	t.Run("uses prod entrypoint when specified", func(t *testing.T) {
 		cfg := RootCmdConfig{
@@ -584,11 +584,11 @@ func TestPackageJsonStruct(t *testing.T) {
 func TestGetServeCommands(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "serve_cmds_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 	require.NoError(t, os.Chdir(tempDir))
 
 	t.Run("returns root command when no packages", func(t *testing.T) {

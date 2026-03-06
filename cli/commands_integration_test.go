@@ -42,7 +42,7 @@ func setupTestServer(t *testing.T, handlers map[string]http.HandlerFunc) *httpte
 		}
 
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
 	}))
 }
 
@@ -81,7 +81,7 @@ func TestListAgentsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(agents)
+			_ = json.NewEncoder(w).Encode(agents)
 		},
 	}
 
@@ -110,7 +110,7 @@ func TestListFunctionsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(functions)
+			_ = json.NewEncoder(w).Encode(functions)
 		},
 	}
 
@@ -150,7 +150,7 @@ func TestListModelsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(models)
+			_ = json.NewEncoder(w).Encode(models)
 		},
 	}
 
@@ -179,7 +179,7 @@ func TestListJobsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(jobs)
+			_ = json.NewEncoder(w).Encode(jobs)
 		},
 	}
 
@@ -208,7 +208,7 @@ func TestListSandboxesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(sandboxes)
+			_ = json.NewEncoder(w).Encode(sandboxes)
 		},
 	}
 
@@ -239,7 +239,7 @@ func TestListVolumesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(volumes)
+			_ = json.NewEncoder(w).Encode(volumes)
 		},
 	}
 
@@ -267,7 +267,7 @@ func TestListPoliciesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(policies)
+			_ = json.NewEncoder(w).Encode(policies)
 		},
 	}
 
@@ -304,7 +304,7 @@ func TestGetSingleAgentIntegration(t *testing.T) {
 				"status": "DEPLOYED",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(agent)
+			_ = json.NewEncoder(w).Encode(agent)
 		},
 	}
 
@@ -330,7 +330,7 @@ func TestDeleteAgentIntegration(t *testing.T) {
 			// Return JSON response for delete
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"metadata": map[string]interface{}{"name": deletedAgent},
 			})
 		},
@@ -357,7 +357,7 @@ func TestDeleteFunctionIntegration(t *testing.T) {
 			// Return JSON response for delete
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"metadata": map[string]interface{}{"name": deletedFunction},
 			})
 		},
@@ -380,7 +380,7 @@ func TestCreateAgentIntegration(t *testing.T) {
 	handlers := map[string]http.HandlerFunc{
 		"POST /agents": func(w http.ResponseWriter, r *http.Request) {
 			body, _ := io.ReadAll(r.Body)
-			json.Unmarshal(body, &createdBody)
+			_ = json.Unmarshal(body, &createdBody)
 
 			response := map[string]interface{}{
 				"metadata": map[string]interface{}{
@@ -391,7 +391,7 @@ func TestCreateAgentIntegration(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 	}
 
@@ -427,7 +427,7 @@ func TestUpdateAgentIntegration(t *testing.T) {
 				"status": "DEPLOYED",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 		},
 	}
 
@@ -469,7 +469,7 @@ func TestJobExecutionsListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(executions)
+			_ = json.NewEncoder(w).Encode(executions)
 		},
 	}
 
@@ -500,7 +500,7 @@ func TestIntegrationConnectionsListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(connections)
+			_ = json.NewEncoder(w).Encode(connections)
 		},
 	}
 
@@ -528,7 +528,7 @@ func TestImagesListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(images)
+			_ = json.NewEncoder(w).Encode(images)
 		},
 	}
 
@@ -561,7 +561,7 @@ func TestAPIErrorHandlingIntegration(t *testing.T) {
 			handlers := map[string]http.HandlerFunc{
 				"GET /agents": func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(tt.statusCode)
-					json.NewEncoder(w).Encode(map[string]string{"error": "test error"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": "test error"})
 				},
 			}
 
@@ -661,7 +661,7 @@ func TestVolumeTemplatesListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(templates)
+			_ = json.NewEncoder(w).Encode(templates)
 		},
 	}
 
@@ -693,7 +693,7 @@ func TestWorkspaceConfigIntegration(t *testing.T) {
 func TestCoreConfigIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "test-app"
@@ -706,7 +706,7 @@ minScale = 0
 maxScale = 5
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -723,7 +723,7 @@ maxScale = 5
 func TestMonorepoConfigIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create monorepo blaxel.toml
 	tomlContent := `name = "monorepo"
@@ -741,7 +741,7 @@ directory = "agents/agent2"
 directory = "functions/func1"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -756,7 +756,7 @@ directory = "functions/func1"
 func TestEnvConfigIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml with env section
 	tomlContent := `name = "test-app"
@@ -769,7 +769,7 @@ DATABASE_URL = "postgres://localhost/db"
 DEBUG = "true"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)

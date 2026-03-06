@@ -97,7 +97,7 @@ func TestBatchJSONSerialization(t *testing.T) {
 func TestReadBatchFromFile(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "run_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a JSON batch file
 	batchContent := `{

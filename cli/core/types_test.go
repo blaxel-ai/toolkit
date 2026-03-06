@@ -139,8 +139,8 @@ func TestCommandEnv(t *testing.T) {
 
 	t.Run("AddClientEnv adds environment variables", func(t *testing.T) {
 		// Set a test environment variable
-		os.Setenv("TEST_COMMAND_ENV_VAR", "test_value")
-		defer os.Unsetenv("TEST_COMMAND_ENV_VAR")
+		_ = os.Setenv("TEST_COMMAND_ENV_VAR", "test_value")
+		defer func() { _ = os.Unsetenv("TEST_COMMAND_ENV_VAR") }()
 
 		env := CommandEnv{}
 		env.AddClientEnv()
@@ -201,10 +201,10 @@ func TestCommandEnvToEnvEmpty(t *testing.T) {
 }
 
 func TestCommandEnvAddClientEnvMultiple(t *testing.T) {
-	os.Setenv("TEST_VAR_1", "val1")
-	os.Setenv("TEST_VAR_2", "val2")
-	defer os.Unsetenv("TEST_VAR_1")
-	defer os.Unsetenv("TEST_VAR_2")
+	_ = os.Setenv("TEST_VAR_1", "val1")
+	_ = os.Setenv("TEST_VAR_2", "val2")
+	defer func() { _ = os.Unsetenv("TEST_VAR_1") }()
+	defer func() { _ = os.Unsetenv("TEST_VAR_2") }()
 
 	env := CommandEnv{}
 	env.AddClientEnv()

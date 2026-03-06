@@ -69,7 +69,7 @@ func TestDeploymentIgnoredPathsDefault(t *testing.T) {
 	// Create a temp directory without .blaxelignore
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	d := Deployment{
 		cwd: tempDir,
@@ -89,7 +89,7 @@ func TestDeploymentIgnoredPathsFromFile(t *testing.T) {
 	// Create a temp directory with .blaxelignore
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create .blaxelignore file
 	ignoreContent := `
@@ -312,7 +312,7 @@ func TestDeploymentIgnoredPathsWithSubfolder(t *testing.T) {
 	// The IgnoredPaths function looks for .blaxelignore in cwd, not folder
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create subfolder
 	subDir := filepath.Join(tempDir, "subfolder")
@@ -337,7 +337,7 @@ func TestDeploymentWithVolumeTemplateConfig(t *testing.T) {
 	// Create a temp directory with blaxel.toml for volume template
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-volume"
@@ -355,7 +355,7 @@ func TestDeploymentReadBlaxelToml(t *testing.T) {
 	// Create a temp directory with blaxel.toml
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "test-agent"
@@ -373,7 +373,7 @@ dev = "python main.py --reload"
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Reset config before reading
 	core.ResetConfig()
@@ -392,7 +392,7 @@ func TestDeploymentIgnoredPathsEmptyLines(t *testing.T) {
 	// Create a temp directory with .blaxelignore containing empty lines
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create .blaxelignore file with empty lines and whitespace
 	ignoreContent := `
@@ -456,7 +456,7 @@ func TestDeploymentWithJobConfig(t *testing.T) {
 	// Create a temp directory with blaxel.toml for job
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create blaxel.toml for job
 	tomlContent := `name = "my-job"
@@ -473,7 +473,7 @@ prod = "python job.py"
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	core.ResetConfig()
 	core.ReadConfigToml("", false)
@@ -487,7 +487,7 @@ func TestDeploymentWithFunctionConfig(t *testing.T) {
 	// Create a temp directory with blaxel.toml for function
 	tempDir, err := os.MkdirTemp("", "deploy_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create blaxel.toml for function
 	tomlContent := `name = "my-function"
@@ -501,7 +501,7 @@ workspace = "test-workspace"
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	core.ResetConfig()
 	core.ReadConfigToml("", false)

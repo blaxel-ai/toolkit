@@ -730,8 +730,8 @@ func BuildServerEnvWarning(language string, resourceType string) string {
 	warningMsg.WriteString("⚠️  Server Configuration Warning\n")
 	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
-	warningMsg.WriteString(fmt.Sprintf("Your code does not appear to use the %s and %s environment variables.\n",
-		codeColor.Sprint("HOST"), codeColor.Sprint("PORT")))
+	fmt.Fprintf(&warningMsg, "Your code does not appear to use the %s and %s environment variables.\n",
+		codeColor.Sprint("HOST"), codeColor.Sprint("PORT"))
 	warningMsg.WriteString("Blaxel injects these variables at runtime to configure your server.\n\n")
 
 	warningMsg.WriteString("Sample code to read these variables:\n\n")
@@ -761,7 +761,7 @@ func BuildServerEnvWarning(language string, resourceType string) string {
 	}
 
 	warningMsg.WriteString("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	warningMsg.WriteString(fmt.Sprintf("Learn more: %s\n\n", GetDeployDocURL(resourceType)))
+	fmt.Fprintf(&warningMsg, "Learn more: %s\n\n", GetDeployDocURL(resourceType))
 	warningMsg.WriteString("⚠️  Without reading these variables, your deployment may not bind to the correct address.\n")
 	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 

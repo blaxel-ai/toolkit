@@ -312,7 +312,7 @@ func handleConfigWarning(warning string, noTTY bool) {
 		go func() {
 			fmt.Print("\nDo you want to proceed anyway? (y/N, or press Ctrl+C or 'q' to quit): ")
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 			responseChan <- response
 		}()
 
@@ -367,7 +367,7 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 			warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 			codeColor := color.New(color.FgCyan)
-			warningMsg.WriteString(fmt.Sprintf("Sandbox deployments require a %s.\n\n", codeColor.Sprint("Dockerfile")))
+			fmt.Fprintf(&warningMsg, "Sandbox deployments require a %s.\n\n", codeColor.Sprint("Dockerfile"))
 			warningMsg.WriteString("Quick sample Dockerfile:\n\n")
 			warningMsg.WriteString(codeColor.Sprint("FROM debian:bookworm-slim\n\n"))
 			warningMsg.WriteString(codeColor.Sprint("WORKDIR /app\n\n"))
@@ -392,8 +392,8 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 				codeColor := color.New(color.FgCyan)
-				warningMsg.WriteString(fmt.Sprintf("Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
-					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel")))
+				fmt.Fprintf(&warningMsg, "Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
+					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel"))
 				warningMsg.WriteString("Your Dockerfile should come from a sandbox image or at least include sandbox-api:\n\n")
 				warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
 				warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
@@ -435,26 +435,26 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	languageColor := color.New(color.FgGreen)
 
 	if !hasLanguage {
-		warningMsg.WriteString(fmt.Sprintf("No language detected. Missing %s or language files.\n\n", codeColor.Sprint("Dockerfile")))
-		warningMsg.WriteString(fmt.Sprintf("To fix: Add a %s OR auto-detect language files:\n", codeColor.Sprint("Dockerfile")))
-		warningMsg.WriteString(fmt.Sprintf("  • %s or %s (Python)\n", codeColor.Sprint("pyproject.toml"), codeColor.Sprint("requirements.txt")))
-		warningMsg.WriteString(fmt.Sprintf("  • %s (TypeScript/Node)\n", codeColor.Sprint("package.json")))
-		warningMsg.WriteString(fmt.Sprintf("  • %s (Go)\n\n", codeColor.Sprint("go.mod")))
+		fmt.Fprintf(&warningMsg, "No language detected. Missing %s or language files.\n\n", codeColor.Sprint("Dockerfile"))
+		fmt.Fprintf(&warningMsg, "To fix: Add a %s OR auto-detect language files:\n", codeColor.Sprint("Dockerfile"))
+		fmt.Fprintf(&warningMsg, "  • %s or %s (Python)\n", codeColor.Sprint("pyproject.toml"), codeColor.Sprint("requirements.txt"))
+		fmt.Fprintf(&warningMsg, "  • %s (TypeScript/Node)\n", codeColor.Sprint("package.json"))
+		fmt.Fprintf(&warningMsg, "  • %s (Go)\n\n", codeColor.Sprint("go.mod"))
 	} else {
-		warningMsg.WriteString(fmt.Sprintf("Detected %s project, but missing entrypoint.\n\n", languageColor.Sprint(language)))
+		fmt.Fprintf(&warningMsg, "Detected %s project, but missing entrypoint.\n\n", languageColor.Sprint(language))
 		warningMsg.WriteString("To fix:\n")
 		entrypointSection := fmt.Sprintf("  • Set entrypoint in %s by adding the following section:\n\n%s\n\n", codeColor.Sprint("blaxel.toml"), codeColor.Sprint("[entrypoint]\nprod = \"your-command\""))
 		switch language {
 		case "python":
 			pythonFiles := codeColor.Sprint("main.py, app.py, api.py, src/main.py, src/app.py, src/api.py, app/main.py, app/app.py, app/api.py")
-			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", pythonFiles))
+			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", pythonFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "go":
 			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go")
-			warningMsg.WriteString(fmt.Sprintf("  • Add automatic entrypoint %s OR\n", goFiles))
+			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", goFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "typescript":
-			warningMsg.WriteString(fmt.Sprintf("  • Add start script in %s OR\n", codeColor.Sprint("package.json")))
+			fmt.Fprintf(&warningMsg, "  • Add start script in %s OR\n", codeColor.Sprint("package.json"))
 			warningMsg.WriteString(entrypointSection)
 		}
 	}
