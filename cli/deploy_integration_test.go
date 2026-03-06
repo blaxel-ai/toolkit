@@ -49,10 +49,10 @@ func mockServer(t *testing.T, responses map[string]interface{}) *httptest.Server
 
 // setupMockClient creates and sets a mock blaxel client
 func setupMockClient(t *testing.T, serverURL string) {
+	t.Setenv("BL_API_KEY", "test-api-key")
 	client, err := blaxel.NewDefaultClient(
 		option.WithBaseURL(serverURL),
 		option.WithWorkspace("test-workspace"),
-		option.WithAPIKey("test-api-key"),
 	)
 	require.NoError(t, err)
 	core.SetClient(&client)
