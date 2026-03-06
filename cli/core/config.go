@@ -309,9 +309,9 @@ func formatBlaxelTomlWarning(field string, reason string) string {
 	warningMsg.WriteString(strings.Repeat("━", 60) + "\n\n")
 
 	if field != "" {
-		warningMsg.WriteString(fmt.Sprintf("%s Invalid '%s' field\n", warningColor.Sprint("⚠"), codeColor.Sprint(field)))
+		fmt.Fprintf(&warningMsg, "%s Invalid '%s' field\n", warningColor.Sprint("⚠"), codeColor.Sprint(field))
 	}
-	warningMsg.WriteString(fmt.Sprintf("%s %s\n\n", warningColor.Sprint("Reason:"), reason))
+	fmt.Fprintf(&warningMsg, "%s %s\n\n", warningColor.Sprint("Reason:"), reason)
 
 	warningMsg.WriteString("Here is a complete sample of a valid blaxel.toml:\n\n")
 

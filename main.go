@@ -27,7 +27,7 @@ func main() {
 		if err != nil {
 			// Log but don't fail if Sentry initialization fails
 			if os.Getenv("BL_DEBUG") == "true" {
-				os.Stderr.WriteString("Warning: Failed to initialize Sentry: " + err.Error() + "\n")
+				_, _ = os.Stderr.WriteString("Warning: Failed to initialize Sentry: " + err.Error() + "\n")
 			}
 		}
 		defer core.FlushSentry(2 * time.Second)

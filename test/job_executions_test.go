@@ -12,7 +12,7 @@ import (
 
 func TestJobExecutions(t *testing.T) {
 	// Use dev environment and charles workspace
-	os.Setenv("BL_ENV", "dev")
+	_ = os.Setenv("BL_ENV", "dev")
 	blaxel.SetEnvironment(blaxel.EnvDevelopment)
 	blaxel.ApplyEnvironmentOverrides()
 

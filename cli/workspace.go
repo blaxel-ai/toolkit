@@ -70,7 +70,10 @@ To list all authenticated workspaces, run without arguments.`,
 			// If workspace name is provided, set it as current and return
 			if len(args) > 0 {
 				workspaceName := args[0]
-				blaxel.SetCurrentWorkspace(workspaceName)
+				if err := blaxel.SetCurrentWorkspace(workspaceName); err != nil {
+					core.PrintError("Workspace", fmt.Errorf("failed to set workspace: %w", err))
+					core.ExitWithError(err)
+				}
 				fmt.Printf("Current workspace set to %s.\n", workspaceName)
 				return
 			}

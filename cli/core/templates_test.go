@@ -179,7 +179,7 @@ func TestCleanTemplate(t *testing.T) {
 	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "clean_template_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create the items that should be removed
 	itemsToCreate := []string{
@@ -298,13 +298,13 @@ func TestEditBlaxelTomlInCurrentDir(t *testing.T) {
 	// Create a temporary directory
 	tempDir, err := os.MkdirTemp("", "edit_blaxel_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Change to temp directory
 	originalDir, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tempDir))
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	t.Run("no blaxel.toml exists", func(t *testing.T) {
 		err := EditBlaxelTomlInCurrentDir("agent", "test-agent", "./agents/test-agent")

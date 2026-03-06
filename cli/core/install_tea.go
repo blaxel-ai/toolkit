@@ -262,7 +262,7 @@ func (m Model) View() string {
 			titleStyle.Render(step.Title),
 			descStyle.Render(fmt.Sprintf("— %s", step.Description)))
 
-		s.WriteString(fmt.Sprintf("  %s %s\n", icon, stepLine))
+		fmt.Fprintf(&s, "  %s %s\n", icon, stepLine)
 
 		// Show logs for current running step if it's dependencies
 		if step.Status == StatusRunning && i == 2 && m.showLogs && len(m.currentLogs) > 0 {
@@ -271,11 +271,10 @@ func (m Model) View() string {
 				if idx < len(m.currentLogs) {
 					logLine := m.currentLogs[idx]
 					if logLine != "" {
-						// Show the log line as-is, no truncation
-						s.WriteString(fmt.Sprintf("     %s\n",
+						fmt.Fprintf(&s, "     %s\n",
 							lipgloss.NewStyle().
 								Foreground(lipgloss.Color("240")).
-								Render(logLine)))
+								Render(logLine))
 					} else {
 						// Empty line to maintain consistent height
 						s.WriteString("\n")

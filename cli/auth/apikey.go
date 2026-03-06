@@ -42,7 +42,13 @@ func LoginApiKey(workspace string) {
 		core.ExitWithError(err)
 	}
 
-	blaxel.SaveCredentials(workspace, creds)
-	blaxel.SetCurrentWorkspace(workspace)
+	if err := blaxel.SaveCredentials(workspace, creds); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
+		core.ExitWithError(err)
+	}
+	if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
+		core.ExitWithError(err)
+	}
 	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 }

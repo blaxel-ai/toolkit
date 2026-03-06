@@ -447,7 +447,7 @@ func PluralizeResourceType(resourceType string) string {
 
 // StreamBuildLogs streams build logs from an HTTP response
 func StreamBuildLogs(resp *http.Response, onLog func(string)) error {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	reader := bufio.NewReader(resp.Body)
 	for {

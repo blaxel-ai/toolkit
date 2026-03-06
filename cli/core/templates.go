@@ -52,7 +52,7 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 		// Check if it's an authentication error
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "403") {
-			return nil, fmt.Errorf("Authentication required. Please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
+			return nil, fmt.Errorf("authentication required: please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
 		}
 		return nil, err
 	}

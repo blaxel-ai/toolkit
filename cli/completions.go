@@ -107,11 +107,6 @@ func GetWorkspaceValidArgsFunction() func(cmd *cobra.Command, args []string, toC
 // sandboxNestedResourceKeywords are the keywords that indicate nested resources for sandboxes (for matching user input)
 var sandboxNestedResourceKeywords = []string{"processes", "process", "proc", "procs", "ps"}
 
-// processLogsKeywords are the keywords for getting process logs (for matching user input)
-var processLogsKeywords = []string{"logs", "log"}
-
-// jobNestedResourceKeywords are the keywords that indicate nested resources for jobs
-var jobNestedResourceKeywords = []string{"execution"}
 
 // CompleteSandboxNames returns a list of sandbox names for shell completion
 func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -411,7 +406,7 @@ func CompleteJobExecutionTaskIDs(jobName, executionID, toComplete string) ([]str
 	}
 
 	// Use execution.Tasks (runtime data) instead of execution.Spec.Tasks (specification)
-	if execution.Tasks == nil || len(execution.Tasks) == 0 {
+	if len(execution.Tasks) == 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 

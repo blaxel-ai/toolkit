@@ -573,7 +573,7 @@ func promptForTracking() {
 	fmt.Print("Do you want to enable tracking to help improve Blaxel? [Y/n] ")
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 
 	// Default to true (Y) if empty or yes
 	enabled := true

@@ -27,7 +27,7 @@ func mockServer(t *testing.T, responses map[string]interface{}) *httptest.Server
 		// Check exact match first
 		if resp, ok := responses[key]; ok {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 			return
 		}
 
@@ -36,23 +36,23 @@ func mockServer(t *testing.T, responses map[string]interface{}) *httptest.Server
 			parts := strings.SplitN(pattern, " ", 2)
 			if len(parts) == 2 && r.Method == parts[0] && strings.HasPrefix(r.URL.Path, parts[1]) {
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(resp)
+				_ = json.NewEncoder(w).Encode(resp)
 				return
 			}
 		}
 
 		// Default 404
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
 	}))
 }
 
 // setupMockClient creates and sets a mock blaxel client
 func setupMockClient(t *testing.T, serverURL string) {
+	t.Setenv("BL_API_KEY", "test-api-key")
 	client, err := blaxel.NewDefaultClient(
 		option.WithBaseURL(serverURL),
 		option.WithWorkspace("test-workspace"),
-		option.WithAPIKey("test-api-key"),
 	)
 	require.NoError(t, err)
 	core.SetClient(&client)
@@ -340,7 +340,7 @@ func TestGetResourceStatusNoStatusIntegration(t *testing.T) {
 func TestGenerateDeploymentAgentIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-agent"
@@ -351,7 +351,7 @@ workspace = "test-workspace"
 production = "python main.py"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -375,7 +375,7 @@ production = "python main.py"
 func TestGenerateDeploymentFunctionIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-function"
@@ -383,7 +383,7 @@ type = "function"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -408,7 +408,7 @@ workspace = "test-workspace"
 func TestGenerateDeploymentJobIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-job"
@@ -416,7 +416,7 @@ type = "job"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -436,7 +436,7 @@ workspace = "test-workspace"
 func TestGenerateDeploymentSandboxIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-sandbox"
@@ -445,7 +445,7 @@ workspace = "test-workspace"
 region = "us-east-1"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -468,7 +468,7 @@ region = "us-east-1"
 func TestGenerateDeploymentVolumeTemplateIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	defaultSize := 100
 	// Create blaxel.toml
@@ -478,7 +478,7 @@ workspace = "test-workspace"
 defaultSize = 100
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -501,7 +501,7 @@ defaultSize = 100
 func TestGenerateDeploymentWithPoliciesIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-agent"
@@ -510,7 +510,7 @@ workspace = "test-workspace"
 policies = ["policy1", "policy2"]
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -533,7 +533,7 @@ policies = ["policy1", "policy2"]
 func TestGenerateDeploymentWithRuntimeIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-agent"
@@ -546,7 +546,7 @@ minScale = 1
 maxScale = 10
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -570,7 +570,7 @@ maxScale = 10
 func TestGenerateDeploymentSkipBuildWithImageIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml
 	tomlContent := `name = "my-agent"
@@ -578,7 +578,7 @@ type = "agent"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -619,7 +619,7 @@ workspace = "test-workspace"
 func TestValidateDeploymentConfigIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create valid blaxel.toml
 	tomlContent := `name = "my-agent"
@@ -633,7 +633,7 @@ production = "python main.py"
 	// Create the entry file
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
 
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -655,7 +655,7 @@ production = "python main.py"
 func TestValidateDeploymentConfigMissingEntrypointIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml without entrypoint and without standard entry files
 	tomlContent := `name = "my-agent"
@@ -663,7 +663,7 @@ type = "agent"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -695,9 +695,9 @@ func TestDeploymentArchiveCreationIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test structure
-	os.MkdirAll(filepath.Join(tempDir, "src"), 0755)
-	os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, "src"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
 
 	d := &Deployment{
 		dir:    ".blaxel",
@@ -723,9 +723,8 @@ func TestDeploymentTarArchiveIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test structure
-	os.MkdirAll(filepath.Join(tempDir, "src"), 0755)
-	os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, "src"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644))
 
 	d := &Deployment{
 		dir:    ".blaxel",
@@ -744,7 +743,7 @@ func TestDeploymentTarArchiveIntegration(t *testing.T) {
 func TestDeploymentWithVolumes(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml with volumes
 	tomlContent := `name = "my-sandbox"
@@ -756,7 +755,7 @@ name = "data-volume"
 mountPath = "/data"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -780,7 +779,7 @@ mountPath = "/data"
 func TestDeploymentWithTriggers(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml with triggers
 	tomlContent := `name = "my-agent"
@@ -792,7 +791,7 @@ type = "http"
 path = "/webhook"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -817,9 +816,9 @@ func TestDeploymentPrintZipIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test files
-	os.MkdirAll(filepath.Join(tempDir, "src"), 0755)
-	os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, "src"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
 
 	d := &Deployment{
 		dir:    ".blaxel",
@@ -842,9 +841,9 @@ func TestDeploymentPrintTarIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test files
-	os.MkdirAll(filepath.Join(tempDir, "src"), 0755)
-	os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, "src"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "src", "main.py"), []byte("print('hello')"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
 
 	d := &Deployment{
 		dir:    ".blaxel",
@@ -866,7 +865,7 @@ func TestDeploymentPrintTarIntegration(t *testing.T) {
 func TestDeploymentPrintWithZipIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml for agent (uses zip)
 	tomlContent := `name = "test-agent"
@@ -874,8 +873,8 @@ type = "agent"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644)
-	os.Chdir(tempDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -900,7 +899,7 @@ workspace = "test-workspace"
 func TestDeploymentPrintWithTarIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	// Create blaxel.toml for volume-template (uses tar)
 	tomlContent := `name = "test-vt"
@@ -909,8 +908,8 @@ workspace = "test-workspace"
 defaultSize = 10
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.WriteFile(filepath.Join(tempDir, "data.txt"), []byte("test data"), 0644)
-	os.Chdir(tempDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "data.txt"), []byte("test data"), 0644))
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)
@@ -935,14 +934,14 @@ defaultSize = 10
 func TestDeploymentPrintSkipBuildIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 
 	tomlContent := `name = "test-agent"
 type = "agent"
 workspace = "test-workspace"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
-	os.Chdir(tempDir)
+	require.NoError(t, os.Chdir(tempDir))
 
 	core.ResetConfig()
 	core.ReadConfigToml("", true)

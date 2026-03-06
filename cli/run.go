@@ -640,7 +640,7 @@ func runSingleTaskParallel(i int, task map[string]interface{}, folder string, co
 	_, _ = io.Copy(outputWriter, reader)
 
 	// Close the reader to release resources
-	reader.Close()
+	_ = reader.Close()
 
 	// Flush any remaining buffered output
 	outputWriter.Flush()

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -160,11 +159,9 @@ func (t *TerminalClient) readLoop() {
 
 		switch msg.Type {
 		case "output":
-			// Write directly to stdout
-			os.Stdout.WriteString(msg.Data)
+			_, _ = os.Stdout.WriteString(msg.Data)
 		case "error":
-			// Write error in red
-			os.Stdout.WriteString("\r\n\x1b[31mError: " + msg.Data + "\x1b[0m\r\n")
+			_, _ = os.Stdout.WriteString("\r\n\x1b[31mError: " + msg.Data + "\x1b[0m\r\n")
 		}
 	}
 }
@@ -185,9 +182,6 @@ func (t *TerminalClient) writeLoop(ctx context.Context) {
 
 		n, err := os.Stdin.Read(buf)
 		if err != nil {
-			if err != io.EOF {
-				// Read error
-			}
 			return
 		}
 
@@ -235,7 +229,7 @@ func (t *TerminalClient) restoreTerminal() {
 	t.stateMu.Lock()
 	defer t.stateMu.Unlock()
 	if t.oldState != nil {
-		term.Restore(t.stdin, t.oldState)
+		_ = term.Restore(t.stdin, t.oldState)
 		t.oldState = nil
 	}
 }
@@ -250,7 +244,7 @@ func (t *TerminalClient) Close() {
 		if t.conn != nil {
 			_ = t.conn.WriteMessage(websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			t.conn.Close()
+			_ = t.conn.Close()
 		}
 
 		// Signal done to unblock Run()

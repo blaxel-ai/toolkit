@@ -215,7 +215,7 @@ func (env *RealCLITestEnvironment) ExecuteCLIWithExpect(timeout time.Duration, a
 	if err != nil {
 		return &CLIResult{Error: err, ExitCode: 1}
 	}
-	defer e.Close()
+	defer func() { _ = e.Close() }()
 
 	var stdoutBuilder strings.Builder
 	// goexpect doesn't expose direct stdout; best-effort: rely on matcher traces if needed
