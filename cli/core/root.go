@@ -307,10 +307,13 @@ var rootCmd = &cobra.Command{
 				}
 			}
 
-			credentials, _ := blaxel.LoadCredentials(workspace)
-			if !credentials.IsValid() && workspace != "" {
-				PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
-				PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
+			// Skip credential warning when using environment-based authentication
+			if os.Getenv("BL_API_KEY") == "" && os.Getenv("BL_CLIENT_CREDENTIALS") == "" {
+				credentials, _ := blaxel.LoadCredentials(workspace)
+				if !credentials.IsValid() && workspace != "" {
+					PrintWarning(fmt.Sprintf("Invalid credentials for workspace '%s'\n", workspace))
+					PrintWarning(fmt.Sprintf("Please run 'bl login %s' to refresh your credentials.\n", workspace))
+				}
 			}
 		}
 
