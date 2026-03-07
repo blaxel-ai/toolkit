@@ -597,6 +597,11 @@ setup_tracking() {
   # Create config directory if it doesn't exist
   mkdir -p "$config_dir"
 
+  # If running as root (e.g. via sudo), fix ownership for the real user
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ]; then
+    chown "$SUDO_USER" "$config_dir"
+  fi
+
   # Write or append tracking to config file
   if [ -f "$config_file" ]; then
     # Append tracking to existing config
@@ -604,6 +609,11 @@ setup_tracking() {
   else
     # Create new config file with tracking
     printf "tracking: %s\n" "$tracking_value" > "$config_file"
+  fi
+
+  # If running as root (e.g. via sudo), fix ownership for the real user
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ]; then
+    chown "$SUDO_USER" "$config_file"
   fi
 
   if [ "$tracking_value" = "true" ]; then
