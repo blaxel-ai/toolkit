@@ -249,7 +249,6 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 	err = validateWorkspace(workspace, creds)
 	if err != nil {
 		core.PrintError("Login", fmt.Errorf("error accessing workspace %s : %w", workspace, err))
-		core.ExitWithError(err)
 	} else {
 		if err := blaxel.SaveCredentials(workspace, creds); err != nil {
 			core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
