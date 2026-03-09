@@ -47,6 +47,11 @@ func TestRunCmd(t *testing.T) {
 	localFlag := cmd.Flags().Lookup("local")
 	assert.NotNil(t, localFlag)
 
+	portFlag := cmd.Flags().Lookup("port")
+	assert.NotNil(t, portFlag)
+	assert.Equal(t, "p", portFlag.Shorthand)
+	assert.Equal(t, "1338", portFlag.DefValue)
+
 	envFileFlag := cmd.Flags().Lookup("env-file")
 	assert.NotNil(t, envFileFlag)
 	assert.Equal(t, "e", envFileFlag.Shorthand)
