@@ -276,7 +276,10 @@ func resolveConfigVars() {
 	}
 	for _, f := range fields {
 		if *f != "" {
-			resolved, _ := ResolveVarValue(*f)
+			resolved, warning := ResolveVarValue(*f)
+			if warning != "" {
+				fmt.Println(warning)
+			}
 			*f = resolved
 		}
 	}
