@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -181,6 +182,209 @@ func TestGetEnvsIgnoresBLAPIKey(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "OTHER_KEY should be in envs")
+}
+
+func TestSecretsEnvRegex(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		shouldMatch  bool
+		secretName   string
+		defaultValue string
+	}{
+		{"$secrets.KEY", "$secrets.MY_KEY", true, "MY_KEY", ""},
+		{"${secrets.KEY}", "${secrets.MY_KEY}", true, "MY_KEY", ""},
+		{"${ secrets.KEY }", "${ secrets.MY_KEY }", true, "MY_KEY", ""},
+		{"$secrets.KEY:default", "$secrets.MY_KEY:fallback", true, "MY_KEY", "fallback"},
+		{"${secrets.KEY:default}", "${secrets.MY_KEY:fallback}", true, "MY_KEY", "fallback"},
+		{"${secrets.KEY:}", "${secrets.MY_KEY:}", true, "MY_KEY", ""},
+		{"${secrets.KEY:complex-default}", "${secrets.BL_REGION:us-pdx-1}", true, "BL_REGION", "us-pdx-1"},
+		{"plain value", "some_value", false, "", ""},
+		{"$KEY", "$MY_KEY", false, "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := secretsEnvRegex.FindStringSubmatch(tt.input)
+			if !tt.shouldMatch {
+				assert.Nil(t, match)
+				return
+			}
+			require.NotNil(t, match, "expected match for %q", tt.input)
+			// Extract name and default
+			name := match[1]
+			if name == "" {
+				name = match[3]
+			}
+			def := match[2]
+			if def == "" {
+				def = match[4]
+			}
+			assert.Equal(t, tt.secretName, name)
+			assert.Equal(t, tt.defaultValue, def)
+		})
+	}
+}
+
+func TestPlainEnvRegex(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		shouldMatch  bool
+		varName      string
+		defaultValue string
+	}{
+		{"$KEY", "$MY_KEY", true, "MY_KEY", ""},
+		{"${KEY}", "${MY_KEY}", true, "MY_KEY", ""},
+		{"${ KEY }", "${ MY_KEY }", true, "MY_KEY", ""},
+		{"${KEY:default}", "${MY_KEY:fallback}", true, "MY_KEY", "fallback"},
+		{"${KEY:complex-default}", "${BL_REGION:us-pdx-1}", true, "BL_REGION", "us-pdx-1"},
+		{"${KEY:}", "${MY_KEY:}", true, "MY_KEY", ""},
+		{"plain value", "some_value", false, "", ""},
+		{"secrets pattern", "${secrets.KEY}", false, "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match := plainEnvRegex.FindStringSubmatch(tt.input)
+			if !tt.shouldMatch {
+				assert.Nil(t, match)
+				return
+			}
+			require.NotNil(t, match, "expected match for %q", tt.input)
+			// Group 1: braced name, Group 2: braced default, Group 3: unbraced name
+			name := match[1]
+			def := match[2]
+			if name == "" {
+				name = match[3]
+			}
+			assert.Equal(t, tt.varName, name)
+			assert.Equal(t, tt.defaultValue, def)
+		})
+	}
+}
+
+func TestGetEnvsWithDefaultValues(t *testing.T) {
+	originalSecrets := secrets
+	originalConfig := config
+	defer func() {
+		secrets = originalSecrets
+		config = originalConfig
+	}()
+
+	t.Run("secrets with default value used when not set", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Env: map[string]string{
+				"BL_REGION": "${secrets.BL_REGION:us-pdx-1}",
+			},
+		}
+		// Make sure env var is not set
+		os.Unsetenv("BL_REGION")
+
+		envs := GetEnvs()
+		found := false
+		for _, env := range envs {
+			if env.Name == "BL_REGION" {
+				assert.Equal(t, "us-pdx-1", env.Value)
+				found = true
+			}
+		}
+		assert.True(t, found, "BL_REGION should be in envs")
+	})
+
+	t.Run("secrets with default value overridden by env", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Env: map[string]string{
+				"BL_REGION": "${secrets.BL_REGION:us-pdx-1}",
+			},
+		}
+		t.Setenv("BL_REGION", "eu-west-1")
+
+		envs := GetEnvs()
+		for _, env := range envs {
+			if env.Name == "BL_REGION" {
+				assert.Equal(t, "eu-west-1", env.Value)
+			}
+		}
+	})
+
+	t.Run("secrets with default value overridden by loaded secret", func(t *testing.T) {
+		secrets = Secrets{
+			{Name: "BL_REGION", Value: "ap-east-1"},
+		}
+		config = Config{
+			Env: map[string]string{
+				"BL_REGION": "${secrets.BL_REGION:us-pdx-1}",
+			},
+		}
+		os.Unsetenv("BL_REGION")
+
+		envs := GetEnvs()
+		// The secret from secrets slice is added first, then config env resolves
+		found := false
+		for _, env := range envs {
+			if env.Name == "BL_REGION" && env.Value == "ap-east-1" {
+				found = true
+			}
+		}
+		assert.True(t, found, "BL_REGION should resolve to loaded secret value")
+	})
+
+	t.Run("plain env with default value", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Env: map[string]string{
+				"MY_VAR": "${MY_VAR:default-val}",
+			},
+		}
+		os.Unsetenv("MY_VAR")
+
+		envs := GetEnvs()
+		found := false
+		for _, env := range envs {
+			if env.Name == "MY_VAR" {
+				assert.Equal(t, "default-val", env.Value)
+				found = true
+			}
+		}
+		assert.True(t, found, "MY_VAR should be in envs")
+	})
+
+	t.Run("plain env with default overridden by env", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Env: map[string]string{
+				"MY_VAR": "${MY_VAR:default-val}",
+			},
+		}
+		t.Setenv("MY_VAR", "from-env")
+
+		envs := GetEnvs()
+		for _, env := range envs {
+			if env.Name == "MY_VAR" {
+				assert.Equal(t, "from-env", env.Value)
+			}
+		}
+	})
+
+	t.Run("plain env without default still works", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Env: map[string]string{
+				"PLAIN": "$PLAIN",
+			},
+		}
+		t.Setenv("PLAIN", "set-value")
+
+		envs := GetEnvs()
+		for _, env := range envs {
+			if env.Name == "PLAIN" {
+				assert.Equal(t, "set-value", env.Value)
+			}
+		}
+	})
 }
 
 func TestGetUniqueEnvs(t *testing.T) {
