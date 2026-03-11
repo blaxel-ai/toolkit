@@ -5,11 +5,12 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 )
 
 var (
 	// Matches $secrets.KEY, ${secrets.KEY}, $secrets.KEY:default, ${secrets.KEY:default}
-	secretsEnvRegex = regexp.MustCompile(`^\$secrets\.([A-Za-z0-9_]+)(?::(.*))?$|^\$\{\s?secrets\.([A-Za-z0-9_]+)(?::([^}]*))?\s?\}$`)
+	secretsEnvRegex = regexp.MustCompile(`^\$secrets\.([A-Za-z0-9_]+)(?::([^\s}]*))?$|^\$\{\s?secrets\.([A-Za-z0-9_]+)(?::([^}]*))?\s?\}$`)
 	// Matches $KEY, ${KEY}, ${KEY:default}
 	plainEnvRegex = regexp.MustCompile(`^\$\{\s?([A-Za-z0-9_]+)(?::([^}]*))?\s?\}$|^\$([A-Za-z0-9_]+)$`)
 )
@@ -34,9 +35,9 @@ func ResolveVarValue(v string) (string, string) {
 		if secretName == "" {
 			secretName = secretsMatch[3]
 		}
-		defaultValue := secretsMatch[2]
+		defaultValue := strings.TrimSpace(secretsMatch[2])
 		if defaultValue == "" {
-			defaultValue = secretsMatch[4]
+			defaultValue = strings.TrimSpace(secretsMatch[4])
 		}
 		if envValue, exists := os.LookupEnv(secretName); exists {
 			return envValue, ""
@@ -50,7 +51,7 @@ func ResolveVarValue(v string) (string, string) {
 	// Handle ${KEY:default} and $KEY patterns (non-secrets)
 	if envMatch := plainEnvRegex.FindStringSubmatch(v); envMatch != nil {
 		varName := envMatch[1]
-		defaultValue := envMatch[2]
+		defaultValue := strings.TrimSpace(envMatch[2])
 		if varName == "" {
 			varName = envMatch[3]
 		}

@@ -52,7 +52,7 @@ func handleSecret(filePath string, content string) (string, error) {
 	}
 
 	fileName := filepath.Base(filePath)
-	re := regexp.MustCompile(`\$secrets\.([A-Za-z0-9_]+)(?::([^}]*))?|\${\s?secrets\.([A-Za-z0-9_]+)(?::([^}]*))?\s?}`)
+	re := regexp.MustCompile(`\$secrets\.([A-Za-z0-9_]+)(?::([^\s}]*))?|\${\s?secrets\.([A-Za-z0-9_]+)(?::([^}]*))?\s?}`)
 	matches := re.FindAllStringSubmatch(content, -1)
 	if len(matches) == 0 {
 		return content, nil
@@ -64,10 +64,10 @@ func handleSecret(filePath string, content string) (string, error) {
 		var value string
 		fullMatch := match[0]
 		secretName := match[1]
-		defaultValue := match[2]
+		defaultValue := strings.TrimSpace(match[2])
 		if secretName == "" {
 			secretName = match[3]
-			defaultValue = match[4]
+			defaultValue = strings.TrimSpace(match[4])
 		}
 		values[fullMatch] = &value
 		if envValue, exists := os.LookupEnv(secretName); exists {

@@ -456,6 +456,21 @@ func TestResolveVarValue(t *testing.T) {
 		assert.Equal(t, "$UNSET_VAR", val)
 		assert.Contains(t, warn, "UNSET_VAR")
 	})
+
+	t.Run("${ secrets.KEY:default } trims trailing space from default", func(t *testing.T) {
+		secrets = Secrets{}
+		os.Unsetenv("BL_REGION")
+		val, warn := ResolveVarValue("${ secrets.BL_REGION:us-pdx-1 }")
+		assert.Equal(t, "us-pdx-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${ KEY:default } trims trailing space from default", func(t *testing.T) {
+		os.Unsetenv("MY_REGION")
+		val, warn := ResolveVarValue("${ MY_REGION:us-pdx-1 }")
+		assert.Equal(t, "us-pdx-1", val)
+		assert.Empty(t, warn)
+	})
 }
 
 func TestResolveConfigVars(t *testing.T) {
