@@ -34,9 +34,10 @@ type ChatModel struct {
 	Loading               bool
 	Debug                 bool
 	Local                 bool
+	Port                  int
 	Headers               []string
-	SendMessage           func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string) (string, error)
-	SendMessageStream     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string, onChunk func(string)) error
+	SendMessage           func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, port int, headers []string) (string, error)
+	SendMessageStream     func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, port int, headers []string, onChunk func(string)) error
 	lastUserMessage       string
 	textareaFocused       bool
 	streamingMessageIndex int
@@ -151,7 +152,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(
 					m.spinner.Tick,
 					func() tea.Msg {
-						response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+						response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Port, m.Headers)
 						if err != nil {
 							return errMsg{err, false}
 						}
@@ -308,7 +309,7 @@ func (m *ChatModel) startStreamingCommand(userInput string) tea.Cmd {
 	return func() tea.Msg {
 		if m.SendMessageStream == nil {
 			// Fall back to regular message if streaming not available
-			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Port, m.Headers)
 			if err != nil {
 				return errMsg{err, false}
 			}
@@ -318,7 +319,7 @@ func (m *ChatModel) startStreamingCommand(userInput string) tea.Cmd {
 		// Track if we received any streaming content
 		receivedContent := false
 
-		err := m.SendMessageStream(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers, func(chunk string) {
+		err := m.SendMessageStream(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Port, m.Headers, func(chunk string) {
 			if m.streamState != nil {
 				m.streamState.mu.Lock()
 				m.streamState.content.WriteString(chunk)
@@ -333,7 +334,7 @@ func (m *ChatModel) startStreamingCommand(userInput string) tea.Cmd {
 
 		// If no streaming content was received, try regular message as fallback
 		if !receivedContent {
-			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Headers)
+			response, err := m.SendMessage(context.Background(), m.Workspace, m.ResType, m.ResName, userInput, m.Debug, m.Local, m.Port, m.Headers)
 			if err != nil {
 				return errMsg{err, false}
 			}

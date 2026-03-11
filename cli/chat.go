@@ -26,6 +26,7 @@ func init() {
 func ChatCmd() *cobra.Command {
 	var debug bool
 	var local bool
+	var port int
 	var headerFlags []string
 
 	cmd := &cobra.Command{
@@ -85,7 +86,7 @@ Keyboard Controls:
 
 			resourceType := "agent"
 
-			err := Chat(context.Background(), core.GetWorkspace(), resourceType, resourceName, debug, local, headerFlags)
+			err := Chat(context.Background(), core.GetWorkspace(), resourceType, resourceName, debug, local, port, headerFlags)
 			if err != nil {
 				core.PrintError("Chat", err)
 				core.ExitWithError(err)
@@ -95,6 +96,7 @@ Keyboard Controls:
 
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
+	cmd.Flags().IntVarP(&port, "port", "p", 1338, "Port to connect to when using --local")
 	cmd.Flags().StringSliceVar(&headerFlags, "header", []string{}, "Request headers in 'Key: Value' format. Can be specified multiple times")
 	return cmd
 }
@@ -106,6 +108,7 @@ func Chat(
 	resourceName string,
 	debug bool,
 	local bool,
+	port int,
 	headerFlags []string,
 ) error {
 	if !local {
@@ -115,7 +118,7 @@ func Chat(
 		}
 	}
 
-	return BootChat(ctx, workspace, resourceType, resourceName, debug, local, headerFlags)
+	return BootChat(ctx, workspace, resourceType, resourceName, debug, local, port, headerFlags)
 }
 
 func BootChat(
@@ -125,6 +128,7 @@ func BootChat(
 	resourceName string,
 	debug bool,
 	local bool,
+	port int,
 	headerFlags []string,
 ) error {
 	m := &chat.ChatModel{
@@ -136,6 +140,7 @@ func BootChat(
 		SendMessageStream: SendMessageStream,
 		Debug:             debug,
 		Local:             local,
+		Port:              port,
 		Headers:           headerFlags,
 	}
 
@@ -180,6 +185,7 @@ func SendMessage(
 	message string,
 	debug bool,
 	local bool,
+	port int,
 	headers []string,
 ) (string, error) {
 	type Input struct {
@@ -202,13 +208,12 @@ func SendMessage(
 	client := core.GetClient()
 	var response *http.Response
 	if local {
-		response, err = client.RunLocal(
-			ctx,
-			"POST",
-			"/",
-			inputBody,
-			opts...,
-		)
+		baseURL := fmt.Sprintf("http://localhost:%d", port)
+		opts = append(opts, requestoption.WithBaseURL(baseURL))
+		var res *http.Response
+		opts = append(opts, requestoption.WithResponseBodyInto(&res))
+		err = client.Execute(ctx, "POST", "/", inputBody, nil, opts...)
+		response = res
 	} else {
 		response, err = client.Run(
 			ctx,
@@ -221,11 +226,10 @@ func SendMessage(
 			opts...,
 		)
 	}
-	defer func() { _ = response.Body.Close() }()
-
 	if err != nil {
 		return "", fmt.Errorf("failed to send message: %w", err)
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -243,6 +247,7 @@ func SendMessageStream(
 	message string,
 	debug bool,
 	local bool,
+	port int,
 	headers []string,
 	onChunk func(string),
 ) error {
@@ -279,13 +284,12 @@ func SendMessageStream(
 	client := core.GetClient()
 	var response *http.Response
 	if local {
-		response, err = client.RunLocal(
-			ctx,
-			"POST",
-			"/",
-			inputBody,
-			opts...,
-		)
+		baseURL := fmt.Sprintf("http://localhost:%d", port)
+		opts = append(opts, requestoption.WithBaseURL(baseURL))
+		var res *http.Response
+		opts = append(opts, requestoption.WithResponseBodyInto(&res))
+		err = client.Execute(ctx, "POST", "/", inputBody, nil, opts...)
+		response = res
 	} else {
 		response, err = client.Run(
 			ctx,

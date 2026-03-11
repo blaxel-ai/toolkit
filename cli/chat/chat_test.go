@@ -65,7 +65,7 @@ func TestErrMsg(t *testing.T) {
 }
 
 func TestChatModelWithMockSendMessage(t *testing.T) {
-	mockSend := func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string) (string, error) {
+	mockSend := func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, port int, headers []string) (string, error) {
 		return "mock response", nil
 	}
 
@@ -76,13 +76,13 @@ func TestChatModelWithMockSendMessage(t *testing.T) {
 		SendMessage: mockSend,
 	}
 
-	response, err := model.SendMessage(context.Background(), model.Workspace, model.ResType, model.ResName, "test", false, false, nil)
+	response, err := model.SendMessage(context.Background(), model.Workspace, model.ResType, model.ResName, "test", false, false, 1338, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "mock response", response)
 }
 
 func TestChatModelWithMockSendMessageStream(t *testing.T) {
-	mockStream := func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, headers []string, onChunk func(string)) error {
+	mockStream := func(ctx context.Context, workspace string, resType string, resName string, message string, debug bool, local bool, port int, headers []string, onChunk func(string)) error {
 		onChunk("chunk1")
 		onChunk("chunk2")
 		return nil
@@ -96,7 +96,7 @@ func TestChatModelWithMockSendMessageStream(t *testing.T) {
 	}
 
 	var chunks []string
-	err := model.SendMessageStream(context.Background(), model.Workspace, model.ResType, model.ResName, "test", false, false, nil, func(chunk string) {
+	err := model.SendMessageStream(context.Background(), model.Workspace, model.ResType, model.ResName, "test", false, false, 1338, nil, func(chunk string) {
 		chunks = append(chunks, chunk)
 	})
 

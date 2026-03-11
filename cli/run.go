@@ -38,6 +38,7 @@ func RunCmd() *cobra.Command {
 	var params []string
 	var debug bool
 	var local bool
+	var port int
 	var headerFlags []string
 	var uploadFilePath string
 	var filePath string
@@ -210,6 +211,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				data,
 				debug,
 				local,
+				port,
 			)
 			if err != nil {
 				err = fmt.Errorf("error making request: %w", err)
@@ -310,6 +312,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().StringArrayVar(&headerFlags, "header", []string{}, "Request headers in 'Key: Value' format. Can be specified multiple times")
 	cmd.Flags().BoolVar(&debug, "debug", false, "Debug mode")
 	cmd.Flags().BoolVar(&local, "local", false, "Run locally")
+	cmd.Flags().IntVarP(&port, "port", "p", 1338, "Port to connect to when using --local")
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to pass to the execution")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
@@ -331,6 +334,7 @@ func runRequest(
 	data string,
 	debug bool,
 	local bool,
+	port int,
 ) (*http.Response, error) {
 	// Build request options
 	opts := []option.RequestOption{}
@@ -356,7 +360,7 @@ func runRequest(
 	if debug {
 		baseURL := blaxel.GetRunURL()
 		if local {
-			baseURL = "http://localhost:1338"
+			baseURL = fmt.Sprintf("http://localhost:%d", port)
 		}
 		fullURL := fmt.Sprintf("%s/%s/%s/%s%s", baseURL, workspace, resourceType, resourceName, path)
 		if len(params) > 0 {
@@ -379,8 +383,13 @@ func runRequest(
 	client := core.GetClient()
 
 	if local {
-		// For local, build the full path manually
-		return client.RunLocal(ctx, method, path, body, opts...)
+		// For local, use configurable port instead of hardcoded 1338
+		baseURL := fmt.Sprintf("http://localhost:%d", port)
+		opts = append(opts, option.WithBaseURL(baseURL))
+		var res *http.Response
+		opts = append(opts, option.WithResponseBodyInto(&res))
+		err := client.Execute(ctx, method, path, body, nil, opts...)
+		return res, err
 	}
 
 	// Use RunWithMetadata for remote execution - it fetches the resource's metadata URL first
