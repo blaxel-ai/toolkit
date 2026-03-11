@@ -280,7 +280,7 @@ func TestGetEnvsWithDefaultValues(t *testing.T) {
 			},
 		}
 		// Make sure env var is not set
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 
 		envs := GetEnvs()
 		found := false
@@ -319,7 +319,7 @@ func TestGetEnvsWithDefaultValues(t *testing.T) {
 				"BL_REGION": "${secrets.BL_REGION:us-pdx-1}",
 			},
 		}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 
 		envs := GetEnvs()
 		// The secret from secrets slice is added first, then config env resolves
@@ -339,7 +339,7 @@ func TestGetEnvsWithDefaultValues(t *testing.T) {
 				"MY_VAR": "${MY_VAR:default-val}",
 			},
 		}
-		os.Unsetenv("MY_VAR")
+		_ = os.Unsetenv("MY_VAR")
 
 		envs := GetEnvs()
 		found := false
@@ -399,7 +399,7 @@ func TestResolveVarValue(t *testing.T) {
 
 	t.Run("${secrets.KEY:default} uses default when unset", func(t *testing.T) {
 		secrets = Secrets{}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		val, warn := ResolveVarValue("${secrets.BL_REGION:us-pdx-1}")
 		assert.Equal(t, "us-pdx-1", val)
 		assert.Empty(t, warn)
@@ -415,7 +415,7 @@ func TestResolveVarValue(t *testing.T) {
 
 	t.Run("${secrets.KEY:default} uses loaded secret", func(t *testing.T) {
 		secrets = Secrets{{Name: "BL_REGION", Value: "ap-east-1"}}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		val, warn := ResolveVarValue("${secrets.BL_REGION:us-pdx-1}")
 		assert.Equal(t, "ap-east-1", val)
 		assert.Empty(t, warn)
@@ -423,14 +423,14 @@ func TestResolveVarValue(t *testing.T) {
 
 	t.Run("${secrets.KEY} warns when unset", func(t *testing.T) {
 		secrets = Secrets{}
-		os.Unsetenv("MISSING_SECRET")
+		_ = os.Unsetenv("MISSING_SECRET")
 		val, warn := ResolveVarValue("${secrets.MISSING_SECRET}")
 		assert.Equal(t, "${secrets.MISSING_SECRET}", val)
 		assert.Contains(t, warn, "MISSING_SECRET")
 	})
 
 	t.Run("${KEY:default} uses default when unset", func(t *testing.T) {
-		os.Unsetenv("MY_REGION")
+		_ = os.Unsetenv("MY_REGION")
 		val, warn := ResolveVarValue("${MY_REGION:us-pdx-1}")
 		assert.Equal(t, "us-pdx-1", val)
 		assert.Empty(t, warn)
@@ -451,7 +451,7 @@ func TestResolveVarValue(t *testing.T) {
 	})
 
 	t.Run("$KEY warns when unset", func(t *testing.T) {
-		os.Unsetenv("UNSET_VAR")
+		_ = os.Unsetenv("UNSET_VAR")
 		val, warn := ResolveVarValue("$UNSET_VAR")
 		assert.Equal(t, "$UNSET_VAR", val)
 		assert.Contains(t, warn, "UNSET_VAR")
@@ -459,14 +459,14 @@ func TestResolveVarValue(t *testing.T) {
 
 	t.Run("${ secrets.KEY:default } trims trailing space from default", func(t *testing.T) {
 		secrets = Secrets{}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		val, warn := ResolveVarValue("${ secrets.BL_REGION:us-pdx-1 }")
 		assert.Equal(t, "us-pdx-1", val)
 		assert.Empty(t, warn)
 	})
 
 	t.Run("${ KEY:default } trims trailing space from default", func(t *testing.T) {
-		os.Unsetenv("MY_REGION")
+		_ = os.Unsetenv("MY_REGION")
 		val, warn := ResolveVarValue("${ MY_REGION:us-pdx-1 }")
 		assert.Equal(t, "us-pdx-1", val)
 		assert.Empty(t, warn)
@@ -483,7 +483,7 @@ func TestResolveConfigVars(t *testing.T) {
 
 	t.Run("resolves region with secrets default", func(t *testing.T) {
 		secrets = Secrets{}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		config = Config{
 			Region: "${secrets.BL_REGION:us-pdx-1}",
 		}
@@ -493,7 +493,7 @@ func TestResolveConfigVars(t *testing.T) {
 
 	t.Run("resolves region with env var default", func(t *testing.T) {
 		secrets = Secrets{}
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		config = Config{
 			Region: "${BL_REGION:us-pdx-1}",
 		}
@@ -527,7 +527,7 @@ func TestResolveConfigVars(t *testing.T) {
 	t.Run("resolves multiple fields", func(t *testing.T) {
 		secrets = Secrets{}
 		t.Setenv("AGENT_NAME", "prod-agent")
-		os.Unsetenv("BL_REGION")
+		_ = os.Unsetenv("BL_REGION")
 		config = Config{
 			Name:   "${AGENT_NAME}",
 			Region: "${BL_REGION:us-pdx-1}",
