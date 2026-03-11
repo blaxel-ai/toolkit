@@ -521,11 +521,20 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
 	case "agent":
 		Kind = "Agent"
 		Spec = map[string]interface{}{
 			"runtime":  runtime,
 			"triggers": config.Triggers,
+		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
+		if config.Volumes != nil {
+			Spec["volumes"] = *config.Volumes
 		}
 	case "job":
 		Kind = "Job"

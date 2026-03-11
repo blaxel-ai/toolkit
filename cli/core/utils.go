@@ -52,7 +52,7 @@ func handleSecret(filePath string, content string) (string, error) {
 	}
 
 	fileName := filepath.Base(filePath)
-	re := regexp.MustCompile(`\$secrets.([A-Za-z0-9_]+)|\${\s?secrets.([A-Za-z0-9_]+)\s?}`)
+	re := regexp.MustCompile(`\$secrets\.([A-Za-z0-9_]+)(?::([^\s}]*))?|\${\s?secrets\.([A-Za-z0-9_]+)(?::([^}]*))?\s?}`)
 	matches := re.FindAllStringSubmatch(content, -1)
 	if len(matches) == 0 {
 		return content, nil
@@ -64,14 +64,18 @@ func handleSecret(filePath string, content string) (string, error) {
 		var value string
 		fullMatch := match[0]
 		secretName := match[1]
+		defaultValue := strings.TrimSpace(match[2])
 		if secretName == "" {
-			secretName = match[2]
+			secretName = match[3]
+			defaultValue = strings.TrimSpace(match[4])
 		}
 		values[fullMatch] = &value
 		if envValue, exists := os.LookupEnv(secretName); exists {
 			value = envValue
 		} else if secretValue := LookupSecret(secretName); secretValue != "" {
 			value = secretValue
+		} else if defaultValue != "" {
+			value = defaultValue
 		} else {
 			title := fmt.Sprintf("name: %s", secretName)
 			if i == 0 {
@@ -137,18 +141,22 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 	contentStr := string(content)
 	if action == "apply" {
 		// Replace env variables in the content
-		re := regexp.MustCompile(`\$([A-Za-z0-9_]+)|\${([A-Za-z0-9_]+)}`)
+		re := regexp.MustCompile(`\$([A-Za-z0-9_]+)|\${([A-Za-z0-9_]+)(?::([^}]*))?}`)
 		contentStr = re.ReplaceAllStringFunc(contentStr, func(match string) string {
-			// Remove $, ${, and } to get the env var name
-			varName := match
-			varName = strings.TrimPrefix(varName, "$")
-			varName = strings.TrimPrefix(varName, "{")
-			varName = strings.TrimSuffix(varName, "}")
+			submatches := re.FindStringSubmatch(match)
+			varName := submatches[1]
+			defaultValue := ""
+			if varName == "" {
+				varName = submatches[2]
+				defaultValue = submatches[3]
+			}
 
 			if value, exists := os.LookupEnv(varName); exists {
 				return value
 			} else if secretValue := LookupSecret(varName); secretValue != "" {
 				return secretValue
+			} else if defaultValue != "" {
+				return defaultValue
 			}
 			return match // Keep original if env var not found
 		})
