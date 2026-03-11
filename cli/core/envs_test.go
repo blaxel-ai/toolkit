@@ -387,6 +387,142 @@ func TestGetEnvsWithDefaultValues(t *testing.T) {
 	})
 }
 
+func TestResolveVarValue(t *testing.T) {
+	originalSecrets := secrets
+	defer func() { secrets = originalSecrets }()
+
+	t.Run("plain string unchanged", func(t *testing.T) {
+		val, warn := ResolveVarValue("hello")
+		assert.Equal(t, "hello", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${secrets.KEY:default} uses default when unset", func(t *testing.T) {
+		secrets = Secrets{}
+		os.Unsetenv("BL_REGION")
+		val, warn := ResolveVarValue("${secrets.BL_REGION:us-pdx-1}")
+		assert.Equal(t, "us-pdx-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${secrets.KEY:default} uses env when set", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("BL_REGION", "eu-west-1")
+		val, warn := ResolveVarValue("${secrets.BL_REGION:us-pdx-1}")
+		assert.Equal(t, "eu-west-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${secrets.KEY:default} uses loaded secret", func(t *testing.T) {
+		secrets = Secrets{{Name: "BL_REGION", Value: "ap-east-1"}}
+		os.Unsetenv("BL_REGION")
+		val, warn := ResolveVarValue("${secrets.BL_REGION:us-pdx-1}")
+		assert.Equal(t, "ap-east-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${secrets.KEY} warns when unset", func(t *testing.T) {
+		secrets = Secrets{}
+		os.Unsetenv("MISSING_SECRET")
+		val, warn := ResolveVarValue("${secrets.MISSING_SECRET}")
+		assert.Equal(t, "${secrets.MISSING_SECRET}", val)
+		assert.Contains(t, warn, "MISSING_SECRET")
+	})
+
+	t.Run("${KEY:default} uses default when unset", func(t *testing.T) {
+		os.Unsetenv("MY_REGION")
+		val, warn := ResolveVarValue("${MY_REGION:us-pdx-1}")
+		assert.Equal(t, "us-pdx-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("${KEY:default} uses env when set", func(t *testing.T) {
+		t.Setenv("MY_REGION", "eu-west-1")
+		val, warn := ResolveVarValue("${MY_REGION:us-pdx-1}")
+		assert.Equal(t, "eu-west-1", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("$KEY uses env when set", func(t *testing.T) {
+		t.Setenv("SIMPLE", "val")
+		val, warn := ResolveVarValue("$SIMPLE")
+		assert.Equal(t, "val", val)
+		assert.Empty(t, warn)
+	})
+
+	t.Run("$KEY warns when unset", func(t *testing.T) {
+		os.Unsetenv("UNSET_VAR")
+		val, warn := ResolveVarValue("$UNSET_VAR")
+		assert.Equal(t, "$UNSET_VAR", val)
+		assert.Contains(t, warn, "UNSET_VAR")
+	})
+}
+
+func TestResolveConfigVars(t *testing.T) {
+	originalConfig := config
+	originalSecrets := secrets
+	defer func() {
+		config = originalConfig
+		secrets = originalSecrets
+	}()
+
+	t.Run("resolves region with secrets default", func(t *testing.T) {
+		secrets = Secrets{}
+		os.Unsetenv("BL_REGION")
+		config = Config{
+			Region: "${secrets.BL_REGION:us-pdx-1}",
+		}
+		resolveConfigVars()
+		assert.Equal(t, "us-pdx-1", config.Region)
+	})
+
+	t.Run("resolves region with env var default", func(t *testing.T) {
+		secrets = Secrets{}
+		os.Unsetenv("BL_REGION")
+		config = Config{
+			Region: "${BL_REGION:us-pdx-1}",
+		}
+		resolveConfigVars()
+		assert.Equal(t, "us-pdx-1", config.Region)
+	})
+
+	t.Run("resolves region from env overriding default", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("BL_REGION", "eu-west-1")
+		config = Config{
+			Region: "${BL_REGION:us-pdx-1}",
+		}
+		resolveConfigVars()
+		assert.Equal(t, "eu-west-1", config.Region)
+	})
+
+	t.Run("leaves plain values unchanged", func(t *testing.T) {
+		secrets = Secrets{}
+		config = Config{
+			Region: "us-pdx-1",
+			Name:   "my-agent",
+			Type:   "agent",
+		}
+		resolveConfigVars()
+		assert.Equal(t, "us-pdx-1", config.Region)
+		assert.Equal(t, "my-agent", config.Name)
+		assert.Equal(t, "agent", config.Type)
+	})
+
+	t.Run("resolves multiple fields", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("AGENT_NAME", "prod-agent")
+		os.Unsetenv("BL_REGION")
+		config = Config{
+			Name:   "${AGENT_NAME}",
+			Region: "${BL_REGION:us-pdx-1}",
+		}
+		resolveConfigVars()
+		assert.Equal(t, "prod-agent", config.Name)
+		assert.Equal(t, "us-pdx-1", config.Region)
+	})
+}
+
 func TestGetUniqueEnvs(t *testing.T) {
 	// Save original state and restore after test
 	originalSecrets := secrets

@@ -252,12 +252,33 @@ func readConfigToml(folder string, setDefaultType bool) {
 		return
 	}
 
+	// Resolve variable interpolation in string fields
+	resolveConfigVars()
+
 	if config.Type == "" && setDefaultType {
 		config.Type = "agent"
 	}
 
 	if config.Workspace != "" {
 		workspace = config.Workspace
+	}
+}
+
+// resolveConfigVars resolves variable interpolation patterns in Config string fields.
+func resolveConfigVars() {
+	fields := []*string{
+		&config.Name,
+		&config.Workspace,
+		&config.Type,
+		&config.Protocol,
+		&config.Region,
+		&config.Directory,
+	}
+	for _, f := range fields {
+		if *f != "" {
+			resolved, _ := ResolveVarValue(*f)
+			*f = resolved
+		}
 	}
 }
 
