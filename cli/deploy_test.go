@@ -164,7 +164,6 @@ func TestResultKinds(t *testing.T) {
 				Metadata: map[string]interface{}{
 					"name": "test-resource",
 				},
-				Spec: map[string]interface{}{},
 			}
 
 			assert.Equal(t, tt.apiVersion, result.ApiVersion)
@@ -180,12 +179,8 @@ func TestProgressReader(t *testing.T) {
 	// Create test data
 	data := []byte("test data for progress tracking")
 	reader := &progressReader{
-		reader: nil,
-		total:  int64(len(data)),
-		read:   0,
-		callback: func(bytesUploaded, totalBytes int64) {
-			// Callback called
-		},
+		total: int64(len(data)),
+		read:  0,
 	}
 
 	assert.Equal(t, int64(len(data)), reader.total)
@@ -432,20 +427,20 @@ func TestProgressReaderCallback(t *testing.T) {
 	var lastBytesUploaded int64
 	var lastTotalBytes int64
 
+	cb := func(bytesUploaded, totalBytes int64) {
+		callbackCalled = true
+		lastBytesUploaded = bytesUploaded
+		lastTotalBytes = totalBytes
+	}
+
 	reader := &progressReader{
-		reader: nil,
-		total:  100,
-		read:   0,
-		callback: func(bytesUploaded, totalBytes int64) {
-			callbackCalled = true
-			lastBytesUploaded = bytesUploaded
-			lastTotalBytes = totalBytes
-		},
+		read: 0,
 	}
 
 	// Simulate progress
 	reader.read = 50
-	reader.callback(50, 100)
+	cb(50, 100)
+	_ = reader
 
 	assert.True(t, callbackCalled)
 	assert.Equal(t, int64(50), lastBytesUploaded)

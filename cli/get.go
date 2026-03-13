@@ -94,6 +94,18 @@ The command can list all resources of a type or get details for a specific one.`
   # Get specific process in a sandbox
   bl get sandbox my-sandbox process my-process
 
+  # List previews for a sandbox
+  bl get sandbox my-sandbox previews
+
+  # Get a specific preview
+  bl get sandbox my-sandbox preview my-preview
+
+  # List tokens for a sandbox preview
+  bl get sandbox my-sandbox preview my-preview tokens
+
+  # Get a specific token
+  bl get sandbox my-sandbox preview my-preview token my-token
+
   # --- Filtering with jq ---
 
   # Get names of all jobs with status DELETING
@@ -161,6 +173,12 @@ The command can list all resources of a type or get details for a specific one.`
 						isNestedResource = true
 						nestedResourceFn = func() {
 							HandleSandboxNestedResource(args)
+						}
+					}
+					if nestedResource == "previews" || nestedResource == "preview" || nestedResource == "pv" {
+						isNestedResource = true
+						nestedResourceFn = func() {
+							HandleSandboxPreviewNestedResource(args)
 						}
 					}
 				}
@@ -232,6 +250,13 @@ The command can list all resources of a type or get details for a specific one.`
 func GetFn(resource *core.Resource, name string) {
 	ctx := context.Background()
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resource.Kind, name)
+
+	if resource.Get == nil {
+		hint := nestedResourceHint(resource, "get")
+		err := fmt.Errorf("%s'bl get %s <name>' is not supported directly.%s", formattedError, resource.Singular, hint)
+		core.PrintError("Get", err)
+		core.ExitWithError(err)
+	}
 
 	// Use reflect to call the function
 	funcValue := reflect.ValueOf(resource.Get)
@@ -312,6 +337,11 @@ func ListFn(resource *core.Resource) {
 
 func ListExec(resource *core.Resource) ([]interface{}, error) {
 	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
+
+	if resource.List == nil {
+		hint := nestedResourceHint(resource, "get")
+		return nil, fmt.Errorf("%s'bl get %s' is not supported directly.%s", formattedError, resource.Plural, hint)
+	}
 
 	ctx := context.Background()
 	// Use reflect to call the function

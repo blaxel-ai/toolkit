@@ -80,6 +80,16 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Delete = c.Drives.Delete
 			resource.Put = c.Drives.Update
 			resource.Post = c.Drives.New
+		case "Preview":
+			// List/Get/Delete are not registered because Preview is a nested resource
+			// under Sandbox and requires a sandbox name parameter.
+			// Use `bl get sandbox <name> previews` instead (if supported) or bl apply.
+			resource.Put = c.Sandboxes.Previews.Update
+			resource.Post = c.Sandboxes.Previews.New
+		case "PreviewToken":
+			// Only Post is registered; Get/Delete require parent params
+			// that the generic CLI commands cannot provide.
+			resource.Post = c.Sandboxes.Previews.Tokens.New
 		}
 	}
 }

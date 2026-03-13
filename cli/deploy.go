@@ -1608,7 +1608,7 @@ func (t *tarArchiveWriter) close() error {
 	return t.writer.Close()
 }
 
-func (d *Deployment) createArchive(fileExt string, writer archiveWriter) error {
+func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	config := core.GetConfig()
 
 	// For volume-template, don't apply ignore logic
