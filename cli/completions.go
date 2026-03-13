@@ -107,6 +107,12 @@ func GetWorkspaceValidArgsFunction() func(cmd *cobra.Command, args []string, toC
 // sandboxNestedResourceKeywords are the keywords that indicate nested resources for sandboxes (for matching user input)
 var sandboxNestedResourceKeywords = []string{"processes", "process", "proc", "procs", "ps"}
 
+// sandboxPreviewKeywords are the keywords that indicate preview nested resources for sandboxes
+var sandboxPreviewKeywords = []string{"previews", "preview", "pv"}
+
+// previewTokenKeywords are the keywords that indicate token nested resources for previews
+var previewTokenKeywords = []string{"tokens", "token", "pvt"}
+
 
 // CompleteSandboxNames returns a list of sandbox names for shell completion
 func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -242,6 +248,81 @@ func CompleteSandboxProcessNames(sandboxName string, toComplete string) ([]strin
 			completions = append(completions, p.name+"\t"+fmt.Sprintf("#%0*d %s", width, i+1, p.desc))
 		} else {
 			completions = append(completions, p.name)
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+}
+
+// CompleteSandboxPreviewNames returns a list of preview names for a given sandbox
+func CompleteSandboxPreviewNames(sandboxName string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	ctx, cancel := completionContext()
+	defer cancel()
+	client := getClientForCompletion()
+	if client == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	previews, err := client.Sandboxes.Previews.List(ctx, sandboxName)
+	if err != nil || previews == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for _, pv := range *previews {
+		if pv.Metadata.Name != "" {
+			if toComplete == "" || strings.HasPrefix(pv.Metadata.Name, toComplete) {
+				var descParts []string
+				if pv.Spec.Port != 0 {
+					descParts = append(descParts, fmt.Sprintf("port:%d", pv.Spec.Port))
+				}
+				if pv.Status != "" {
+					descParts = append(descParts, string(pv.Status))
+				}
+				desc := strings.Join(descParts, " ")
+				if desc != "" {
+					completions = append(completions, pv.Metadata.Name+"\t"+desc)
+				} else {
+					completions = append(completions, pv.Metadata.Name)
+				}
+			}
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveKeepOrder
+}
+
+// CompleteSandboxPreviewTokenNames returns a list of token names for a given sandbox preview
+func CompleteSandboxPreviewTokenNames(sandboxName, previewName, toComplete string) ([]string, cobra.ShellCompDirective) {
+	ctx, cancel := completionContext()
+	defer cancel()
+	client := getClientForCompletion()
+	if client == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	tokens, err := client.Sandboxes.Previews.Tokens.Get(ctx, previewName, blaxel.SandboxPreviewTokenGetParams{
+		SandboxName: sandboxName,
+	})
+	if err != nil || tokens == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var completions []string
+	for _, tok := range *tokens {
+		if tok.Metadata.Name != "" {
+			if toComplete == "" || strings.HasPrefix(tok.Metadata.Name, toComplete) {
+				var descParts []string
+				if tok.Spec.ExpiresAt != "" {
+					descParts = append(descParts, "expires:"+tok.Spec.ExpiresAt)
+				}
+				desc := strings.Join(descParts, " ")
+				if desc != "" {
+					completions = append(completions, tok.Metadata.Name+"\t"+desc)
+				} else {
+					completions = append(completions, tok.Metadata.Name)
+				}
+			}
 		}
 	}
 
@@ -785,9 +866,10 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 // GetSandboxValidArgsFunction returns a ValidArgsFunction for sandbox commands
 // It handles completions for:
 // - sandbox names (first arg)
-// - nested resource keywords like "process" (second arg)
-// - process names (third arg)
-// - "logs" keyword (fourth arg)
+// - nested resource keywords like "process", "preview" (second arg)
+// - process/preview names (third arg)
+// - "token" keyword for previews (fourth arg)
+// - token names (fifth arg)
 func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		switch len(args) {
@@ -798,21 +880,69 @@ func GetSandboxValidArgsFunction() func(cmd *cobra.Command, args []string, toCom
 		case 1:
 			// Complete nested resource keywords with description
 			var completions []string
-			keyword := "process"
-			if toComplete == "" || strings.HasPrefix(keyword, toComplete) {
-				completions = append(completions, keyword+"\tList or get sandbox processes")
+			for _, kw := range []struct {
+				name string
+				desc string
+			}{
+				{"process", "List or get sandbox processes"},
+				{"preview", "List or get sandbox previews"},
+			} {
+				if toComplete == "" || strings.HasPrefix(kw.name, toComplete) {
+					completions = append(completions, kw.name+"\t"+kw.desc)
+				}
 			}
 			return completions, cobra.ShellCompDirectiveNoFileComp
 
 		case 2:
-			// Check if the second arg is a process-related keyword
 			sandboxName := args[0]
 			keyword := strings.ToLower(args[1])
-			// Accept all aliases for flexibility
+			// Check if the second arg is a process-related keyword
 			for _, k := range sandboxNestedResourceKeywords {
 				if keyword == k {
-					// Complete process names
 					return CompleteSandboxProcessNames(sandboxName, toComplete)
+				}
+			}
+			// Check if the second arg is a preview-related keyword
+			for _, k := range sandboxPreviewKeywords {
+				if keyword == k {
+					return CompleteSandboxPreviewNames(sandboxName, toComplete)
+				}
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+
+		case 3:
+			// For previews: complete "token" keyword
+			keyword := strings.ToLower(args[1])
+			for _, k := range sandboxPreviewKeywords {
+				if keyword == k {
+					var completions []string
+					tokenKw := "token"
+					if toComplete == "" || strings.HasPrefix(tokenKw, toComplete) {
+						completions = append(completions, tokenKw+"\tList preview tokens")
+					}
+					return completions, cobra.ShellCompDirectiveNoFileComp
+				}
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+
+		case 4:
+			// For previews with token keyword: complete token names
+			keyword := strings.ToLower(args[1])
+			tokenKw := strings.ToLower(args[3])
+			isPreview := false
+			for _, k := range sandboxPreviewKeywords {
+				if keyword == k {
+					isPreview = true
+					break
+				}
+			}
+			if isPreview {
+				for _, k := range previewTokenKeywords {
+					if tokenKw == k {
+						sandboxName := args[0]
+						previewName := args[2]
+						return CompleteSandboxPreviewTokenNames(sandboxName, previewName, toComplete)
+					}
 				}
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp

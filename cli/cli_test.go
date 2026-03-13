@@ -278,7 +278,7 @@ func TestListExecWithNilResource(t *testing.T) {
 
 	result, err := ListExec(resource)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not a valid function")
+	assert.Contains(t, err.Error(), "not supported")
 	assert.Nil(t, result)
 }
 
@@ -332,7 +332,7 @@ func TestHandleResourceOperationNilFunction(t *testing.T) {
 		Post: nil,
 	}
 
-	result, err := handleResourceOperation(resource, "test", nil, "put")
+	result, err := handleResourceOperation(resource, "test", nil, "put", "", nil)
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "not a valid function")

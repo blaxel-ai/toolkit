@@ -20,18 +20,20 @@ type Field struct {
 }
 
 type Resource struct {
-	Kind     string
-	Short    string
-	Plural   string
-	Singular string
-	Aliases  []string
-	SpecType reflect.Type
-	List     interface{}
-	Get      interface{}
-	Delete   interface{}
-	Put      interface{}
-	Post     interface{}
-	Fields   []Field // ordered slice of fields - e.g., {Key: "STATUS", Value: "status"}
+	Kind        string
+	Short       string
+	Plural      string
+	Singular    string
+	Aliases     []string
+	SpecType    reflect.Type
+	ParentField string            // metadata field that contains the parent resource name (for nested resources like Preview)
+	PathMapping map[string]string // maps path tag values to metadata field names (for deeply nested resources like PreviewToken)
+	List        interface{}
+	Get         interface{}
+	Delete      interface{}
+	Put         interface{}
+	Post        interface{}
+	Fields      []Field // ordered slice of fields - e.g., {Key: "STATUS", Value: "status"}
 }
 
 var resources = []*Resource{
@@ -187,6 +189,42 @@ var resources = []*Resource{
 			{Key: "REGION", Value: "spec.region"},
 			{Key: "STATUS", Value: "status"},
 			{Key: "CREATED_AT", Value: "metadata.createdAt", Special: "date"},
+		},
+	},
+	{
+		Kind:        "Preview",
+		Short:       "pv",
+		Plural:      "previews",
+		Singular:    "preview",
+		ParentField: "resourceName",
+		SpecType:    reflect.TypeOf(blaxel.Preview{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "metadata.workspace"},
+			{Key: "NAME", Value: "metadata.name"},
+			{Key: "TYPE", Value: "metadata.resourceType"},
+			{Key: "RESOURCE", Value: "metadata.resourceName"},
+			{Key: "PORT", Value: "spec.port"},
+			{Key: "PUBLIC", Value: "spec.public"},
+			{Key: "URL", Value: "spec.url"},
+			{Key: "STATUS", Value: "status"},
+		},
+	},
+	{
+		Kind:        "PreviewToken",
+		Short:       "pvt",
+		Plural:      "previewtokens",
+		Singular:    "previewtoken",
+		ParentField: "previewName",
+		PathMapping: map[string]string{"sandboxName": "resourceName"},
+		SpecType:    reflect.TypeOf(blaxel.PreviewToken{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "metadata.workspace"},
+			{Key: "NAME", Value: "metadata.name"},
+			{Key: "TYPE", Value: "metadata.resourceType"},
+			{Key: "RESOURCE", Value: "metadata.resourceName"},
+			{Key: "PREVIEW", Value: "metadata.previewName"},
+			{Key: "EXPIRED", Value: "spec.expired"},
+			{Key: "EXPIRES_AT", Value: "spec.expiresAt"},
 		},
 	},
 }
