@@ -175,7 +175,7 @@ separately if needed.`,
 
 func DeleteFn(resource *core.Resource, name string) error {
 	if resource.Delete == nil {
-		hint := nestedResourceHint(resource)
+		hint := nestedResourceHint(resource, "delete")
 		err := fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint)
 		fmt.Println(err)
 		return err

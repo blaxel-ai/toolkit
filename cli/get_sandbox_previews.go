@@ -11,11 +11,18 @@ import (
 )
 
 // nestedResourceHint returns a usage hint for nested resources that cannot be accessed directly.
-func nestedResourceHint(resource *core.Resource) string {
+// The operation parameter should be "get" or "delete" to provide context-appropriate hints.
+func nestedResourceHint(resource *core.Resource, operation string) string {
 	switch resource.Kind {
 	case "Preview":
+		if operation == "delete" {
+			return " Use 'bl delete sandbox <sandbox-name> preview <preview-name>' instead."
+		}
 		return " Use 'bl get sandbox <sandbox-name> previews' instead."
 	case "PreviewToken":
+		if operation == "delete" {
+			return " Use 'bl delete sandbox <sandbox-name> preview <preview-name> token <token-name>' instead."
+		}
 		return " Use 'bl get sandbox <sandbox-name> preview <preview-name> tokens' instead."
 	default:
 		return ""
@@ -85,18 +92,30 @@ func DeleteSandboxPreviewNestedResource(args []string) bool {
 	nestedResource := args[1]
 
 	switch nestedResource {
-	case "preview", "pv":
+	case "previews", "preview", "pv":
 		previewName := args[2]
-		if len(args) >= 5 {
+		if len(args) >= 4 {
 			tokenResource := args[3]
-			tokenName := args[4]
-			switch tokenResource {
-			case "token", "pvt":
-				// bl delete sandbox <name> preview <preview-name> token <token-name>
-				deleteSandboxPreviewToken(sandboxName, previewName, tokenName)
-			default:
-				core.PrintError("Delete", fmt.Errorf("unknown nested resource '%s' for preview, supported: token", tokenResource))
-				os.Exit(1)
+			if len(args) >= 5 {
+				tokenName := args[4]
+				switch tokenResource {
+				case "token", "pvt":
+					// bl delete sandbox <name> preview <preview-name> token <token-name>
+					deleteSandboxPreviewToken(sandboxName, previewName, tokenName)
+				default:
+					core.PrintError("Delete", fmt.Errorf("unknown nested resource '%s' for preview, supported: token", tokenResource))
+					os.Exit(1)
+				}
+			} else {
+				// 4 args: keyword present but token name missing
+				switch tokenResource {
+				case "token", "pvt":
+					core.PrintError("Delete", fmt.Errorf("token name required: bl delete sandbox <sandbox-name> preview <preview-name> token <token-name>"))
+					os.Exit(1)
+				default:
+					core.PrintError("Delete", fmt.Errorf("unknown nested resource '%s' for preview, supported: token", tokenResource))
+					os.Exit(1)
+				}
 			}
 		} else {
 			// bl delete sandbox <name> preview <preview-name>

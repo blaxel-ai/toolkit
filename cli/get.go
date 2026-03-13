@@ -252,7 +252,7 @@ func GetFn(resource *core.Resource, name string) {
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resource.Kind, name)
 
 	if resource.Get == nil {
-		hint := nestedResourceHint(resource)
+		hint := nestedResourceHint(resource, "get")
 		err := fmt.Errorf("%s'bl get %s <name>' is not supported directly.%s", formattedError, resource.Singular, hint)
 		core.PrintError("Get", err)
 		core.ExitWithError(err)
@@ -339,7 +339,7 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
 
 	if resource.List == nil {
-		hint := nestedResourceHint(resource)
+		hint := nestedResourceHint(resource, "get")
 		return nil, fmt.Errorf("%s'bl get %s' is not supported directly.%s", formattedError, resource.Plural, hint)
 	}
 

@@ -108,12 +108,7 @@ func TestCreateFlowConfig(t *testing.T) {
 	})
 
 	t.Run("empty BlaxelTomlResourceType", func(t *testing.T) {
-		cfg := CreateFlowConfig{
-			TemplateType: "sandbox",
-			NoTTY:        false,
-			ErrorPrefix:  "Sandbox creation",
-			SpinnerTitle: "Creating your blaxel sandbox...",
-		}
+		cfg := CreateFlowConfig{}
 
 		assert.Empty(t, cfg.BlaxelTomlResourceType)
 	})

@@ -388,7 +388,7 @@ func printYaml(resource Resource, slices []interface{}, pretty bool) {
 	}
 }
 
-func renderYaml(resource Resource, slices []interface{}, pretty bool) []byte {
+func renderYaml(resource Resource, slices []interface{}, _ bool) []byte {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
