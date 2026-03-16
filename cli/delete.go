@@ -53,6 +53,12 @@ separately if needed.`,
   bl delete volume vol1 vol2 vol3
   bl delete agent agent1 agent2
 
+  # Delete a sandbox preview
+  bl delete sandbox my-sandbox preview my-preview
+
+  # Delete a sandbox preview token
+  bl delete sandbox my-sandbox preview my-preview token my-token
+
   # Delete from YAML file
   bl delete -f my-resource.yaml
 
@@ -142,6 +148,14 @@ separately if needed.`,
 					fmt.Println(err)
 					core.ExitWithError(err)
 				}
+
+				// Handle nested resource deletion for sandboxes
+				if resource.Kind == "Sandbox" && len(args) >= 3 {
+					if DeleteSandboxPreviewNestedResource(args) {
+						return
+					}
+				}
+
 				hasFailures := false
 				for _, name := range args {
 					if err := DeleteFn(resource, name); err != nil {
@@ -160,6 +174,13 @@ separately if needed.`,
 }
 
 func DeleteFn(resource *core.Resource, name string) error {
+	if resource.Delete == nil {
+		hint := nestedResourceHint(resource, "delete")
+		err := fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint)
+		fmt.Println(err)
+		return err
+	}
+
 	ctx := context.Background()
 
 	// Use reflect to call the function

@@ -147,8 +147,29 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
-				name := result.Metadata.(map[string]interface{})["name"].(string)
-				resultOp := PutFn(resource, result.Kind, name, result)
+				metadata := result.Metadata.(map[string]interface{})
+				name := metadata["name"].(string)
+
+				// Extract parent name for nested resources (e.g., Preview under Sandbox)
+				var parentName string
+				if resource.ParentField != "" {
+					if pn, ok := metadata[resource.ParentField].(string); ok && pn != "" {
+						parentName = pn
+					} else {
+						core.Print(fmt.Sprintf("Resource %s:%s error: metadata.%s is required for %s resources\n", resource.Kind, name, resource.ParentField, resource.Kind))
+						applyResults = append(applyResults, ApplyResult{
+							Kind: resource.Kind,
+							Name: name,
+							Result: ResourceOperationResult{
+								Status:   "failed",
+								ErrorMsg: fmt.Sprintf("metadata.%s is required", resource.ParentField),
+							},
+						})
+						continue
+					}
+				}
+
+				resultOp := PutFn(resource, result.Kind, name, result, parentName, metadata)
 				if resultOp != nil {
 					applyResults = append(applyResults, ApplyResult{
 						Kind:   resource.Kind,
@@ -192,8 +213,10 @@ type handleResourceOperationResult struct {
 	UploadURL string
 }
 
-// handleResourceOperation handles put or post operations for a resource
-func handleResourceOperation(resource *core.Resource, name string, resourceObject interface{}, operation string) (*handleResourceOperationResult, error) {
+// handleResourceOperation handles put or post operations for a resource.
+// parentName is used for nested resources (e.g., sandbox name for Preview).
+// metadata is the full metadata map from the YAML, used to resolve path fields for deeply nested resources.
+func handleResourceOperation(resource *core.Resource, name string, resourceObject interface{}, operation string, parentName string, metadata map[string]interface{}) (*handleResourceOperationResult, error) {
 	ctx := context.Background()
 
 	if resource.Put == nil && operation == "put" {
@@ -245,7 +268,7 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 	switch operation {
 	case "put":
 		// Update methods have signature: (ctx, name, body, ...opts)
-		// Build the params type for Update operations
+		// For nested resources: (ctx, name, body, ...opts) where body has a path field for the parent
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 			reflect.ValueOf(name),
@@ -258,6 +281,11 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 		// Set the body fields directly from the original YAML JSON
 		setBodyFieldsFromJSON(bodyParam, resourceJson)
 
+		// For nested resources, set path fields (e.g., SandboxName) on the params struct
+		if parentName != "" {
+			setPathFields(bodyParam, parentName, resource.PathMapping, metadata)
+		}
+
 		values = append(values, bodyParam)
 
 		// Add variadic opts
@@ -268,18 +296,28 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 
 	case "post":
 		// New methods have signature: (ctx, body, ...opts)
+		// For nested resources: (ctx, parentName, body, ...opts)
 		values := []reflect.Value{
 			reflect.ValueOf(ctx),
 		}
 
-		// Add the body parameter - need to wrap in the Params type
-		bodyParamType := funcType.In(1)
-		bodyParam := reflect.New(bodyParamType).Elem()
-
-		// Set the body fields directly from the original YAML JSON
-		setBodyFieldsFromJSON(bodyParam, resourceJson)
-
-		values = append(values, bodyParam)
+		// Detect nested resource: if second param (after ctx) is a string, it's the parent name
+		if parentName != "" && funcType.NumIn() >= 3 && funcType.In(1).Kind() == reflect.String {
+			values = append(values, reflect.ValueOf(parentName))
+			// Body is the third param
+			bodyParamType := funcType.In(2)
+			bodyParam := reflect.New(bodyParamType).Elem()
+			setBodyFieldsFromJSON(bodyParam, resourceJson)
+			// Set path fields for deeply nested resources (e.g., PreviewToken needs SandboxName)
+			setPathFields(bodyParam, parentName, resource.PathMapping, metadata)
+			values = append(values, bodyParam)
+		} else {
+			// Standard: body is the second param
+			bodyParamType := funcType.In(1)
+			bodyParam := reflect.New(bodyParamType).Elem()
+			setBodyFieldsFromJSON(bodyParam, resourceJson)
+			values = append(values, bodyParam)
+		}
 
 		// Add variadic opts
 		for _, opt := range opts {
@@ -341,6 +379,35 @@ func setBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
 	}
 }
 
+// setPathFields sets string fields with `path` tag and `json:"-"` on a struct.
+// It resolves values using the resource's PathMapping (path tag -> metadata field name)
+// and falls back to parentName for any unresolved path fields.
+func setPathFields(dst reflect.Value, parentName string, pathMapping map[string]string, metadata map[string]interface{}) {
+	for i := 0; i < dst.NumField(); i++ {
+		field := dst.Type().Field(i)
+		pathTag := field.Tag.Get("path")
+		if field.Type.Kind() == reflect.String && pathTag != "" && field.Tag.Get("json") == "-" {
+			dstField := dst.Field(i)
+			if !dstField.CanSet() {
+				continue
+			}
+			// Try to resolve from PathMapping + metadata first
+			if pathMapping != nil && metadata != nil {
+				if metadataKey, ok := pathMapping[pathTag]; ok {
+					if val, ok := metadata[metadataKey].(string); ok && val != "" {
+						dstField.SetString(val)
+						continue
+					}
+				}
+			}
+			// Fall back to parentName
+			if parentName != "" {
+				dstField.SetString(parentName)
+			}
+		}
+	}
+}
+
 // extractCallbackSecret extracts the callback secret from an agent API response
 func extractCallbackSecret(response interface{}) string {
 	// Marshal to JSON and back to get a map
@@ -397,7 +464,7 @@ func extractMetadataURL(response interface{}) string {
 	return ""
 }
 
-func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
+func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}, parentName string, metadata map[string]interface{}) *ResourceOperationResult {
 	if resource.Kind == "IntegrationConnection" {
 		client := core.GetClient()
 		_, err := client.Integrations.Connections.Get(context.Background(), name)
@@ -423,13 +490,13 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		}
 	}
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	opResult, err := handleResourceOperation(resource, name, resourceObject, "put")
+	opResult, err := handleResourceOperation(resource, name, resourceObject, "put", parentName, metadata)
 	if err != nil {
 		// Check if it's a 404 or 405 error - need to create
 		var apiErr *blaxel.Error
 		if ok := isBlaxelError(err, &apiErr); ok {
 			if apiErr.StatusCode == 404 || apiErr.StatusCode == 405 {
-				return PostFn(resource, resourceName, name, resourceObject)
+				return PostFn(resource, resourceName, name, resourceObject, parentName, metadata)
 			}
 		}
 		errorMsg := extractErrorMessage(err)
@@ -458,9 +525,9 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 	return &result
 }
 
-func PostFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}) *ResourceOperationResult {
+func PostFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}, parentName string, metadata map[string]interface{}) *ResourceOperationResult {
 	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
-	opResult, err := handleResourceOperation(resource, name, resourceObject, "post")
+	opResult, err := handleResourceOperation(resource, name, resourceObject, "post", parentName, metadata)
 	if err != nil {
 		errorMsg := extractErrorMessage(err)
 		core.Print(fmt.Sprintf("%s%s\n", formattedError, errorMsg))
