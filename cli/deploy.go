@@ -41,6 +41,7 @@ func DeployCmd() *cobra.Command {
 	var commandSecrets []string
 	var skipBuild bool
 	var noTTY bool
+	var experimental bool
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -137,10 +138,11 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			deployment := Deployment{
-				dir:    deployDir,
-				folder: folder,
-				name:   name,
-				cwd:    cwd,
+				dir:          deployDir,
+				folder:       folder,
+				name:         name,
+				cwd:          cwd,
+				experimental: experimental,
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -234,6 +236,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
+	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	return cmd
 }
 
@@ -248,6 +251,7 @@ type Deployment struct {
 	uploadProgressCallback func(bytesUploaded, totalBytes int64)
 	callbackSecret         string
 	metadataURL            string
+	experimental           bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -571,6 +575,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	// Volume-template needs upload even without build
 	if !skipBuild || core.IsVolumeTemplate(config.Type) {
 		labels["x-blaxel-auto-generated"] = "true"
+	}
+	if d.experimental {
+		labels["x-blaxel-experimental"] = "true"
 	}
 	return core.Result{
 		ApiVersion: "blaxel.ai/v1alpha1",
