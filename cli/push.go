@@ -27,6 +27,7 @@ type createImageRequest struct {
 	Name         string `json:"name"`
 	ResourceType string `json:"resourceType"`
 	Generation   string `json:"generation,omitempty"`
+	Image        string `json:"image,omitempty"`
 }
 
 // createImageResponse is the response body from POST /images.
@@ -34,6 +35,7 @@ type createImageResponse struct {
 	Message      string `json:"message"`
 	Name         string `json:"name"`
 	ResourceType string `json:"resourceType"`
+	Image        string `json:"image,omitempty"`
 }
 
 func PushCmd() *cobra.Command {
@@ -132,71 +134,96 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 			}
 
-			// Create the deployment struct to reuse archive logic
-			deployment := Deployment{
-				folder: folder,
-				name:   name,
-				cwd:    cwd,
-			}
+			// Check if a pre-built image is specified in blaxel.toml
+			image := config.Image
 
-			// Package the source code
-			fmt.Printf("Packaging source code for %s/%s...\n", resourceType, name)
-			err = deployment.Zip()
-			if err != nil {
-				core.PrintError("Push", fmt.Errorf("failed to package source code: %w", err))
-				core.ExitWithError(err)
-			}
+			if image != "" {
+				// Direct image flow: skip packaging and upload, register the image directly
+				fmt.Printf("Registering image %s for %s/%s...\n", image, resourceType, name)
+				client := core.GetClient()
+				ctx := context.Background()
 
-			// Call POST /images to get the presigned URL
-			fmt.Println("Requesting image build...")
-			client := core.GetClient()
-			ctx := context.Background()
+				reqBody := createImageRequest{
+					Name:         name,
+					ResourceType: resourceType,
+					Generation:   generation,
+					Image:        image,
+				}
 
-			reqBody := createImageRequest{
-				Name:         name,
-				ResourceType: resourceType,
-				Generation:   generation,
-			}
+				var respBody createImageResponse
+				err = client.Post(ctx, "images", reqBody, &respBody)
+				if err != nil {
+					core.PrintError("Push", fmt.Errorf("failed to register image: %w", err))
+					core.ExitWithError(err)
+				}
 
-			var httpResponse *http.Response
-			var respBody createImageResponse
-			err = client.Post(ctx, "images", reqBody, &respBody,
-				option.WithResponseInto(&httpResponse),
-				option.WithQuery("upload", "true"),
-			)
-			if err != nil {
-				core.PrintError("Push", fmt.Errorf("failed to request image build: %w", err))
-				core.ExitWithError(err)
-			}
-
-			uploadURL := ""
-			if httpResponse != nil {
-				uploadURL = httpResponse.Header.Get("X-Blaxel-Upload-Url")
-			}
-			if uploadURL == "" {
-				err = fmt.Errorf("no upload URL returned from server")
-				core.PrintError("Push", err)
-				core.ExitWithError(err)
-			}
-
-			// Upload the archive to the presigned URL
-			fmt.Println("Uploading source code...")
-			err = deployment.Upload(uploadURL)
-			if err != nil {
-				core.PrintError("Push", fmt.Errorf("failed to upload source code: %w", err))
-				core.ExitWithError(err)
-			}
-			fmt.Println("Upload completed")
-
-			// Monitor build logs
-			if noTTY {
-				err = watchBuildLogsNonInteractive(resourceType, name)
+				printPushSuccess(resourceType, name)
 			} else {
-				err = watchBuildLogsNonInteractive(resourceType, name)
-			}
-			if err != nil {
-				core.PrintError("Push", err)
-				core.ExitWithError(err)
+				// Standard flow: package source code and upload
+				deployment := Deployment{
+					folder: folder,
+					name:   name,
+					cwd:    cwd,
+				}
+
+				fmt.Printf("Packaging source code for %s/%s...\n", resourceType, name)
+				err = deployment.Zip()
+				if err != nil {
+					core.PrintError("Push", fmt.Errorf("failed to package source code: %w", err))
+					core.ExitWithError(err)
+				}
+
+				// Call POST /images to get the presigned URL
+				fmt.Println("Requesting image build...")
+				client := core.GetClient()
+				ctx := context.Background()
+
+				reqBody := createImageRequest{
+					Name:         name,
+					ResourceType: resourceType,
+					Generation:   generation,
+				}
+
+				var httpResponse *http.Response
+				var respBody createImageResponse
+				err = client.Post(ctx, "images", reqBody, &respBody,
+					option.WithResponseInto(&httpResponse),
+					option.WithQuery("upload", "true"),
+				)
+				if err != nil {
+					core.PrintError("Push", fmt.Errorf("failed to request image build: %w", err))
+					core.ExitWithError(err)
+				}
+
+				uploadURL := ""
+				if httpResponse != nil {
+					uploadURL = httpResponse.Header.Get("X-Blaxel-Upload-Url")
+				}
+				if uploadURL == "" {
+					err = fmt.Errorf("no upload URL returned from server")
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
+
+				// Upload the archive to the presigned URL
+				fmt.Println("Uploading source code...")
+				err = deployment.Upload(uploadURL)
+				if err != nil {
+					core.PrintError("Push", fmt.Errorf("failed to upload source code: %w", err))
+					core.ExitWithError(err)
+				}
+				fmt.Println("Upload completed")
+
+				// Monitor build logs
+				if noTTY {
+					err = watchBuildLogsNonInteractive(resourceType, name)
+				} else {
+					err = watchBuildLogsNonInteractive(resourceType, name)
+				}
+				if err != nil {
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
 			}
 		},
 	}
