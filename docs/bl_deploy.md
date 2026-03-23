@@ -19,7 +19,9 @@ to your workspace. The deployment process includes:
 5. Creating or updating the resource in your workspace
 6. Streaming build and deployment logs (interactive mode)
 
-You must run this command from a directory containing a blaxel.toml file.
+A blaxel.toml configuration file is required. By default, the command looks
+for it in the current directory. Use -d to specify a subdirectory containing
+the blaxel.toml (useful for monorepo setups).
 
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
@@ -71,6 +73,7 @@ bl deploy [flags]
   -d, --directory string   Deployment app path, can be a sub directory
       --dryrun             Dry run the deployment
   -e, --env-file strings   Environment file to load (default [.env])
+      --experimental       Enable experimental features (e.g. USER directive support)
   -h, --help               help for deploy
   -n, --name string        Optional name for the deployment
   -r, --recursive          Deploy recursively (default true)
