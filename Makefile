@@ -25,6 +25,15 @@ build-dev:
 	rm -r ./bin;
 	@echo "✅ Binary built: ./bin/blaxel"
 
+sdk-controlplane:
+	@if [ -n "$(branch)" ]; then \
+		echo "📦 Generating SDK from controlplane branch: $(branch)"; \
+		go run github.com/nicholasgasior/goproc/cmd/goproc@latest go.mod github.com/blaxel-ai/sdk-go "github.com/blaxel-ai/controlplane/.stainless/openapi.yml@$(branch)"; \
+	else \
+		echo "📦 Generating SDK from controlplane main branch"; \
+		go run github.com/nicholasgasior/goproc/cmd/goproc@latest go.mod github.com/blaxel-ai/sdk-go; \
+	fi
+
 doc:
 	rm -rf docs
 	go run main.go docs --format=markdown --output=docs

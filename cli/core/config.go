@@ -258,6 +258,7 @@ type Config struct {
 	Directory   string                    `toml:"directory,omitempty"`
 	Region      string                    `toml:"region,omitempty"`
 	Public      *bool                     `toml:"public,omitempty"`
+	Image       string                    `toml:"image,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
@@ -311,6 +312,7 @@ func resolveConfigVars() {
 		&config.Protocol,
 		&config.Region,
 		&config.Directory,
+		&config.Image,
 	}
 	for _, f := range fields {
 		if *f != "" {
@@ -413,6 +415,10 @@ memory = 4096
 # maxConcurrentTasks = 10
 # timeout = "15m"  # Supports: 30s, 5m, 1h, 2d, 1w or plain seconds (900)
 # maxRetries = 0
+
+# Pre-built Docker image (optional)
+# When set, the build step is skipped and this image is used directly
+# image = "docker.io/myorg/myimage:latest"
 
 # Volumes for Sandbox (optional)
 # [[volumes]]

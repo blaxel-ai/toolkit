@@ -152,7 +152,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.ClearBlaxelTomlWarning()
 			}
 
-			if !skipBuild {
+			if !skipBuild && config.Image == "" {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
@@ -179,7 +179,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			config = core.GetConfig()
 
 			// Check if agent/function code uses HOST/PORT environment variables
-			if (config.Type == "agent" || config.Type == "function") && !skipBuild {
+			if (config.Type == "agent" || config.Type == "function") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
 				if !core.CheckServerEnvUsage(folder, language) {
@@ -272,7 +272,8 @@ func (d *Deployment) Generate(skipBuild bool) error {
 
 	// Volume-template needs archive even without build (for file upload)
 	config := core.GetConfig()
-	if !skipBuild || core.IsVolumeTemplate(config.Type) {
+	// Skip archive creation when a pre-built image is specified in blaxel.toml
+	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		// Create archive (tar for volume-template, zip for others)
 		if core.IsVolumeTemplate(config.Type) {
 			// For interactive mode, skip compression here - it will be done during deployment
@@ -497,8 +498,11 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// Skip image resolution for volume-template as it doesn't use runtime/image
-	if skipBuild && !core.IsVolumeTemplate(config.Type) {
+	// If a pre-built image is specified in blaxel.toml, use it directly
+	if config.Image != "" {
+		runtime["image"] = config.Image
+	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
+		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
@@ -573,7 +577,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	}
 	labels := map[string]interface{}{}
 	// Volume-template needs upload even without build
-	if !skipBuild || core.IsVolumeTemplate(config.Type) {
+	// When using a pre-built image, no upload is needed
+	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	if d.experimental {
