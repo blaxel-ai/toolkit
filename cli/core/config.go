@@ -181,7 +181,7 @@ var resources = []*Resource{
 		Short:    "drv",
 		Plural:   "drives",
 		Singular: "drive",
-		SpecType: reflect.TypeOf(blaxel.Drive{}),
+		SpecType: reflect.TypeOf(blaxel.DriveGetResponse{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "metadata.workspace"},
 			{Key: "NAME", Value: "metadata.name"},
