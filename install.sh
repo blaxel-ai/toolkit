@@ -581,6 +581,11 @@ setup_tracking() {
 
   local tracking_value="false"
 
+  # When BL_INSTALL_TRACKING=true, skip the prompt and enable tracking directly
+  if [ "${BL_INSTALL_TRACKING:-}" = "true" ]; then
+    tracking_value="true"
+  fi
+
   if [ "${BL_INSTALL_TRACKING:-}" != "true" ]; then
     echo ""
     if ! prompt_user "Help us improve Blaxel faster by sending anonymous error reports? [y/N] "; then
