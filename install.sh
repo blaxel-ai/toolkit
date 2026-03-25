@@ -579,17 +579,17 @@ setup_tracking() {
     return
   fi
 
-  local tracking_value="true"
+  local tracking_value="false"
 
   if [ "${BL_INSTALL_TRACKING:-}" != "true" ]; then
     echo ""
-    if ! prompt_user "Help us improve Blaxel faster by sending anonymous error reports? [Y/n] "; then
+    if ! prompt_user "Help us improve Blaxel faster by sending anonymous error reports? [y/N] "; then
       return
     fi
 
     case "$PROMPT_RESPONSE" in
-      [nN]|[nN][oO])
-        tracking_value="false"
+      [yY]|[yY][eE][sS])
+        tracking_value="true"
         ;;
     esac
   fi
