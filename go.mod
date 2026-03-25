@@ -87,3 +87,5 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )
+
+replace github.com/blaxel-ai/sdk-go => github.com/stainless-sdks/blaxel-go v0.0.0-20260325174240-4ef7b52a894d
