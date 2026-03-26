@@ -158,11 +158,17 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	// Extract messages from the logs
 	var messages []string
 	if resourceData, ok := response[w.resourceName]; ok {
+		// API returns logs newest-first, reverse to chronological order
+		logs := resourceData.Logs
+		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
+			logs[i], logs[j] = logs[j], logs[i]
+		}
+
 		// Return logs with deduplication check
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		for _, log := range resourceData.Logs {
+		for _, log := range logs {
 			// Use timestamp + message as unique key
 			key := fmt.Sprintf("%s:%s", log.Timestamp, log.Message)
 			if !w.seenLogs[key] {

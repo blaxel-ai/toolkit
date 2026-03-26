@@ -349,12 +349,19 @@ func handleConfigWarning(warning string, noTTY bool) {
 // validateDeploymentConfig checks if the project has proper configuration for deployment
 // Returns a warning message if configuration is missing, empty string if all is good
 func (d *Deployment) validateDeploymentConfig(config core.Config) string {
+	return ValidateBuildConfig(d.cwd, d.folder, config)
+}
+
+// ValidateBuildConfig checks if the project has proper configuration for building.
+// Used by both deploy and push commands.
+// Returns a warning message if configuration is missing, empty string if all is good.
+func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	// Skip validation for volume templates - they don't need language detection, Dockerfile, or entrypoint
 	if core.IsVolumeTemplate(config.Type) {
 		return ""
 	}
 
-	projectDir := filepath.Join(d.cwd, d.folder)
+	projectDir := filepath.Join(cwd, folder)
 
 	// Check for Dockerfile
 	dockerfilePath := filepath.Join(projectDir, "Dockerfile")
@@ -383,25 +390,26 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 			return warningMsg.String()
 		}
 
-		// Dockerfile exists, check if it contains sandbox-api
+		// Dockerfile exists, check if sandbox-api binary is available in the image.
+		// Valid patterns:
+		// 1. Base image from blaxel (already contains sandbox-api): FROM ghcr.io/blaxel-ai/sandbox
+		// 2. Multi-stage copy of the binary: COPY --from=ghcr.io/blaxel-ai/sandbox
 		dockerfileContent, err := os.ReadFile(dockerfilePath)
 		if err == nil {
 			content := string(dockerfileContent)
-			hasSandboxAPI := strings.Contains(content, "sandbox-api")
-			hasBlaxelSandboxImage := strings.Contains(content, "ghcr.io/blaxel-ai/sandbox-")
+			hasBlaxelSandboxBase := strings.Contains(content, "FROM ghcr.io/blaxel-ai/sandbox")
+			hasCopySandboxAPI := strings.Contains(content, "COPY --from=ghcr.io/blaxel-ai/sandbox")
 
-			if !hasSandboxAPI && !hasBlaxelSandboxImage {
-				// Dockerfile exists but doesn't have sandbox-api
+			if !hasBlaxelSandboxBase && !hasCopySandboxAPI {
 				var warningMsg strings.Builder
 				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 				codeColor := color.New(color.FgCyan)
-				fmt.Fprintf(&warningMsg, "Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
-					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel"))
-				warningMsg.WriteString("Your Dockerfile should come from a sandbox image or at least include sandbox-api:\n\n")
+				fmt.Fprintf(&warningMsg, "Dockerfile found, but %s binary is not available in the image.\n\n",
+					codeColor.Sprint("sandbox-api"))
+				warningMsg.WriteString("Your Dockerfile should either use a Blaxel sandbox base image or copy the binary:\n\n")
 				warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
-				warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 				return warningMsg.String()
@@ -411,7 +419,7 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	}
 
 	// Check for language-specific files
-	language := core.ModuleLanguage(d.folder)
+	language := core.ModuleLanguage(folder)
 	hasLanguage := language != ""
 	hasEntrypoint := true
 

@@ -13,6 +13,7 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 )
 
@@ -97,7 +98,39 @@ You must run this command from a directory containing a blaxel.toml file.`,
 			if resourceType == "" {
 				resourceType = config.Type
 			}
-			// resourceType is optional for image-only builds
+			if resourceType == "" {
+				if noTTY {
+					core.PrintError("Push", fmt.Errorf("resource type is required. Specify it with --type (-t) flag or set 'type' in blaxel.toml"))
+					core.ExitWithError(fmt.Errorf("resource type is required"))
+				}
+				// Interactive prompt for resource type
+				var selected string
+				form := huh.NewForm(
+					huh.NewGroup(
+						huh.NewSelect[string]().
+							Title("What type of image are you building?").
+							Options(
+								huh.NewOption("Sandbox", "sandbox"),
+								huh.NewOption("Agent", "agent"),
+								huh.NewOption("Job", "job"),
+								huh.NewOption("MCP server", "function"),
+							).
+							Value(&selected),
+					),
+				)
+				form.WithTheme(core.GetHuhTheme())
+				if err := form.Run(); err != nil {
+					core.ExitWithError(err)
+				}
+				resourceType = selected
+			}
+
+			// Validate resource type
+			validTypes := map[string]bool{"agent": true, "function": true, "sandbox": true, "job": true}
+			if !validTypes[resourceType] {
+				core.PrintError("Push", fmt.Errorf("invalid resource type %q: must be one of sandbox, agent, job, function", resourceType))
+				core.ExitWithError(fmt.Errorf("invalid resource type"))
+			}
 
 			// Determine name
 			if name == "" {
@@ -120,6 +153,13 @@ You must run this command from a directory containing a blaxel.toml file.`,
 			if blaxelTomlWarning != "" {
 				fmt.Println(blaxelTomlWarning)
 				core.ClearBlaxelTomlWarning()
+			}
+
+			// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
+			config.Type = resourceType
+			validationWarning := ValidateBuildConfig(cwd, folder, config)
+			if validationWarning != "" {
+				handleConfigWarning(validationWarning, noTTY)
 			}
 
 			// Determine generation from runtime config

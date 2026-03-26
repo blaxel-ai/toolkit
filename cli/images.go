@@ -15,7 +15,6 @@ import (
 // No init() registration needed here
 
 // parseImageRef parses image references in the format:
-// - "imageName" (e.g., "my-image") - searches across all resource types
 // - "resourceType/imageName" (e.g., "agent/my-image")
 // - "resourceType/imageName:tag" (e.g., "agent/my-image:v1.0")
 func parseImageRef(ref string) (resourceType, imageName, tag string, err error) {
@@ -28,14 +27,12 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 
 	// Split resourceType/imageName
 	imageParts := strings.SplitN(imageRef, "/", 2)
-	if len(imageParts) == 2 {
-		resourceType = imageParts[0]
-		imageName = imageParts[1]
-	} else {
-		// No resourceType prefix - just the image name
-		resourceType = ""
-		imageName = imageParts[0]
+	if len(imageParts) != 2 {
+		return "", "", "", fmt.Errorf("invalid image reference format. Expected 'resourceType/imageName' or 'resourceType/imageName:tag', got '%s'", ref)
 	}
+
+	resourceType = imageParts[0]
+	imageName = imageParts[1]
 
 	return resourceType, imageName, tag, nil
 }
@@ -154,21 +151,9 @@ func getImage(resourceType, imageName, tag string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	var imageResult interface{}
-	var err error
-
-	if resourceType != "" {
-		imageResult, err = client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
-	} else {
-		// No resourceType specified - use direct GET to search across all types
-		err = client.Get(ctx, fmt.Sprintf("images/_/%s", imageName), nil, &imageResult)
-	}
+	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
 	if err != nil {
-		ref := imageName
-		if resourceType != "" {
-			ref = resourceType + "/" + imageName
-		}
-		err = fmt.Errorf("error getting image %s: %v", ref, err)
+		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -187,15 +172,6 @@ func getImage(resourceType, imageName, tag string) {
 		err = fmt.Errorf("error parsing response: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
-	}
-
-	// Extract resourceType from API response if not provided
-	if resourceType == "" {
-		if metadata, ok := image["metadata"].(map[string]interface{}); ok {
-			if rt, ok := metadata["resourceType"].(string); ok {
-				resourceType = rt
-			}
-		}
 	}
 
 	// If a specific tag is requested, filter the tags
@@ -401,7 +377,7 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
   bl delete image agent/img1:v1 agent/img2:v2`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				err := fmt.Errorf("no image reference provided\nUsage: bl delete image resourceType/imageName[:tag]")
+				err := fmt.Errorf("no image reference provided\nUsage: bl delete image [resourceType/]imageName[:tag]")
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -432,26 +408,6 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 func deleteImage(resourceType, imageName, tag string) error {
 	ctx := context.Background()
 	client := core.GetClient()
-
-	// If no resourceType, look up the image first to find its type
-	if resourceType == "" {
-		var result map[string]interface{}
-		err := client.Get(ctx, fmt.Sprintf("images/_/%s", imageName), nil, &result)
-		if err != nil {
-			fmt.Printf("Error finding image %s: %v\n", imageName, err)
-			return err
-		}
-		if metadata, ok := result["metadata"].(map[string]interface{}); ok {
-			if rt, ok := metadata["resourceType"].(string); ok {
-				resourceType = rt
-			}
-		}
-		if resourceType == "" {
-			err := fmt.Errorf("could not determine resource type for image %s", imageName)
-			fmt.Println(err)
-			return err
-		}
-	}
 
 	var identifier string
 	var err error

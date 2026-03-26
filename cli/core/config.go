@@ -458,10 +458,10 @@ func PromptForDeploymentType() string {
 			huh.NewSelect[string]().
 				Title("What are you trying to deploy ?").
 				Options(
-					huh.NewOption("Agent", "agent"),
-					huh.NewOption("MCP (Function)", "function"),
 					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Agent", "agent"),
 					huh.NewOption("Job", "job"),
+					huh.NewOption("MCP (Function)", "function"),
 					huh.NewOption("Volume Template", "volumetemplate"),
 				).
 				Value(&selected),
