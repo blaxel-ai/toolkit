@@ -97,9 +97,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 			if resourceType == "" {
 				resourceType = config.Type
 			}
-			if resourceType == "" {
-				resourceType = "agent"
-			}
+			// resourceType is optional for image-only builds
 
 			// Determine name
 			if name == "" {
@@ -139,7 +137,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
 			if image != "" {
 				// Direct image flow: skip packaging and upload, register the image directly
-				fmt.Printf("Registering image %s for %s/%s...\n", image, resourceType, name)
+				fmt.Printf("Registering image %s for %s...\n", image, imageRef(resourceType, name))
 				client := core.GetClient()
 				ctx := context.Background()
 
@@ -166,7 +164,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 					cwd:    cwd,
 				}
 
-				fmt.Printf("Packaging source code for %s/%s...\n", resourceType, name)
+				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
 				err = deployment.Zip()
 				if err != nil {
 					core.PrintError("Push", fmt.Errorf("failed to package source code: %w", err))
@@ -296,16 +294,28 @@ func watchBuildLogsNonInteractive(resourceType, name string) error {
 	}
 }
 
-// getImageBuildStatus checks the build status by looking for recent events on the image.
-// Returns "succeeded" if the image exists (was built successfully), "failed" if there was
-// an error, or empty string if the image is not yet available.
+// imageAPIResponse represents the API response for GET /images/{resourceType}/{imageName}.
+type imageAPIResponse struct {
+	Metadata struct {
+		Name         string `json:"name"`
+		ResourceType string `json:"resourceType"`
+		Status       string `json:"status"`
+	} `json:"metadata"`
+}
+
+// getImageBuildStatus checks the build status by querying the image API.
+// Returns "succeeded" if the image is built, "failed" if the build failed,
+// or empty string if the build is still in progress.
 func getImageBuildStatus(resourceType, name string) (string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	// Try to get the image - if it exists, the build succeeded
-	var result interface{}
-	err := client.Get(ctx, fmt.Sprintf("images/%s/%s", resourceType, name), nil, &result)
+	var result imageAPIResponse
+	path := fmt.Sprintf("images/%s/%s", resourceType, name)
+	if resourceType == "" {
+		path = fmt.Sprintf("images/_/%s", name)
+	}
+	err := client.Get(ctx, path, nil, &result)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
@@ -314,12 +324,26 @@ func getImageBuildStatus(resourceType, name string) (string, error) {
 		return "", err
 	}
 
-	return "succeeded", nil
+	switch result.Metadata.Status {
+	case "BUILT":
+		return "succeeded", nil
+	case "FAILED":
+		return "failed", nil
+	default:
+		return "", nil // Still building (UPLOADING, BUILDING, or no status)
+	}
+}
+
+func imageRef(resourceType, name string) string {
+	if resourceType != "" {
+		return resourceType + "/" + name
+	}
+	return name
 }
 
 func printPushSuccess(resourceType, name string) {
-	fmt.Printf("\nImage %s/%s built and pushed successfully!\n", resourceType, name)
+	fmt.Printf("\nImage %s built and pushed successfully!\n", imageRef(resourceType, name))
 	fmt.Println()
 	core.PrintInfoWithCommand("List images:", "bl get images")
-	core.PrintInfoWithCommand("Image detail:", fmt.Sprintf("bl get image %s --type %s", name, resourceType))
+	core.PrintInfoWithCommand("Image detail:", fmt.Sprintf("bl get image %s", imageRef(resourceType, name)))
 }

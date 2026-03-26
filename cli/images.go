@@ -15,6 +15,7 @@ import (
 // No init() registration needed here
 
 // parseImageRef parses image references in the format:
+// - "imageName" (e.g., "my-image") - searches across all resource types
 // - "resourceType/imageName" (e.g., "agent/my-image")
 // - "resourceType/imageName:tag" (e.g., "agent/my-image:v1.0")
 func parseImageRef(ref string) (resourceType, imageName, tag string, err error) {
@@ -27,19 +28,21 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 
 	// Split resourceType/imageName
 	imageParts := strings.SplitN(imageRef, "/", 2)
-	if len(imageParts) != 2 {
-		return "", "", "", fmt.Errorf("invalid image reference format. Expected 'resourceType/imageName' or 'resourceType/imageName:tag', got '%s'", ref)
+	if len(imageParts) == 2 {
+		resourceType = imageParts[0]
+		imageName = imageParts[1]
+	} else {
+		// No resourceType prefix - just the image name
+		resourceType = ""
+		imageName = imageParts[0]
 	}
-
-	resourceType = imageParts[0]
-	imageName = imageParts[1]
 
 	return resourceType, imageName, tag, nil
 }
 
 func GetImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "image [resourceType/imageName[:tag]]",
+		Use:               "image [imageName or resourceType/imageName[:tag]]",
 		Aliases:           []string{"images", "img"},
 		Short:             "Get image information",
 		ValidArgsFunction: GetImageValidArgsFunction(),
@@ -47,15 +50,19 @@ func GetImagesCmd() *cobra.Command {
 
 Usage patterns:
   bl get images                          List all images (without tags)
-  bl get image agent/my-image            Get image details with all tags
+  bl get image my-image                  Get image details (searches all resource types)
+  bl get image agent/my-image            Get image details for a specific resource type
   bl get image agent/my-image:v1.0       Get specific tag information
 
-The image reference format is: resourceType/imageName[:tag]
-- resourceType: The type of resource (e.g., agent, function, job)
+The image reference format is: [resourceType/]imageName[:tag]
+- resourceType: Optional type of resource (e.g., agent, function, job)
 - imageName: The name of the image
 - tag: Optional tag to filter for a specific version`,
 		Example: `  # List all images
   bl get images
+
+  # Get image by name (searches all resource types)
+  bl get image my-agent
 
   # Get all tags for a specific image
   bl get image agent/my-agent
@@ -65,7 +72,7 @@ The image reference format is: resourceType/imageName[:tag]
 
   # Use different output formats
   bl get images -o json
-  bl get image agent/my-agent -o pretty`,
+  bl get image my-agent -o pretty`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				// List all images
@@ -147,9 +154,21 @@ func getImage(resourceType, imageName, tag string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
+	var imageResult interface{}
+	var err error
+
+	if resourceType != "" {
+		imageResult, err = client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
+	} else {
+		// No resourceType specified - use direct GET to search across all types
+		err = client.Get(ctx, fmt.Sprintf("images/_/%s", imageName), nil, &imageResult)
+	}
 	if err != nil {
-		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
+		ref := imageName
+		if resourceType != "" {
+			ref = resourceType + "/" + imageName
+		}
+		err = fmt.Errorf("error getting image %s: %v", ref, err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -168,6 +187,15 @@ func getImage(resourceType, imageName, tag string) {
 		err = fmt.Errorf("error parsing response: %v", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
+	}
+
+	// Extract resourceType from API response if not provided
+	if resourceType == "" {
+		if metadata, ok := image["metadata"].(map[string]interface{}); ok {
+			if rt, ok := metadata["resourceType"].(string); ok {
+				resourceType = rt
+			}
+		}
 	}
 
 	// If a specific tag is requested, filter the tags
@@ -346,24 +374,25 @@ func formatBytes(bytes int64) string {
 
 func DeleteImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "image resourceType/imageName[:tag] [resourceType/imageName[:tag]...]",
+		Use:               "image [resourceType/]imageName[:tag] ...",
 		Aliases:           []string{"images", "img"},
 		Short:             "Delete images or image tags",
 		ValidArgsFunction: GetImageValidArgsFunction(),
 		Long: `Delete container images or specific tags.
 
 Usage patterns:
+  bl delete image my-image                Delete image (searches all resource types)
   bl delete image agent/my-image          Delete image with all its tags
   bl delete image agent/my-image:v1.0     Delete only the specified tag
 
-The image reference format is: resourceType/imageName[:tag]
-- resourceType: The type of resource (e.g., agent, function, job)
+The image reference format is: [resourceType/]imageName[:tag]
+- resourceType: Optional type of resource (e.g., agent, function, job)
 - imageName: The name of the image
 - tag: Optional tag to delete only that specific version
 
 WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 		Example: `  # Delete an entire image (all tags)
-  bl delete image agent/my-agent
+  bl delete image my-agent
 
   # Delete only a specific tag
   bl delete image agent/my-agent:v1.0
@@ -403,6 +432,26 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 func deleteImage(resourceType, imageName, tag string) error {
 	ctx := context.Background()
 	client := core.GetClient()
+
+	// If no resourceType, look up the image first to find its type
+	if resourceType == "" {
+		var result map[string]interface{}
+		err := client.Get(ctx, fmt.Sprintf("images/_/%s", imageName), nil, &result)
+		if err != nil {
+			fmt.Printf("Error finding image %s: %v\n", imageName, err)
+			return err
+		}
+		if metadata, ok := result["metadata"].(map[string]interface{}); ok {
+			if rt, ok := metadata["resourceType"].(string); ok {
+				resourceType = rt
+			}
+		}
+		if resourceType == "" {
+			err := fmt.Errorf("could not determine resource type for image %s", imageName)
+			fmt.Println(err)
+			return err
+		}
+	}
 
 	var identifier string
 	var err error
