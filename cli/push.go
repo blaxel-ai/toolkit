@@ -259,11 +259,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				fmt.Println("Upload completed")
 
 				// Monitor build logs
-				if noTTY {
-					err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
-				} else {
-					err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
-				}
+				err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
 				if err != nil {
 					core.PrintError("Push", err)
 					core.ExitWithError(err)
@@ -293,10 +289,18 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool) error {
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
+	doneCh := make(chan struct{})
 	go func() {
-		<-sigCh
-		fmt.Println("\nBuild monitoring cancelled")
-		cancel()
+		select {
+		case <-sigCh:
+			fmt.Println("\nBuild monitoring cancelled")
+			cancel()
+		case <-doneCh:
+		}
+	}()
+	defer func() {
+		signal.Stop(sigCh)
+		close(doneCh)
 	}()
 
 	// Use the BuildLogWatcher to stream logs
@@ -599,7 +603,7 @@ EOF`, kind, name, imageTag)
         "image": "%s"
       }
     }
-  }'`, baseUrl, workspace, resourceType, name, name, imageTag)
+  }'`, baseUrl, resourceType, name, workspace, name, imageTag)
 
 	return map[string]string{
 		"TypeScript": tsSample,
