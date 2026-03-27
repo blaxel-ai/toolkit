@@ -573,16 +573,16 @@ func promptForTracking() {
 
 	// Prompt user for tracking consent
 	fmt.Println()
-	fmt.Print("Do you want to enable tracking to help improve Blaxel? [Y/n] ")
+	fmt.Print("Do you want to enable tracking to help improve Blaxel? [y/N] ")
 
 	var response string
 	_, _ = fmt.Scanln(&response)
 
-	// Default to true (Y) if empty or yes
-	enabled := true
+	// Default to false (N) - tracking is opt-in
+	enabled := false
 	response = strings.ToLower(strings.TrimSpace(response))
-	if response == "n" || response == "no" {
-		enabled = false
+	if response == "y" || response == "yes" {
+		enabled = true
 	}
 
 	blaxel.SetTracking(enabled)
