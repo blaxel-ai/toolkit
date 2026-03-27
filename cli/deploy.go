@@ -42,6 +42,7 @@ func DeployCmd() *cobra.Command {
 	var skipBuild bool
 	var noTTY bool
 	var experimental bool
+	var resourceType string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -94,6 +95,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Deploy specific subdirectory in monorepo
   bl deploy -d ./packages/my-agent
+
+  # Deploy specifying a resource type
+  bl deploy --type sandbox
 
   # Recursively deploy all projects in monorepo
   bl deploy -R`,
@@ -161,8 +165,11 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				}
 			}
 
-			// Check if type is empty and prompt user if in interactive mode
-			if config.Type == "" {
+			// Determine resource type: flag > config > prompt/default
+			if resourceType != "" {
+				core.SetConfigType(resourceType)
+			}
+			if config.Type == "" && resourceType == "" {
 				if core.IsInteractiveMode() {
 					selectedType := core.PromptForDeploymentType()
 					if selectedType != "" {
@@ -173,7 +180,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 						os.Exit(0)
 					}
 				} else {
-					core.SetConfigType("agent")
+					core.SetConfigType("sandbox")
 				}
 			}
 
@@ -237,6 +244,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	return cmd

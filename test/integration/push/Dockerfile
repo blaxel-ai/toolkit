@@ -1,10 +1,4 @@
-FROM node:22-alpine
-
-RUN apk update && apk add --no-cache \
-  git \
-  curl \
-  netcat-openbsd \
-  && rm -rf /var/cache/apk/*
+FROM alpine:latest
 
 WORKDIR /app
 
