@@ -115,7 +115,7 @@ func TestFormatBytes(t *testing.T) {
 func TestGetImagesCmd(t *testing.T) {
 	cmd := GetImagesCmd()
 
-	assert.Equal(t, "image [resourceType/imageName[:tag]]", cmd.Use)
+	assert.Equal(t, "image [imageName or resourceType/imageName[:tag]]", cmd.Use)
 	assert.Contains(t, cmd.Aliases, "images")
 	assert.Contains(t, cmd.Aliases, "img")
 	assert.NotEmpty(t, cmd.Short)
@@ -125,7 +125,7 @@ func TestGetImagesCmd(t *testing.T) {
 func TestDeleteImagesCmd(t *testing.T) {
 	cmd := DeleteImagesCmd()
 
-	assert.Equal(t, "image resourceType/imageName[:tag] [resourceType/imageName[:tag]...]", cmd.Use)
+	assert.Equal(t, "image [resourceType/]imageName[:tag] ...", cmd.Use)
 	assert.Contains(t, cmd.Aliases, "images")
 	assert.Contains(t, cmd.Aliases, "img")
 	assert.NotEmpty(t, cmd.Short)
