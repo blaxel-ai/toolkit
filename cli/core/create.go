@@ -13,22 +13,26 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 )
 
-// generateRandomDirectoryName creates a random directory name with the resource type prefix
-// Format: {resourceType}-{5-random-chars}
-func generateRandomDirectoryName(resourceType string) string {
+// RandomString generates a random alphanumeric string of the given length.
+func RandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	const length = 5
 
 	randomStr := make([]byte, length)
 	for i := range randomStr {
 		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
-			panic(fmt.Sprintf("failed to generate random directory name: %v", err))
+			panic(fmt.Sprintf("failed to generate random string: %v", err))
 		}
 		randomStr[i] = charset[n.Int64()]
 	}
 
-	return fmt.Sprintf("%s-%s", resourceType, string(randomStr))
+	return string(randomStr)
+}
+
+// generateRandomDirectoryName creates a random directory name with the resource type prefix
+// Format: {resourceType}-{5-random-chars}
+func generateRandomDirectoryName(resourceType string) string {
+	return fmt.Sprintf("%s-%s", resourceType, RandomString(5))
 }
 
 // CreateFlowConfig captures the knobs that differ between create commands.

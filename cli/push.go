@@ -420,6 +420,7 @@ var sampleLanguages = []string{"TypeScript", "Python", "Go", "CLI", "curl"}
 
 func getSandboxSamplesMap(name string) map[string]string {
 	imageTag := fmt.Sprintf("sandbox/%s:latest", name)
+	instanceName := fmt.Sprintf("%s-%s", name, core.RandomString(5))
 	baseUrl := blaxel.GetBaseURL()
 	tsSample := fmt.Sprintf(`import { SandboxInstance } from "@blaxel/core";
 
@@ -427,7 +428,7 @@ const sandbox = await SandboxInstance.createIfNotExists({
   name: "%s",
   image: "%s",
   memory: 4096,
-});`, name, imageTag)
+});`, instanceName, imageTag)
 
 	pySample := fmt.Sprintf(`import asyncio
 from blaxel.core import SandboxInstance
@@ -439,7 +440,7 @@ async def main():
         "memory": 4096,
     })
 
-asyncio.run(main())`, name, imageTag)
+asyncio.run(main())`, instanceName, imageTag)
 
 	goSample := fmt.Sprintf(`package main
 
@@ -471,7 +472,7 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("Created sandbox: %%s", sandbox.Metadata.Name)
-}`, name, imageTag)
+}`, instanceName, imageTag)
 
 	cliSample := fmt.Sprintf(`bl apply -f - <<EOF
 apiVersion: blaxel.ai/v1alpha1
@@ -482,7 +483,7 @@ spec:
   runtime:
     image: %s
     memory: 4096
-EOF`, name, imageTag)
+EOF`, instanceName, imageTag)
 
 	curlSample := fmt.Sprintf(`curl -X POST "%s/sandboxes" \
   -H "Content-Type: application/json" \
@@ -498,7 +499,7 @@ EOF`, name, imageTag)
         "memory": 4096
       }
     }
-  }'`, baseUrl, name, imageTag)
+  }'`, baseUrl, instanceName, imageTag)
 
 	return map[string]string{
 		"TypeScript": tsSample,
