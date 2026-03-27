@@ -10,10 +10,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -195,7 +201,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 					core.ExitWithError(err)
 				}
 
-				printPushSuccess(resourceType, name)
+				printPushSuccess(resourceType, name, noTTY)
 			} else {
 				// Standard flow: package source code and upload
 				deployment := Deployment{
@@ -254,9 +260,9 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
 				// Monitor build logs
 				if noTTY {
-					err = watchBuildLogsNonInteractive(resourceType, name)
+					err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
 				} else {
-					err = watchBuildLogsNonInteractive(resourceType, name)
+					err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
 				}
 				if err != nil {
 					core.PrintError("Push", err)
@@ -275,11 +281,11 @@ You must run this command from a directory containing a blaxel.toml file.`,
 }
 
 // watchBuildLogsNonInteractive monitors the build logs until the build succeeds or fails.
-func watchBuildLogsNonInteractive(resourceType, name string) error {
+func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool) error {
 	client := core.GetClient()
 	workspace := core.GetWorkspace()
 
-	fmt.Println("\nMonitoring build logs...")
+	fmt.Println("\nMonitoring build logs (first logs may take up to 30 seconds to appear)...")
 
 	// Set up signal handling for graceful cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -322,7 +328,7 @@ func watchBuildLogsNonInteractive(resourceType, name string) error {
 			if status == "succeeded" {
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second) // Allow final logs to flush
-				printPushSuccess(resourceType, name)
+				printPushSuccess(resourceType, name, noTTY)
 				return nil
 			}
 			if status == "failed" {
@@ -381,9 +387,451 @@ func imageRef(resourceType, name string) string {
 	return name
 }
 
-func printPushSuccess(resourceType, name string) {
+func printPushSuccess(resourceType, name string, noTTY bool) {
 	fmt.Printf("\nImage %s built and pushed successfully!\n", imageRef(resourceType, name))
 	fmt.Println()
 	core.PrintInfoWithCommand("List images:", "bl get images")
 	core.PrintInfoWithCommand("Image detail:", fmt.Sprintf("bl get image %s", imageRef(resourceType, name)))
+	fmt.Println()
+
+	if noTTY {
+		printDeploySampleCLI(resourceType, name)
+	} else {
+		printDeploySamplesInteractive(resourceType, name)
+	}
+}
+
+func resourceKind(resourceType string) string {
+	switch resourceType {
+	case "agent":
+		return "Agent"
+	case "function":
+		return "Function"
+	case "sandbox":
+		return "Sandbox"
+	case "job":
+		return "Job"
+	default:
+		return "Agent"
+	}
+}
+
+var sampleLanguages = []string{"TypeScript", "Python", "Go", "CLI", "curl"}
+
+func getSandboxSamplesMap(name string) map[string]string {
+	imageTag := fmt.Sprintf("sandbox/%s:latest", name)
+	baseUrl := blaxel.GetBaseURL()
+	tsSample := fmt.Sprintf(`import { SandboxInstance } from "@blaxel/core";
+
+const sandbox = await SandboxInstance.createIfNotExists({
+  name: "%s",
+  image: "%s",
+  memory: 4096,
+});`, name, imageTag)
+
+	pySample := fmt.Sprintf(`import asyncio
+from blaxel.core import SandboxInstance
+
+async def main():
+    sandbox = await SandboxInstance.create_if_not_exists({
+        "name": "%s",
+        "image": "%s",
+        "memory": 4096,
+    })
+
+asyncio.run(main())`, name, imageTag)
+
+	goSample := fmt.Sprintf(`package main
+
+import (
+	"context"
+	"log"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
+)
+
+func main() {
+	client, err := blaxel.NewDefaultClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sandbox, err := client.Sandboxes.New(context.Background(), blaxel.SandboxNewParams{
+		Metadata: blaxel.SandboxNewParamsMetadata{
+			Name: blaxel.String("%s"),
+		},
+		Spec: blaxel.SandboxNewParamsSpec{
+			Runtime: blaxel.SandboxNewParamsSpecRuntime{
+				Image:  blaxel.String("%s"),
+				Memory: blaxel.Int(4096),
+			},
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Created sandbox: %%s", sandbox.Metadata.Name)
+}`, name, imageTag)
+
+	cliSample := fmt.Sprintf(`bl apply -f - <<EOF
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: %s
+spec:
+  runtime:
+    image: %s
+    memory: 4096
+EOF`, name, imageTag)
+
+	curlSample := fmt.Sprintf(`curl -X POST "%s/sandboxes" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(bl token)" \
+	-H "X-Blaxel-Workspace: $(bl workspace --current)" \
+  -d '{
+    "metadata": {
+      "name": "%s"
+    },
+    "spec": {
+      "runtime": {
+        "image": "%s",
+        "memory": 4096
+      }
+    }
+  }'`, baseUrl, name, imageTag)
+
+	return map[string]string{
+		"TypeScript": tsSample,
+		"Python":     pySample,
+		"Go":         goSample,
+		"CLI":        cliSample,
+		"curl":       curlSample,
+	}
+}
+
+func getResourceSamples(resourceType, name string) map[string]string {
+	kind := resourceKind(resourceType)
+	workspace := core.GetWorkspace()
+	baseUrl := blaxel.GetBaseURL()
+	imageTag := fmt.Sprintf("%s/%s:latest", resourceType, name)
+
+	tsSample := fmt.Sprintf(`import Blaxel from "@blaxel/sdk";
+
+const client = new Blaxel();
+
+const result = await client.%ss.update("%s", {
+  spec: {
+    runtime: {
+      image: "%s",
+    },
+  },
+});
+
+console.log("Deployed:", result.metadata?.name);`, resourceType, name, imageTag)
+
+	pySample := fmt.Sprintf(`from blaxel.client import BlaxelClient
+
+client = BlaxelClient()
+
+result = client.%ss.update_%s("%s", body={
+    "spec": {
+        "runtime": {
+            "image": "%s",
+        },
+    },
+})
+
+print("Deployed:", result.metadata.name)`, resourceType, resourceType, name, imageTag)
+
+	goSample := fmt.Sprintf(`package main
+
+import (
+	"context"
+	"log"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
+)
+
+func main() {
+	client, err := blaxel.NewDefaultClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	result, err := client.%ss.Update(
+		context.Background(),
+		"%s",
+		blaxel.%sUpdateParams{
+			%s: blaxel.%sParam{
+				Spec: blaxel.%sSpecParam{
+					Runtime: blaxel.%sRuntimeParam{
+						Image: blaxel.String("%s"),
+					},
+				},
+			},
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Deployed: %%s", result.Metadata.Name)
+}`, kind, name, kind, kind, kind, kind, kind, imageTag)
+
+	cliSample := fmt.Sprintf(`bl apply -f  - <<EOF
+apiVersion: blaxel.ai/v1alpha1
+kind: %s
+metadata:
+  name: %s
+spec:
+  runtime:
+    image: %s
+EOF`, kind, name, imageTag)
+
+	curlSample := fmt.Sprintf(`curl -X PUT "%s/%ss/%s" \
+  -H "Authorization: Bearer $(bl token)" \
+	-H "X-Blaxel-Workspace: %s" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "metadata": { "name": "%s" },
+    "spec": {
+      "runtime": {
+        "image": "%s"
+      }
+    }
+  }'`, baseUrl, workspace, resourceType, name, name, imageTag)
+
+	return map[string]string{
+		"TypeScript": tsSample,
+		"Python":     pySample,
+		"Go":         goSample,
+		"CLI":        cliSample,
+		"curl":       curlSample,
+	}
+}
+
+// renderCodeBlock returns a styled code block string for display
+func renderCodeBlock(code string) string {
+	codeColor := color.New(color.FgHiWhite)
+	border := color.New(color.FgHiBlack)
+
+	var b strings.Builder
+	b.WriteString(border.Sprint("  ┌─────────────────────────────────────────────────────────") + "\n")
+	for _, line := range strings.Split(code, "\n") {
+		b.WriteString(fmt.Sprintf("  %s %s\n", border.Sprint("│"), codeColor.Sprint(line)))
+	}
+	b.WriteString(border.Sprint("  └─────────────────────────────────────────────────────────"))
+	return b.String()
+}
+
+func printDeploySampleCLI(resourceType, name string) {
+	var samples map[string]string
+	if resourceType == "sandbox" {
+		samples = getSandboxSamplesMap(name)
+	} else {
+		samples = getResourceSamples(resourceType, name)
+	}
+	fmt.Println("Deploy this image with:")
+	fmt.Println()
+	codeColor := color.New(color.FgHiWhite)
+	border := color.New(color.FgHiBlack)
+	border.Println("  ┌─────────────────────────────────────────────────────────")
+	for _, line := range strings.Split(samples["CLI"], "\n") {
+		fmt.Printf("  %s %s\n", border.Sprint("│"), codeColor.Sprint(line))
+	}
+	border.Println("  └─────────────────────────────────────────────────────────")
+}
+
+// codeSampleModel is the bubbletea model for the interactive code sample viewer.
+// Layout: title + tabs + help at top (fixed), code block at bottom (scrollable).
+type codeSampleModel struct {
+	samples    map[string]string
+	languages  []string
+	activeIdx  int
+	copied     bool
+	copyFadeAt time.Time
+	width      int
+	height     int
+	viewport   viewport.Model
+	ready      bool
+}
+
+type tickMsg time.Time
+
+func (m codeSampleModel) headerView() string {
+	var b strings.Builder
+
+	// Title
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+	b.WriteString(titleStyle.Render("Deploy this image:"))
+	b.WriteString("\n\n")
+
+	// Tab bar
+	activeTab := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("15")).
+		Background(lipgloss.Color("#fd7b35")).
+		Padding(0, 1)
+
+	inactiveTab := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Padding(0, 1)
+
+	for i, lang := range m.languages {
+		if i == m.activeIdx {
+			b.WriteString(activeTab.Render(lang))
+		} else {
+			b.WriteString(inactiveTab.Render(lang))
+		}
+		if i < len(m.languages)-1 {
+			b.WriteString(" ")
+		}
+	}
+
+	// Help / copy status
+	b.WriteString("\n\n")
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	if m.copied {
+		copiedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+		b.WriteString(copiedStyle.Render("  Copied to clipboard!"))
+		b.WriteString(helpStyle.Render("  ←/→ switch  esc quit"))
+	} else {
+		b.WriteString(helpStyle.Render("  ←/→ switch  c copy  esc quit"))
+	}
+	b.WriteString("\n\n")
+
+	return b.String()
+}
+
+func (m *codeSampleModel) updateViewport() {
+	activeLang := m.languages[m.activeIdx]
+	m.viewport.SetContent(renderCodeBlock(m.samples[activeLang]))
+	m.viewport.GotoTop()
+}
+
+func (m codeSampleModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m codeSampleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		headerHeight := lipgloss.Height(m.headerView())
+		viewportHeight := m.height - headerHeight - 1
+		if viewportHeight < 5 {
+			viewportHeight = 5
+		}
+		if !m.ready {
+			m.viewport = viewport.New(m.width, viewportHeight)
+			m.updateViewport()
+			m.ready = true
+		} else {
+			m.viewport.Width = m.width
+			m.viewport.Height = viewportHeight
+		}
+		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "q":
+			return m, tea.Quit
+		case "left", "h":
+			if m.activeIdx > 0 {
+				m.activeIdx--
+				m.copied = false
+				m.updateViewport()
+			}
+		case "right", "l":
+			if m.activeIdx < len(m.languages)-1 {
+				m.activeIdx++
+				m.copied = false
+				m.updateViewport()
+			}
+		case "tab":
+			m.activeIdx = (m.activeIdx + 1) % len(m.languages)
+			m.copied = false
+			m.updateViewport()
+		case "shift+tab":
+			m.activeIdx = (m.activeIdx - 1 + len(m.languages)) % len(m.languages)
+			m.copied = false
+			m.updateViewport()
+		case "1":
+			m.activeIdx = 0
+			m.copied = false
+			m.updateViewport()
+		case "2":
+			if len(m.languages) > 1 {
+				m.activeIdx = 1
+				m.copied = false
+				m.updateViewport()
+			}
+		case "3":
+			if len(m.languages) > 2 {
+				m.activeIdx = 2
+				m.copied = false
+				m.updateViewport()
+			}
+		case "4":
+			if len(m.languages) > 3 {
+				m.activeIdx = 3
+				m.copied = false
+				m.updateViewport()
+			}
+		case "5":
+			if len(m.languages) > 4 {
+				m.activeIdx = 4
+				m.copied = false
+				m.updateViewport()
+			}
+		case "enter", "c":
+			lang := m.languages[m.activeIdx]
+			if err := clipboard.WriteAll(m.samples[lang]); err == nil {
+				m.copied = true
+				m.copyFadeAt = time.Now().Add(2 * time.Second)
+				return m, tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+					return tickMsg(t)
+				})
+			}
+		default:
+			// Pass through to viewport for up/down/pgup/pgdown scrolling
+			var cmd tea.Cmd
+			m.viewport, cmd = m.viewport.Update(msg)
+			return m, cmd
+		}
+
+	case tickMsg:
+		if time.Now().After(m.copyFadeAt) {
+			m.copied = false
+		}
+	}
+	return m, nil
+}
+
+func (m codeSampleModel) View() string {
+	if !m.ready {
+		return "Loading..."
+	}
+	return m.headerView() + m.viewport.View()
+}
+
+func printDeploySamplesInteractive(resourceType, name string) {
+	var samples map[string]string
+	if resourceType == "sandbox" {
+		samples = getSandboxSamplesMap(name)
+	} else {
+		samples = getResourceSamples(resourceType, name)
+	}
+
+	m := codeSampleModel{
+		samples:   samples,
+		languages: sampleLanguages,
+		activeIdx: 0, // TypeScript by default
+	}
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		// Fallback to non-interactive
+		printDeploySampleCLI(resourceType, name)
+	}
 }
