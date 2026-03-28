@@ -548,6 +548,12 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 			"runtime":  runtime,
 			"triggers": config.Triggers,
 		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
+		if config.Volumes != nil {
+			Spec["volumes"] = *config.Volumes
+		}
 	case "sandbox":
 		Kind = "Sandbox"
 		Spec = map[string]interface{}{
