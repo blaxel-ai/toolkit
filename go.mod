@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/blaxel-ai/sdk-go v0.16.0
+	github.com/blaxel-ai/sdk-go v0.17.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -87,5 +87,3 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )
-
-replace github.com/blaxel-ai/sdk-go => github.com/stainless-sdks/blaxel-go v0.0.0-20260325174240-4ef7b52a894d
