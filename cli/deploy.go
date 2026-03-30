@@ -158,16 +158,18 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.ClearBlaxelTomlWarning()
 			}
 
+			// Determine resource type: flag > config > prompt/default
+			// Must be set before validation so type-specific checks apply
+			if resourceType != "" {
+				core.SetConfigType(resourceType)
+				config.Type = resourceType
+			}
+
 			if !skipBuild && config.Image == "" {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
 				}
-			}
-
-			// Determine resource type: flag > config > prompt/default
-			if resourceType != "" {
-				core.SetConfigType(resourceType)
 			}
 			if config.Type == "" && resourceType == "" {
 				if core.IsInteractiveMode() {

@@ -49,7 +49,7 @@ bl push [flags]
   -d, --directory string   Source directory path
   -h, --help               help for push
   -n, --name string        Name for the image (defaults to directory name)
-  -t, --type string        Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type or 'agent'
+  -t, --type string        Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set
   -y, --yes                Skip interactive mode
 ```
 

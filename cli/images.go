@@ -39,7 +39,7 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 
 func GetImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "image [imageName or resourceType/imageName[:tag]]",
+		Use:               "image [resourceType/imageName[:tag]]",
 		Aliases:           []string{"images", "img"},
 		Short:             "Get image information",
 		ValidArgsFunction: GetImageValidArgsFunction(),
@@ -47,19 +47,15 @@ func GetImagesCmd() *cobra.Command {
 
 Usage patterns:
   bl get images                          List all images (without tags)
-  bl get image my-image                  Get image details (searches all resource types)
   bl get image agent/my-image            Get image details for a specific resource type
   bl get image agent/my-image:v1.0       Get specific tag information
 
-The image reference format is: [resourceType/]imageName[:tag]
-- resourceType: Optional type of resource (e.g., agent, function, job)
+The image reference format is: resourceType/imageName[:tag]
+- resourceType: Type of resource (e.g., agent, function, job)
 - imageName: The name of the image
 - tag: Optional tag to filter for a specific version`,
 		Example: `  # List all images
   bl get images
-
-  # Get image by name (searches all resource types)
-  bl get image my-agent
 
   # Get all tags for a specific image
   bl get image agent/my-agent
@@ -69,7 +65,7 @@ The image reference format is: [resourceType/]imageName[:tag]
 
   # Use different output formats
   bl get images -o json
-  bl get image my-agent -o pretty`,
+  bl get image agent/my-agent -o pretty`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				// List all images
@@ -78,7 +74,7 @@ The image reference format is: [resourceType/]imageName[:tag]
 			}
 
 			if len(args) != 1 {
-				err := fmt.Errorf("expected zero or one argument\nUsage: bl get image [resourceType/imageName[:tag]]")
+				err := fmt.Errorf("expected zero or one argument\nUsage: bl get image resourceType/imageName[:tag]")
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -350,25 +346,24 @@ func formatBytes(bytes int64) string {
 
 func DeleteImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "image [resourceType/]imageName[:tag] ...",
+		Use:               "image resourceType/imageName[:tag] ...",
 		Aliases:           []string{"images", "img"},
 		Short:             "Delete images or image tags",
 		ValidArgsFunction: GetImageValidArgsFunction(),
 		Long: `Delete container images or specific tags.
 
 Usage patterns:
-  bl delete image my-image                Delete image (searches all resource types)
   bl delete image agent/my-image          Delete image with all its tags
   bl delete image agent/my-image:v1.0     Delete only the specified tag
 
-The image reference format is: [resourceType/]imageName[:tag]
-- resourceType: Optional type of resource (e.g., agent, function, job)
+The image reference format is: resourceType/imageName[:tag]
+- resourceType: Type of resource (e.g., agent, function, job)
 - imageName: The name of the image
 - tag: Optional tag to delete only that specific version
 
 WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
 		Example: `  # Delete an entire image (all tags)
-  bl delete image my-agent
+  bl delete image agent/my-agent
 
   # Delete only a specific tag
   bl delete image agent/my-agent:v1.0
@@ -377,7 +372,7 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
   bl delete image agent/img1:v1 agent/img2:v2`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				err := fmt.Errorf("no image reference provided\nUsage: bl delete image [resourceType/]imageName[:tag]")
+				err := fmt.Errorf("no image reference provided\nUsage: bl delete image resourceType/imageName[:tag]")
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
