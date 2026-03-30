@@ -270,7 +270,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Name for the image (defaults to directory name)")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Source directory path")
-	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type or 'agent'")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 
 	return cmd
