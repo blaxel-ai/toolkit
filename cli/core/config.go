@@ -252,12 +252,13 @@ type Config struct {
 	SkipRoot    bool                      `toml:"skipRoot"`
 	Runtime     *map[string]interface{}   `toml:"runtime"`
 	Triggers    *[]map[string]interface{} `toml:"triggers"`
-	Volumes     *[]map[string]interface{} `toml:"volumes,omitempty"`
-	Policies    []string                  `toml:"policies,omitempty"`
-	DefaultSize *int                      `toml:"defaultSize,omitempty"`
-	Directory   string                    `toml:"directory,omitempty"`
-	Region      string                    `toml:"region,omitempty"`
-	Public      *bool                     `toml:"public,omitempty"`
+	Volumes      *[]map[string]interface{} `toml:"volumes,omitempty"`
+	Policies     []string                  `toml:"policies,omitempty"`
+	DefaultSize  *int                      `toml:"defaultSize,omitempty"`
+	Directory    string                    `toml:"directory,omitempty"`
+	Region       string                    `toml:"region,omitempty"`
+	Public       *bool                     `toml:"public,omitempty"`
+	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
