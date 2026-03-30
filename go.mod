@@ -5,8 +5,8 @@ go 1.25.0
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/blaxel-ai/sdk-go v0.17.0
 	github.com/atotto/clipboard v0.1.4
+	github.com/blaxel-ai/sdk-go v0.17.0
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/glamour v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.0
