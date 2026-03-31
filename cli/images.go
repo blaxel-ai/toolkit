@@ -346,7 +346,7 @@ func formatBytes(bytes int64) string {
 
 func DeleteImagesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:               "image resourceType/imageName[:tag] ...",
+		Use:               "image [resourceType/]imageName[:tag] ...",
 		Aliases:           []string{"images", "img"},
 		Short:             "Delete images or image tags",
 		ValidArgsFunction: GetImageValidArgsFunction(),
