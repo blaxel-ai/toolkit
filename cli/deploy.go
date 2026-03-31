@@ -42,6 +42,7 @@ func DeployCmd() *cobra.Command {
 	var skipBuild bool
 	var noTTY bool
 	var experimental bool
+	var resourceType string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -94,6 +95,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Deploy specific subdirectory in monorepo
   bl deploy -d ./packages/my-agent
+
+  # Deploy specifying a resource type
+  bl deploy --type sandbox
 
   # Recursively deploy all projects in monorepo
   bl deploy -R`,
@@ -154,15 +158,20 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.ClearBlaxelTomlWarning()
 			}
 
-			if !skipBuild {
+			// Determine resource type: flag > config > prompt/default
+			// Must be set before validation so type-specific checks apply
+			if resourceType != "" {
+				core.SetConfigType(resourceType)
+				config.Type = resourceType
+			}
+
+			if !skipBuild && config.Image == "" {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
 				}
 			}
-
-			// Check if type is empty and prompt user if in interactive mode
-			if config.Type == "" {
+			if config.Type == "" && resourceType == "" {
 				if core.IsInteractiveMode() {
 					selectedType := core.PromptForDeploymentType()
 					if selectedType != "" {
@@ -173,7 +182,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 						os.Exit(0)
 					}
 				} else {
-					core.SetConfigType("agent")
+					core.SetConfigType("sandbox")
 				}
 			}
 
@@ -181,7 +190,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			config = core.GetConfig()
 
 			// Check if agent/function code uses HOST/PORT environment variables
-			if (config.Type == "agent" || config.Type == "function") && !skipBuild {
+			if (config.Type == "agent" || config.Type == "function") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
 				if !core.CheckServerEnvUsage(folder, language) {
@@ -237,6 +246,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	return cmd
@@ -274,7 +284,8 @@ func (d *Deployment) Generate(skipBuild bool) error {
 
 	// Volume-template needs archive even without build (for file upload)
 	config := core.GetConfig()
-	if !skipBuild || core.IsVolumeTemplate(config.Type) {
+	// Skip archive creation when a pre-built image is specified in blaxel.toml
+	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		// Create archive (tar for volume-template, zip for others)
 		if core.IsVolumeTemplate(config.Type) {
 			// For interactive mode, skip compression here - it will be done during deployment
@@ -350,12 +361,19 @@ func handleConfigWarning(warning string, noTTY bool) {
 // validateDeploymentConfig checks if the project has proper configuration for deployment
 // Returns a warning message if configuration is missing, empty string if all is good
 func (d *Deployment) validateDeploymentConfig(config core.Config) string {
+	return ValidateBuildConfig(d.cwd, d.folder, config)
+}
+
+// ValidateBuildConfig checks if the project has proper configuration for building.
+// Used by both deploy and push commands.
+// Returns a warning message if configuration is missing, empty string if all is good.
+func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	// Skip validation for volume templates - they don't need language detection, Dockerfile, or entrypoint
 	if core.IsVolumeTemplate(config.Type) {
 		return ""
 	}
 
-	projectDir := filepath.Join(d.cwd, d.folder)
+	projectDir := filepath.Join(cwd, folder)
 
 	// Check for Dockerfile
 	dockerfilePath := filepath.Join(projectDir, "Dockerfile")
@@ -384,25 +402,26 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 			return warningMsg.String()
 		}
 
-		// Dockerfile exists, check if it contains sandbox-api
+		// Dockerfile exists, check if sandbox-api binary is available in the image.
+		// Valid patterns:
+		// 1. Base image from blaxel (already contains sandbox-api): FROM ghcr.io/blaxel-ai/sandbox
+		// 2. Multi-stage copy of the binary: COPY --from=ghcr.io/blaxel-ai/sandbox
 		dockerfileContent, err := os.ReadFile(dockerfilePath)
 		if err == nil {
 			content := string(dockerfileContent)
-			hasSandboxAPI := strings.Contains(content, "sandbox-api")
-			hasBlaxelSandboxImage := strings.Contains(content, "ghcr.io/blaxel-ai/sandbox-")
+			hasBlaxelSandboxBase := strings.Contains(content, "FROM ghcr.io/blaxel-ai/sandbox")
+			hasCopySandboxAPI := strings.Contains(content, "COPY --from=ghcr.io/blaxel-ai/sandbox")
 
-			if !hasSandboxAPI && !hasBlaxelSandboxImage {
-				// Dockerfile exists but doesn't have sandbox-api
+			if !hasBlaxelSandboxBase && !hasCopySandboxAPI {
 				var warningMsg strings.Builder
 				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 				codeColor := color.New(color.FgCyan)
-				fmt.Fprintf(&warningMsg, "Dockerfile found, but it doesn't contain %s or reference %s.\n\n",
-					codeColor.Sprint("sandbox-api"), codeColor.Sprint("any sandbox image from blaxel"))
-				warningMsg.WriteString("Your Dockerfile should come from a sandbox image or at least include sandbox-api:\n\n")
+				fmt.Fprintf(&warningMsg, "Dockerfile found, but %s binary is not available in the image.\n\n",
+					codeColor.Sprint("sandbox-api"))
+				warningMsg.WriteString("Your Dockerfile should either use a Blaxel sandbox base image or copy the binary:\n\n")
 				warningMsg.WriteString(codeColor.Sprint("COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api\n\n"))
-				warningMsg.WriteString(codeColor.Sprint("ENTRYPOINT [\"/usr/local/bin/sandbox-api\"]\n\n"))
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 				return warningMsg.String()
@@ -412,7 +431,7 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	}
 
 	// Check for language-specific files
-	language := core.ModuleLanguage(d.folder)
+	language := core.ModuleLanguage(folder)
 	hasLanguage := language != ""
 	hasEntrypoint := true
 
@@ -499,8 +518,11 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// Skip image resolution for volume-template as it doesn't use runtime/image
-	if skipBuild && !core.IsVolumeTemplate(config.Type) {
+	// If a pre-built image is specified in blaxel.toml, use it directly
+	if config.Image != "" {
+		runtime["image"] = config.Image
+	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
+		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)
 		if err != nil {
 			core.PrintError("Deployment", err)
@@ -584,7 +606,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	}
 	labels := map[string]interface{}{}
 	// Volume-template needs upload even without build
-	if !skipBuild || core.IsVolumeTemplate(config.Type) {
+	// When using a pre-built image, no upload is needed
+	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	if d.experimental {

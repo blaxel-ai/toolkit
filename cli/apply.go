@@ -169,7 +169,12 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 					}
 				}
 
-				resultOp := PutFn(resource, result.Kind, name, result, parentName, metadata)
+				var resultOp *ResourceOperationResult
+				if resource.Kind == "Sandbox" {
+					resultOp = PostThenPutFn(resource, result.Kind, name, result, parentName, metadata)
+				} else {
+					resultOp = PutFn(resource, result.Kind, name, result, parentName, metadata)
+				}
 				if resultOp != nil {
 					applyResults = append(applyResults, ApplyResult{
 						Kind:   resource.Kind,
@@ -443,6 +448,95 @@ func extractCallbackSecret(response interface{}) string {
 	return ""
 }
 
+// extractPreviewSpec extracts the preview URL and public flag from an API response
+func extractPreviewSpec(response interface{}) (url string, public bool) {
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return "", false
+	}
+
+	var resource map[string]interface{}
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
+		return "", false
+	}
+
+	if spec, ok := resource["spec"].(map[string]interface{}); ok {
+		if u, ok := spec["url"].(string); ok {
+			url = u
+		}
+		if p, ok := spec["public"].(bool); ok {
+			public = p
+		}
+	}
+
+	return url, public
+}
+
+// extractTokenValue extracts the token value from spec.token in an API response
+func extractTokenValue(response interface{}) string {
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return ""
+	}
+
+	var resource map[string]interface{}
+	if err := json.Unmarshal(jsonData, &resource); err != nil {
+		return ""
+	}
+
+	if spec, ok := resource["spec"].(map[string]interface{}); ok {
+		if token, ok := spec["token"].(string); ok {
+			return token
+		}
+	}
+
+	return ""
+}
+
+// printPreviewURL prints the preview URL after resource configured/created message
+func printPreviewURL(response interface{}, resourceName string, name string, status string) {
+	previewURL, isPublic := extractPreviewSpec(response)
+	if isPublic && previewURL != "" {
+		core.Print(fmt.Sprintf("Resource %s:%s %s url=%s\n", resourceName, name, status, previewURL))
+	} else {
+		core.Print(fmt.Sprintf("Resource %s:%s %s (private preview, URL available after token creation)\n", resourceName, name, status))
+	}
+}
+
+// buildPreviewTokenURL fetches the preview to get its URL and returns the URL with the token appended
+func buildPreviewTokenURL(response interface{}, parentName string, metadata map[string]interface{}) string {
+	token := extractTokenValue(response)
+	if token == "" {
+		return ""
+	}
+
+	// parentName is the preview name, resourceName in metadata is the sandbox name
+	sandboxName := ""
+	if rn, ok := metadata["resourceName"].(string); ok {
+		sandboxName = rn
+	}
+	if sandboxName == "" || parentName == "" {
+		return ""
+	}
+
+	client := core.GetClient()
+	preview, err := client.Sandboxes.Previews.Get(context.Background(), parentName, blaxel.SandboxPreviewGetParams{
+		SandboxName: sandboxName,
+	})
+	if err != nil || preview == nil {
+		return ""
+	}
+
+	if preview.Spec.URL != "" {
+		separator := "?"
+		if strings.Contains(preview.Spec.URL, "?") {
+			separator = "&"
+		}
+		return fmt.Sprintf("%s%sbl_preview_token=%s", preview.Spec.URL, separator, token)
+	}
+	return ""
+}
+
 // extractMetadataURL extracts the metadata URL from an API response
 func extractMetadataURL(response interface{}) string {
 	jsonData, err := json.Marshal(response)
@@ -462,6 +556,42 @@ func extractMetadataURL(response interface{}) string {
 	}
 
 	return ""
+}
+
+// PostThenPutFn tries POST first, then falls back to PUT on 409 (conflict).
+// Used for sandboxes where creating first is preferred over updating.
+func PostThenPutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}, parentName string, metadata map[string]interface{}) *ResourceOperationResult {
+	formattedError := fmt.Sprintf("Resource %s:%s error: ", resourceName, name)
+	opResult, err := handleResourceOperation(resource, name, resourceObject, "post", parentName, metadata)
+	if err != nil {
+		var apiErr *blaxel.Error
+		if ok := isBlaxelError(err, &apiErr); ok {
+			if apiErr.StatusCode == 409 {
+				return PutFn(resource, resourceName, name, resourceObject, parentName, metadata)
+			}
+		}
+		errorMsg := extractErrorMessage(err)
+		core.Print(fmt.Sprintf("%s%s\n", formattedError, errorMsg))
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: errorMsg,
+		}
+	}
+	if opResult == nil {
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: "operation returned no result",
+		}
+	}
+
+	result := ResourceOperationResult{
+		Status:      "created",
+		UploadURL:   opResult.UploadURL,
+		MetadataURL: extractMetadataURL(opResult.Response),
+	}
+
+	core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
+	return &result
 }
 
 func PutFn(resource *core.Resource, resourceName string, name string, resourceObject interface{}, parentName string, metadata map[string]interface{}) *ResourceOperationResult {
@@ -521,7 +651,18 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
+	if resourceName == "Preview" {
+		printPreviewURL(opResult.Response, resourceName, name, "configured")
+	} else if resourceName == "PreviewToken" {
+		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
+			core.Print(fmt.Sprintf("Resource %s:%s configured url=%s\n", resourceName, name, tokenURL))
+		} else {
+			core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
+		}
+	} else {
+		core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
+	}
+
 	return &result
 }
 
@@ -554,7 +695,18 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
+	if resourceName == "Preview" {
+		printPreviewURL(opResult.Response, resourceName, name, "created")
+	} else if resourceName == "PreviewToken" {
+		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
+			core.Print(fmt.Sprintf("Resource %s:%s created url=%s\n", resourceName, name, tokenURL))
+		} else {
+			core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
+		}
+	} else {
+		core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
+	}
+
 	return &result
 }
 

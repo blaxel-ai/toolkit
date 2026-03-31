@@ -237,21 +237,21 @@ type Package struct {
 
 // readConfigToml reads the config.toml file and upgrade config according to content
 type Config struct {
-	Name        string                    `toml:"name"`
-	Workspace   string                    `toml:"workspace"`
-	Type        string                    `toml:"type"`
-	Protocol    string                    `toml:"protocol"`
-	Functions   []string                  `toml:"functions"`
-	Models      []string                  `toml:"models"`
-	Agents      []string                  `toml:"agents"`
-	Entrypoint  Entrypoints               `toml:"entrypoint"`
-	Env         Envs                      `toml:"env"`
-	Function    map[string]Package        `toml:"function"`
-	Agent       map[string]Package        `toml:"agent"`
-	Job         map[string]Package        `toml:"job"`
-	SkipRoot    bool                      `toml:"skipRoot"`
-	Runtime     *map[string]interface{}   `toml:"runtime"`
-	Triggers    *[]map[string]interface{} `toml:"triggers"`
+	Name         string                    `toml:"name"`
+	Workspace    string                    `toml:"workspace"`
+	Type         string                    `toml:"type"`
+	Protocol     string                    `toml:"protocol"`
+	Functions    []string                  `toml:"functions"`
+	Models       []string                  `toml:"models"`
+	Agents       []string                  `toml:"agents"`
+	Entrypoint   Entrypoints               `toml:"entrypoint"`
+	Env          Envs                      `toml:"env"`
+	Function     map[string]Package        `toml:"function"`
+	Agent        map[string]Package        `toml:"agent"`
+	Job          map[string]Package        `toml:"job"`
+	SkipRoot     bool                      `toml:"skipRoot"`
+	Runtime      *map[string]interface{}   `toml:"runtime"`
+	Triggers     *[]map[string]interface{} `toml:"triggers"`
 	Volumes      *[]map[string]interface{} `toml:"volumes,omitempty"`
 	Policies     []string                  `toml:"policies,omitempty"`
 	DefaultSize  *int                      `toml:"defaultSize,omitempty"`
@@ -259,6 +259,7 @@ type Config struct {
 	Region       string                    `toml:"region,omitempty"`
 	Public       *bool                     `toml:"public,omitempty"`
 	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
+	Image        string                    `toml:"image,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
@@ -312,6 +313,7 @@ func resolveConfigVars() {
 		&config.Protocol,
 		&config.Region,
 		&config.Directory,
+		&config.Image,
 	}
 	for _, f := range fields {
 		if *f != "" {
@@ -415,6 +417,10 @@ memory = 4096
 # timeout = "15m"  # Supports: 30s, 5m, 1h, 2d, 1w or plain seconds (900)
 # maxRetries = 0
 
+# Pre-built Docker image (optional)
+# When set, the build step is skipped and this image is used directly
+# image = "docker.io/myorg/myimage:latest"
+
 # Volumes for Sandbox (optional)
 # [[volumes]]
 # name = "my-volume"
@@ -453,10 +459,10 @@ func PromptForDeploymentType() string {
 			huh.NewSelect[string]().
 				Title("What are you trying to deploy ?").
 				Options(
-					huh.NewOption("Agent", "agent"),
-					huh.NewOption("MCP (Function)", "function"),
 					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Agent", "agent"),
 					huh.NewOption("Job", "job"),
+					huh.NewOption("MCP (Function)", "function"),
 					huh.NewOption("Volume Template", "volumetemplate"),
 				).
 				Value(&selected),

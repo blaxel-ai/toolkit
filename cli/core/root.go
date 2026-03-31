@@ -265,8 +265,8 @@ var rootCmd = &cobra.Command{
 
 		blaxel.ApplyEnvironmentOverrides()
 
-		// Skip config reading for deploy command as it handles its own config logic with special type prompting
-		if cmd.Name() != "deploy" {
+		// Skip config reading for deploy and push commands as they handle their own config logic
+		if cmd.Name() != "deploy" && cmd.Name() != "push" {
 			readConfigToml("", true)
 		}
 
