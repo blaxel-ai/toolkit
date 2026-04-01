@@ -22,7 +22,7 @@ jobs:
           cp controlplane/api/api/definitions/controlplane.yml ./definition.yml
           rm -rf controlplane
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.23.x"
           check-latest: true
