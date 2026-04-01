@@ -10,6 +10,10 @@ on:
       - "test/integration/**"
       - "main.go"
 
+concurrency:
+  group: integration-tests-${{ github.head_ref }}
+  cancel-in-progress: true
+
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
