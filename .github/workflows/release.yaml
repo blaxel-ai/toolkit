@@ -12,7 +12,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Copy definition
         run: |
           git config --global user.name "github-actions[bot]"
@@ -22,13 +22,13 @@ jobs:
           cp controlplane/api/api/definitions/controlplane.yml ./definition.yml
           rm -rf controlplane
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.23.x"
           check-latest: true
           cache: true
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           # either 'goreleaser' (default) or 'goreleaser-pro'
           distribution: goreleaser
@@ -39,7 +39,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
       - name: Upload assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: blaxel
           path: dist/*
