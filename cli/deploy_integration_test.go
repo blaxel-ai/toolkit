@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"archive/zip"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -959,4 +962,240 @@ workspace = "test-workspace"
 	// Test Print with skipBuild=true (should skip archive creation)
 	err := d.Print(true)
 	require.NoError(t, err)
+}
+
+// TestZipContainsDockerConfig tests that docker config JSON is injected into the zip archive
+func TestZipContainsDockerConfig(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create test project files
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
+
+	dockerConfig := `{"auths":{"ghcr.io":{"auth":"dGVzdDp0b2tlbg=="}}}`
+
+	d := &Deployment{
+		dir:              ".blaxel",
+		folder:           "",
+		name:             "test",
+		cwd:              tempDir,
+		dockerConfigJSON: []byte(dockerConfig),
+	}
+
+	err := d.Zip()
+	require.NoError(t, err)
+
+	// Read the zip and verify .docker/config.json is present
+	reader, err := zip.OpenReader(d.archive.Name())
+	require.NoError(t, err)
+	defer reader.Close()
+
+	var found bool
+	for _, f := range reader.File {
+		if f.Name == ".docker/config.json" {
+			found = true
+			rc, err := f.Open()
+			require.NoError(t, err)
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			require.NoError(t, err)
+
+			var config core.DockerConfig
+			require.NoError(t, json.Unmarshal(data, &config))
+			assert.Equal(t, "dGVzdDp0b2tlbg==", config.Auths["ghcr.io"].Auth)
+			break
+		}
+	}
+	assert.True(t, found, ".docker/config.json should be present in the zip archive")
+}
+
+// TestZipExcludesRawDockerDir tests that the .docker directory from the project is excluded from the zip
+func TestZipExcludesRawDockerDir(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create test project with a .docker/config.json on disk
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(tempDir, ".docker"), 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tempDir, ".docker", "config.json"),
+		[]byte(`{"auths":{"docker.io":{"auth":"b2xk"}}}`),
+		0600,
+	))
+
+	// Inject a different config via the field (simulating flag override)
+	injectedConfig := `{"auths":{"ghcr.io":{"auth":"bmV3"}}}`
+
+	d := &Deployment{
+		dir:              ".blaxel",
+		folder:           "",
+		name:             "test",
+		cwd:              tempDir,
+		dockerConfigJSON: []byte(injectedConfig),
+	}
+
+	err := d.Zip()
+	require.NoError(t, err)
+
+	reader, err := zip.OpenReader(d.archive.Name())
+	require.NoError(t, err)
+	defer reader.Close()
+
+	dockerConfigCount := 0
+	for _, f := range reader.File {
+		if f.Name == ".docker/config.json" {
+			dockerConfigCount++
+			rc, err := f.Open()
+			require.NoError(t, err)
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			require.NoError(t, err)
+
+			// Should contain the injected config, not the on-disk one
+			var config core.DockerConfig
+			require.NoError(t, json.Unmarshal(data, &config))
+			assert.Equal(t, "bmV3", config.Auths["ghcr.io"].Auth, "should contain the injected config")
+			_, hasDockerhub := config.Auths["docker.io"]
+			assert.False(t, hasDockerhub, "on-disk .docker/config.json should be excluded by ignore rules")
+		}
+	}
+	assert.Equal(t, 1, dockerConfigCount, "should have exactly one .docker/config.json entry (the injected one)")
+}
+
+// TestZipNoDockerConfigWhenNil tests that no .docker/config.json is added when dockerConfigJSON is nil
+func TestZipNoDockerConfigWhenNil(t *testing.T) {
+	tempDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte("name = \"test\""), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
+
+	d := &Deployment{
+		dir:    ".blaxel",
+		folder: "",
+		name:   "test",
+		cwd:    tempDir,
+	}
+
+	err := d.Zip()
+	require.NoError(t, err)
+
+	reader, err := zip.OpenReader(d.archive.Name())
+	require.NoError(t, err)
+	defer reader.Close()
+
+	for _, f := range reader.File {
+		assert.NotEqual(t, ".docker/config.json", f.Name, "should not contain .docker/config.json when dockerConfigJSON is nil")
+	}
+}
+
+// TestPushWithRegistryCredIntegration is an end-to-end test that runs bl push
+// with --registry-cred against a real Blaxel workspace. It builds a sandbox
+// that copies a file from a private GHCR image (metamorph/unikraft-wrapper).
+//
+// This test is skipped unless BL_INTEGRATION_TEST=true and IMAGE_BUILD=true are set.
+// It also requires a GHCR token in GHCR_TOKEN and the bl CLI in PATH.
+func TestPushWithRegistryCredIntegration(t *testing.T) {
+	if os.Getenv("BL_INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping integration test; set BL_INTEGRATION_TEST=true to run")
+	}
+	if os.Getenv("IMAGE_BUILD") != "true" {
+		t.Skip("Skipping image build test; set IMAGE_BUILD=true to run")
+	}
+
+	blPath, err := exec.LookPath("bl")
+	if err != nil {
+		t.Fatal("bl CLI not found in PATH; install it or set BL_INTEGRATION_TEST=false")
+	}
+
+	// Get GHCR credentials
+	ghcrUser := os.Getenv("GHCR_USER")
+	ghcrToken := os.Getenv("GHCR_TOKEN")
+	if ghcrUser == "" {
+		ghcrUser = "blaxel-ai"
+	}
+	if ghcrToken == "" {
+		t.Fatal("GHCR_TOKEN must be set for this integration test")
+	}
+
+	tempDir := t.TempDir()
+
+	// Create blaxel.toml for sandbox
+	tomlContent := `name = "test-registry-cred"
+type = "sandbox"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
+
+	// Create Dockerfile that copies a small file from the private image.
+	// The unikraft-wrapper image contains a single file at /unikraft_wrapper.
+	dockerfile := `FROM ghcr.io/blaxel-ai/sandbox:latest
+
+COPY --from=ghcr.io/blaxel-ai/metamorph/unikraft-wrapper:latest /unikraft_wrapper /tmp/unikraft_wrapper
+
+ENTRYPOINT ["/usr/local/bin/sandbox-api"]
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "Dockerfile"), []byte(dockerfile), 0644))
+
+	// Run bl push with --registry-cred using the real CLI binary
+	registryCred := "ghcr.io=" + ghcrUser + ":" + ghcrToken
+
+	cmd := exec.Command(blPath, "push",
+		"--type", "sandbox",
+		"--name", "test-registry-cred",
+		"--yes",
+		"--registry-cred", registryCred,
+	)
+	cmd.Dir = tempDir
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+
+	output, err := cmd.CombinedOutput()
+	t.Logf("bl push output:\n%s", string(output))
+	assert.NoError(t, err, "bl push with --registry-cred should succeed")
+}
+
+// TestPushWithoutRegistryCredFailsIntegration verifies that pushing a sandbox
+// that references a private GHCR image fails when no registry credentials are provided.
+//
+// This test is skipped unless BL_INTEGRATION_TEST=true is set.
+func TestPushWithoutRegistryCredFailsIntegration(t *testing.T) {
+	if os.Getenv("BL_INTEGRATION_TEST") != "true" {
+		t.Skip("Skipping integration test; set BL_INTEGRATION_TEST=true to run")
+	}
+	if os.Getenv("IMAGE_BUILD") != "true" {
+		t.Skip("Skipping image build test; set IMAGE_BUILD=true to run")
+	}
+
+	blPath, err := exec.LookPath("bl")
+	if err != nil {
+		t.Fatal("bl CLI not found in PATH; install it or set BL_INTEGRATION_TEST=false")
+	}
+
+	tempDir := t.TempDir()
+
+	// Create blaxel.toml for sandbox
+	tomlContent := `name = "test-no-registry-cred"
+type = "sandbox"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
+
+	// Same Dockerfile referencing the private image, but we won't pass credentials
+	dockerfile := `FROM ghcr.io/blaxel-ai/sandbox:latest
+
+COPY --from=ghcr.io/blaxel-ai/metamorph/unikraft-wrapper:latest /unikraft_wrapper /tmp/unikraft_wrapper
+
+ENTRYPOINT ["/usr/local/bin/sandbox-api"]
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "Dockerfile"), []byte(dockerfile), 0644))
+
+	cmd := exec.Command(blPath, "push",
+		"--type", "sandbox",
+		"--name", "test-no-registry-cred",
+		"--yes",
+		// No --registry-cred flag
+	)
+	cmd.Dir = tempDir
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+
+	output, err := cmd.CombinedOutput()
+	t.Logf("bl push output (expected failure):\n%s", string(output))
+	assert.Error(t, err, "bl push without --registry-cred should fail when pulling from a private registry")
 }
