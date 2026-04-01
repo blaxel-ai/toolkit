@@ -50,6 +50,8 @@ func PushCmd() *cobra.Command {
 	var folder string
 	var resourceType string
 	var noTTY bool
+	var registryCreds []string
+	var dockerConfigPath string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -204,10 +206,18 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				printPushSuccess(resourceType, name, noTTY)
 			} else {
 				// Standard flow: package source code and upload
+				projectDir := filepath.Join(cwd, folder)
+				dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
+				if dockerErr != nil {
+					core.PrintError("Push", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
+					core.ExitWithError(dockerErr)
+				}
+
 				deployment := Deployment{
-					folder: folder,
-					name:   name,
-					cwd:    cwd,
+					folder:           folder,
+					name:             name,
+					cwd:              cwd,
+					dockerConfigJSON: dockerConfigJSON,
 				}
 
 				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
@@ -272,6 +282,8 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Source directory path")
 	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
+	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
+	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 
 	return cmd
 }

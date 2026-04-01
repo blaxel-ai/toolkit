@@ -43,6 +43,8 @@ func DeployCmd() *cobra.Command {
 	var noTTY bool
 	var experimental bool
 	var resourceType string
+	var registryCreds []string
+	var dockerConfigPath string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -143,12 +145,21 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				name = core.Slugify(name)
 			}
 
+			// Resolve Docker registry credentials
+			projectDir := filepath.Join(cwd, folder)
+			dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
+			if dockerErr != nil {
+				core.PrintError("Deploy", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
+				core.ExitWithError(dockerErr)
+			}
+
 			deployment := Deployment{
-				dir:          deployDir,
-				folder:       folder,
-				name:         name,
-				cwd:          cwd,
-				experimental: experimental,
+				dir:              deployDir,
+				folder:           folder,
+				name:             name,
+				cwd:              cwd,
+				experimental:     experimental,
+				dockerConfigJSON: dockerConfigJSON,
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -249,6 +260,8 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
+	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
+	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	return cmd
 }
 
@@ -264,6 +277,7 @@ type Deployment struct {
 	callbackSecret         string
 	metadataURL            string
 	experimental           bool
+	dockerConfigJSON       []byte
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -1562,6 +1576,7 @@ func (d *Deployment) IgnoredPaths() []string {
 	if err != nil {
 		return []string{
 			".blaxel",
+			".docker",
 			".git",
 			"dist",
 			".venv",
@@ -1620,6 +1635,7 @@ func toArchivePath(p string) string {
 
 type archiveWriter interface {
 	addFile(filePath string, headerName string) error
+	addBytes(data []byte, headerName string) error
 	close() error
 }
 
@@ -1630,6 +1646,22 @@ type zipArchiveWriter struct {
 
 func (z *zipArchiveWriter) addFile(filePath string, headerName string) error {
 	return z.deployment.addFileToZip(z.writer, filePath, headerName)
+}
+
+func (z *zipArchiveWriter) addBytes(data []byte, headerName string) error {
+	headerName = toArchivePath(headerName)
+	header := &zip.FileHeader{
+		Name:   headerName,
+		Method: zip.Deflate,
+	}
+	w, err := z.writer.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("failed to create zip entry for %s: %w", headerName, err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return fmt.Errorf("failed to write zip entry for %s: %w", headerName, err)
+	}
+	return nil
 }
 
 func (z *zipArchiveWriter) close() error {
@@ -1643,6 +1675,22 @@ type tarArchiveWriter struct {
 
 func (t *tarArchiveWriter) addFile(filePath string, headerName string) error {
 	return t.deployment.addFileToTar(t.writer, filePath, headerName)
+}
+
+func (t *tarArchiveWriter) addBytes(data []byte, headerName string) error {
+	headerName = toArchivePath(headerName)
+	header := &tar.Header{
+		Name: headerName,
+		Size: int64(len(data)),
+		Mode: 0600,
+	}
+	if err := t.writer.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header for %s: %w", headerName, err)
+	}
+	if _, err := t.writer.Write(data); err != nil {
+		return fmt.Errorf("failed to write tar entry for %s: %w", headerName, err)
+	}
+	return nil
 }
 
 func (t *tarArchiveWriter) close() error {
@@ -1739,6 +1787,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
 		if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
 			return err
+		}
+	}
+
+	// Inject Docker registry config if available
+	if d.dockerConfigJSON != nil {
+		if err := writer.addBytes(d.dockerConfigJSON, ".docker/config.json"); err != nil {
+			return fmt.Errorf("failed to add docker config to archive: %w", err)
 		}
 	}
 
