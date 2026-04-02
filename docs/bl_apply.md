@@ -51,16 +51,59 @@ bl apply [flags]
   # Apply with secrets
   bl apply -f config.yaml -s API_KEY=xxx -s DB_PASSWORD=yyy
 
-  # Example YAML structure:
+  # Example YAML structure for an agent:
   # apiVersion: blaxel.ai/v1alpha1
   # kind: Agent
   # metadata:
   #   name: my-agent
   # spec:
   #   runtime:
-	#     generation: mk3
 	#     image: agent/my-template-agent:latest
   #     memory: 4096
+
+  # Create a sandbox with the default base image
+  bl apply -f - <<EOF
+  apiVersion: blaxel.ai/v1alpha1
+  kind: Sandbox
+  metadata:
+    name: my-sandbox
+  spec:
+    runtime:
+      image: blaxel/base-image:latest
+      memory: 2048
+  EOF
+
+  # Create a sandbox with a custom pushed image
+  bl apply -f - <<EOF
+  apiVersion: blaxel.ai/v1alpha1
+  kind: Sandbox
+  metadata:
+    name: my-sandbox
+  spec:
+    runtime:
+      image: sandbox/my-sandbox:latest
+      memory: 4096
+  EOF
+
+  # Create a sandbox in a specific region with a volume
+  bl apply -f - <<EOF
+  apiVersion: blaxel.ai/v1alpha1
+  kind: Sandbox
+  metadata:
+    name: my-sandbox
+  spec:
+    region: eu-lon-1
+    volumes:
+      - name: my-volume
+        mountPath: /data
+    runtime:
+      image: blaxel/base-image:latest
+      ports:
+        - name: sandbox-api
+          target: 8080
+          protocol: HTTP
+      memory: 4096
+  EOF
 ```
 
 ### Options

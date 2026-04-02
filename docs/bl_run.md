@@ -24,6 +24,9 @@ Different resource types behave differently when run:
 - function/mcp: Invoke an MCP server function
                 Calls a specific tool or method
 
+- sandbox (sbx): Execute a command in a sandbox VM
+                 Runs shell commands via the sandbox process API
+
 Local vs Remote:
 - Remote (default): Runs against deployed resources in your workspace
 - Local (--local): Runs against locally served resources (requires 'bl serve')
@@ -69,6 +72,21 @@ bl run resource-type resource-name [flags]
 
   # Debug mode (see full request/response details)
   bl run agent my-agent --data '{}' --debug
+
+  # Execute a command in a sandbox
+  bl run sandbox my-sandbox --path /process --data '{"command": "echo hello"}'
+
+  # Execute a command and wait for it to complete (returns stdout/stderr in response)
+  bl run sandbox my-sandbox --path /process --data '{"command": "ls -al /app", "waitForCompletion": true}'
+
+  # Execute a command with a working directory and a process name
+  bl run sandbox my-sandbox --path /process --data '{"command": "npm install", "name": "install-deps", "workingDir": "/app"}'
+
+  # Execute a long-running command with keep-alive (prevents sandbox auto-standby)
+  bl run sandbox my-sandbox --path /process --data '{"command": "npm run dev -- --port 3000", "name": "dev-server", "keepAlive": true}'
+
+  # You can also use the 'sbx' shorthand
+  bl run sbx my-sandbox --path /process --data '{"command": "python script.py", "waitForCompletion": true}'
 ```
 
 ### Options
