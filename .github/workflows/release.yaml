@@ -43,3 +43,9 @@ jobs:
         with:
           name: blaxel
           path: dist/*
+      - name: Trigger agent-skills CLI docs update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: blaxel-ai/agent-skills
+          event-type: cli-release
