@@ -77,6 +77,7 @@ func TestNewBuildLogWatcher(t *testing.T) {
 	assert.NotNil(t, watcher.seenLogs)
 	assert.NotNil(t, watcher.ctx)
 	assert.NotNil(t, watcher.cancel)
+	assert.Nil(t, watcher.pendingLogs)
 
 	// Test the onLog callback
 	watcher.onLog("test message")
@@ -201,4 +202,69 @@ func TestInternalPluralizeResourceType(t *testing.T) {
 	// Test with unknown type (should use core.Pluralize fallback)
 	result = pluralizeResourceType("unknown-type")
 	assert.Contains(t, result, "unknown-type")
+}
+
+func TestFlushPendingLogs(t *testing.T) {
+	var receivedLogs []string
+	onLog := func(log string) {
+		receivedLogs = append(receivedLogs, log)
+	}
+
+	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", onLog)
+
+	// Add entries out of chronological order
+	now := time.Now()
+	watcher.pendingLogs = []bufferedLogEntry{
+		{timestamp: now.Add(2 * time.Second), message: "third", fetchedAt: now},
+		{timestamp: now, message: "first", fetchedAt: now},
+		{timestamp: now.Add(1 * time.Second), message: "second", fetchedAt: now},
+	}
+
+	watcher.flushPendingLogs()
+
+	// Should be sorted by timestamp
+	assert.Equal(t, []string{"first", "second", "third"}, receivedLogs)
+	assert.Nil(t, watcher.pendingLogs)
+}
+
+func TestFlushPendingLogsEmpty(t *testing.T) {
+	var receivedLogs []string
+	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(log string) {
+		receivedLogs = append(receivedLogs, log)
+	})
+
+	// Flushing empty buffer should not panic
+	watcher.flushPendingLogs()
+	assert.Empty(t, receivedLogs)
+}
+
+func TestStopFlushesPendingLogs(t *testing.T) {
+	var receivedLogs []string
+	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(log string) {
+		receivedLogs = append(receivedLogs, log)
+	})
+
+	now := time.Now()
+	watcher.pendingLogs = []bufferedLogEntry{
+		{timestamp: now.Add(1 * time.Second), message: "B", fetchedAt: now},
+		{timestamp: now, message: "A", fetchedAt: now},
+	}
+
+	watcher.Stop()
+
+	// Stop should flush in sorted order
+	assert.Equal(t, []string{"A", "B"}, receivedLogs)
+}
+
+func TestBufferedLogEntry(t *testing.T) {
+	now := time.Now()
+	entry := bufferedLogEntry{
+		timestamp: now,
+		message:   "test message",
+		fetchedAt: now,
+	}
+
+	assert.Equal(t, now, entry.timestamp)
+	assert.Equal(t, "test message", entry.message)
+	assert.Equal(t, now, entry.fetchedAt)
 }
