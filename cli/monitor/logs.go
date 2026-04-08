@@ -42,6 +42,7 @@ type BuildLogWatcher struct {
 	mu           sync.Mutex
 	startAt      time.Time
 	pendingLogs  []bufferedLogEntry // Buffer for ordering before display
+	wg           sync.WaitGroup     // Tracks the watchLogs goroutine
 }
 
 // NewBuildLogWatcher creates a new build log watcher
@@ -73,6 +74,7 @@ func pluralizeResourceType(resourceType string) string {
 func (w *BuildLogWatcher) Start() {
 	// Record the exact start time to avoid fetching logs before watcher begins
 	w.startAt = time.Now().UTC()
+	w.wg.Add(1)
 	go w.watchLogs()
 }
 
@@ -81,11 +83,16 @@ func (w *BuildLogWatcher) Stop() {
 	if w.cancel != nil {
 		w.cancel()
 	}
+	// Wait for the watchLogs goroutine to exit so no in-flight entries
+	// are lost between fetchBuildLogs returning and pendingLogs append.
+	w.wg.Wait()
 	// Flush any remaining buffered logs in sorted order
 	w.flushPendingLogs()
 }
 
 func (w *BuildLogWatcher) watchLogs() {
+	defer w.wg.Done()
+
 	// Initial delay to allow build to start
 	time.Sleep(200 * time.Millisecond)
 
