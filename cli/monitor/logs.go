@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,19 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
+
+// logBufferAge is the minimum time a log entry must be buffered before display.
+// This allows late-arriving log entries (due to OpenTelemetry batch ingestion
+// delays) to be sorted into the correct chronological position before output.
+const logBufferAge = 4 * time.Second
+
+// bufferedLogEntry represents a log entry with its parsed timestamp for sorting
+// and a fetch time for buffer age tracking.
+type bufferedLogEntry struct {
+	timestamp time.Time
+	message   string
+	fetchedAt time.Time
+}
 
 // BuildLogWatcher watches build logs for a resource
 type BuildLogWatcher struct {
@@ -27,6 +41,8 @@ type BuildLogWatcher struct {
 	seenLogs     map[string]bool // Track logs we've already shown
 	mu           sync.Mutex
 	startAt      time.Time
+	pendingLogs  []bufferedLogEntry // Buffer for ordering before display
+	wg           sync.WaitGroup     // Tracks the watchLogs goroutine
 }
 
 // NewBuildLogWatcher creates a new build log watcher
@@ -58,17 +74,25 @@ func pluralizeResourceType(resourceType string) string {
 func (w *BuildLogWatcher) Start() {
 	// Record the exact start time to avoid fetching logs before watcher begins
 	w.startAt = time.Now().UTC()
+	w.wg.Add(1)
 	go w.watchLogs()
 }
 
-// Stop stops watching build logs
+// Stop stops watching build logs and flushes any buffered entries
 func (w *BuildLogWatcher) Stop() {
 	if w.cancel != nil {
 		w.cancel()
 	}
+	// Wait for the watchLogs goroutine to exit so no in-flight entries
+	// are lost between fetchBuildLogs returning and pendingLogs append.
+	w.wg.Wait()
+	// Flush any remaining buffered logs in sorted order
+	w.flushPendingLogs()
 }
 
 func (w *BuildLogWatcher) watchLogs() {
+	defer w.wg.Done()
+
 	// Initial delay to allow build to start
 	time.Sleep(200 * time.Millisecond)
 
@@ -78,15 +102,13 @@ func (w *BuildLogWatcher) watchLogs() {
 	failureCount := 0
 	maxFailures := 5
 
-	attempt := 0
 	for {
 		select {
 		case <-w.ctx.Done():
 			return
 		case <-ticker.C:
-			attempt++
 			// Fetch all logs each time - we'll deduplicate locally
-			logs, err := w.fetchBuildLogs(0)
+			newEntries, err := w.fetchBuildLogs(0)
 			if err != nil {
 				failureCount++
 				if failureCount >= maxFailures {
@@ -103,15 +125,53 @@ func (w *BuildLogWatcher) watchLogs() {
 			// Reset failure count on success
 			failureCount = 0
 
-			// Process new log lines
-			for _, log := range logs {
-				w.onLog(log)
+			// Add new entries to the pending buffer
+			w.mu.Lock()
+			w.pendingLogs = append(w.pendingLogs, newEntries...)
+
+			// Sort all pending logs by their original timestamp
+			sort.Slice(w.pendingLogs, func(i, j int) bool {
+				return w.pendingLogs[i].timestamp.Before(w.pendingLogs[j].timestamp)
+			})
+
+			// Display entries sequentially from the front of the buffer
+			// that have been buffered long enough for late-arriving logs
+			// to settle into their correct sorted position.
+			now := time.Now()
+			displayUpTo := 0
+			for i, entry := range w.pendingLogs {
+				if now.Sub(entry.fetchedAt) >= logBufferAge {
+					displayUpTo = i + 1
+				} else {
+					break
+				}
 			}
+
+			for i := 0; i < displayUpTo; i++ {
+				w.onLog(w.pendingLogs[i].message)
+			}
+			w.pendingLogs = w.pendingLogs[displayUpTo:]
+			w.mu.Unlock()
 		}
 	}
 }
 
-func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
+// flushPendingLogs outputs all remaining buffered logs in sorted order.
+func (w *BuildLogWatcher) flushPendingLogs() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	sort.Slice(w.pendingLogs, func(i, j int) bool {
+		return w.pendingLogs[i].timestamp.Before(w.pendingLogs[j].timestamp)
+	})
+
+	for _, entry := range w.pendingLogs {
+		w.onLog(entry.message)
+	}
+	w.pendingLogs = nil
+}
+
+func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]bufferedLogEntry, error) {
 	// Calculate time window: from watcher start time to a bit in the future
 	start := w.startAt.Format("2006-01-02T15:04:05")
 	end := w.startAt.Add(15 * time.Minute).Format("2006-01-02T15:04:05")
@@ -155,30 +215,35 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("resource %s not found", w.resourceName)
 	}
-	// Extract messages from the logs
-	var messages []string
-	if resourceData, ok := response[w.resourceName]; ok {
-		// API returns logs newest-first, reverse to chronological order
-		logs := resourceData.Logs
-		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
-			logs[i], logs[j] = logs[j], logs[i]
-		}
 
-		// Return logs with deduplication check
+	// Extract log entries with parsed timestamps for proper ordering
+	now := time.Now()
+	var entries []bufferedLogEntry
+	if resourceData, ok := response[w.resourceName]; ok {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		for _, log := range logs {
-			// Use timestamp + message as unique key
+		for _, log := range resourceData.Logs {
+			// Use timestamp + message as unique key for deduplication
 			key := fmt.Sprintf("%s:%s", log.Timestamp, log.Message)
 			if !w.seenLogs[key] {
 				w.seenLogs[key] = true
-				messages = append(messages, log.Message)
+				ts, parseErr := time.Parse(time.RFC3339Nano, log.Timestamp)
+				if parseErr != nil {
+					// Fall back to zero time if parsing fails; entry still
+					// sorts to the front so it is displayed promptly.
+					ts = time.Time{}
+				}
+				entries = append(entries, bufferedLogEntry{
+					timestamp: ts,
+					message:   log.Message,
+					fetchedAt: now,
+				})
 			}
 		}
 	}
 
-	return messages, nil
+	return entries, nil
 }
 
 // LogEntry represents a single log entry with timestamp
