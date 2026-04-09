@@ -63,6 +63,9 @@ bl deploy [flags]
   # Deploy specific subdirectory in monorepo
   bl deploy -d ./packages/my-agent
 
+  # Deploy specifying a resource type
+  bl deploy --type sandbox
+
   # Recursively deploy all projects in monorepo
   bl deploy -R
 ```
@@ -70,16 +73,19 @@ bl deploy [flags]
 ### Options
 
 ```
-  -d, --directory string   Deployment app path, can be a sub directory
-      --dryrun             Dry run the deployment
-  -e, --env-file strings   Environment file to load (default [.env])
-      --experimental       Enable experimental features (e.g. USER directive support)
-  -h, --help               help for deploy
-  -n, --name string        Optional name for the deployment
-  -r, --recursive          Deploy recursively (default true)
-  -s, --secrets strings    Secrets to deploy
-      --skip-build         Skip the build step
-  -y, --yes                Skip interactive mode
+  -d, --directory string            Deployment app path, can be a sub directory
+      --docker-config string        Path to a Docker config.json file with registry credentials
+      --dryrun                      Dry run the deployment
+  -e, --env-file strings            Environment file to load (default [.env])
+      --experimental                Enable experimental features (e.g. USER directive support)
+  -h, --help                        help for deploy
+  -n, --name string                 Optional name for the deployment
+  -r, --recursive                   Deploy recursively (default true)
+  -c, --registry-cred stringArray   Registry credentials (format: registry=username:password, repeatable)
+  -s, --secrets strings             Secrets to deploy
+      --skip-build                  Skip the build step
+  -t, --type string                 Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'
+  -y, --yes                         Skip interactive mode
 ```
 
 ### Options inherited from parent commands

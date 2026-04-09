@@ -120,6 +120,12 @@ func TestGetImagesCmd(t *testing.T) {
 	assert.Contains(t, cmd.Aliases, "img")
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotEmpty(t, cmd.Long)
+
+	// Verify --latest flag is registered
+	latestFlag := cmd.Flags().Lookup("latest")
+	assert.NotNil(t, latestFlag)
+	assert.Equal(t, "false", latestFlag.DefValue)
+	assert.Contains(t, latestFlag.Usage, "most recent tag")
 }
 
 func TestDeleteImagesCmd(t *testing.T) {
@@ -137,6 +143,7 @@ func TestGetImagesCmdExamples(t *testing.T) {
 
 	assert.NotEmpty(t, cmd.Example)
 	assert.Contains(t, cmd.Example, "bl get images")
+	assert.Contains(t, cmd.Example, "--latest")
 }
 
 func TestDeleteImagesCmdExamples(t *testing.T) {

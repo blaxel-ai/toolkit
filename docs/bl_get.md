@@ -77,6 +77,18 @@ The command can list all resources of a type or get details for a specific one.
   # Get specific process in a sandbox
   bl get sandbox my-sandbox process my-process
 
+  # List previews for a sandbox
+  bl get sandbox my-sandbox previews
+
+  # Get a specific preview
+  bl get sandbox my-sandbox preview my-preview
+
+  # List tokens for a sandbox preview
+  bl get sandbox my-sandbox preview my-preview tokens
+
+  # Get a specific token
+  bl get sandbox my-sandbox preview my-preview token my-token
+
   # --- Filtering with jq ---
 
   # Get names of all jobs with status DELETING
@@ -119,12 +131,15 @@ The command can list all resources of a type or get details for a specific one.
 
 * [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl get agents](bl_get_agents.md)	 - Get a Agent
+* [bl get drives](bl_get_drives.md)	 - Get a Drive
 * [bl get functions](bl_get_functions.md)	 - Get a Function
 * [bl get image](bl_get_image.md)	 - Get image information
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - Get a IntegrationConnection
 * [bl get jobs](bl_get_jobs.md)	 - Get a Job
 * [bl get models](bl_get_models.md)	 - Get a Model
 * [bl get policies](bl_get_policies.md)	 - Get a Policy
+* [bl get previews](bl_get_previews.md)	 - Get a Preview
+* [bl get previewtokens](bl_get_previewtokens.md)	 - Get a PreviewToken
 * [bl get sandboxes](bl_get_sandboxes.md)	 - Get a Sandbox
 * [bl get volumes](bl_get_volumes.md)	 - Get a Volume
 * [bl get volumetemplates](bl_get_volumetemplates.md)	 - Get a VolumeTemplate

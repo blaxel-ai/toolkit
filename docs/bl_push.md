@@ -46,11 +46,13 @@ bl push [flags]
 ### Options
 
 ```
-  -d, --directory string   Source directory path
-  -h, --help               help for push
-  -n, --name string        Name for the image (defaults to directory name)
-  -t, --type string        Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set
-  -y, --yes                Skip interactive mode
+  -d, --directory string            Source directory path
+      --docker-config string        Path to a Docker config.json file with registry credentials
+  -h, --help                        help for push
+  -n, --name string                 Name for the image (defaults to directory name)
+  -c, --registry-cred stringArray   Registry credentials (format: registry=username:password, repeatable)
+  -t, --type string                 Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set
+  -y, --yes                         Skip interactive mode
 ```
 
 ### Options inherited from parent commands
