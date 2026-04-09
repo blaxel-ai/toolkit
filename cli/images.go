@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -38,6 +39,7 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 }
 
 func GetImagesCmd() *cobra.Command {
+	var latest bool
 	cmd := &cobra.Command{
 		Use:               "image [resourceType/imageName[:tag]]",
 		Aliases:           []string{"images", "img"},
@@ -49,11 +51,16 @@ Usage patterns:
   bl get images                          List all images (without tags)
   bl get image agent/my-image            Get image details for a specific resource type
   bl get image agent/my-image:v1.0       Get specific tag information
+  bl get image sandbox/my-image --latest Get the latest tag reference for an image
 
 The image reference format is: resourceType/imageName[:tag]
-- resourceType: Type of resource (e.g., agent, function, job)
+- resourceType: Type of resource (e.g., agent, function, job, sandbox)
 - imageName: The name of the image
-- tag: Optional tag to filter for a specific version`,
+- tag: Optional tag to filter for a specific version
+
+The --latest flag returns the image reference with the most recent tag,
+formatted as resourceType/imageName:tag. This is useful for scripting
+and for retrieving the IMAGE_ID to use when creating sandboxes from templates.`,
 		Example: `  # List all images
   bl get images
 
@@ -63,10 +70,36 @@ The image reference format is: resourceType/imageName[:tag]
   # Get a specific tag
   bl get image agent/my-agent:latest
 
+  # Get the latest tag reference (useful for sandbox templates)
+  bl get image sandbox/mytemplate --latest
+
   # Use different output formats
   bl get images -o json
   bl get image agent/my-agent -o pretty`,
 		Run: func(cmd *cobra.Command, args []string) {
+			if latest {
+				if len(args) != 1 {
+					err := fmt.Errorf("--latest requires exactly one image argument\nUsage: bl get image resourceType/imageName --latest")
+					fmt.Println(err)
+					core.ExitWithError(err)
+				}
+
+				resourceType, imageName, tag, err := parseImageRef(args[0])
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					core.ExitWithError(err)
+				}
+
+				if tag != "" {
+					err := fmt.Errorf("--latest cannot be used with an explicit tag\nUsage: bl get image resourceType/imageName --latest")
+					fmt.Println(err)
+					core.ExitWithError(err)
+				}
+
+				getImageLatest(resourceType, imageName)
+				return
+			}
+
 			if len(args) == 0 {
 				// List all images
 				ListAllImages()
@@ -89,6 +122,7 @@ The image reference format is: resourceType/imageName[:tag]
 			getImage(resourceType, imageName, tag)
 		},
 	}
+	cmd.Flags().BoolVar(&latest, "latest", false, "Return only the most recent tag reference (e.g., sandbox/mytemplate:tag)")
 	return cmd
 }
 
@@ -141,6 +175,34 @@ func ListAllImages() {
 	// Get the image resource for output formatting
 	resource := getImageResource()
 	core.Output(*resource, images, core.GetOutputFormat())
+}
+
+// getImageLatest fetches an image and prints the reference with the most recent tag.
+// Output format: resourceType/imageName:latestTagName
+func getImageLatest(resourceType, imageName string) {
+	ctx := context.Background()
+	client := core.GetClient()
+
+	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
+	if err != nil {
+		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
+		fmt.Println(err)
+		core.ExitWithError(err)
+	}
+
+	tags := imageResult.Spec.Tags
+	if len(tags) == 0 {
+		err := fmt.Errorf("no tags found for image %s/%s", resourceType, imageName)
+		fmt.Println(err)
+		core.ExitWithError(err)
+	}
+
+	// Sort tags by createdAt descending to find the most recent
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i].CreatedAt > tags[j].CreatedAt
+	})
+
+	fmt.Printf("%s/%s:%s\n", resourceType, imageName, tags[0].Name)
 }
 
 func getImage(resourceType, imageName, tag string) {
