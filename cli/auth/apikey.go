@@ -21,7 +21,7 @@ func LoginApiKey(workspace string) {
 		for {
 			_, err := fmt.Scanln(&apiKey)
 			if err != nil {
-				core.PrintWarning("API key is required. Please enter your API key")
+				core.PrintWarning("Blaxel API key is required. Please enter your Blaxel API key")
 			}
 
 			if apiKey != "" {
