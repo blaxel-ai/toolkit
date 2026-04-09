@@ -1730,6 +1730,10 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 			if err != nil || path == archiveRoot {
 				return nil
 			}
+			// Exclude blaxel.toml from the count (it won't be archived)
+			if filepath.Base(path) == "blaxel.toml" {
+				return nil
+			}
 			totalFiles++
 			return nil
 		})
@@ -1742,6 +1746,11 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 
 		// Only apply ignore logic for non-volume-template types
 		if !core.IsVolumeTemplate(config.Type) && d.shouldIgnorePath(path, ignoredPaths) {
+			return nil
+		}
+
+		// For volume-templates, exclude blaxel.toml from the archive
+		if core.IsVolumeTemplate(config.Type) && filepath.Base(path) == "blaxel.toml" {
 			return nil
 		}
 
@@ -1779,7 +1788,8 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		return fmt.Errorf("failed to create archive: %w", err)
 	}
 
-	if d.folder != "" {
+	// For non-volume-template types, add blaxel.toml and Dockerfile when deploying from a subdirectory
+	if d.folder != "" && !core.IsVolumeTemplate(config.Type) {
 		blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
 		if err := writer.addFile(blaxelTomlPath, "blaxel.toml"); err != nil {
 			return err
@@ -1790,8 +1800,8 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 	}
 
-	// Inject Docker registry config if available
-	if d.dockerConfigJSON != nil {
+	// Inject Docker registry config if available (not needed for volume-templates)
+	if d.dockerConfigJSON != nil && !core.IsVolumeTemplate(config.Type) {
 		if err := writer.addBytes(d.dockerConfigJSON, ".docker/config.json"); err != nil {
 			return fmt.Errorf("failed to add docker config to archive: %w", err)
 		}
