@@ -15,14 +15,14 @@ Usage patterns:
   bl delete image agent/my-image:v1.0     Delete only the specified tag
 
 The image reference format is: resourceType/imageName[:tag]
-- resourceType: The type of resource (e.g., agent, function, job)
+- resourceType: Type of resource (e.g., agent, function, job)
 - imageName: The name of the image
 - tag: Optional tag to delete only that specific version
 
 WARNING: Deleting an image without specifying a tag will remove ALL tags.
 
 ```
-bl delete image resourceType/imageName[:tag] [resourceType/imageName[:tag]...] [flags]
+bl delete image [resourceType/]imageName[:tag] ... [flags]
 ```
 
 ### Examples

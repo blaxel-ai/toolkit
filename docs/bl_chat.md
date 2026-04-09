@@ -61,6 +61,7 @@ bl chat [agent-name] [flags]
       --header strings   Request headers in 'Key: Value' format. Can be specified multiple times
   -h, --help             help for chat
       --local            Run locally
+  -p, --port int         Port to connect to when using --local (default 1338)
 ```
 
 ### Options inherited from parent commands
