@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"archive/tar"
 	"os"
 	"path/filepath"
 	"testing"
@@ -344,6 +345,133 @@ type = "volumetemplate"
 	// Verify file exists
 	_, err = os.Stat(filepath.Join(tempDir, "blaxel.toml"))
 	assert.NoError(t, err)
+}
+
+func TestVolumeTemplateTarExcludesBlaxelToml(t *testing.T) {
+	// Create a temp directory simulating a volume-template project
+	tempDir, err := os.MkdirTemp("", "deploy_vt_test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Create blaxel.toml (should be excluded from archive)
+	tomlContent := `name = "my-volume"
+type = "volume-template"
+`
+	err = os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644)
+	require.NoError(t, err)
+
+	// Create actual content files (should be included)
+	err = os.WriteFile(filepath.Join(tempDir, "data.txt"), []byte("some data"), 0644)
+	require.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(tempDir, "subdir"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tempDir, "subdir", "nested.txt"), []byte("nested data"), 0644)
+	require.NoError(t, err)
+
+	// Save current directory and change to temp directory
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// Set up config as volume-template
+	core.ResetConfig()
+	core.ReadConfigToml("", false)
+	config := core.GetConfig()
+	assert.Equal(t, "volume-template", config.Type)
+
+	// Create the tar archive
+	d := Deployment{
+		cwd: tempDir,
+	}
+	err = d.Tar()
+	require.NoError(t, err)
+
+	// Read the tar and collect all file names
+	tarFile, err := os.Open(d.archive.Name())
+	require.NoError(t, err)
+	defer func() { _ = tarFile.Close() }()
+
+	tarReader := tar.NewReader(tarFile)
+	var archivedFiles []string
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			break
+		}
+		archivedFiles = append(archivedFiles, header.Name)
+	}
+
+	// blaxel.toml must NOT be in the archive
+	assert.NotContains(t, archivedFiles, "blaxel.toml")
+
+	// data files must be present
+	assert.Contains(t, archivedFiles, "data.txt")
+	assert.Contains(t, archivedFiles, "subdir/nested.txt")
+}
+
+func TestVolumeTemplateTarWithDirectoryExcludesBlaxelToml(t *testing.T) {
+	// Create a temp directory simulating a volume-template with directory="app"
+	tempDir, err := os.MkdirTemp("", "deploy_vt_dir_test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	// Create blaxel.toml at root with directory config
+	tomlContent := `name = "my-volume"
+type = "volume-template"
+directory = "app"
+`
+	err = os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644)
+	require.NoError(t, err)
+
+	// Create app directory with content and a blaxel.toml (should still be excluded)
+	err = os.MkdirAll(filepath.Join(tempDir, "app"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tempDir, "app", "index.html"), []byte("<html></html>"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tempDir, "app", "blaxel.toml"), []byte("should not be included"), 0644)
+	require.NoError(t, err)
+
+	// Save current directory and change to temp directory
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// Set up config as volume-template
+	core.ResetConfig()
+	core.ReadConfigToml("", false)
+	config := core.GetConfig()
+	assert.Equal(t, "volume-template", config.Type)
+	assert.Equal(t, "app", config.Directory)
+
+	// Create the tar archive
+	d := Deployment{
+		cwd: tempDir,
+	}
+	err = d.Tar()
+	require.NoError(t, err)
+
+	// Read the tar and collect all file names
+	tarFile, err := os.Open(d.archive.Name())
+	require.NoError(t, err)
+	defer func() { _ = tarFile.Close() }()
+
+	tarReader := tar.NewReader(tarFile)
+	var archivedFiles []string
+	for {
+		header, err := tarReader.Next()
+		if err != nil {
+			break
+		}
+		archivedFiles = append(archivedFiles, header.Name)
+	}
+
+	// blaxel.toml must NOT be in the archive
+	assert.NotContains(t, archivedFiles, "blaxel.toml")
+
+	// index.html must be present
+	assert.Contains(t, archivedFiles, "index.html")
 }
 
 func TestDeploymentReadBlaxelToml(t *testing.T) {

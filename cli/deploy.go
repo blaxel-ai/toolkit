@@ -1730,6 +1730,10 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 			if err != nil || path == archiveRoot {
 				return nil
 			}
+			// Exclude blaxel.toml from the count (it won't be archived)
+			if filepath.Base(path) == "blaxel.toml" {
+				return nil
+			}
 			totalFiles++
 			return nil
 		})
@@ -1742,6 +1746,11 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 
 		// Only apply ignore logic for non-volume-template types
 		if !core.IsVolumeTemplate(config.Type) && d.shouldIgnorePath(path, ignoredPaths) {
+			return nil
+		}
+
+		// For volume-templates, exclude blaxel.toml from the archive
+		if core.IsVolumeTemplate(config.Type) && filepath.Base(path) == "blaxel.toml" {
 			return nil
 		}
 
@@ -1780,9 +1789,12 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	}
 
 	if d.folder != "" {
-		blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
-		if err := writer.addFile(blaxelTomlPath, "blaxel.toml"); err != nil {
-			return err
+		// Skip blaxel.toml for volume-templates (it's a CLI config, not volume content)
+		if !core.IsVolumeTemplate(config.Type) {
+			blaxelTomlPath := filepath.Join(d.cwd, d.folder, "blaxel.toml")
+			if err := writer.addFile(blaxelTomlPath, "blaxel.toml"); err != nil {
+				return err
+			}
 		}
 		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
 		if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
