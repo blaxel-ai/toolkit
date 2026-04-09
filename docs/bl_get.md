@@ -4,7 +4,7 @@ slug: bl_get
 ---
 ## bl get
 
-Get a resource
+List or retrieve Blaxel resources in your workspace
 
 ### Synopsis
 
@@ -129,18 +129,18 @@ The command can list all resources of a type or get details for a specific one.
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
-* [bl get agents](bl_get_agents.md)	 - Get a Agent
-* [bl get drives](bl_get_drives.md)	 - Get a Drive
-* [bl get functions](bl_get_functions.md)	 - Get a Function
+* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+* [bl get agents](bl_get_agents.md)	 - List all agents or get details of a specific one
+* [bl get drives](bl_get_drives.md)	 - List all drives or get details of a specific one
+* [bl get functions](bl_get_functions.md)	 - List all functions or get details of a specific one
 * [bl get image](bl_get_image.md)	 - Get image information
-* [bl get integrationconnections](bl_get_integrationconnections.md)	 - Get a IntegrationConnection
-* [bl get jobs](bl_get_jobs.md)	 - Get a Job
-* [bl get models](bl_get_models.md)	 - Get a Model
-* [bl get policies](bl_get_policies.md)	 - Get a Policy
-* [bl get previews](bl_get_previews.md)	 - Get a Preview
-* [bl get previewtokens](bl_get_previewtokens.md)	 - Get a PreviewToken
-* [bl get sandboxes](bl_get_sandboxes.md)	 - Get a Sandbox
-* [bl get volumes](bl_get_volumes.md)	 - Get a Volume
-* [bl get volumetemplates](bl_get_volumetemplates.md)	 - Get a VolumeTemplate
+* [bl get integrationconnections](bl_get_integrationconnections.md)	 - List all integrationconnections or get details of a specific one
+* [bl get jobs](bl_get_jobs.md)	 - List all jobs or get details of a specific one
+* [bl get models](bl_get_models.md)	 - List all models or get details of a specific one
+* [bl get policies](bl_get_policies.md)	 - List all policies or get details of a specific one
+* [bl get previews](bl_get_previews.md)	 - List all previews or get details of a specific one
+* [bl get previewtokens](bl_get_previewtokens.md)	 - List all previewtokens or get details of a specific one
+* [bl get sandboxes](bl_get_sandboxes.md)	 - List all sandboxes or get details of a specific one
+* [bl get volumes](bl_get_volumes.md)	 - List all volumes or get details of a specific one
+* [bl get volumetemplates](bl_get_volumetemplates.md)	 - List all volumetemplates or get details of a specific one
 

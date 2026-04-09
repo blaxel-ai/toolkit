@@ -40,7 +40,7 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "new [type] [directory]",
 		Args:              cobra.RangeArgs(0, 2),
-		Short:             "Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)",
+		Short:             "Scaffold a new project from a template (agent, mcp, sandbox, job, volume-template)",
 		ValidArgsFunction: GetNewValidArgsFunction(),
 		Long: `Create a new Blaxel resource from templates.
 

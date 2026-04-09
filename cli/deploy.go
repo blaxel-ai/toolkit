@@ -50,7 +50,7 @@ func DeployCmd() *cobra.Command {
 		Use:     "deploy",
 		Args:    cobra.ExactArgs(0),
 		Aliases: []string{"d", "dp"},
-		Short:   "Deploy on blaxel",
+		Short:   "Build, push, and deploy your project to Blaxel",
 		Long: `Deploy your Blaxel project to the cloud.
 
 This command packages your code, builds a container image, and deploys it

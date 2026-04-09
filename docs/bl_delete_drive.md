@@ -4,7 +4,7 @@ slug: bl_delete_drive
 ---
 ## bl delete drive
 
-Delete drive
+Delete one or more drives
 
 ```
 bl delete drive name [name...] [flags]
@@ -28,5 +28,5 @@ bl delete drive name [name...] [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 

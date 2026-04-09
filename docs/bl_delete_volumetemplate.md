@@ -4,7 +4,7 @@ slug: bl_delete_volumetemplate
 ---
 ## bl delete volumetemplate
 
-Delete volumetemplate
+Delete one or more volumetemplates
 
 ```
 bl delete volumetemplate name [name...] [flags]
@@ -28,5 +28,5 @@ bl delete volumetemplate name [name...] [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 

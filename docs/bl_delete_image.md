@@ -56,5 +56,5 @@ bl delete image [resourceType/]imageName[:tag] ... [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 

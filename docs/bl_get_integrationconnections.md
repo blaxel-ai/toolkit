@@ -4,7 +4,7 @@ slug: bl_get_integrationconnections
 ---
 ## bl get integrationconnections
 
-Get a IntegrationConnection
+List all integrationconnections or get details of a specific one
 
 ```
 bl get integrationconnections [flags]
@@ -29,5 +29,5 @@ bl get integrationconnections [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

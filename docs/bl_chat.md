@@ -76,5 +76,5 @@ bl chat [agent-name] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
 

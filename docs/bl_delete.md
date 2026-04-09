@@ -4,7 +4,7 @@ slug: bl_delete
 ---
 ## bl delete
 
-Delete a resource
+Delete resources from your workspace
 
 ### Synopsis
 
@@ -103,18 +103,18 @@ bl delete [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
-* [bl delete agent](bl_delete_agent.md)	 - Delete agent
-* [bl delete drive](bl_delete_drive.md)	 - Delete drive
-* [bl delete function](bl_delete_function.md)	 - Delete function
+* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+* [bl delete agent](bl_delete_agent.md)	 - Delete one or more agents
+* [bl delete drive](bl_delete_drive.md)	 - Delete one or more drives
+* [bl delete function](bl_delete_function.md)	 - Delete one or more functions
 * [bl delete image](bl_delete_image.md)	 - Delete images or image tags
-* [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete integrationconnection
-* [bl delete job](bl_delete_job.md)	 - Delete job
-* [bl delete model](bl_delete_model.md)	 - Delete model
-* [bl delete policy](bl_delete_policy.md)	 - Delete policy
-* [bl delete preview](bl_delete_preview.md)	 - Delete preview
-* [bl delete previewtoken](bl_delete_previewtoken.md)	 - Delete previewtoken
-* [bl delete sandbox](bl_delete_sandbox.md)	 - Delete sandbox
-* [bl delete volume](bl_delete_volume.md)	 - Delete volume
-* [bl delete volumetemplate](bl_delete_volumetemplate.md)	 - Delete volumetemplate
+* [bl delete integrationconnection](bl_delete_integrationconnection.md)	 - Delete one or more integrationconnections
+* [bl delete job](bl_delete_job.md)	 - Delete one or more jobs
+* [bl delete model](bl_delete_model.md)	 - Delete one or more models
+* [bl delete policy](bl_delete_policy.md)	 - Delete one or more policies
+* [bl delete preview](bl_delete_preview.md)	 - Delete one or more previews
+* [bl delete previewtoken](bl_delete_previewtoken.md)	 - Delete one or more previewtokens
+* [bl delete sandbox](bl_delete_sandbox.md)	 - Delete one or more sandboxes
+* [bl delete volume](bl_delete_volume.md)	 - Delete one or more volumes
+* [bl delete volumetemplate](bl_delete_volumetemplate.md)	 - Delete one or more volumetemplates
 

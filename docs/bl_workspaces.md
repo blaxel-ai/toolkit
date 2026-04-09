@@ -4,7 +4,7 @@ slug: bl_workspaces
 ---
 ## bl workspaces
 
-List all workspaces with the current workspace highlighted, set optionally a new current workspace
+List workspaces or switch the current workspace
 
 ### Synopsis
 
@@ -70,5 +70,5 @@ bl workspaces [workspace] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
 

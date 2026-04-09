@@ -30,7 +30,7 @@ func ServeCmd() *cobra.Command {
 		Use:     "serve",
 		Args:    cobra.MaximumNArgs(1),
 		Aliases: []string{"s", "se"},
-		Short:   "Serve a blaxel project",
+		Short:   "Start a local development server for your project",
 		Long: `Start a local development server for your Blaxel project.
 
 This runs your agent or MCP server locally on your machine for rapid

@@ -4,7 +4,7 @@ slug: bl
 ---
 ## bl
 
-Blaxel CLI is a command line tool to interact with Blaxel APIs.
+Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
 
 ### Options
 
@@ -22,19 +22,19 @@ Blaxel CLI is a command line tool to interact with Blaxel APIs.
 * [bl apply](bl_apply.md)	 - Apply a configuration to a resource by file
 * [bl chat](bl_chat.md)	 - Chat with an agent
 * [bl completion](bl_completion.md)	 - Generate shell completion scripts
-* [bl connect](bl_connect.md)	 - Connect into your sandbox resources
-* [bl delete](bl_delete.md)	 - Delete a resource
-* [bl deploy](bl_deploy.md)	 - Deploy on blaxel
-* [bl get](bl_get.md)	 - Get a resource
+* [bl connect](bl_connect.md)	 - Open an interactive terminal session to a sandbox
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
+* [bl deploy](bl_deploy.md)	 - Build, push, and deploy your project to Blaxel
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 * [bl login](bl_login.md)	 - Login to Blaxel
 * [bl logout](bl_logout.md)	 - Logout from Blaxel
-* [bl logs](bl_logs.md)	 - View logs for a resource
-* [bl new](bl_new.md)	 - Create a new blaxel resource (agent, mcp, sandbox, job, volume-template)
-* [bl push](bl_push.md)	 - Build and push an image to the Blaxel registry
-* [bl run](bl_run.md)	 - Run a resource on blaxel
-* [bl serve](bl_serve.md)	 - Serve a blaxel project
+* [bl logs](bl_logs.md)	 - View and stream logs for agents, jobs, sandboxes, and functions
+* [bl new](bl_new.md)	 - Scaffold a new project from a template (agent, mcp, sandbox, job, volume-template)
+* [bl push](bl_push.md)	 - Build and push a container image to the Blaxel registry
+* [bl run](bl_run.md)	 - Execute a resource (agent, model, job, function, sandbox)
+* [bl serve](bl_serve.md)	 - Start a local development server for your project
 * [bl token](bl_token.md)	 - Retrieve authentication token for a workspace
 * [bl upgrade](bl_upgrade.md)	 - Upgrade the Blaxel CLI to the latest version
 * [bl version](bl_version.md)	 - Print the version number
-* [bl workspaces](bl_workspaces.md)	 - List all workspaces with the current workspace highlighted, set optionally a new current workspace
+* [bl workspaces](bl_workspaces.md)	 - List workspaces or switch the current workspace
 

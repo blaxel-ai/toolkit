@@ -112,7 +112,7 @@ func LogsCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:               "logs RESOURCE_TYPE RESOURCE_NAME [NESTED_ARGS...]",
-		Short:             "View logs for a resource",
+		Short:             "View and stream logs for agents, jobs, sandboxes, and functions",
 		ValidArgsFunction: GetLogsValidArgsFunction(),
 		Long: `View logs for Blaxel resources.
 

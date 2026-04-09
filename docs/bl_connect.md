@@ -4,11 +4,11 @@ slug: bl_connect
 ---
 ## bl connect
 
-Connect into your sandbox resources
+Open an interactive terminal session to a sandbox
 
 ### Synopsis
 
-Connect into your sandbox resources with interactive interfaces
+Open an interactive terminal session to a sandbox
 
 ### Options
 
@@ -28,6 +28,6 @@ Connect into your sandbox resources with interactive interfaces
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
 * [bl connect sandbox](bl_connect_sandbox.md)	 - Connect to a sandbox environment
 
