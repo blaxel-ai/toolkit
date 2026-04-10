@@ -243,8 +243,48 @@ The command can list all resources of a type or get details for a specific one.`
 
 		cmd.AddCommand(subcmd)
 	}
+
+	// Add templates subcommand (non-CRUD, fetches from GitHub API)
+	cmd.AddCommand(getTemplatesCmd())
+
 	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
 	return cmd
+}
+
+func getTemplatesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "templates [type]",
+		Short:   "List available project templates",
+		Aliases: []string{"template", "tpl"},
+		Args:    cobra.MaximumNArgs(1),
+		Long: `List available templates that can be used with 'bl new'.
+
+Templates are grouped by type (agent, mcp, sandbox, job, volume-template).
+Use an optional type argument to filter results.
+
+Output formats:
+  -o json   Machine-readable JSON array
+  -o yaml   YAML output
+  default   Table with NAME, TYPE, LANGUAGE, DESCRIPTION columns`,
+		Example: `  # List all templates
+  bl get templates
+
+  # List agent templates only
+  bl get templates agent
+
+  # List templates as JSON
+  bl get templates -o json
+
+  # List MCP templates
+  bl get templates mcp`,
+		Run: func(cmd *cobra.Command, args []string) {
+			filterType := ""
+			if len(args) == 1 {
+				filterType = args[0]
+			}
+			listAvailableTemplates(filterType, core.GetOutputFormat())
+		},
+	}
 }
 
 func GetFn(resource *core.Resource, name string) {

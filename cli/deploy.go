@@ -24,6 +24,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -233,19 +234,36 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				return
 			}
 
+			outputFmt := core.GetOutputFormat()
+			isStructured := outputFmt == "json" || outputFmt == "yaml"
+
+			// Force non-interactive mode for structured output
+			if isStructured {
+				noTTY = true
+				core.SetInteractiveMode(false)
+			}
+
+			startTime := time.Now()
+
 			if !noTTY {
 				err = deployment.ApplyInteractive()
 			} else {
 				err = deployment.Apply()
 			}
-			if err != nil {
+
+			deployFailed := err != nil
+			if deployFailed && !isStructured {
 				err = fmt.Errorf("error applying blaxel deployment: %w", err)
 				core.PrintError("Deploy", err)
 				core.ExitWithError(err)
 			}
 
-			// Only show success message for non-interactive deployments
-			if noTTY {
+			if isStructured {
+				deployment.printStructuredOutput(outputFmt, startTime, deployFailed, err)
+				if deployFailed {
+					core.ExitWithError(err)
+				}
+			} else if noTTY {
 				deployment.Ready()
 			}
 		},
@@ -1446,6 +1464,57 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 		// If we can't find/apply the resource, just mark as complete
 		model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
 		model.AddBuildLog(idx, "Resource marked as complete")
+	}
+}
+
+func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time, failed bool, deployErr error) {
+	config := core.GetConfig()
+	duration := time.Since(startTime).Round(time.Second).String()
+
+	type deployResourceResult struct {
+		Kind   string `json:"kind"`
+		Name   string `json:"name"`
+		Status string `json:"status"`
+		URL    string `json:"url,omitempty"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	type deployResult struct {
+		Resources     []deployResourceResult `json:"resources"`
+		Success       bool                   `json:"success"`
+		TotalDuration string                 `json:"totalDuration"`
+	}
+
+	result := deployResult{
+		Success:       !failed,
+		TotalDuration: duration,
+	}
+
+	resourceStatus := "DEPLOYED"
+	if failed {
+		resourceStatus = "FAILED"
+	}
+
+	res := deployResourceResult{
+		Kind:   config.Type,
+		Name:   d.name,
+		Status: resourceStatus,
+	}
+	if d.metadataURL != "" {
+		res.URL = d.metadataURL
+	}
+	if failed && deployErr != nil {
+		res.Error = deployErr.Error()
+	}
+	result.Resources = append(result.Resources, res)
+
+	switch outputFmt {
+	case "json":
+		data, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Println(string(data))
+	case "yaml":
+		data, _ := yaml.Marshal(result)
+		fmt.Print(string(data))
 	}
 }
 

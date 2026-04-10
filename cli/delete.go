@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -157,11 +159,17 @@ separately if needed.`,
 				}
 
 				hasFailures := false
+				var deleted []deleteEntry
+				var failed []deleteEntry
 				for _, name := range args {
 					if err := DeleteFn(resource, name); err != nil {
 						hasFailures = true
+						failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
+					} else {
+						deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
 					}
 				}
+				printDeleteStructuredOutput(deleted, failed)
 				if hasFailures {
 					core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 				}
@@ -228,4 +236,43 @@ func DeleteFn(resource *core.Resource, name string) error {
 	// Success if we get here without error
 	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
 	return nil
+}
+
+type deleteEntry struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+func printDeleteStructuredOutput(deleted []deleteEntry, failed []deleteEntry) {
+	outputFmt := core.GetOutputFormat()
+	if outputFmt != "json" && outputFmt != "yaml" {
+		return
+	}
+
+	type deleteOutput struct {
+		Deleted []deleteEntry `json:"deleted"`
+		Failed  []deleteEntry `json:"failed"`
+		Success bool          `json:"success"`
+	}
+
+	output := deleteOutput{
+		Deleted: deleted,
+		Failed:  failed,
+		Success: len(failed) == 0,
+	}
+	if output.Deleted == nil {
+		output.Deleted = []deleteEntry{}
+	}
+	if output.Failed == nil {
+		output.Failed = []deleteEntry{}
+	}
+
+	switch outputFmt {
+	case "json":
+		data, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(data))
+	case "yaml":
+		data, _ := yaml.Marshal(output)
+		fmt.Print(string(data))
+	}
 }

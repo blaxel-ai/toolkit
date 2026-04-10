@@ -12,6 +12,7 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -163,6 +164,11 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 				}
 			}
 
+			outputFmt := core.GetOutputFormat()
+			if outputFmt == "json" || outputFmt == "yaml" {
+				printApplyStructuredOutput(applyResults, outputFmt, !hasFailures)
+			}
+
 			if hasFailures {
 				core.ExitWithError(fmt.Errorf("one or more resources failed to apply"))
 			}
@@ -253,6 +259,50 @@ func Apply(filePath string, opts ...ApplyOption) ([]ApplyResult, error) {
 	}
 
 	return applyResults, nil
+}
+
+func printApplyStructuredOutput(results []ApplyResult, outputFmt string, success bool) {
+	type applyResourceResult struct {
+		Kind   string `json:"kind"`
+		Name   string `json:"name"`
+		Action string `json:"action"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	type applyOutput struct {
+		Applied []applyResourceResult `json:"applied"`
+		Failed  []applyResourceResult `json:"failed"`
+		Success bool                  `json:"success"`
+	}
+
+	output := applyOutput{
+		Applied: []applyResourceResult{},
+		Failed:  []applyResourceResult{},
+		Success: success,
+	}
+
+	for _, r := range results {
+		entry := applyResourceResult{
+			Kind:   r.Kind,
+			Name:   r.Name,
+			Action: r.Result.Status,
+		}
+		if r.Result.Status == "failed" {
+			entry.Error = r.Result.ErrorMsg
+			output.Failed = append(output.Failed, entry)
+		} else {
+			output.Applied = append(output.Applied, entry)
+		}
+	}
+
+	switch outputFmt {
+	case "json":
+		data, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(data))
+	case "yaml":
+		data, _ := yaml.Marshal(output)
+		fmt.Print(string(data))
+	}
 }
 
 // handleResourceOperationResult contains both the response and upload URL
