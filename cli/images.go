@@ -516,9 +516,15 @@ The image reference format is: resourceType/imageName
 				core.ExitWithError(err)
 			}
 
-			resourceType, imageName, _, err := parseImageRef(args[0])
+			resourceType, imageName, tag, err := parseImageRef(args[0])
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
+				core.ExitWithError(err)
+			}
+
+			if tag != "" {
+				err := fmt.Errorf("sharing a specific tag is not supported, remove ':%s' from the reference", tag)
+				fmt.Println(err)
 				core.ExitWithError(err)
 			}
 
@@ -566,9 +572,15 @@ The image reference format is: resourceType/imageName
 				core.ExitWithError(err)
 			}
 
-			resourceType, imageName, _, err := parseImageRef(args[0])
+			resourceType, imageName, tag, err := parseImageRef(args[0])
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
+				core.ExitWithError(err)
+			}
+
+			if tag != "" {
+				err := fmt.Errorf("unsharing a specific tag is not supported, remove ':%s' from the reference", tag)
+				fmt.Println(err)
 				core.ExitWithError(err)
 			}
 
