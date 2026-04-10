@@ -4,7 +4,7 @@ slug: bl_get_models
 ---
 ## bl get models
 
-Get a Model
+List all models or get details of a specific one
 
 ```
 bl get models [flags]
@@ -29,5 +29,5 @@ bl get models [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

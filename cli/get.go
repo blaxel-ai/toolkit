@@ -28,7 +28,7 @@ func init() {
 func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
-		Short: "Get a resource",
+		Short: "List or retrieve Blaxel resources in your workspace",
 		Long: `Retrieve information about Blaxel resources in your workspace.
 
 A "resource" in Blaxel refers to any deployable or manageable entity:
@@ -148,7 +148,7 @@ The command can list all resources of a type or get details for a specific one.`
 		subcmd := &cobra.Command{
 			Use:               resource.Plural,
 			Aliases:           aliases,
-			Short:             fmt.Sprintf("Get a %s", resource.Kind),
+			Short:             fmt.Sprintf("List all %s or get details of a specific one", resource.Plural),
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				// Check if this is a nested resource request

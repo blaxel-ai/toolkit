@@ -42,5 +42,5 @@ bl connect sandbox [sandbox-name] [flags]
 
 ### SEE ALSO
 
-* [bl connect](bl_connect.md)	 - Connect into your sandbox resources
+* [bl connect](bl_connect.md)	 - Open an interactive terminal session to a sandbox
 

@@ -20,7 +20,7 @@ func DeleteCmd() *cobra.Command {
 	var recursive bool
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Delete a resource",
+		Short: "Delete resources from your workspace",
 		Long: `Delete Blaxel resources from your workspace.
 
 WARNING: Deletion is permanent and cannot be undone. Resources are immediately
@@ -140,7 +140,7 @@ separately if needed.`,
 		subcmd := &cobra.Command{
 			Use:               fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
 			Aliases:           aliases,
-			Short:             fmt.Sprintf("Delete %s", resource.Singular),
+			Short:             fmt.Sprintf("Delete one or more %s", resource.Plural),
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {

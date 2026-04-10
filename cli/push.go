@@ -56,7 +56,7 @@ func PushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push",
 		Args:  cobra.ExactArgs(0),
-		Short: "Build and push an image to the Blaxel registry",
+		Short: "Build and push a container image to the Blaxel registry",
 		Long: `Build and push a container image to the Blaxel registry without creating a deployment.
 
 This command packages your code, uploads it, and builds a container image that

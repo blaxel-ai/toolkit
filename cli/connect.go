@@ -22,8 +22,8 @@ func init() {
 func ConnectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
-		Short: "Connect into your sandbox resources",
-		Long:  "Connect into your sandbox resources with interactive interfaces",
+		Short: "Open an interactive terminal session to a sandbox",
+		Long:  "Open an interactive terminal session to a sandbox",
 	}
 
 	cmd.AddCommand(ConnectSandboxCmd())

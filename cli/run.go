@@ -50,7 +50,7 @@ func RunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "run resource-type resource-name",
 		Args:              cobra.ExactArgs(2),
-		Short:             "Run a resource on blaxel",
+		Short:             "Execute a resource (agent, model, job, function, sandbox)",
 		ValidArgsFunction: GetRunValidArgsFunction(),
 		Long: `Execute a Blaxel resource with custom input data.
 

@@ -4,7 +4,7 @@ slug: bl_get_policies
 ---
 ## bl get policies
 
-Get a Policy
+List all policies or get details of a specific one
 
 ```
 bl get policies [flags]
@@ -29,5 +29,5 @@ bl get policies [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

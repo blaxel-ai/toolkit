@@ -4,7 +4,7 @@ slug: bl_get_jobs
 ---
 ## bl get jobs
 
-Get a Job
+List all jobs or get details of a specific one
 
 ```
 bl get jobs [flags]
@@ -29,5 +29,5 @@ bl get jobs [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

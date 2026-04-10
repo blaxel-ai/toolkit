@@ -4,7 +4,7 @@ slug: bl_delete_job
 ---
 ## bl delete job
 
-Delete job
+Delete one or more jobs
 
 ```
 bl delete job name [name...] [flags]
@@ -28,5 +28,5 @@ bl delete job name [name...] [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 
