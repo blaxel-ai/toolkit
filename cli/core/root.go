@@ -231,7 +231,7 @@ var skipVersionWarning bool
 var commandSecrets []string
 var rootCmd = &cobra.Command{
 	Use:   "bl",
-	Short: "Blaxel CLI — manage and deploy AI agents, sandboxes, and resources",
+	Short: "Blaxel CLI - manage and deploy AI agents, sandboxes, and resources",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip version warning for specific commands/conditions
 		shouldSkipWarning := skipVersionWarning ||

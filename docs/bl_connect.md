@@ -28,6 +28,6 @@ Open an interactive terminal session to a sandbox
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+* [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl connect sandbox](bl_connect_sandbox.md)	 - Connect to a sandbox environment
 

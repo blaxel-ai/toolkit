@@ -103,7 +103,7 @@ bl delete [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+* [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl delete agent](bl_delete_agent.md)	 - Delete one or more agents
 * [bl delete drive](bl_delete_drive.md)	 - Delete one or more drives
 * [bl delete function](bl_delete_function.md)	 - Delete one or more functions

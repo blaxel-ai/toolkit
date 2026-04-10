@@ -4,7 +4,7 @@ slug: bl
 ---
 ## bl
 
-Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 
 ### Options
 

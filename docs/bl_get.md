@@ -129,7 +129,7 @@ The command can list all resources of a type or get details for a specific one.
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI — manage and deploy AI agents, sandboxes, and resources
+* [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl get agents](bl_get_agents.md)	 - List all agents or get details of a specific one
 * [bl get drives](bl_get_drives.md)	 - List all drives or get details of a specific one
 * [bl get functions](bl_get_functions.md)	 - List all functions or get details of a specific one
