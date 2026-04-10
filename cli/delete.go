@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -185,7 +186,7 @@ func DeleteFn(resource *core.Resource, name string) error {
 	if resource.Delete == nil {
 		hint := nestedResourceHint(resource, "delete")
 		err := fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint)
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
@@ -195,7 +196,7 @@ func DeleteFn(resource *core.Resource, name string) error {
 	funcValue := reflect.ValueOf(resource.Delete)
 	if funcValue.Kind() != reflect.Func {
 		err := fmt.Errorf("fn is not a valid function")
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
@@ -228,7 +229,7 @@ func DeleteFn(resource *core.Resource, name string) error {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 

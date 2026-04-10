@@ -308,9 +308,8 @@ func SendMessageStream(
 
 	// Check if response is actually streaming
 	contentType := response.Header.Get("Content-Type")
-	connection := response.Header.Get("Connection")
 
-	if !core.IsStreamingResponse(contentType, connection) &&
+	if !core.IsStreamingResponse(contentType) &&
 		!strings.Contains(contentType, "application/json") {
 		// Fall back to reading entire response
 		body, err := io.ReadAll(response.Body)

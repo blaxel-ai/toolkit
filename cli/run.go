@@ -290,8 +290,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 
 			// Detect streaming response
 			contentType := res.Header.Get("Content-Type")
-			connection := res.Header.Get("Connection")
-			isSSE := core.IsStreamingResponse(contentType, connection)
+			isSSE := core.IsStreamingResponse(contentType)
 
 			if isSSE || stream {
 				// Handle streaming response

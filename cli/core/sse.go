@@ -85,8 +85,8 @@ func extractTextFromJSON(data string) string {
 }
 
 // IsStreamingResponse checks if the HTTP response indicates a streaming response
-// based on Content-Type and Connection headers.
-func IsStreamingResponse(contentType string, connection string) bool {
+// based on Content-Type header.
+func IsStreamingResponse(contentType string) bool {
 	return strings.Contains(contentType, "text/event-stream") ||
 		strings.Contains(contentType, "text/plain") ||
 		strings.Contains(contentType, "application/x-ndjson")

@@ -162,21 +162,19 @@ data: {"content":"after"}
 func TestIsStreamingResponse(t *testing.T) {
 	tests := []struct {
 		contentType string
-		connection  string
 		expected    bool
 	}{
-		{"text/event-stream", "", true},
-		{"text/event-stream; charset=utf-8", "", true},
-		{"text/plain", "", true},
-		{"application/x-ndjson", "", true},
-		{"application/json", "keep-alive", false},
-		{"application/json", "", false},
+		{"text/event-stream", true},
+		{"text/event-stream; charset=utf-8", true},
+		{"text/plain", true},
+		{"application/x-ndjson", true},
+		{"application/json", false},
 	}
 
 	for _, tt := range tests {
-		got := IsStreamingResponse(tt.contentType, tt.connection)
+		got := IsStreamingResponse(tt.contentType)
 		if got != tt.expected {
-			t.Errorf("IsStreamingResponse(%q, %q) = %v, want %v", tt.contentType, tt.connection, got, tt.expected)
+			t.Errorf("IsStreamingResponse(%q) = %v, want %v", tt.contentType, got, tt.expected)
 		}
 	}
 }
