@@ -86,7 +86,7 @@ Examples:
 				token = credentials.APIKey
 			}
 			if token == "" {
-				err := fmt.Errorf("no access token or API key found. Please run 'bl login' first")
+				err := fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first")
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
