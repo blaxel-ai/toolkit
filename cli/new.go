@@ -95,7 +95,7 @@ After Creation:
 				if len(args) >= 1 {
 					t := parseNewType(args[0])
 					if t != "" {
-						filterType = string(t)
+						filterType = newTypeToTemplateKey(t)
 					}
 				}
 				listAvailableTemplates(filterType, core.GetOutputFormat())
@@ -212,6 +212,14 @@ func parseNewType(s string) newType {
 	}
 }
 
+// newTypeToTemplateKey maps a newType to the template topic key used by RetrieveTemplates.
+func newTypeToTemplateKey(t newType) string {
+	if t == newTypeVolumeTemplate {
+		return "volume-template"
+	}
+	return string(t)
+}
+
 type templateInfo struct {
 	Name        string `json:"name"`
 	FullName    string `json:"fullName"`
@@ -232,9 +240,11 @@ func listAvailableTemplates(filterType string, outputFormat string) {
 	stripRe := regexp.MustCompile(`^\d+-`)
 
 	var results []templateInfo
+	var lastErr error
 	for _, t := range types {
 		templates, err := core.RetrieveTemplates(t)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		for _, tmpl := range templates {
@@ -252,7 +262,11 @@ func listAvailableTemplates(filterType string, outputFormat string) {
 	}
 
 	if len(results) == 0 {
-		core.PrintInfo("No templates found")
+		if lastErr != nil {
+			core.PrintError("Templates", fmt.Errorf("failed to retrieve templates: %w", lastErr))
+		} else {
+			core.PrintInfo("No templates found")
+		}
 		return
 	}
 

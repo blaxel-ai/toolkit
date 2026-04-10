@@ -13,6 +13,7 @@ import (
 // Returns any scanner error encountered during reading.
 func ReadSSEStream(reader io.Reader, onChunk func(text string)) error {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), 10*1024*1024) // support up to 10 MB per line
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -86,8 +87,7 @@ func extractTextFromJSON(data string) string {
 // IsStreamingResponse checks if the HTTP response indicates a streaming response
 // based on Content-Type and Connection headers.
 func IsStreamingResponse(contentType string, connection string) bool {
-	return connection == "keep-alive" ||
-		strings.Contains(contentType, "text/event-stream") ||
+	return strings.Contains(contentType, "text/event-stream") ||
 		strings.Contains(contentType, "text/plain") ||
 		strings.Contains(contentType, "application/x-ndjson")
 }

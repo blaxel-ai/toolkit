@@ -211,6 +211,16 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				}
 			}
 
+			outputFmt := core.GetOutputFormat()
+			isStructured := outputFmt == "json" || outputFmt == "yaml"
+
+			// Force non-interactive mode for structured output before Generate(),
+			// so volume-template tar creation uses the correct mode
+			if isStructured {
+				noTTY = true
+				core.SetInteractiveMode(false)
+			}
+
 			if recursive {
 				if deployPackage(dryRun, name) {
 					return
@@ -234,15 +244,6 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				return
 			}
 
-			outputFmt := core.GetOutputFormat()
-			isStructured := outputFmt == "json" || outputFmt == "yaml"
-
-			// Force non-interactive mode for structured output
-			if isStructured {
-				noTTY = true
-				core.SetInteractiveMode(false)
-			}
-
 			startTime := time.Now()
 
 			if !noTTY {
@@ -252,10 +253,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			deployFailed := err != nil
-			if deployFailed && !isStructured {
+			if deployFailed {
 				err = fmt.Errorf("error applying blaxel deployment: %w", err)
-				core.PrintError("Deploy", err)
-				core.ExitWithError(err)
+				if !isStructured {
+					core.PrintError("Deploy", err)
+					core.ExitWithError(err)
+				}
 			}
 
 			if isStructured {
@@ -323,12 +326,18 @@ func (d *Deployment) Generate(skipBuild bool) error {
 			// For interactive mode, skip compression here - it will be done during deployment
 			// to show progress to the user
 			if !core.IsInteractiveMode() {
-				fmt.Println("Compressing volume template files...")
+				outputFmt := core.GetOutputFormat()
+				isStructured := outputFmt == "json" || outputFmt == "yaml"
+				if !isStructured {
+					fmt.Println("Compressing volume template files...")
+				}
 				err = d.Tar()
 				if err != nil {
 					return fmt.Errorf("failed to tar file: %w", err)
 				}
-				fmt.Println("Compression completed")
+				if !isStructured {
+					fmt.Println("Compression completed")
+				}
 			}
 		} else {
 			err = d.Zip()
@@ -747,9 +756,14 @@ func getResourceStatus(resourceType, name string) (string, error) {
 }
 
 func (d *Deployment) Apply() error {
+	outputFmt := core.GetOutputFormat()
+	isStructured := outputFmt == "json" || outputFmt == "yaml"
+
 	blaxelDir := filepath.Join(d.cwd, ".blaxel")
 	if _, err := os.Stat(blaxelDir); err == nil {
-		fmt.Println("Applying additional resources from .blaxel directory...")
+		if !isStructured {
+			fmt.Println("Applying additional resources from .blaxel directory...")
+		}
 		_, err = Apply(blaxelDir, WithRecursive(true))
 		if err != nil {
 			return fmt.Errorf("failed to apply .blaxel directory: %w", err)
@@ -783,28 +797,31 @@ func (d *Deployment) Apply() error {
 
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
-			config := core.GetConfig()
-			// Print upload message for all resource types
-			resourceLabel := "code"
-			switch strings.ToLower(config.Type) {
-			case "volumetemplate":
-				resourceLabel = "volume template"
-			case "agent":
-				resourceLabel = "agent code"
-			case "function":
-				resourceLabel = "function code"
-			case "job":
-				resourceLabel = "job code"
-			case "sandbox":
-				resourceLabel = "sandbox code"
+			if !isStructured {
+				config := core.GetConfig()
+				resourceLabel := "code"
+				switch strings.ToLower(config.Type) {
+				case "volumetemplate":
+					resourceLabel = "volume template"
+				case "agent":
+					resourceLabel = "agent code"
+				case "function":
+					resourceLabel = "function code"
+				case "job":
+					resourceLabel = "job code"
+				case "sandbox":
+					resourceLabel = "sandbox code"
+				}
+				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
-			fmt.Printf("Uploading %s...\n", resourceLabel)
 
 			err := d.Upload(result.Result.UploadURL)
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
 			}
-			fmt.Println("Upload completed")
+			if !isStructured {
+				fmt.Println("Upload completed")
+			}
 		}
 	}
 

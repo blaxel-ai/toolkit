@@ -169,7 +169,7 @@ func TestIsStreamingResponse(t *testing.T) {
 		{"text/event-stream; charset=utf-8", "", true},
 		{"text/plain", "", true},
 		{"application/x-ndjson", "", true},
-		{"application/json", "keep-alive", true},
+		{"application/json", "keep-alive", false},
 		{"application/json", "", false},
 	}
 

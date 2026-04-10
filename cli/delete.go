@@ -234,7 +234,10 @@ func DeleteFn(resource *core.Resource, name string) error {
 
 	// The new SDK returns typed responses, not *http.Response
 	// Success if we get here without error
-	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
+	outputFmt := core.GetOutputFormat()
+	if outputFmt != "json" && outputFmt != "yaml" {
+		fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
+	}
 	return nil
 }
 
