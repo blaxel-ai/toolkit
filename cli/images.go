@@ -493,6 +493,104 @@ func deleteImage(resourceType, imageName, tag string) error {
 	return nil
 }
 
+// ShareImagesCmd returns the cobra command for sharing images across workspaces
+func ShareImagesCmd() *cobra.Command {
+	var workspace string
+	cmd := &cobra.Command{
+		Use:     "image resourceType/imageName",
+		Aliases: []string{"images", "img"},
+		Short:   "Share an image with another workspace",
+		Long: `Share a container image with another workspace in your account.
+Only the metadata is copied — the image data stays in the source workspace.
+
+The image reference format is: resourceType/imageName
+- resourceType: Type of resource (e.g., agent, function, job, sandbox)
+- imageName: The name of the image`,
+		Example: `  # Share an image with another workspace
+  bl share image agent/my-agent --workspace other-workspace`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			if workspace == "" {
+				err := fmt.Errorf("--workspace flag is required")
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
+
+			resourceType, imageName, _, err := parseImageRef(args[0])
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				core.ExitWithError(err)
+			}
+
+			ctx := context.Background()
+			client := core.GetClient()
+
+			body := map[string]string{"targetWorkspace": workspace}
+			path := fmt.Sprintf("images/%s/%s/share", resourceType, imageName)
+			err = client.Post(ctx, path, body, nil)
+			if err != nil {
+				err = fmt.Errorf("error sharing image %s/%s: %v", resourceType, imageName, err)
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
+
+			fmt.Printf("Image %s/%s shared with workspace %s\n", resourceType, imageName, workspace)
+		},
+	}
+	cmd.Flags().StringVarP(&workspace, "workspace", "w", "", "Target workspace to share with (required)")
+	_ = cmd.MarkFlagRequired("workspace")
+	return cmd
+}
+
+// UnshareImagesCmd returns the cobra command for unsharing images from workspaces
+func UnshareImagesCmd() *cobra.Command {
+	var workspace string
+	cmd := &cobra.Command{
+		Use:     "image resourceType/imageName",
+		Aliases: []string{"images", "img"},
+		Short:   "Unshare an image from another workspace",
+		Long: `Remove a shared image from another workspace.
+This removes the metadata copy from the target workspace.
+The original image in the source workspace is not affected.
+
+The image reference format is: resourceType/imageName
+- resourceType: Type of resource (e.g., agent, function, job, sandbox)
+- imageName: The name of the image`,
+		Example: `  # Unshare an image from another workspace
+  bl unshare image agent/my-agent --workspace other-workspace`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			if workspace == "" {
+				err := fmt.Errorf("--workspace flag is required")
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
+
+			resourceType, imageName, _, err := parseImageRef(args[0])
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				core.ExitWithError(err)
+			}
+
+			ctx := context.Background()
+			client := core.GetClient()
+
+			path := fmt.Sprintf("images/%s/%s/share/%s", resourceType, imageName, workspace)
+			err = client.Delete(ctx, path, nil, nil)
+			if err != nil {
+				err = fmt.Errorf("error unsharing image %s/%s: %v", resourceType, imageName, err)
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
+
+			fmt.Printf("Image %s/%s unshared from workspace %s\n", resourceType, imageName, workspace)
+		},
+	}
+	cmd.Flags().StringVarP(&workspace, "workspace", "w", "", "Target workspace to unshare from (required)")
+	_ = cmd.MarkFlagRequired("workspace")
+	return cmd
+}
+
 // getImageResource returns the Image resource definition
 func getImageResource() *core.Resource {
 	resources := core.GetResources()
