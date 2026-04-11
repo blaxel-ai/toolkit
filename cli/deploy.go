@@ -1506,6 +1506,9 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 
 func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time, failed bool, deployErr error) {
 	config := core.GetConfig()
+	if config.Type == "" {
+		config.Type = "unknown"
+	}
 	duration := time.Since(startTime).Round(time.Second).String()
 
 	type deployResourceResult struct {
