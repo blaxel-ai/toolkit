@@ -99,17 +99,23 @@ separately if needed.`,
 
 			// At this point, results contains all your YAML documents
 			hasFailures := false
+			var deleted []deleteEntry
+			var failed []deleteEntry
 			for _, result := range results {
 				for _, resource := range core.GetResources() {
 					if resource.Kind == result.Kind {
 						name := result.Metadata.(map[string]interface{})["name"].(string)
 						if err := DeleteFn(resource, name); err != nil {
 							hasFailures = true
+							failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
+						} else {
+							deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
 						}
 					}
 				}
 			}
 
+			printDeleteStructuredOutput(deleted, failed)
 			if hasFailures {
 				core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 			}

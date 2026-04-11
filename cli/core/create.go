@@ -253,7 +253,6 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 		initialFields = append(initialFields, huh.NewSelect[string]().
 			Title("Language").
 			Description("Language to use for your "+resource).
-			Height(5).
 			Options(langOptions...).
 			Value(&options.Language),
 		)
@@ -333,14 +332,17 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 			}
 		}).
 		Run()
-	pick := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Template").
-			Description("Template to use for your " + resource).
-			Height(templateHeight).
-			Options(templateOptions...).
-			Value(&options.TemplateName),
-	))
+	tmplSelect := huh.NewSelect[string]().
+		Title("Template").
+		Description("Template to use for your " + resource).
+		Options(templateOptions...).
+		Value(&options.TemplateName)
+	// Only set Height when there are enough options to need scrolling;
+	// setting Height triggers a huh viewport bug that hides earlier options.
+	if len(templateOptions) > templateHeight {
+		tmplSelect = tmplSelect.Height(templateHeight)
+	}
+	pick := huh.NewForm(huh.NewGroup(tmplSelect))
 	pick.WithTheme(GetHuhTheme())
 	if err := pick.Run(); err != nil {
 		os.Exit(0)
