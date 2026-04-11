@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
@@ -46,7 +47,8 @@ func RunCmd() *cobra.Command {
 	var commandSecrets []string
 	var folder string
 	var concurrent int
-	var outputFormat string
+	var stream bool
+	var timeout int
 	cmd := &cobra.Command{
 		Use:               "run resource-type resource-name",
 		Args:              cobra.ExactArgs(2),
@@ -79,6 +81,11 @@ Input Formats:
 - Inline JSON with --data json-object
 - From file with --file path/to/input.json
 
+Streaming:
+When agents respond via SSE (Server-Sent Events), the CLI automatically detects
+and parses the stream. Use --stream to explicitly request streaming mode and
+print chunks in real-time as they arrive.
+
 Advanced Usage:
 Use --path, --method, and --params for custom HTTP requests to your resources.
 This is useful for testing specific endpoints or non-standard API calls.`,
@@ -87,6 +94,12 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 
   # Run agent with file input
   bl run agent my-agent --file request.json
+
+  # Run agent with real-time streaming output
+  bl run agent my-agent --data '{"inputs": "hello"}' --stream
+
+  # Run agent with timeout
+  bl run agent my-agent --data '{"inputs": "hello"}' --timeout 120
 
   # Run job with batch file
   bl run job my-job --file batches/process-users.json
@@ -108,6 +121,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 
   # Debug mode (see full request/response details)
   bl run agent my-agent --data '{}' --debug
+
+  # Get JSON output for machine parsing
+  bl run agent my-agent --data '{"inputs": "hello"}' -o json
 
   # Execute a command in a sandbox
   bl run sandbox my-sandbox --path /process --data '{"command": "echo hello"}'
@@ -135,6 +151,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			resourceType := args[0]
 			resourceName := args[1]
 			headers := make(map[string]string)
+			outputFormat := core.GetOutputFormat()
 
 			// Parse header flags into map
 			for _, header := range headerFlags {
@@ -216,9 +233,23 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				resourceType = "sandbox"
 			}
 
+			// Add streaming headers when --stream flag is set
+			if stream {
+				headers["Accept"] = "text/event-stream"
+				headers["Cache-Control"] = "no-cache"
+			}
+
+			// Set up context with optional timeout
+			ctx := context.Background()
+			if timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+				defer cancel()
+			}
+
 			workspace := core.GetWorkspace()
 			res, err := runRequest(
-				context.Background(),
+				ctx,
 				workspace,
 				resourceType,
 				resourceName,
@@ -232,19 +263,16 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				port,
 			)
 			if err != nil {
-				err = fmt.Errorf("error making request: %w", err)
+				if ctx.Err() == context.DeadlineExceeded {
+					err = fmt.Errorf("request timed out after %ds", timeout)
+				} else {
+					err = fmt.Errorf("error making request: %w", err)
+				}
 				core.PrintError("Run", err)
 				core.ExitWithError(err)
 			}
 			defer func() { _ = res.Body.Close() }()
 
-			// Read response body
-			body, err := io.ReadAll(res.Body)
-			if err != nil {
-				err = fmt.Errorf("error reading response: %w", err)
-				core.PrintError("Run", err)
-				core.ExitWithError(err)
-			}
 			// Only print status code if it's an error
 			if res.StatusCode >= 400 {
 				core.PrintError("Run", fmt.Errorf("response status: %s", res.Status))
@@ -260,62 +288,101 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				fmt.Println()
 			}
 
-			// Handle job-specific success output (skip if raw output format)
-			if isJob && res.StatusCode < 400 && !isRawOutput {
-				// Try to extract execution_id from response for the log command hint
-				var responseData map[string]interface{}
-				executionID := ""
-				if err := json.Unmarshal(body, &responseData); err == nil {
-					if id, ok := responseData["execution_id"].(string); ok {
-						executionID = id
-					} else if id, ok := responseData["executionId"].(string); ok {
-						executionID = id
-					} else if id, ok := responseData["id"].(string); ok {
-						executionID = id
+			// Detect streaming response
+			contentType := res.Header.Get("Content-Type")
+			isSSE := core.IsStreamingResponse(contentType)
+
+			if isSSE || stream {
+				// Handle streaming response
+				var accumulated strings.Builder
+				err := core.ReadSSEStream(res.Body, func(chunk string) {
+					if isRawOutput {
+						accumulated.WriteString(chunk)
+					} else {
+						fmt.Print(chunk)
+						accumulated.WriteString(chunk)
 					}
+				})
+				if err != nil {
+					if ctx.Err() == context.DeadlineExceeded {
+						err = fmt.Errorf("request timed out after %ds", timeout)
+					}
+					core.PrintError("Run", fmt.Errorf("error reading stream: %w", err))
+					core.ExitWithError(err)
+				}
+				// Final newline for non-raw modes
+				if !isRawOutput && accumulated.Len() > 0 {
+					fmt.Println()
+				}
+				// For JSON output, wrap the accumulated text
+				if outputFormat == "json" {
+					result := map[string]string{"output": accumulated.String()}
+					jsonData, _ := json.MarshalIndent(result, "", "  ")
+					fmt.Println(string(jsonData))
+				} else if outputFormat == "yaml" {
+					result := map[string]string{"output": accumulated.String()}
+					yamlData, _ := yaml.Marshal(result)
+					fmt.Print(string(yamlData))
+				}
+			} else {
+				// Non-streaming: read full body
+				body, err := io.ReadAll(res.Body)
+				if err != nil {
+					err = fmt.Errorf("error reading response: %w", err)
+					core.PrintError("Run", err)
+					core.ExitWithError(err)
 				}
 
-				// Print monitor logs hint with command in white
-				if executionID != "" {
-					// Show short execution ID (first 8 chars) for readability
-					shortID := executionID
-					if len(shortID) > 8 {
-						shortID = shortID[:8]
+				// Handle job-specific success output (skip if raw output format)
+				if isJob && res.StatusCode < 400 && !isRawOutput {
+					var responseData map[string]interface{}
+					executionID := ""
+					if err := json.Unmarshal(body, &responseData); err == nil {
+						if id, ok := responseData["execution_id"].(string); ok {
+							executionID = id
+						} else if id, ok := responseData["executionId"].(string); ok {
+							executionID = id
+						} else if id, ok := responseData["id"].(string); ok {
+							executionID = id
+						}
 					}
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s %s -f", resourceName, shortID))
-				} else {
-					core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s -f", resourceName))
-				}
-				core.PrintSuccess(fmt.Sprintf("Job '%s' execution started successfully!", resourceName))
-				fmt.Println()
-			}
 
-			// Output based on format
-			switch outputFormat {
-			case "json":
-				// Raw JSON output
-				fmt.Println(string(body))
-			case "yaml":
-				// Convert JSON to YAML
-				var jsonData interface{}
-				if err := json.Unmarshal(body, &jsonData); err == nil {
-					yamlBytes, err := yaml.Marshal(jsonData)
-					if err == nil {
-						fmt.Print(string(yamlBytes))
+					if executionID != "" {
+						shortID := executionID
+						if len(shortID) > 8 {
+							shortID = shortID[:8]
+						}
+						core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s %s -f", resourceName, shortID))
+					} else {
+						core.PrintInfoWithCommand("Logs:", fmt.Sprintf("bl logs job %s -f", resourceName))
+					}
+					core.PrintSuccess(fmt.Sprintf("Job '%s' execution started successfully!", resourceName))
+					fmt.Println()
+				}
+
+				// Output based on format
+				switch outputFormat {
+				case "json":
+					fmt.Println(string(body))
+				case "yaml":
+					var jsonData interface{}
+					if err := json.Unmarshal(body, &jsonData); err == nil {
+						yamlBytes, err := yaml.Marshal(jsonData)
+						if err == nil {
+							fmt.Print(string(yamlBytes))
+						} else {
+							fmt.Println(string(body))
+						}
 					} else {
 						fmt.Println(string(body))
 					}
-				} else {
-					fmt.Println(string(body))
-				}
-			default:
-				// Pretty print JSON response
-				var prettyJSON bytes.Buffer
-				if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
-					core.Print(prettyJSON.String())
-				} else {
-					// If not JSON, print as string
-					core.Print(string(body))
+				default:
+					var prettyJSON bytes.Buffer
+					if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+						core.Print(prettyJSON.String())
+					} else {
+						core.Print(string(body))
+					}
 				}
 			}
 		},
@@ -335,7 +402,8 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to pass to the execution")
 	cmd.Flags().StringVar(&folder, "directory", "", "Directory to run the command from")
 	cmd.Flags().IntVarP(&concurrent, "concurrent", "c", 1, "Number of concurrent workers for local job execution")
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "", "Output format: json, yaml")
+	cmd.Flags().BoolVar(&stream, "stream", false, "Stream SSE responses in real-time")
+	cmd.Flags().IntVar(&timeout, "timeout", 0, "Request timeout in seconds (default: no timeout)")
 	return cmd
 }
 

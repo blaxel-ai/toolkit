@@ -229,7 +229,7 @@ func findNextAvailablePort(content string) int {
 func (t Templates) GetLanguages() []string {
 	languages := []string{}
 	for _, template := range t {
-		if !slices.Contains(languages, template.Language) {
+		if template.Language != "" && !slices.Contains(languages, template.Language) {
 			languages = append(languages, template.Language)
 		}
 	}

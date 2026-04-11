@@ -57,6 +57,34 @@ func TestTemplatesGetLanguages(t *testing.T) {
 	assert.Contains(t, languages, "typescript")
 }
 
+func TestTemplatesGetLanguagesExcludesEmpty(t *testing.T) {
+	templates := Templates{
+		{
+			Template: blaxel.Template{Name: "python-agent"},
+			Language: "python",
+			Type:     "agent",
+		},
+		{
+			Template: blaxel.Template{Name: "no-lang-template"},
+			Language: "",
+			Type:     "agent",
+		},
+		{
+			Template: blaxel.Template{Name: "ts-agent"},
+			Language: "typescript",
+			Type:     "agent",
+		},
+	}
+
+	languages := templates.GetLanguages()
+
+	// Should exclude templates with empty language
+	assert.Len(t, languages, 2)
+	assert.Contains(t, languages, "python")
+	assert.Contains(t, languages, "typescript")
+	assert.NotContains(t, languages, "")
+}
+
 func TestTemplatesFilterByLanguage(t *testing.T) {
 	templates := Templates{
 		{

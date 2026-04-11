@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"gopkg.in/yaml.v3"
 )
 
 // RandomString generates a random alphanumeric string of the given length.
@@ -105,20 +107,21 @@ func runCreateFlow(
 			fmt.Println("Available templates:")
 			langs := templates.GetLanguages()
 			for _, lang := range langs {
-				names := []string{}
+				hasTemplates := false
 				for _, t := range templates {
 					if t.Language != lang {
 						continue
 					}
+					if !hasTemplates {
+						fmt.Printf("- %s:\n", lang)
+						hasTemplates = true
+					}
 					name := strings.TrimPrefix(templateDisplayName(t), "template-")
-					names = append(names, name)
-				}
-				if len(names) == 0 {
-					continue
-				}
-				fmt.Printf("- %s:\n", lang)
-				for _, n := range names {
-					fmt.Printf("  - %s\n", n)
+					if t.Description != "" {
+						fmt.Printf("  - %-30s %s\n", name, t.Description)
+					} else {
+						fmt.Printf("  - %s\n", name)
+					}
 				}
 			}
 			return
@@ -154,6 +157,26 @@ func runCreateFlow(
 	// Optionally update blaxel.toml (only for those commands that did previously)
 	if cfg.BlaxelTomlResourceType != "" {
 		_ = EditBlaxelTomlInCurrentDir(cfg.BlaxelTomlResourceType, opts.ProjectName, opts.Directory)
+	}
+
+	// If structured output is requested, print JSON/YAML and skip the regular success message
+	outputFmt := GetOutputFormat()
+	if outputFmt == "json" || outputFmt == "yaml" {
+		result := map[string]string{
+			"directory": opts.Directory,
+			"template":  opts.TemplateName,
+			"language":  opts.Language,
+			"type":      cfg.TemplateType,
+		}
+		switch outputFmt {
+		case "json":
+			data, _ := json.MarshalIndent(result, "", "  ")
+			fmt.Println(string(data))
+		case "yaml":
+			data, _ := yaml.Marshal(result)
+			fmt.Print(string(data))
+		}
+		return
 	}
 
 	// Let the caller print specific success instructions
@@ -230,7 +253,6 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 		initialFields = append(initialFields, huh.NewSelect[string]().
 			Title("Language").
 			Description("Language to use for your "+resource).
-			Height(5).
 			Options(langOptions...).
 			Value(&options.Language),
 		)
@@ -310,14 +332,17 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 			}
 		}).
 		Run()
-	pick := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Template").
-			Description("Template to use for your " + resource).
-			Height(templateHeight).
-			Options(templateOptions...).
-			Value(&options.TemplateName),
-	))
+	tmplSelect := huh.NewSelect[string]().
+		Title("Template").
+		Description("Template to use for your " + resource).
+		Options(templateOptions...).
+		Value(&options.TemplateName)
+	// Only set Height when there are enough options to need scrolling;
+	// setting Height triggers a huh viewport bug that hides earlier options.
+	if len(templateOptions) > templateHeight {
+		tmplSelect = tmplSelect.Height(templateHeight)
+	}
+	pick := huh.NewForm(huh.NewGroup(tmplSelect))
 	pick.WithTheme(GetHuhTheme())
 	if err := pick.Run(); err != nil {
 		os.Exit(0)

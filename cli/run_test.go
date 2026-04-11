@@ -63,9 +63,15 @@ func TestRunCmd(t *testing.T) {
 	dirFlag := cmd.Flags().Lookup("directory")
 	assert.NotNil(t, dirFlag)
 
-	outputFlag := cmd.Flags().Lookup("output")
-	assert.NotNil(t, outputFlag)
-	assert.Equal(t, "o", outputFlag.Shorthand)
+	// --output is now the global persistent flag from root (not local to run)
+	// Verify the new --stream and --timeout flags
+	streamFlag := cmd.Flags().Lookup("stream")
+	assert.NotNil(t, streamFlag)
+	assert.Equal(t, "false", streamFlag.DefValue)
+
+	timeoutFlag := cmd.Flags().Lookup("timeout")
+	assert.NotNil(t, timeoutFlag)
+	assert.Equal(t, "0", timeoutFlag.DefValue)
 }
 
 func TestBatchStruct(t *testing.T) {

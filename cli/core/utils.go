@@ -405,6 +405,13 @@ func Print(message string) {
 		return
 	}
 	message = strings.TrimSuffix(message, "\n")
+	// When structured output is requested, route decorative messages to stderr
+	// so stdout contains only the structured data
+	outputFmt := GetOutputFormat()
+	if outputFmt == "json" || outputFmt == "yaml" {
+		fmt.Fprintln(os.Stderr, message)
+		return
+	}
 	fmt.Println(message)
 }
 

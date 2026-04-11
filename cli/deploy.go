@@ -24,6 +24,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -117,6 +118,16 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			core.SetInteractiveMode(!noTTY)
+
+			// Detect structured output early, before any handleConfigWarning or
+			// interactive prompts, so that warning text never lands on stdout.
+			outputFmt := core.GetOutputFormat()
+			isStructured := outputFmt == "json" || outputFmt == "yaml"
+			if isStructured {
+				noTTY = true
+				core.SetInteractiveMode(false)
+			}
+
 			if folder != "" {
 				recursive = false
 				core.ReadSecrets("", envFiles)
@@ -233,19 +244,29 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				return
 			}
 
+			startTime := time.Now()
+
 			if !noTTY {
 				err = deployment.ApplyInteractive()
 			} else {
 				err = deployment.Apply()
 			}
-			if err != nil {
+
+			deployFailed := err != nil
+			if deployFailed {
 				err = fmt.Errorf("error applying blaxel deployment: %w", err)
-				core.PrintError("Deploy", err)
-				core.ExitWithError(err)
+				if !isStructured {
+					core.PrintError("Deploy", err)
+					core.ExitWithError(err)
+				}
 			}
 
-			// Only show success message for non-interactive deployments
-			if noTTY {
+			if isStructured {
+				deployment.printStructuredOutput(outputFmt, startTime, deployFailed, err)
+				if deployFailed {
+					core.ExitWithError(err)
+				}
+			} else if noTTY {
 				deployment.Ready()
 			}
 		},
@@ -305,12 +326,18 @@ func (d *Deployment) Generate(skipBuild bool) error {
 			// For interactive mode, skip compression here - it will be done during deployment
 			// to show progress to the user
 			if !core.IsInteractiveMode() {
-				fmt.Println("Compressing volume template files...")
+				outputFmt := core.GetOutputFormat()
+				isStructured := outputFmt == "json" || outputFmt == "yaml"
+				if !isStructured {
+					fmt.Println("Compressing volume template files...")
+				}
 				err = d.Tar()
 				if err != nil {
 					return fmt.Errorf("failed to tar file: %w", err)
 				}
-				fmt.Println("Compression completed")
+				if !isStructured {
+					fmt.Println("Compression completed")
+				}
 			}
 		} else {
 			err = d.Zip()
@@ -325,8 +352,8 @@ func (d *Deployment) Generate(skipBuild bool) error {
 
 // handleConfigWarning displays a warning and asks for confirmation in interactive mode
 func handleConfigWarning(warning string, noTTY bool) {
-	// Print the warning
-	fmt.Println(warning)
+	// Route warning to stderr so it never pollutes structured JSON/YAML output
+	fmt.Fprintln(os.Stderr, warning)
 
 	// In non-interactive mode, just show warning and continue
 	if noTTY {
@@ -729,9 +756,14 @@ func getResourceStatus(resourceType, name string) (string, error) {
 }
 
 func (d *Deployment) Apply() error {
+	outputFmt := core.GetOutputFormat()
+	isStructured := outputFmt == "json" || outputFmt == "yaml"
+
 	blaxelDir := filepath.Join(d.cwd, ".blaxel")
 	if _, err := os.Stat(blaxelDir); err == nil {
-		fmt.Println("Applying additional resources from .blaxel directory...")
+		if !isStructured {
+			fmt.Println("Applying additional resources from .blaxel directory...")
+		}
 		_, err = Apply(blaxelDir, WithRecursive(true))
 		if err != nil {
 			return fmt.Errorf("failed to apply .blaxel directory: %w", err)
@@ -765,28 +797,42 @@ func (d *Deployment) Apply() error {
 
 	for _, result := range applyResults {
 		if result.Result.UploadURL != "" {
-			config := core.GetConfig()
-			// Print upload message for all resource types
-			resourceLabel := "code"
-			switch strings.ToLower(config.Type) {
-			case "volumetemplate":
-				resourceLabel = "volume template"
-			case "agent":
-				resourceLabel = "agent code"
-			case "function":
-				resourceLabel = "function code"
-			case "job":
-				resourceLabel = "job code"
-			case "sandbox":
-				resourceLabel = "sandbox code"
+			if !isStructured {
+				config := core.GetConfig()
+				resourceLabel := "code"
+				switch strings.ToLower(config.Type) {
+				case "volumetemplate":
+					resourceLabel = "volume template"
+				case "agent":
+					resourceLabel = "agent code"
+				case "function":
+					resourceLabel = "function code"
+				case "job":
+					resourceLabel = "job code"
+				case "sandbox":
+					resourceLabel = "sandbox code"
+				}
+				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
-			fmt.Printf("Uploading %s...\n", resourceLabel)
 
-			err := d.Upload(result.Result.UploadURL)
+			err := d.UploadWithRetry(result.Result.UploadURL, func() (string, error) {
+				newResults, err := ApplyResources(d.blaxelDeployments)
+				if err != nil {
+					return "", err
+				}
+				for _, r := range newResults {
+					if r.Kind == result.Kind && r.Name == result.Name && r.Result.UploadURL != "" {
+						return r.Result.UploadURL, nil
+					}
+				}
+				return "", fmt.Errorf("no upload URL returned on retry")
+			})
 			if err != nil {
 				return fmt.Errorf("failed to upload file: %w", err)
 			}
-			fmt.Println("Upload completed")
+			if !isStructured {
+				fmt.Println("Upload completed")
+			}
 		}
 	}
 
@@ -1126,7 +1172,16 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 			model.AddBuildLog(idx, "Uploading code to registry...")
 		}
 
-		err := d.Upload(applyResults[0].Result.UploadURL)
+		err := d.UploadWithRetry(applyResults[0].Result.UploadURL, func() (string, error) {
+			newResults, applyErr := ApplyResources([]core.Result{deployment})
+			if applyErr != nil {
+				return "", applyErr
+			}
+			if len(newResults) > 0 && newResults[0].Result.UploadURL != "" {
+				return newResults[0].Result.UploadURL, nil
+			}
+			return "", fmt.Errorf("no upload URL returned on retry")
+		})
 		if err != nil {
 			model.UpdateResource(idx, deploy.StatusFailed, "Upload failed", err)
 			model.AddBuildLog(idx, fmt.Sprintf("Upload failed: %v", err))
@@ -1449,6 +1504,68 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 	}
 }
 
+func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time, failed bool, deployErr error) {
+	config := core.GetConfig()
+	if config.Type == "" {
+		config.Type = "unknown"
+	}
+	duration := time.Since(startTime).Round(time.Second).String()
+
+	type deployResourceResult struct {
+		Kind   string `json:"kind"`
+		Name   string `json:"name"`
+		Status string `json:"status"`
+		URL    string `json:"url,omitempty"`
+		Error  string `json:"error,omitempty"`
+	}
+
+	type deployResult struct {
+		Resources     []deployResourceResult `json:"resources"`
+		Success       bool                   `json:"success"`
+		TotalDuration string                 `json:"totalDuration"`
+	}
+
+	result := deployResult{
+		Success:       !failed,
+		TotalDuration: duration,
+	}
+
+	resourceStatus := "UNKNOWN"
+	if failed {
+		resourceStatus = "FAILED"
+	} else {
+		// Wait briefly for the backend to update the resource status
+		time.Sleep(200 * time.Millisecond)
+		if status, err := getResourceStatus(config.Type, d.name); err == nil {
+			resourceStatus = status
+		} else {
+			resourceStatus = "DEPLOYING"
+		}
+	}
+
+	res := deployResourceResult{
+		Kind:   config.Type,
+		Name:   d.name,
+		Status: resourceStatus,
+	}
+	if d.metadataURL != "" {
+		res.URL = d.metadataURL
+	}
+	if failed && deployErr != nil {
+		res.Error = deployErr.Error()
+	}
+	result.Resources = append(result.Resources, res)
+
+	switch outputFmt {
+	case "json":
+		data, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Println(string(data))
+	case "yaml":
+		data, _ := yaml.Marshal(result)
+		fmt.Print(string(data))
+	}
+}
+
 func (d *Deployment) Ready() {
 	config := core.GetConfig()
 
@@ -1512,6 +1629,33 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 		pr.callback(pr.read, pr.total)
 	}
 	return n, err
+}
+
+// UploadWithRetry attempts the upload up to 5 times with exponential backoff.
+// On each retry it calls refreshURL to re-apply the resource and obtain a fresh
+// presigned URL, since the previous one becomes invalid after a failed attempt.
+func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, error)) error {
+	const maxRetries = 5
+
+	currentURL := url
+	var lastErr error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			time.Sleep(backoff)
+			newURL, err := refreshURL()
+			if err != nil {
+				lastErr = fmt.Errorf("failed to refresh upload URL: %w", err)
+				continue
+			}
+			currentURL = newURL
+		}
+		lastErr = d.Upload(currentURL)
+		if lastErr == nil {
+			return nil
+		}
+	}
+	return lastErr
 }
 
 func (d *Deployment) Upload(url string) error {
