@@ -14,9 +14,12 @@ import (
 	"syscall"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -28,7 +31,7 @@ func init() {
 func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
-		Short: "Get a resource",
+		Short: "List or retrieve Blaxel resources in your workspace",
 		Long: `Retrieve information about Blaxel resources in your workspace.
 
 A "resource" in Blaxel refers to any deployable or manageable entity:
@@ -40,6 +43,11 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - policies: Access control policies
 - volumes: Persistent storage
 - integrationconnections: External service integrations
+
+Hub Discovery (pre-built resources available in the Blaxel Hub):
+- sandbox-hub: Pre-built sandbox images with pre-installed tools and runtimes
+- mcp-hub: Pre-built MCP servers for tool integrations (GitHub, Slack, etc.)
+- templates: Project scaffolding templates for bl new
 
 Output Formats:
 Use -o flag to control output format:
@@ -83,6 +91,14 @@ The command can list all resources of a type or get details for a specific one.`
 
   # Get specific execution for a job
   bl get job my-job execution EXECUTION_ID
+
+  # List pre-built sandbox images from the Hub
+  bl get sandbox-hub
+  bl get sandbox-hub -o json
+
+  # List pre-built MCP servers from the Hub
+  bl get mcp-hub
+  bl get mcp-hub -o json
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
@@ -148,7 +164,7 @@ The command can list all resources of a type or get details for a specific one.`
 		subcmd := &cobra.Command{
 			Use:               resource.Plural,
 			Aliases:           aliases,
-			Short:             fmt.Sprintf("Get a %s", resource.Kind),
+			Short:             fmt.Sprintf("List all %s or get details of a specific one", resource.Plural),
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				// Check if this is a nested resource request
@@ -243,8 +259,249 @@ The command can list all resources of a type or get details for a specific one.`
 
 		cmd.AddCommand(subcmd)
 	}
+
+	// Add templates subcommand (non-CRUD, fetches from GitHub API)
+	cmd.AddCommand(getTemplatesCmd())
+
+	// Add hub subcommands (pre-built definitions from Blaxel Hub)
+	cmd.AddCommand(getSandboxHubCmd())
+	cmd.AddCommand(getMCPHubCmd())
+
 	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
 	return cmd
+}
+
+func getTemplatesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "templates [type]",
+		Short:   "List available project templates",
+		Aliases: []string{"template", "tpl"},
+		Args:    cobra.MaximumNArgs(1),
+		Long: `List available templates that can be used with 'bl new'.
+
+Templates are grouped by type (agent, mcp, sandbox, job, volume-template).
+Use an optional type argument to filter results.
+
+Output formats:
+  -o json   Machine-readable JSON array
+  -o yaml   YAML output
+  default   Table with NAME, TYPE, LANGUAGE, DESCRIPTION columns`,
+		Example: `  # List all templates
+  bl get templates
+
+  # List agent templates only
+  bl get templates agent
+
+  # List templates as JSON
+  bl get templates -o json
+
+  # List MCP templates
+  bl get templates mcp`,
+		Run: func(cmd *cobra.Command, args []string) {
+			filterType := ""
+			if len(args) == 1 {
+				filterType = args[0]
+			}
+			listAvailableTemplates(filterType, core.GetOutputFormat())
+		},
+	}
+}
+
+func getSandboxHubCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "sandbox-hub",
+		Short:   "List pre-built sandbox images available in the Blaxel Hub",
+		Aliases: []string{"sbx-hub", "sandbox-images"},
+		Args:    cobra.NoArgs,
+		Long: `List pre-built sandbox images from the Blaxel Hub.
+
+Each image comes with pre-installed tools, runtimes, and configurations.
+Use the 'image' field value in your sandbox YAML spec when deploying
+with 'bl apply -f sandbox.yaml':
+
+  apiVersion: blaxel/v1alpha1
+  kind: Sandbox
+  metadata:
+    name: my-sandbox
+  spec:
+    image: <image-from-hub>
+
+Output formats:
+  -o json   Machine-readable JSON array
+  -o yaml   YAML output
+  default   Table with NAME, IMAGE, MEMORY, DESCRIPTION columns`,
+		Example: `  # List all available sandbox hub images
+  bl get sandbox-hub
+
+  # List as JSON (for automation/agents)
+  bl get sandbox-hub -o json
+
+  # List as YAML
+  bl get sandbox-hub -o yaml`,
+		Run: func(cmd *cobra.Command, args []string) {
+			client := core.GetClient()
+			if client == nil {
+				core.PrintError("Sandbox Hub", fmt.Errorf("client not initialized, please log in with 'bl login'"))
+				core.ExitWithError(fmt.Errorf("client not initialized"))
+			}
+			resp, err := client.Sandboxes.GetHub(context.Background())
+			if err != nil {
+				core.PrintError("Sandbox Hub", err)
+				core.ExitWithError(err)
+			}
+
+			// Filter out hidden and coming-soon images
+			var images []blaxel.SandboxGetHubResponse
+			if resp != nil {
+				for _, img := range *resp {
+					if !img.Hidden && !img.ComingSoon {
+						images = append(images, img)
+					}
+				}
+			}
+
+			if len(images) == 0 {
+				core.PrintInfo("No sandbox hub images found")
+				return
+			}
+
+			outputFmt := core.GetOutputFormat()
+			switch outputFmt {
+			case "json":
+				data, _ := json.MarshalIndent(images, "", "  ")
+				fmt.Println(string(data))
+			case "yaml":
+				yamlData, _ := yaml.Marshal(images)
+				fmt.Print(string(yamlData))
+			default:
+				printSandboxHubTable(images)
+			}
+		},
+	}
+}
+
+func printSandboxHubTable(images []blaxel.SandboxGetHubResponse) {
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleLight)
+	tw.AppendHeader(table.Row{"NAME", "IMAGE", "MEMORY (MB)", "DESCRIPTION"})
+	for _, img := range images {
+		name := img.DisplayName
+		if name == "" {
+			name = img.Name
+		}
+		desc := img.Description
+		if len(desc) > 50 {
+			desc = desc[:47] + "..."
+		}
+		tw.AppendRow(table.Row{name, img.Image, img.Memory, desc})
+	}
+	fmt.Println(tw.Render())
+}
+
+// mcpHubDefinition represents a pre-built MCP server from the Blaxel Hub.
+// The Go SDK does not yet expose GET /mcp/hub, so we call it via client.Get.
+type mcpHubDefinition struct {
+	Name        string `json:"name" yaml:"name"`
+	DisplayName string `json:"displayName" yaml:"displayName"`
+	Image       string `json:"image" yaml:"image"`
+	Description string `json:"description" yaml:"description"`
+	Integration string `json:"integration,omitempty" yaml:"integration,omitempty"`
+	Icon        string `json:"icon,omitempty" yaml:"icon,omitempty"`
+	Hidden      bool   `json:"hidden" yaml:"hidden"`
+	ComingSoon  bool   `json:"coming_soon" yaml:"coming_soon"`
+	Enterprise  bool   `json:"enterprise" yaml:"enterprise"`
+	Transport   string `json:"transport,omitempty" yaml:"transport,omitempty"`
+}
+
+func getMCPHubCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "mcp-hub",
+		Short:   "List pre-built MCP servers available in the Blaxel Hub",
+		Aliases: []string{"function-hub"},
+		Args:    cobra.NoArgs,
+		Long: `List pre-built MCP servers from the Blaxel Hub.
+
+These provide ready-to-use tool integrations (e.g. GitHub, Slack,
+databases). Connect one to your agent by creating an integration
+connection with 'bl apply -f connection.yaml':
+
+  apiVersion: blaxel/v1alpha1
+  kind: IntegrationConnection
+  metadata:
+    name: my-github
+  spec:
+    integration: <integration-from-hub>
+
+Output formats:
+  -o json   Machine-readable JSON array
+  -o yaml   YAML output
+  default   Table with NAME, INTEGRATION, DESCRIPTION columns`,
+		Example: `  # List all available MCP hub servers
+  bl get mcp-hub
+
+  # List as JSON (for automation/agents)
+  bl get mcp-hub -o json
+
+  # List as YAML
+  bl get mcp-hub -o yaml`,
+		Run: func(cmd *cobra.Command, args []string) {
+			client := core.GetClient()
+			if client == nil {
+				core.PrintError("MCP Hub", fmt.Errorf("client not initialized, please log in with 'bl login'"))
+				core.ExitWithError(fmt.Errorf("client not initialized"))
+			}
+
+			var resp []mcpHubDefinition
+			err := client.Get(context.Background(), "mcp/hub", nil, &resp)
+			if err != nil {
+				core.PrintError("MCP Hub", err)
+				core.ExitWithError(err)
+			}
+
+			// Filter out hidden and coming-soon entries
+			var definitions []mcpHubDefinition
+			for _, d := range resp {
+				if !d.Hidden && !d.ComingSoon {
+					definitions = append(definitions, d)
+				}
+			}
+
+			if len(definitions) == 0 {
+				core.PrintInfo("No MCP hub servers found")
+				return
+			}
+
+			outputFmt := core.GetOutputFormat()
+			switch outputFmt {
+			case "json":
+				data, _ := json.MarshalIndent(definitions, "", "  ")
+				fmt.Println(string(data))
+			case "yaml":
+				yamlData, _ := yaml.Marshal(definitions)
+				fmt.Print(string(yamlData))
+			default:
+				printMCPHubTable(definitions)
+			}
+		},
+	}
+}
+
+func printMCPHubTable(definitions []mcpHubDefinition) {
+	tw := table.NewWriter()
+	tw.SetStyle(table.StyleLight)
+	tw.AppendHeader(table.Row{"NAME", "INTEGRATION", "DESCRIPTION"})
+	for _, d := range definitions {
+		name := d.DisplayName
+		if name == "" {
+			name = d.Name
+		}
+		desc := d.Description
+		if len(desc) > 60 {
+			desc = desc[:57] + "..."
+		}
+		tw.AppendRow(table.Row{name, d.Integration, desc})
+	}
+	fmt.Println(tw.Render())
 }
 
 func GetFn(resource *core.Resource, name string) {

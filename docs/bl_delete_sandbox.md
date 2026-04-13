@@ -4,7 +4,7 @@ slug: bl_delete_sandbox
 ---
 ## bl delete sandbox
 
-Delete sandbox
+Delete one or more sandboxes
 
 ```
 bl delete sandbox name [name...] [flags]
@@ -28,5 +28,5 @@ bl delete sandbox name [name...] [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 

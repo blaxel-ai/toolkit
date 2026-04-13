@@ -22,7 +22,7 @@ func ListOrSetWorkspacesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "workspaces [workspace]",
 		Aliases:           []string{"ws", "workspace"},
-		Short:             "List all workspaces with the current workspace highlighted, set optionally a new current workspace",
+		Short:             "List workspaces or switch the current workspace",
 		ValidArgsFunction: GetWorkspaceValidArgsFunction(),
 		Long: `List and manage Blaxel workspaces.
 

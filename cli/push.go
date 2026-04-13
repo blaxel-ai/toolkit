@@ -56,7 +56,7 @@ func PushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push",
 		Args:  cobra.ExactArgs(0),
-		Short: "Build and push an image to the Blaxel registry",
+		Short: "Build and push a container image to the Blaxel registry",
 		Long: `Build and push a container image to the Blaxel registry without creating a deployment.
 
 This command packages your code, uploads it, and builds a container image that
@@ -261,7 +261,23 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
 				// Upload the archive to the presigned URL
 				fmt.Println("Uploading source code...")
-				err = deployment.Upload(uploadURL)
+				err = deployment.UploadWithRetry(uploadURL, func() (string, error) {
+					var retryResp *http.Response
+					var retryBody createImageResponse
+					retryErr := client.Post(ctx, "images", reqBody, &retryBody,
+						option.WithResponseInto(&retryResp),
+						option.WithQuery("upload", "true"),
+					)
+					if retryErr != nil {
+						return "", retryErr
+					}
+					if retryResp != nil {
+						if u := retryResp.Header.Get("X-Blaxel-Upload-Url"); u != "" {
+							return u, nil
+						}
+					}
+					return "", fmt.Errorf("no upload URL returned from server")
+				})
 				if err != nil {
 					core.PrintError("Push", fmt.Errorf("failed to upload source code: %w", err))
 					core.ExitWithError(err)

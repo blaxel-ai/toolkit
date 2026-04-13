@@ -22,8 +22,8 @@ func init() {
 func ConnectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connect",
-		Short: "Connect into your sandbox resources",
-		Long:  "Connect into your sandbox resources with interactive interfaces",
+		Short: "Open an interactive terminal session to a sandbox",
+		Long:  "Open an interactive terminal session to a sandbox",
 	}
 
 	cmd.AddCommand(ConnectSandboxCmd())
@@ -86,7 +86,7 @@ Examples:
 				token = credentials.APIKey
 			}
 			if token == "" {
-				err := fmt.Errorf("no access token or API key found. Please run 'bl login' first")
+				err := fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first")
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}

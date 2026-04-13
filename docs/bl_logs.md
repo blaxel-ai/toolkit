@@ -4,7 +4,7 @@ slug: bl_logs
 ---
 ## bl logs
 
-View logs for a resource
+View and stream logs for agents, jobs, sandboxes, and functions
 
 ### Synopsis
 
@@ -135,5 +135,5 @@ bl logs RESOURCE_TYPE RESOURCE_NAME [NESTED_ARGS...] [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 

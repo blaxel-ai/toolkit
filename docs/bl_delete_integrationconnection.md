@@ -4,7 +4,7 @@ slug: bl_delete_integrationconnection
 ---
 ## bl delete integrationconnection
 
-Delete integrationconnection
+Delete one or more integrationconnections
 
 ```
 bl delete integrationconnection name [name...] [flags]
@@ -28,5 +28,5 @@ bl delete integrationconnection name [name...] [flags]
 
 ### SEE ALSO
 
-* [bl delete](bl_delete.md)	 - Delete a resource
+* [bl delete](bl_delete.md)	 - Delete resources from your workspace
 

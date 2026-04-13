@@ -4,7 +4,7 @@ slug: bl_get_volumetemplates
 ---
 ## bl get volumetemplates
 
-Get a VolumeTemplate
+List all volumetemplates or get details of a specific one
 
 ```
 bl get volumetemplates [flags]
@@ -29,5 +29,5 @@ bl get volumetemplates [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

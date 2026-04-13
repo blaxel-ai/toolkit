@@ -4,7 +4,7 @@ slug: bl_get_sandboxes
 ---
 ## bl get sandboxes
 
-Get a Sandbox
+List all sandboxes or get details of a specific one
 
 ```
 bl get sandboxes [flags]
@@ -29,5 +29,5 @@ bl get sandboxes [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

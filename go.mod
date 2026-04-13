@@ -15,7 +15,7 @@ require (
 	github.com/getsentry/sentry-go v0.44.1
 	github.com/google/goexpect v0.0.0-20210430020637-ab937bf7fd6f
 	github.com/gorilla/websocket v1.5.3
-	github.com/jedib0t/go-pretty/v6 v6.7.8
+	github.com/jedib0t/go-pretty/v6 v6.7.9
 	github.com/joho/godotenv v1.5.1
 	github.com/qeesung/image2ascii v1.0.1
 	github.com/spf13/cobra v1.10.2

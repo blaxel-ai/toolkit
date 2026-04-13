@@ -2,11 +2,14 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -20,7 +23,7 @@ func DeleteCmd() *cobra.Command {
 	var recursive bool
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Delete a resource",
+		Short: "Delete resources from your workspace",
 		Long: `Delete Blaxel resources from your workspace.
 
 WARNING: Deletion is permanent and cannot be undone. Resources are immediately
@@ -96,17 +99,23 @@ separately if needed.`,
 
 			// At this point, results contains all your YAML documents
 			hasFailures := false
+			var deleted []deleteEntry
+			var failed []deleteEntry
 			for _, result := range results {
 				for _, resource := range core.GetResources() {
 					if resource.Kind == result.Kind {
 						name := result.Metadata.(map[string]interface{})["name"].(string)
 						if err := DeleteFn(resource, name); err != nil {
 							hasFailures = true
+							failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
+						} else {
+							deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
 						}
 					}
 				}
 			}
 
+			printDeleteStructuredOutput(deleted, failed)
 			if hasFailures {
 				core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 			}
@@ -140,7 +149,7 @@ separately if needed.`,
 		subcmd := &cobra.Command{
 			Use:               fmt.Sprintf("%s name [name...] [flags]", resource.Singular),
 			Aliases:           aliases,
-			Short:             fmt.Sprintf("Delete %s", resource.Singular),
+			Short:             fmt.Sprintf("Delete one or more %s", resource.Plural),
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
@@ -157,11 +166,17 @@ separately if needed.`,
 				}
 
 				hasFailures := false
+				var deleted []deleteEntry
+				var failed []deleteEntry
 				for _, name := range args {
 					if err := DeleteFn(resource, name); err != nil {
 						hasFailures = true
+						failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
+					} else {
+						deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
 					}
 				}
+				printDeleteStructuredOutput(deleted, failed)
 				if hasFailures {
 					core.ExitWithError(fmt.Errorf("one or more deletions failed"))
 				}
@@ -177,7 +192,7 @@ func DeleteFn(resource *core.Resource, name string) error {
 	if resource.Delete == nil {
 		hint := nestedResourceHint(resource, "delete")
 		err := fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint)
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
@@ -187,7 +202,7 @@ func DeleteFn(resource *core.Resource, name string) error {
 	funcValue := reflect.ValueOf(resource.Delete)
 	if funcValue.Kind() != reflect.Func {
 		err := fmt.Errorf("fn is not a valid function")
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
@@ -220,12 +235,54 @@ func DeleteFn(resource *core.Resource, name string) error {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
 	// The new SDK returns typed responses, not *http.Response
 	// Success if we get here without error
-	fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
+	outputFmt := core.GetOutputFormat()
+	if outputFmt != "json" && outputFmt != "yaml" {
+		fmt.Printf("Resource %s:%s deleted\n", resource.Kind, name)
+	}
 	return nil
+}
+
+type deleteEntry struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+func printDeleteStructuredOutput(deleted []deleteEntry, failed []deleteEntry) {
+	outputFmt := core.GetOutputFormat()
+	if outputFmt != "json" && outputFmt != "yaml" {
+		return
+	}
+
+	type deleteOutput struct {
+		Deleted []deleteEntry `json:"deleted"`
+		Failed  []deleteEntry `json:"failed"`
+		Success bool          `json:"success"`
+	}
+
+	output := deleteOutput{
+		Deleted: deleted,
+		Failed:  failed,
+		Success: len(failed) == 0,
+	}
+	if output.Deleted == nil {
+		output.Deleted = []deleteEntry{}
+	}
+	if output.Failed == nil {
+		output.Failed = []deleteEntry{}
+	}
+
+	switch outputFmt {
+	case "json":
+		data, _ := json.MarshalIndent(output, "", "  ")
+		fmt.Println(string(data))
+	case "yaml":
+		data, _ := yaml.Marshal(output)
+		fmt.Print(string(data))
+	}
 }

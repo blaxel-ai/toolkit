@@ -4,7 +4,7 @@ slug: bl_get_agents
 ---
 ## bl get agents
 
-Get a Agent
+List all agents or get details of a specific one
 
 ```
 bl get agents [flags]
@@ -29,5 +29,5 @@ bl get agents [flags]
 
 ### SEE ALSO
 
-* [bl get](bl_get.md)	 - Get a resource
+* [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 

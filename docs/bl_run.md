@@ -4,7 +4,7 @@ slug: bl_run
 ---
 ## bl run
 
-Run a resource on blaxel
+Execute a resource (agent, model, job, function, sandbox)
 
 ### Synopsis
 
@@ -121,5 +121,5 @@ bl run resource-type resource-name [flags]
 
 ### SEE ALSO
 
-* [bl](bl.md)	 - Blaxel CLI is a command line tool to interact with Blaxel APIs.
+* [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 

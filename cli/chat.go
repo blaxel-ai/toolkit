@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -309,12 +308,8 @@ func SendMessageStream(
 
 	// Check if response is actually streaming
 	contentType := response.Header.Get("Content-Type")
-	connection := response.Header.Get("Connection")
 
-	if connection != "keep-alive" &&
-		!strings.Contains(contentType, "text/event-stream") &&
-		!strings.Contains(contentType, "text/plain") &&
-		!strings.Contains(contentType, "application/x-ndjson") &&
+	if !core.IsStreamingResponse(contentType) &&
 		!strings.Contains(contentType, "application/json") {
 		// Fall back to reading entire response
 		body, err := io.ReadAll(response.Body)
@@ -325,96 +320,7 @@ func SendMessageStream(
 		return nil
 	}
 
-	// Stream the response
-	scanner := bufio.NewScanner(response.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		// Handle Server-Sent Events format
-		if strings.HasPrefix(line, "data: ") {
-			data := strings.TrimPrefix(line, "data: ")
-			if data == "[DONE]" {
-				break
-			}
-
-			// Try to parse as JSON to extract content
-			if strings.HasPrefix(data, "{") && strings.HasSuffix(data, "}") {
-				var streamData map[string]interface{}
-				if err := json.Unmarshal([]byte(data), &streamData); err == nil {
-					// Handle OpenAI-style streaming format
-					if choices, ok := streamData["choices"].([]interface{}); ok && len(choices) > 0 {
-						if choice, ok := choices[0].(map[string]interface{}); ok {
-							if delta, ok := choice["delta"].(map[string]interface{}); ok {
-								if content, ok := delta["content"].(string); ok && content != "" {
-									onChunk(content)
-									continue
-								}
-							}
-						}
-					}
-
-					// Handle other formats - look for common content fields
-					if content, ok := streamData["content"].(string); ok && content != "" {
-						onChunk(content)
-						continue
-					}
-					if text, ok := streamData["text"].(string); ok && text != "" {
-						onChunk(text)
-						continue
-					}
-					if message, ok := streamData["message"].(string); ok && message != "" {
-						onChunk(message)
-						continue
-					}
-				}
-			}
-
-			// If not JSON or no content field found, use raw data
-			onChunk(data)
-		} else if strings.HasPrefix(line, "{") && strings.HasSuffix(line, "}") {
-			// Handle NDJSON format (newline-delimited JSON)
-			var streamData map[string]interface{}
-			if err := json.Unmarshal([]byte(line), &streamData); err == nil {
-				// Similar parsing as above for NDJSON
-				if choices, ok := streamData["choices"].([]interface{}); ok && len(choices) > 0 {
-					if choice, ok := choices[0].(map[string]interface{}); ok {
-						if delta, ok := choice["delta"].(map[string]interface{}); ok {
-							if content, ok := delta["content"].(string); ok && content != "" {
-								onChunk(content)
-								continue
-							}
-						}
-					}
-				}
-
-				if content, ok := streamData["content"].(string); ok && content != "" {
-					onChunk(content)
-					continue
-				}
-				if text, ok := streamData["text"].(string); ok && text != "" {
-					onChunk(text)
-					continue
-				}
-				if message, ok := streamData["message"].(string); ok && message != "" {
-					onChunk(message)
-					continue
-				}
-			}
-
-			// If parsing failed, use the whole line
-			onChunk(line)
-		} else {
-			// Handle plain text streaming
-			onChunk(line + "\n")
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
+	if err := core.ReadSSEStream(response.Body, onChunk); err != nil {
 		return fmt.Errorf("error reading stream: %w", err)
 	}
 
