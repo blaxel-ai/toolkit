@@ -35,6 +35,11 @@ Input Formats:
 - Inline JSON with --data json-object
 - From file with --file path/to/input.json
 
+Streaming:
+When agents respond via SSE (Server-Sent Events), the CLI automatically detects
+and parses the stream. Use --stream to explicitly request streaming mode and
+print chunks in real-time as they arrive.
+
 Advanced Usage:
 Use --path, --method, and --params for custom HTTP requests to your resources.
 This is useful for testing specific endpoints or non-standard API calls.
@@ -51,6 +56,12 @@ bl run resource-type resource-name [flags]
 
   # Run agent with file input
   bl run agent my-agent --file request.json
+
+  # Run agent with real-time streaming output
+  bl run agent my-agent --data '{"inputs": "hello"}' --stream
+
+  # Run agent with timeout
+  bl run agent my-agent --data '{"inputs": "hello"}' --timeout 120
 
   # Run job with batch file
   bl run job my-job --file batches/process-users.json
@@ -72,6 +83,9 @@ bl run resource-type resource-name [flags]
 
   # Debug mode (see full request/response details)
   bl run agent my-agent --data '{}' --debug
+
+  # Get JSON output for machine parsing
+  bl run agent my-agent --data '{"inputs": "hello"}' -o json
 
   # Execute a command in a sandbox
   bl run sandbox my-sandbox --path /process --data '{"command": "echo hello"}'
@@ -102,17 +116,19 @@ bl run resource-type resource-name [flags]
   -h, --help                 help for run
       --local                Run locally
       --method string        HTTP method for the inference request (default "POST")
-  -o, --output string        Output format: json, yaml
       --params strings       Query params sent to the inference request
       --path string          path for the inference request
   -p, --port int             Port to connect to when using --local (default 1338)
   -s, --secrets strings      Secrets to pass to the execution
+      --stream               Stream SSE responses in real-time
+      --timeout int          Request timeout in seconds (default: no timeout)
       --upload-file string   This transfers the specified local file to the remote URL
 ```
 
 ### Options inherited from parent commands
 
 ```
+  -o, --output string          Output format. One of: pretty,yaml,json,table
       --skip-version-warning   Skip version warning
   -u, --utc                    Enable UTC timezone
   -v, --verbose                Enable verbose output

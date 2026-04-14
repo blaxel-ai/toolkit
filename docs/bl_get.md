@@ -20,6 +20,11 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - volumes: Persistent storage
 - integrationconnections: External service integrations
 
+Hub Discovery (pre-built resources available in the Blaxel Hub):
+- sandbox-hub: Pre-built sandbox images with pre-installed tools and runtimes
+- mcp-hub: Pre-built MCP servers for tool integrations (GitHub, Slack, etc.)
+- templates: Project scaffolding templates for bl new
+
 Output Formats:
 Use -o flag to control output format:
 - pretty: Human-readable colored output (default)
@@ -66,6 +71,14 @@ The command can list all resources of a type or get details for a specific one.
 
   # Get specific execution for a job
   bl get job my-job execution EXECUTION_ID
+
+  # List pre-built sandbox images from the Hub
+  bl get sandbox-hub
+  bl get sandbox-hub -o json
+
+  # List pre-built MCP servers from the Hub
+  bl get mcp-hub
+  bl get mcp-hub -o json
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
@@ -136,11 +149,14 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get image](bl_get_image.md)	 - Get image information
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - List all integrationconnections or get details of a specific one
 * [bl get jobs](bl_get_jobs.md)	 - List all jobs or get details of a specific one
+* [bl get mcp-hub](bl_get_mcp-hub.md)	 - List pre-built MCP servers available in the Blaxel Hub
 * [bl get models](bl_get_models.md)	 - List all models or get details of a specific one
 * [bl get policies](bl_get_policies.md)	 - List all policies or get details of a specific one
 * [bl get previews](bl_get_previews.md)	 - List all previews or get details of a specific one
 * [bl get previewtokens](bl_get_previewtokens.md)	 - List all previewtokens or get details of a specific one
+* [bl get sandbox-hub](bl_get_sandbox-hub.md)	 - List pre-built sandbox images available in the Blaxel Hub
 * [bl get sandboxes](bl_get_sandboxes.md)	 - List all sandboxes or get details of a specific one
+* [bl get templates](bl_get_templates.md)	 - List available project templates
 * [bl get volumes](bl_get_volumes.md)	 - List all volumes or get details of a specific one
 * [bl get volumetemplates](bl_get_volumetemplates.md)	 - List all volumetemplates or get details of a specific one
 
