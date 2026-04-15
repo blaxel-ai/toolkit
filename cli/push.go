@@ -665,13 +665,7 @@ func printDeploySampleCLI(resourceType, name string) {
 	}
 	fmt.Println("Deploy this image with:")
 	fmt.Println()
-	codeColor := color.New(color.FgHiWhite)
-	border := color.New(color.FgHiBlack)
-	border.Println("  ┌─────────────────────────────────────────────────────────")
-	for _, line := range strings.Split(samples["CLI"], "\n") {
-		fmt.Printf("  %s %s\n", border.Sprint("│"), codeColor.Sprint(line))
-	}
-	border.Println("  └─────────────────────────────────────────────────────────")
+	fmt.Println(samples["CLI"])
 }
 
 // codeSampleModel is the bubbletea model for the interactive code sample viewer.
