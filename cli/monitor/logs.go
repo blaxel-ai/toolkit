@@ -41,12 +41,21 @@ type BuildLogWatcher struct {
 	seenLogs     map[string]bool // Track logs we've already shown
 	mu           sync.Mutex
 	startAt      time.Time
+	timeout      time.Duration      // Configurable timeout for the log query window
 	pendingLogs  []bufferedLogEntry // Buffer for ordering before display
 	wg           sync.WaitGroup     // Tracks the watchLogs goroutine
 }
 
-// NewBuildLogWatcher creates a new build log watcher
-func NewBuildLogWatcher(client *blaxel.Client, workspace, resourceType, resourceName string, onLog func(string)) *BuildLogWatcher {
+// DefaultBuildTimeout is the default timeout for build log monitoring.
+const DefaultBuildTimeout = 15 * time.Minute
+
+// NewBuildLogWatcher creates a new build log watcher.
+// The timeout parameter controls the log query window duration.
+// Pass 0 to use the default of 15 minutes.
+func NewBuildLogWatcher(client *blaxel.Client, workspace, resourceType, resourceName string, onLog func(string), timeout time.Duration) *BuildLogWatcher {
+	if timeout <= 0 {
+		timeout = DefaultBuildTimeout
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &BuildLogWatcher{
 		client:       client,
@@ -57,6 +66,7 @@ func NewBuildLogWatcher(client *blaxel.Client, workspace, resourceType, resource
 		ctx:          ctx,
 		cancel:       cancel,
 		seenLogs:     make(map[string]bool),
+		timeout:      timeout,
 	}
 }
 
@@ -172,9 +182,9 @@ func (w *BuildLogWatcher) flushPendingLogs() {
 }
 
 func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]bufferedLogEntry, error) {
-	// Calculate time window: from watcher start time to a bit in the future
+	// Calculate time window: from watcher start time to the configured timeout
 	start := w.startAt.Format("2006-01-02T15:04:05")
-	end := w.startAt.Add(15 * time.Minute).Format("2006-01-02T15:04:05")
+	end := w.startAt.Add(w.timeout).Format("2006-01-02T15:04:05")
 
 	// Build query options
 	queryOpts := []option.RequestOption{

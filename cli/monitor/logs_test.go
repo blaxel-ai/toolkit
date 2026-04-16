@@ -68,7 +68,7 @@ func TestNewBuildLogWatcher(t *testing.T) {
 		receivedLog = log
 	}
 
-	watcher := NewBuildLogWatcher(nil, "test-workspace", "function", "my-function", onLog)
+	watcher := NewBuildLogWatcher(nil, "test-workspace", "function", "my-function", onLog, 0)
 
 	assert.NotNil(t, watcher)
 	assert.Equal(t, "test-workspace", watcher.workspace)
@@ -78,14 +78,24 @@ func TestNewBuildLogWatcher(t *testing.T) {
 	assert.NotNil(t, watcher.ctx)
 	assert.NotNil(t, watcher.cancel)
 	assert.Nil(t, watcher.pendingLogs)
+	// Zero timeout should default to DefaultBuildTimeout
+	assert.Equal(t, DefaultBuildTimeout, watcher.timeout)
 
 	// Test the onLog callback
 	watcher.onLog("test message")
 	assert.Equal(t, "test message", receivedLog)
 }
 
+func TestNewBuildLogWatcherCustomTimeout(t *testing.T) {
+	customTimeout := 30 * time.Minute
+	watcher := NewBuildLogWatcher(nil, "test-workspace", "agent", "my-agent", func(string) {}, customTimeout)
+
+	assert.NotNil(t, watcher)
+	assert.Equal(t, customTimeout, watcher.timeout)
+}
+
 func TestBuildLogWatcherStop(t *testing.T) {
-	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(s string) {})
+	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(s string) {}, 0)
 
 	// Start should set startAt
 	watcher.Start()
@@ -210,7 +220,7 @@ func TestFlushPendingLogs(t *testing.T) {
 		receivedLogs = append(receivedLogs, log)
 	}
 
-	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", onLog)
+	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", onLog, 0)
 
 	// Add entries out of chronological order
 	now := time.Now()
@@ -231,7 +241,7 @@ func TestFlushPendingLogsEmpty(t *testing.T) {
 	var receivedLogs []string
 	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(log string) {
 		receivedLogs = append(receivedLogs, log)
-	})
+	}, 0)
 
 	// Flushing empty buffer should not panic
 	watcher.flushPendingLogs()
@@ -242,7 +252,7 @@ func TestStopFlushesPendingLogs(t *testing.T) {
 	var receivedLogs []string
 	watcher := NewBuildLogWatcher(nil, "test", "agent", "test", func(log string) {
 		receivedLogs = append(receivedLogs, log)
-	})
+	}, 0)
 
 	now := time.Now()
 	watcher.pendingLogs = []bufferedLogEntry{

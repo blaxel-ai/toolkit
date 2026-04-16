@@ -52,6 +52,7 @@ func PushCmd() *cobra.Command {
 	var noTTY bool
 	var registryCreds []string
 	var dockerConfigPath string
+	var timeoutStr string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -81,7 +82,10 @@ You must run this command from a directory containing a blaxel.toml file.`,
   bl push -d ./packages/my-agent
 
   # Push specifying a resource type
-  bl push --type agent`,
+  bl push --type agent
+
+  # Push with a longer timeout for large images
+  bl push --timeout 30m`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.ReadSecrets(folder, []string{".env"})
 
@@ -284,8 +288,19 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 				fmt.Println("Upload completed")
 
+				// Parse timeout
+				buildTimeout := mon.DefaultBuildTimeout
+				if timeoutStr != "" {
+					parsed, parseErr := time.ParseDuration(timeoutStr)
+					if parseErr != nil {
+						core.PrintError("Push", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
+						core.ExitWithError(parseErr)
+					}
+					buildTimeout = parsed
+				}
+
 				// Monitor build logs
-				err = watchBuildLogsNonInteractive(resourceType, name, noTTY)
+				err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
 				if err != nil {
 					core.PrintError("Push", err)
 					core.ExitWithError(err)
@@ -300,12 +315,13 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
 
 	return cmd
 }
 
 // watchBuildLogsNonInteractive monitors the build logs until the build succeeds or fails.
-func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool) error {
+func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTimeout time.Duration) error {
 	client := core.GetClient()
 	workspace := core.GetWorkspace()
 
@@ -334,7 +350,7 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool) error {
 	// Use the BuildLogWatcher to stream logs
 	logWatcher := mon.NewBuildLogWatcher(client, workspace, resourceType, name, func(msg string) {
 		fmt.Println(msg)
-	})
+	}, buildTimeout)
 	logWatcher.Start()
 	defer logWatcher.Stop()
 
@@ -342,14 +358,14 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool) error {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	timeout := time.After(15 * time.Minute)
+	timeout := time.After(buildTimeout)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("build monitoring cancelled")
 		case <-timeout:
-			return fmt.Errorf("build timed out after 15 minutes")
+			return fmt.Errorf("build timed out after %s", buildTimeout)
 		case <-ticker.C:
 			// Check if the image exists in the registry (build completed)
 			status, err := getImageBuildStatus(resourceType, name)
