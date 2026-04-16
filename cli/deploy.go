@@ -188,6 +188,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				experimental:     experimental,
 				dockerConfigJSON: dockerConfigJSON,
 				timeout:          deployTimeout,
+				timeoutExplicit:  timeoutStr != "",
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -318,6 +319,7 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	timeout                time.Duration
+	timeoutExplicit        bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -1422,7 +1424,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						// Additional resources use a shorter default (10m) than the main resource (15m),
 						// but respect the user-specified --timeout if explicitly provided.
 						additionalTimeout := 10 * time.Minute
-						if d.timeout != mon.DefaultBuildTimeout {
+						if d.timeoutExplicit {
 							additionalTimeout = d.timeout
 						}
 						ticker := time.NewTicker(3 * time.Second)
