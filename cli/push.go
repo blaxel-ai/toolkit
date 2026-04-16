@@ -296,6 +296,10 @@ You must run this command from a directory containing a blaxel.toml file.`,
 						core.PrintError("Push", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
 						core.ExitWithError(parseErr)
 					}
+					if parsed <= 0 {
+						core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
+						core.ExitWithError(fmt.Errorf("invalid timeout"))
+					}
 					buildTimeout = parsed
 				}
 
