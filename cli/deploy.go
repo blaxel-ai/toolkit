@@ -1437,6 +1437,9 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						for {
 							select {
 							case <-timeout:
+								if logWatcher != nil {
+									logWatcher.Stop()
+								}
 								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
 								ticker.Stop()
 								return
