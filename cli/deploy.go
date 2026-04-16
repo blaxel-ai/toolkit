@@ -1475,7 +1475,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 												func(log string) {
 													model.AddBuildLog(idx, log)
 												},
-												d.timeout,
+												additionalTimeout,
 											)
 											lw.Start()
 											logWatcher = lw
