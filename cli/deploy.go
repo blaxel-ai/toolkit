@@ -46,6 +46,7 @@ func DeployCmd() *cobra.Command {
 	var resourceType string
 	var registryCreds []string
 	var dockerConfigPath string
+	var timeoutStr string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -164,6 +165,21 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.ExitWithError(dockerErr)
 			}
 
+			// Parse timeout
+			deployTimeout := mon.DefaultBuildTimeout
+			if timeoutStr != "" {
+				parsed, parseErr := time.ParseDuration(timeoutStr)
+				if parseErr != nil {
+					core.PrintError("Deploy", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
+					core.ExitWithError(parseErr)
+				}
+				if parsed <= 0 {
+					core.PrintError("Deploy", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
+					core.ExitWithError(fmt.Errorf("invalid timeout"))
+				}
+				deployTimeout = parsed
+			}
+
 			deployment := Deployment{
 				dir:              deployDir,
 				folder:           folder,
@@ -171,6 +187,8 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				cwd:              cwd,
 				experimental:     experimental,
 				dockerConfigJSON: dockerConfigJSON,
+				timeout:          deployTimeout,
+				timeoutExplicit:  timeoutStr != "",
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -283,6 +301,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
 	return cmd
 }
 
@@ -299,6 +318,8 @@ type Deployment struct {
 	metadataURL            string
 	experimental           bool
 	dockerConfigJSON       []byte
+	timeout                time.Duration
+	timeoutExplicit        bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -1215,7 +1236,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		// Start monitoring the resource status
 		statusTicker := time.NewTicker(3 * time.Second)
 		defer statusTicker.Stop()
-		statusTimeout := time.After(15 * time.Minute) // 15 minute timeout for deployment
+		statusTimeout := time.After(d.timeout)
 
 		// Grace period for stale FAILED status - if we don't see any status change within this time,
 		// accept that the FAILED status is real (handles case where new deployment fails immediately)
@@ -1237,7 +1258,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				if logWatcher != nil {
 					logWatcher.Stop()
 				}
-				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after 15 minutes"))
+				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after %s", d.timeout))
 				return
 			case <-staleFailedGracePeriod:
 				// Grace period expired - if status is still FAILED, accept it as real
@@ -1283,6 +1304,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 								func(log string) {
 									model.AddBuildLog(idx, log)
 								},
+								d.timeout,
 							)
 							lw.Start()
 							logWatcher = lw
@@ -1399,8 +1421,14 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, "Verifying deployment status...")
 
 						// Simple status monitoring for additional resources
+						// Additional resources use a shorter default (10m) than the main resource (15m),
+						// but respect the user-specified --timeout if explicitly provided.
+						additionalTimeout := 10 * time.Minute
+						if d.timeoutExplicit {
+							additionalTimeout = d.timeout
+						}
 						ticker := time.NewTicker(3 * time.Second)
-						timeout := time.After(10 * time.Minute)
+						timeout := time.After(additionalTimeout)
 						lastStatus := "" // Track last status to avoid duplicate logs
 						var logWatcher interface{ Stop() }
 						buildLogStarted := false
@@ -1409,7 +1437,10 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						for {
 							select {
 							case <-timeout:
-								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out"))
+								if logWatcher != nil {
+									logWatcher.Stop()
+								}
+								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
 								ticker.Stop()
 								return
 							case <-ticker.C:
@@ -1444,6 +1475,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 												func(log string) {
 													model.AddBuildLog(idx, log)
 												},
+												additionalTimeout,
 											)
 											lw.Start()
 											logWatcher = lw
