@@ -1419,8 +1419,14 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, "Verifying deployment status...")
 
 						// Simple status monitoring for additional resources
+						// Additional resources use a shorter default (10m) than the main resource (15m),
+						// but respect the user-specified --timeout if explicitly provided.
+						additionalTimeout := 10 * time.Minute
+						if d.timeout != mon.DefaultBuildTimeout {
+							additionalTimeout = d.timeout
+						}
 						ticker := time.NewTicker(3 * time.Second)
-						timeout := time.After(d.timeout)
+						timeout := time.After(additionalTimeout)
 						lastStatus := "" // Track last status to avoid duplicate logs
 						var logWatcher interface{ Stop() }
 						buildLogStarted := false
@@ -1429,7 +1435,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						for {
 							select {
 							case <-timeout:
-								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", d.timeout))
+								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
 								ticker.Stop()
 								return
 							case <-ticker.C:
