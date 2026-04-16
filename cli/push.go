@@ -144,6 +144,21 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				core.ExitWithError(fmt.Errorf("invalid resource type"))
 			}
 
+			// Parse timeout early to fail fast before expensive upload
+			buildTimeout := mon.DefaultBuildTimeout
+			if timeoutStr != "" {
+				parsed, parseErr := time.ParseDuration(timeoutStr)
+				if parseErr != nil {
+					core.PrintError("Push", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
+					core.ExitWithError(parseErr)
+				}
+				if parsed <= 0 {
+					core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
+					core.ExitWithError(fmt.Errorf("invalid timeout"))
+				}
+				buildTimeout = parsed
+			}
+
 			// Determine name
 			if name == "" {
 				name = config.Name
@@ -287,21 +302,6 @@ You must run this command from a directory containing a blaxel.toml file.`,
 					core.ExitWithError(err)
 				}
 				fmt.Println("Upload completed")
-
-				// Parse timeout
-				buildTimeout := mon.DefaultBuildTimeout
-				if timeoutStr != "" {
-					parsed, parseErr := time.ParseDuration(timeoutStr)
-					if parseErr != nil {
-						core.PrintError("Push", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
-						core.ExitWithError(parseErr)
-					}
-					if parsed <= 0 {
-						core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-						core.ExitWithError(fmt.Errorf("invalid timeout"))
-					}
-					buildTimeout = parsed
-				}
 
 				// Monitor build logs
 				err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
