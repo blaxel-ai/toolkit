@@ -267,6 +267,9 @@ The command can list all resources of a type or get details for a specific one.`
 	cmd.AddCommand(getSandboxHubCmd())
 	cmd.AddCommand(getMCPHubCmd())
 
+	// Add image-shares subcommand (cross-account pending shares)
+	cmd.AddCommand(GetImageSharesCmd())
+
 	cmd.PersistentFlags().BoolVarP(&watch, "watch", "", false, "After listing/getting the requested object, watch for changes.")
 	return cmd
 }

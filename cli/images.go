@@ -496,18 +496,26 @@ func deleteImage(resourceType, imageName, tag string) error {
 // ShareImagesCmd returns the cobra command for sharing images across workspaces
 func ShareImagesCmd() *cobra.Command {
 	var workspace string
+	var account string
 	cmd := &cobra.Command{
 		Use:     "image resourceType/imageName",
 		Aliases: []string{"images", "img"},
 		Short:   "Share an image with another workspace",
-		Long: `Share a container image with another workspace in your account.
+		Long: `Share a container image with another workspace.
 Only the metadata is copied — the image data stays in the source workspace.
+
+Same-account shares apply immediately. Shares with a workspace in a
+different account require the --account flag and must be accepted by an
+admin of the target workspace before they take effect.
 
 The image reference format is: resourceType/imageName
 - resourceType: Type of resource (e.g., agent, function, job, sandbox)
 - imageName: The name of the image`,
-		Example: `  # Share an image with another workspace
-  bl share image agent/my-agent --workspace other-workspace`,
+		Example: `  # Share an image with another workspace in the same account
+  bl share image agent/my-agent --workspace other-workspace
+
+  # Request a share with a workspace in a different account
+  bl share image agent/my-agent --workspace other-workspace --account 01HW...`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if workspace == "" {
@@ -532,18 +540,35 @@ The image reference format is: resourceType/imageName
 			client := core.GetClient()
 
 			body := map[string]string{"targetWorkspace": workspace}
+			if account != "" {
+				body["targetAccountId"] = account
+			}
 			path := fmt.Sprintf("images/%s/%s/share", resourceType, imageName)
-			err = client.Post(ctx, path, body, nil)
+			var resp map[string]interface{}
+			err = client.Post(ctx, path, body, &resp)
 			if err != nil {
 				err = fmt.Errorf("error sharing image %s/%s: %v", resourceType, imageName, err)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
 
+			if account != "" {
+				pendingID := ""
+				if id, ok := resp["id"].(string); ok {
+					pendingID = id
+				}
+				fmt.Printf("Image share request for %s/%s sent to workspace %s (account %s).\n", resourceType, imageName, workspace, account)
+				fmt.Println("The target workspace admin must accept it before the share applies.")
+				if pendingID != "" {
+					fmt.Printf("Pending share ID: %s\n", pendingID)
+				}
+				return
+			}
 			fmt.Printf("Image %s/%s shared with workspace %s\n", resourceType, imageName, workspace)
 		},
 	}
 	cmd.Flags().StringVarP(&workspace, "workspace", "w", "", "Target workspace to share with (required)")
+	cmd.Flags().StringVar(&account, "account", "", "Target account ID (required when sharing across accounts)")
 	_ = cmd.MarkFlagRequired("workspace")
 	return cmd
 }
