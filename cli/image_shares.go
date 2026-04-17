@@ -9,6 +9,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// validatePendingShareID rejects ids that contain characters that could break
+// out of the URL path (slashes, whitespace, etc). Pending share IDs are UUIDs
+// so legitimate values never need escaping.
+func validatePendingShareID(id string) error {
+	if id == "" {
+		return fmt.Errorf("pending share ID is required")
+	}
+	for _, r := range id {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r == '-' || r == '_':
+		default:
+			return fmt.Errorf("invalid pending share ID %q: only alphanumerics, '-' and '_' are allowed", id)
+		}
+	}
+	return nil
+}
+
 func init() {
 	core.RegisterCommand("accept", func() *cobra.Command {
 		return AcceptCmd()
@@ -57,6 +77,10 @@ target workspace. On success, the image metadata is copied into your workspace.`
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			id := args[0]
+			if err := validatePendingShareID(id); err != nil {
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
 			ctx := context.Background()
 			client := core.GetClient()
 
@@ -83,6 +107,10 @@ target workspace. On success, the pending request is removed.`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			id := args[0]
+			if err := validatePendingShareID(id); err != nil {
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
 			ctx := context.Background()
 			client := core.GetClient()
 
