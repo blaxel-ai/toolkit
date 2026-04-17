@@ -163,7 +163,7 @@ to workspaces in other accounts.`,
 			}
 
 			switch core.GetOutputFormat() {
-			case "json", "pretty":
+			case "json":
 				data, err := json.MarshalIndent(resp, "", "  ")
 				if err != nil {
 					fmt.Println(err)
