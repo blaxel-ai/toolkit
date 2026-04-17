@@ -7,6 +7,7 @@ import (
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // validatePendingShareID rejects ids that contain characters that could break
@@ -143,7 +144,7 @@ to workspaces in other accounts.`,
   # List pending shares your workspace has requested to other accounts
   bl get image-shares --direction outgoing`,
 		Run: func(cmd *cobra.Command, args []string) {
-			if direction != "" && direction != "incoming" && direction != "outgoing" {
+			if direction != "incoming" && direction != "outgoing" {
 				err := fmt.Errorf("--direction must be either 'incoming' or 'outgoing'")
 				fmt.Println(err)
 				core.ExitWithError(err)
@@ -152,10 +153,7 @@ to workspaces in other accounts.`,
 			ctx := context.Background()
 			client := core.GetClient()
 
-			path := "image-shares/pending"
-			if direction != "" {
-				path = fmt.Sprintf("%s?direction=%s", path, direction)
-			}
+			path := fmt.Sprintf("image-shares/pending?direction=%s", direction)
 
 			var resp []map[string]interface{}
 			if err := client.Get(ctx, path, nil, &resp); err != nil {
@@ -164,14 +162,22 @@ to workspaces in other accounts.`,
 				core.ExitWithError(err)
 			}
 
-			format := core.GetOutputFormat()
-			if format == "json" || format == "yaml" || format == "pretty" {
+			switch core.GetOutputFormat() {
+			case "json", "pretty":
 				data, err := json.MarshalIndent(resp, "", "  ")
 				if err != nil {
 					fmt.Println(err)
 					core.ExitWithError(err)
 				}
 				fmt.Println(string(data))
+				return
+			case "yaml":
+				data, err := yaml.Marshal(resp)
+				if err != nil {
+					fmt.Println(err)
+					core.ExitWithError(err)
+				}
+				fmt.Print(string(data))
 				return
 			}
 
