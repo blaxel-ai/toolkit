@@ -319,12 +319,14 @@ Each image comes with pre-installed tools, runtimes, and configurations.
 Use the 'image' field value in your sandbox YAML spec when deploying
 with 'bl apply -f sandbox.yaml':
 
+` + "```yaml" + `
   apiVersion: blaxel/v1alpha1
   kind: Sandbox
   metadata:
     name: my-sandbox
   spec:
     image: <image-from-hub>
+` + "```" + `
 
 Output formats:
   -o json   Machine-readable JSON array
@@ -425,12 +427,14 @@ These provide ready-to-use tool integrations (e.g. GitHub, Slack,
 databases). Connect one to your agent by creating an integration
 connection with 'bl apply -f connection.yaml':
 
+` + "```yaml" + `
   apiVersion: blaxel/v1alpha1
   kind: IntegrationConnection
   metadata:
     name: my-github
   spec:
     integration: <integration-from-hub>
+` + "```" + `
 
 Output formats:
   -o json   Machine-readable JSON array
