@@ -1630,7 +1630,7 @@ func (d *Deployment) Ready() {
 	case "agent":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, d.name))
 	case "sandbox":
-		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run sandbox %s --method GET --path /filesystem/tmp", d.name))
+		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run sandbox %s --method GET --path /filesystem//tmp", d.name))
 	case "function", "model":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s", config.Type, d.name))
 	case "job":
