@@ -14,12 +14,14 @@ Each image comes with pre-installed tools, runtimes, and configurations.
 Use the 'image' field value in your sandbox YAML spec when deploying
 with 'bl apply -f sandbox.yaml':
 
+```yaml
   apiVersion: blaxel/v1alpha1
   kind: Sandbox
   metadata:
     name: my-sandbox
   spec:
     image: <image-from-hub>
+```
 
 Output formats:
   -o json   Machine-readable JSON array
