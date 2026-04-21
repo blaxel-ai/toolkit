@@ -87,6 +87,12 @@ bl run resource-type resource-name [flags]
   # Get JSON output for machine parsing
   bl run agent my-agent --data '{"inputs": "hello"}' -o json
 
+  # List a directory in a sandbox via the filesystem API (double slash => absolute path, bypassing the sandbox workdir)
+  bl run sandbox my-sandbox --method GET --path /filesystem//tmp
+
+  # Read a file from a sandbox via the filesystem API
+  bl run sandbox my-sandbox --method GET --path /filesystem//app/main.py
+
   # Execute a command in a sandbox
   bl run sandbox my-sandbox --path /process --data '{"command": "echo hello"}'
 

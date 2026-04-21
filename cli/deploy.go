@@ -1629,7 +1629,9 @@ func (d *Deployment) Ready() {
 	switch config.Type {
 	case "agent":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, d.name))
-	case "function", "sandbox", "model":
+	case "sandbox":
+		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run sandbox %s --method GET --path /filesystem//tmp", d.name))
+	case "function", "model":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s", config.Type, d.name))
 	case "job":
 		core.PrintInfoWithCommand("Run:    ", fmt.Sprintf("bl run %s %s -f batch.json", config.Type, d.name))

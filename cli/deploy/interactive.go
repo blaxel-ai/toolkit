@@ -335,7 +335,9 @@ func (m *InteractiveModel) View() string {
 				switch config.Type {
 				case "agent":
 					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -d '{\"inputs\": \"Hello\"}'", config.Type, m.resources[0].Name)))
-				case "function", "sandbox", "model":
+				case "sandbox":
+					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run sandbox %s --method GET --path /filesystem//tmp", m.resources[0].Name)))
+				case "function", "model":
 					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s", config.Type, m.resources[0].Name)))
 				case "job":
 					fmt.Fprintf(&s, "  %s %s\n", labelStyle.Render("Run:    "), cmdStyle.Render(fmt.Sprintf("bl run %s %s -f batch.json", config.Type, m.resources[0].Name)))
