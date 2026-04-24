@@ -21,6 +21,9 @@ jobs:
         shell: pwsh
         run: |
           .\install.ps1
+          # Persist the install directory into GITHUB_PATH so subsequent steps can find bl/blaxel
+          $installDir = Join-Path $env:LOCALAPPDATA "blaxel"
+          echo $installDir >> $env:GITHUB_PATH
 
       - name: Verify blaxel.exe exists
         shell: pwsh
