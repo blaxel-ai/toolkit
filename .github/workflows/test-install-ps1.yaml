@@ -1,0 +1,48 @@
+name: Test install.ps1
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "install.ps1"
+
+jobs:
+  test-install-ps1:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run install.ps1 with latest release
+        shell: pwsh
+        run: |
+          .\install.ps1
+
+      - name: Verify blaxel.exe exists
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:LOCALAPPDATA "blaxel"
+          if (-not (Test-Path (Join-Path $installDir "blaxel.exe"))) {
+            Write-Error "blaxel.exe not found in $installDir"
+            exit 1
+          }
+          Write-Host "blaxel.exe found in $installDir"
+
+      - name: Verify bl.exe alias exists
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:LOCALAPPDATA "blaxel"
+          if (-not (Test-Path (Join-Path $installDir "bl.exe"))) {
+            Write-Error "bl.exe not found in $installDir"
+            exit 1
+          }
+          Write-Host "bl.exe found in $installDir"
+
+      - name: Verify PATH was updated and bl runs
+        shell: pwsh
+        run: |
+          bl version
