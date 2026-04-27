@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "install.ps1"
+      - ".github/workflows/test-install-ps1.yaml"
 
 jobs:
   test-install-ps1:
@@ -49,3 +50,45 @@ jobs:
         shell: pwsh
         run: |
           bl version
+
+      - name: Verify Git-missing warning appears when git is absent
+        shell: pwsh
+        run: |
+          # Reinstall in a child PowerShell with PATH stripped of any git location
+          # to assert that the install script surfaces the "Git was not found" hint.
+          $filteredPath = ($env:Path -split ';' | Where-Object {
+            $_ -and -not (Test-Path (Join-Path $_ 'git.exe'))
+          }) -join ';'
+          $output = & pwsh -NoProfile -Command {
+            param($p)
+            $env:Path = $p
+            & .\install.ps1 2>&1
+          } -args $filteredPath
+          $joined = ($output | Out-String)
+          if ($joined -notmatch 'Git was not found') {
+            Write-Error "Expected 'Git was not found' warning in output but got:`n$joined"
+            exit 1
+          }
+          Write-Host "Git-missing warning is correctly surfaced."
+
+      - name: Login with API key and verify workspace access
+        shell: pwsh
+        env:
+          BL_API_KEY: ${{ secrets.BL_API_KEY }}
+          BL_WORKSPACE: ${{ secrets.BL_WORKSPACE }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:BL_API_KEY) -or [string]::IsNullOrEmpty($env:BL_WORKSPACE)) {
+            Write-Host "BL_API_KEY or BL_WORKSPACE secret not set; skipping login smoke test."
+            exit 0
+          }
+          bl login $env:BL_WORKSPACE
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "bl login failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+          bl workspaces
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "bl workspaces failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+          Write-Host "Login + workspace listing succeeded."

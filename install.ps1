@@ -135,9 +135,42 @@ else {
     $env:Path = "$InstallDir;$env:Path"
 }
 
+# Broadcast WM_SETTINGCHANGE so newly spawned processes (e.g. from Explorer)
+# pick up the updated user PATH without requiring a logout.
+try {
+    if (-not ('NativeMethods.Win32EnvBroadcast' -as [type])) {
+        Add-Type -Namespace NativeMethods -Name Win32EnvBroadcast -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+public static extern System.IntPtr SendMessageTimeout(
+    System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam,
+    uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);
+'@ -ErrorAction Stop
+    }
+    $HWND_BROADCAST = [IntPtr]0xffff
+    $WM_SETTINGCHANGE = 0x1A
+    [System.UIntPtr]$result = [System.UIntPtr]::Zero
+    [void][NativeMethods.Win32EnvBroadcast]::SendMessageTimeout(
+        $HWND_BROADCAST, $WM_SETTINGCHANGE, [System.UIntPtr]::Zero, "Environment",
+        2, 5000, [ref]$result)
+}
+catch {
+    # Best-effort; PATH is still persisted via SetEnvironmentVariable above.
+}
+
+# ── Check optional dependencies ──────────────────────────────────────
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host ""
+    Write-Host "Note: Git was not found on your PATH." -ForegroundColor Yellow
+    Write-Host "Some 'bl' commands (like 'bl new') require Git to be installed." -ForegroundColor Yellow
+    Write-Host "Install it from: https://git-scm.com/download/win" -ForegroundColor Yellow
+}
+
 # ── Done ─────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "blaxel and bl were installed successfully to $InstallDir"
 Write-Host "Installed version: $Version"
 Write-Host ""
-Write-Host "To get started, run: bl --help"
+Write-Host "Open a NEW terminal window for 'bl' to be available on your PATH." -ForegroundColor Cyan
+Write-Host "(Already-open terminals will not pick up the updated PATH.)"
+Write-Host ""
+Write-Host "Then run: bl --help"
