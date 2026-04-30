@@ -99,8 +99,9 @@ func TestMergeBuildEnvContent(t *testing.T) {
 	tomlArgs := map[string]string{"NODE_ENV": "production", "SHARED": "from-toml"}
 	envArgs := map[string]string{"TOKEN": "secret", "SHARED": "from-env"}
 
-	result := MergeBuildEnvContent(tomlArgs, envArgs)
+	result, count := MergeBuildEnvContent(tomlArgs, envArgs)
 	assert.NotNil(t, result)
+	assert.Equal(t, 3, count) // NODE_ENV, TOKEN, SHARED (deduplicated)
 
 	// Parse back to verify
 	parsed, err := parseBuildEnv(string(result))
@@ -111,20 +112,23 @@ func TestMergeBuildEnvContent(t *testing.T) {
 }
 
 func TestMergeBuildEnvContentBothNil(t *testing.T) {
-	result := MergeBuildEnvContent(nil, nil)
+	result, count := MergeBuildEnvContent(nil, nil)
 	assert.Nil(t, result)
+	assert.Equal(t, 0, count)
 }
 
 func TestMergeBuildEnvContentOnlyToml(t *testing.T) {
 	tomlArgs := map[string]string{"FOO": "bar"}
-	result := MergeBuildEnvContent(tomlArgs, nil)
+	result, count := MergeBuildEnvContent(tomlArgs, nil)
 	assert.NotNil(t, result)
+	assert.Equal(t, 1, count)
 	assert.Contains(t, string(result), "FOO=bar")
 }
 
 func TestMergeBuildEnvContentOnlyEnv(t *testing.T) {
 	envArgs := map[string]string{"FOO": "bar"}
-	result := MergeBuildEnvContent(nil, envArgs)
+	result, count := MergeBuildEnvContent(nil, envArgs)
 	assert.NotNil(t, result)
+	assert.Equal(t, 1, count)
 	assert.Contains(t, string(result), "FOO=bar")
 }

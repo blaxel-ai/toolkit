@@ -243,9 +243,9 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				if cfg := core.GetConfig(); cfg.Build != nil {
 					tomlBuildArgs = cfg.Build.Args
 				}
-				buildEnvContent := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
+				buildEnvContent, buildArgCount := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
 				if buildEnvContent != nil {
-					fmt.Printf("Build args: %d variable(s) detected\n", len(envArgs)+len(tomlBuildArgs))
+					fmt.Printf("Build args: %d variable(s) detected\n", buildArgCount)
 				}
 
 				deployment := Deployment{

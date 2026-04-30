@@ -85,10 +85,11 @@ func parseBuildEnv(content string) (map[string]string, error) {
 
 // MergeBuildEnvContent merges build args from blaxel.toml [build.args] and .build-env file content.
 // The .build-env content takes precedence on duplicate keys.
-// Returns the merged content as KEY=VALUE lines suitable for injection into the archive.
-func MergeBuildEnvContent(tomlArgs map[string]string, envArgs map[string]string) []byte {
+// Returns the merged content as KEY=VALUE lines suitable for injection into the archive,
+// and the number of unique merged args.
+func MergeBuildEnvContent(tomlArgs map[string]string, envArgs map[string]string) ([]byte, int) {
 	if len(tomlArgs) == 0 && len(envArgs) == 0 {
-		return nil
+		return nil, 0
 	}
 
 	merged := make(map[string]string)
@@ -104,7 +105,7 @@ func MergeBuildEnvContent(tomlArgs map[string]string, envArgs map[string]string)
 	}
 
 	if len(merged) == 0 {
-		return nil
+		return nil, 0
 	}
 
 	// Serialize to KEY=VALUE format
@@ -113,5 +114,5 @@ func MergeBuildEnvContent(tomlArgs map[string]string, envArgs map[string]string)
 		lines = append(lines, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return []byte(strings.Join(lines, "\n") + "\n")
+	return []byte(strings.Join(lines, "\n") + "\n"), len(merged)
 }

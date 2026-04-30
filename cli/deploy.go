@@ -179,9 +179,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			if cfg := core.GetConfig(); cfg.Build != nil {
 				tomlBuildArgs = cfg.Build.Args
 			}
-			buildEnvContent := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
+			buildEnvContent, buildArgCount := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
 			if buildEnvContent != nil {
-				fmt.Printf("Build args: %d variable(s) detected\n", len(envArgs)+len(tomlBuildArgs))
+				fmt.Printf("Build args: %d variable(s) detected\n", buildArgCount)
 			}
 
 			// Parse timeout
@@ -1791,7 +1791,8 @@ func (d *Deployment) IgnoredPaths() []string {
 
 	// Parse the .blaxelignore file, filtering out comments and empty lines
 	lines := strings.Split(string(content), "\n")
-	var ignoredPaths []string
+	// Always exclude .build-env regardless of .blaxelignore content
+	ignoredPaths := []string{".build-env"}
 	for _, line := range lines {
 		// Trim whitespace
 		line = strings.TrimSpace(line)
