@@ -236,7 +236,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				// Resolve build-env args
 				envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
 				if buildEnvErr != nil {
-					core.PrintError("Push", fmt.Errorf("failed to read build-env file: %w", buildEnvErr))
+					core.PrintError("Push", fmt.Errorf("failed to read .env.build file: %w", buildEnvErr))
 					core.ExitWithError(buildEnvErr)
 				}
 				var tomlBuildArgs map[string]string
@@ -337,7 +337,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
-	cmd.Flags().StringVar(&buildEnvPath, "build-env", "", "Path to a build-env file with Docker build args (default: auto-detect .build-env)")
+	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 
 	return cmd
 }

@@ -104,8 +104,8 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
   # Deploy specifying a resource type
   bl deploy --type sandbox
 
-  # Deploy with Docker build args from a .build-env file
-  bl deploy --build-env .build-env.production
+  # Deploy with Docker build args from a .env.build file
+  bl deploy --build-env-file .env.build.production
 
   # Recursively deploy all projects in monorepo
   bl deploy -R`,
@@ -172,7 +172,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			// Resolve build-env args
 			envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
 			if buildEnvErr != nil {
-				core.PrintError("Deploy", fmt.Errorf("failed to read build-env file: %w", buildEnvErr))
+				core.PrintError("Deploy", fmt.Errorf("failed to read .env.build file: %w", buildEnvErr))
 				core.ExitWithError(buildEnvErr)
 			}
 			var tomlBuildArgs map[string]string
@@ -322,7 +322,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
-	cmd.Flags().StringVar(&buildEnvPath, "build-env", "", "Path to a build-env file with Docker build args (default: auto-detect .build-env)")
+	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
 }
 
@@ -1776,7 +1776,7 @@ func (d *Deployment) IgnoredPaths() []string {
 	if err != nil {
 		return []string{
 			".blaxel",
-			".build-env",
+			".env.build",
 			".docker",
 			".git",
 			"dist",
@@ -1791,8 +1791,8 @@ func (d *Deployment) IgnoredPaths() []string {
 
 	// Parse the .blaxelignore file, filtering out comments and empty lines
 	lines := strings.Split(string(content), "\n")
-	// Always exclude .build-env regardless of .blaxelignore content
-	ignoredPaths := []string{".build-env"}
+	// Always exclude .env.build regardless of .blaxelignore content
+	ignoredPaths := []string{".env.build"}
 	for _, line := range lines {
 		// Trim whitespace
 		line = strings.TrimSpace(line)
@@ -2011,10 +2011,10 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 	}
 
-	// Inject build-env file if available (skip for volume-templates, which don't use Docker builds)
+	// Inject .env.build file if available (skip for volume-templates, which don't use Docker builds)
 	if d.buildEnvContent != nil && !core.IsVolumeTemplate(config.Type) {
-		if err := writer.addBytes(d.buildEnvContent, ".build-env"); err != nil {
-			return fmt.Errorf("failed to add build-env to archive: %w", err)
+		if err := writer.addBytes(d.buildEnvContent, ".env.build"); err != nil {
+			return fmt.Errorf("failed to add .env.build to archive: %w", err)
 		}
 	}
 

@@ -70,7 +70,7 @@ func TestReadBuildEnvDefaultMissing(t *testing.T) {
 
 func TestReadBuildEnvDefaultExists(t *testing.T) {
 	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, ".build-env"), []byte("FOO=bar\n"), 0644)
+	err := os.WriteFile(filepath.Join(dir, ".env.build"), []byte("FOO=bar\n"), 0644)
 	require.NoError(t, err)
 
 	args, err := ReadBuildEnv(dir, "")
@@ -80,17 +80,17 @@ func TestReadBuildEnvDefaultExists(t *testing.T) {
 
 func TestReadBuildEnvCustomPathMissing(t *testing.T) {
 	dir := t.TempDir()
-	_, err := ReadBuildEnv(dir, ".build-env.production")
+	_, err := ReadBuildEnv(dir, ".env.build.production")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
 
 func TestReadBuildEnvCustomPathExists(t *testing.T) {
 	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, ".build-env.production"), []byte("NODE_ENV=production\n"), 0644)
+	err := os.WriteFile(filepath.Join(dir, ".env.build.production"), []byte("NODE_ENV=production\n"), 0644)
 	require.NoError(t, err)
 
-	args, err := ReadBuildEnv(dir, ".build-env.production")
+	args, err := ReadBuildEnv(dir, ".env.build.production")
 	require.NoError(t, err)
 	assert.Equal(t, "production", args["NODE_ENV"])
 }
@@ -108,7 +108,7 @@ func TestMergeBuildEnvContent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "production", parsed["NODE_ENV"])
 	assert.Equal(t, "secret", parsed["TOKEN"])
-	assert.Equal(t, "from-env", parsed["SHARED"]) // .build-env wins
+	assert.Equal(t, "from-env", parsed["SHARED"]) // .env.build wins
 }
 
 func TestMergeBuildEnvContentBothNil(t *testing.T) {
