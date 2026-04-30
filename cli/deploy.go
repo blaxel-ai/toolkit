@@ -2011,8 +2011,8 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 	}
 
-	// Inject build-env file if available
-	if d.buildEnvContent != nil {
+	// Inject build-env file if available (skip for volume-templates, which don't use Docker builds)
+	if d.buildEnvContent != nil && !core.IsVolumeTemplate(config.Type) {
 		if err := writer.addBytes(d.buildEnvContent, ".build-env"); err != nil {
 			return fmt.Errorf("failed to add build-env to archive: %w", err)
 		}
