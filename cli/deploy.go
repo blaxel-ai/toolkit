@@ -47,6 +47,7 @@ func DeployCmd() *cobra.Command {
 	var registryCreds []string
 	var dockerConfigPath string
 	var timeoutStr string
+	var buildEnvPath string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -102,6 +103,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Deploy specifying a resource type
   bl deploy --type sandbox
+
+  # Deploy with Docker build args from a .build-env file
+  bl deploy --build-env .build-env.production
 
   # Recursively deploy all projects in monorepo
   bl deploy -R`,
@@ -165,6 +169,21 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.ExitWithError(dockerErr)
 			}
 
+			// Resolve build-env args
+			envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
+			if buildEnvErr != nil {
+				core.PrintError("Deploy", fmt.Errorf("failed to read build-env file: %w", buildEnvErr))
+				core.ExitWithError(buildEnvErr)
+			}
+			var tomlBuildArgs map[string]string
+			if cfg := core.GetConfig(); cfg.Build != nil {
+				tomlBuildArgs = cfg.Build.Args
+			}
+			buildEnvContent := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
+			if buildEnvContent != nil {
+				fmt.Printf("Build args: %d variable(s) detected\n", len(envArgs)+len(tomlBuildArgs))
+			}
+
 			// Parse timeout
 			deployTimeout := mon.DefaultBuildTimeout
 			if timeoutStr != "" {
@@ -187,6 +206,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				cwd:              cwd,
 				experimental:     experimental,
 				dockerConfigJSON: dockerConfigJSON,
+				buildEnvContent:  buildEnvContent,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
 			}
@@ -302,6 +322,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&buildEnvPath, "build-env", "", "Path to a build-env file with Docker build args (default: auto-detect .build-env)")
 	return cmd
 }
 
@@ -318,6 +339,7 @@ type Deployment struct {
 	metadataURL            string
 	experimental           bool
 	dockerConfigJSON       []byte
+	buildEnvContent        []byte
 	timeout                time.Duration
 	timeoutExplicit        bool
 }
@@ -1754,6 +1776,7 @@ func (d *Deployment) IgnoredPaths() []string {
 	if err != nil {
 		return []string{
 			".blaxel",
+			".build-env",
 			".docker",
 			".git",
 			"dist",
@@ -1984,6 +2007,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	if d.dockerConfigJSON != nil {
 		if err := writer.addBytes(d.dockerConfigJSON, ".docker/config.json"); err != nil {
 			return fmt.Errorf("failed to add docker config to archive: %w", err)
+		}
+	}
+
+	// Inject build-env file if available
+	if d.buildEnvContent != nil {
+		if err := writer.addBytes(d.buildEnvContent, ".build-env"); err != nil {
+			return fmt.Errorf("failed to add build-env to archive: %w", err)
 		}
 	}
 
