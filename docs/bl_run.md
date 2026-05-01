@@ -102,6 +102,9 @@ bl run resource-type resource-name [flags]
   # Execute a command with a working directory and a process name
   bl run sandbox my-sandbox --path /process --data '{"command": "npm install", "name": "install-deps", "workingDir": "/app"}'
 
+  # For complex commands (nested quotes, backslashes, multiline), save the JSON in a file with your editor then pass it via --file (no shell-escaping)
+  bl run sandbox my-sandbox --path /process --file ./process-payload.json
+
   # Execute a long-running command with keep-alive (prevents sandbox auto-standby)
   bl run sandbox my-sandbox --path /process --data '{"command": "npm run dev -- --port 3000", "name": "dev-server", "keepAlive": true}'
 

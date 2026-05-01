@@ -66,6 +66,9 @@ bl deploy [flags]
   # Deploy specifying a resource type
   bl deploy --type sandbox
 
+  # Deploy with Docker build args from a .env.build file
+  bl deploy --build-env-file .env.build.production
+
   # Recursively deploy all projects in monorepo
   bl deploy -R
 ```
@@ -73,6 +76,7 @@ bl deploy [flags]
 ### Options
 
 ```
+      --build-env-file string       Path to a build env file with Docker build args (default: auto-detect .env.build)
   -d, --directory string            Deployment app path, can be a sub directory
       --docker-config string        Path to a Docker config.json file with registry credentials
       --dryrun                      Dry run the deployment

@@ -152,6 +152,27 @@ func TestRunCmdExamples(t *testing.T) {
 	assert.NotEmpty(t, cmd.Example)
 	assert.Contains(t, cmd.Example, "bl run agent")
 	assert.Contains(t, cmd.Example, "bl run job")
+	assert.Contains(t, cmd.Example, "--path /process --file")
+}
+
+func TestValidateInlineRunDataJSONReturnsSandboxProcessHint(t *testing.T) {
+	err := validateInlineRunDataJSON(`{"command":"bad \' escape"}`, "sandbox", "process")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid JSON passed to --data")
+	assert.Contains(t, err.Error(), "sandbox /process")
+	assert.Contains(t, err.Error(), "--file")
+}
+
+func TestValidateInlineRunDataJSONIgnoresOtherRunData(t *testing.T) {
+	require.NoError(t, validateInlineRunDataJSON(`not json`, "agent", "/invoke"))
+	require.NoError(t, validateInlineRunDataJSON(`not json`, "sandbox", "/filesystem//tmp"))
+}
+
+func TestValidateInlineRunDataJSONAcceptsValidProcessPayload(t *testing.T) {
+	payload := `{"command":"sh -lc 'python3 -c \"print(\\\"hello\\\")\"'","waitForCompletion":true}`
+
+	require.NoError(t, validateInlineRunDataJSON(payload, "sandbox", "/process"))
 }
 
 func TestBatchStructNestedTasks(t *testing.T) {
