@@ -49,6 +49,7 @@ bl push [flags]
 ### Options
 
 ```
+      --build-env-file string       Path to a build env file with Docker build args (default: auto-detect .env.build)
   -d, --directory string            Source directory path
       --docker-config string        Path to a Docker config.json file with registry credentials
   -h, --help                        help for push

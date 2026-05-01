@@ -140,6 +140,9 @@ This is useful for testing specific endpoints or non-standard API calls.`,
   # Execute a command with a working directory and a process name
   bl run sandbox my-sandbox --path /process --data '{"command": "npm install", "name": "install-deps", "workingDir": "/app"}'
 
+  # For complex commands (nested quotes, backslashes, multiline), save the JSON in a file with your editor then pass it via --file (no shell-escaping)
+  bl run sandbox my-sandbox --path /process --file ./process-payload.json
+
   # Execute a long-running command with keep-alive (prevents sandbox auto-standby)
   bl run sandbox my-sandbox --path /process --data '{"command": "npm run dev -- --port 3000", "name": "dev-server", "keepAlive": true}'
 
@@ -158,6 +161,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			resourceName := args[1]
 			headers := make(map[string]string)
 			outputFormat := core.GetOutputFormat()
+			dataFromInlineFlag := data != ""
 
 			// Parse header flags into map
 			for _, header := range headerFlags {
@@ -195,6 +199,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				} else {
 					data = string(fileContent)
 				}
+				dataFromInlineFlag = false
 			}
 
 			// Handle file upload if specified
@@ -206,6 +211,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 					core.ExitWithError(err)
 				}
 				data = string(fileContent)
+				dataFromInlineFlag = false
 			}
 			if (resourceType == "model" || resourceType == "models") && path == "" {
 				path = getModelDefaultPath(resourceName)
@@ -223,6 +229,20 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				path = "/executions"
 			}
 
+			if resourceType == "mcp" {
+				resourceType = "functions"
+			}
+			if resourceType == "sbx" {
+				resourceType = "sandbox"
+			}
+
+			if dataFromInlineFlag {
+				if err := validateInlineRunDataJSON(data, resourceType, path); err != nil {
+					core.PrintError("Run", err)
+					core.ExitWithError(err)
+				}
+			}
+
 			// Print descriptive info for job execution (skip if raw output format)
 			if isJob && !isRawOutput {
 				core.PrintInfo(fmt.Sprintf("Starting job execution for '%s'...", resourceName))
@@ -231,12 +251,6 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				if err := json.Unmarshal([]byte(data), &batch); err == nil && len(batch.Tasks) > 0 {
 					core.PrintInfo(fmt.Sprintf("Batch contains %d task(s)", len(batch.Tasks)))
 				}
-			}
-			if resourceType == "mcp" {
-				resourceType = "functions"
-			}
-			if resourceType == "sbx" {
-				resourceType = "sandbox"
 			}
 
 			// Add streaming headers when --stream flag is set
@@ -411,6 +425,32 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 	cmd.Flags().BoolVar(&stream, "stream", false, "Stream SSE responses in real-time")
 	cmd.Flags().IntVar(&timeout, "timeout", 0, "Request timeout in seconds (default: no timeout)")
 	return cmd
+}
+
+func isSandboxResource(resourceType string) bool {
+	return resourceType == "sandbox" || resourceType == "sandboxes"
+}
+
+func normalizeRequestPath(path string) string {
+	if path == "" || strings.HasPrefix(path, "/") {
+		return path
+	}
+	return "/" + path
+}
+
+func validateInlineRunDataJSON(data, resourceType, path string) error {
+	if !isSandboxResource(resourceType) || normalizeRequestPath(path) != "/process" {
+		return nil
+	}
+
+	var raw json.RawMessage
+	if err := json.Unmarshal([]byte(data), &raw); err != nil {
+		return fmt.Errorf(
+			"invalid JSON passed to --data: %v. For sandbox /process payloads with nested quotes, backslashes, or newlines, write the JSON to a file and pass it via --file <path> to avoid shell-escaping collisions",
+			err,
+		)
+	}
+	return nil
 }
 
 // runRequest executes a request to a blaxel resource using the SDK client
