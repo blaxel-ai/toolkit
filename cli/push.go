@@ -53,6 +53,7 @@ func PushCmd() *cobra.Command {
 	var registryCreds []string
 	var dockerConfigPath string
 	var timeoutStr string
+	var buildEnvPath string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -232,11 +233,27 @@ You must run this command from a directory containing a blaxel.toml file.`,
 					core.ExitWithError(dockerErr)
 				}
 
+				// Resolve build-env args
+				envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
+				if buildEnvErr != nil {
+					core.PrintError("Push", fmt.Errorf("failed to read .env.build file: %w", buildEnvErr))
+					core.ExitWithError(buildEnvErr)
+				}
+				var tomlBuildArgs map[string]string
+				if cfg := core.GetConfig(); cfg.Build != nil {
+					tomlBuildArgs = cfg.Build.Args
+				}
+				buildEnvContent, buildArgCount := core.MergeBuildEnvContent(tomlBuildArgs, envArgs)
+				if buildEnvContent != nil {
+					fmt.Printf("Build args: %d variable(s) detected\n", buildArgCount)
+				}
+
 				deployment := Deployment{
 					folder:           folder,
 					name:             name,
 					cwd:              cwd,
 					dockerConfigJSON: dockerConfigJSON,
+					buildEnvContent:  buildEnvContent,
 				}
 
 				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
@@ -320,6 +337,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 
 	return cmd
 }

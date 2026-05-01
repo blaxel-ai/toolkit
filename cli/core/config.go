@@ -235,6 +235,11 @@ type Package struct {
 	Type string `toml:"type,omitempty"`
 }
 
+// BuildConfig represents the [build] section of blaxel.toml
+type BuildConfig struct {
+	Args map[string]string `toml:"args,omitempty"`
+}
+
 // readConfigToml reads the config.toml file and upgrade config according to content
 type Config struct {
 	Name         string                    `toml:"name"`
@@ -260,6 +265,7 @@ type Config struct {
 	Public       *bool                     `toml:"public,omitempty"`
 	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
 	Image        string                    `toml:"image,omitempty"`
+	Build        *BuildConfig              `toml:"build,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
@@ -420,6 +426,12 @@ memory = 4096
 # Pre-built Docker image (optional)
 # When set, the build step is skipped and this image is used directly
 # image = "docker.io/myorg/myimage:latest"
+
+# Build arguments (optional) - passed as Docker --build-arg
+# For secrets, prefer a .build-env file (added to .gitignore)
+# [build.args]
+# NODE_ENV = "production"
+# ENABLE_TELEMETRY = "true"
 
 # Volumes for Sandbox (optional)
 # [[volumes]]
