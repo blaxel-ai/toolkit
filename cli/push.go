@@ -49,16 +49,16 @@ type createImageResponse struct {
 // imageRefToName extracts a human-readable name from a Docker image reference.
 // Examples: "docker.io/library/nginx:latest" → "nginx", "ghcr.io/org/my-app:v2" → "my-app".
 func imageRefToName(ref string) string {
-	// Strip tag or digest
+	// Strip digest first so the tag colon is correctly identified afterward
+	if idx := strings.LastIndex(ref, "@"); idx != -1 {
+		ref = ref[:idx]
+	}
+	// Strip tag, but avoid stripping port numbers (e.g. localhost:5000/image)
 	if idx := strings.LastIndex(ref, ":"); idx != -1 {
-		// Avoid stripping port numbers (e.g. localhost:5000/image)
 		slash := strings.LastIndex(ref, "/")
 		if idx > slash {
 			ref = ref[:idx]
 		}
-	}
-	if idx := strings.LastIndex(ref, "@"); idx != -1 {
-		ref = ref[:idx]
 	}
 	// Take the last path segment
 	if idx := strings.LastIndex(ref, "/"); idx != -1 {

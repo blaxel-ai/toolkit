@@ -52,6 +52,11 @@ func TestImageRefToName(t *testing.T) {
 			ref:      "registry.example.com/org/team/project:latest",
 			expected: "project",
 		},
+		{
+			name:     "image with tag and digest",
+			ref:      "docker.io/myorg/myimage:v1@sha256:abc123",
+			expected: "myimage",
+		},
 	}
 
 	for _, tt := range tests {
