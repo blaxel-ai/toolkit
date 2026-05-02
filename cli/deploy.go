@@ -48,6 +48,7 @@ func DeployCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
+	var imageFlag string
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -68,6 +69,10 @@ to your workspace. The deployment process includes:
 A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
+
+Alternatively, use --image to deploy from an existing Docker image. The platform
+will pull, transform, and deploy the image. For private registries, supply
+credentials via --registry-cred or --docker-config.
 
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
@@ -103,6 +108,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Deploy specifying a resource type
   bl deploy --type sandbox
+
+  # Deploy from an existing Docker image
+  bl deploy --image docker.io/myorg/myapp:latest --type sandbox --name my-sandbox
+
+  # Deploy from a private registry with credentials
+  bl deploy --image ghcr.io/myorg/private-app:v2 --type agent --registry-cred ghcr.io=user:token
 
   # Deploy with Docker build args from a .env.build file
   bl deploy --build-env-file .env.build.production
@@ -152,8 +163,18 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
 			config := core.GetConfig()
+
+			// --image flag overrides blaxel.toml image field
+			if imageFlag != "" {
+				core.SetConfigImage(imageFlag)
+				config = core.GetConfig()
+			}
+
 			if config.Name != "" {
 				name = config.Name
+			}
+			if name == "" && imageFlag != "" {
+				name = imageRefToName(imageFlag)
 			}
 
 			// Slugify the name to ensure it's URL-safe
@@ -323,6 +344,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().StringVar(&imageFlag, "image", "", "Deploy from an existing Docker image instead of building from source (e.g. docker.io/myorg/myapp:latest)")
 	return cmd
 }
 
@@ -602,9 +624,13 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// If a pre-built image is specified in blaxel.toml, use it directly
+	// If a pre-built image is specified, use it directly
 	if config.Image != "" {
 		runtime["image"] = config.Image
+		// Pass docker credentials for private registry images
+		if d.dockerConfigJSON != nil {
+			runtime["dockerConfig"] = string(d.dockerConfigJSON)
+		}
 	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)

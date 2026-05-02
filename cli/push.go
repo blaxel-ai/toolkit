@@ -35,6 +35,7 @@ type createImageRequest struct {
 	ResourceType string `json:"resourceType"`
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
+	DockerConfig string `json:"dockerConfig,omitempty"`
 }
 
 // createImageResponse is the response body from POST /images.
@@ -43,6 +44,27 @@ type createImageResponse struct {
 	Name         string `json:"name"`
 	ResourceType string `json:"resourceType"`
 	Image        string `json:"image,omitempty"`
+}
+
+// imageRefToName extracts a human-readable name from a Docker image reference.
+// Examples: "docker.io/library/nginx:latest" → "nginx", "ghcr.io/org/my-app:v2" → "my-app".
+func imageRefToName(ref string) string {
+	// Strip tag or digest
+	if idx := strings.LastIndex(ref, ":"); idx != -1 {
+		// Avoid stripping port numbers (e.g. localhost:5000/image)
+		slash := strings.LastIndex(ref, "/")
+		if idx > slash {
+			ref = ref[:idx]
+		}
+	}
+	if idx := strings.LastIndex(ref, "@"); idx != -1 {
+		ref = ref[:idx]
+	}
+	// Take the last path segment
+	if idx := strings.LastIndex(ref, "/"); idx != -1 {
+		ref = ref[idx+1:]
+	}
+	return ref
 }
 
 func PushCmd() *cobra.Command {
@@ -54,6 +76,7 @@ func PushCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
+	var imageFlag string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -72,7 +95,11 @@ The process includes:
 4. Building container image
 5. Streaming build logs until the image is ready
 
-You must run this command from a directory containing a blaxel.toml file.`,
+Alternatively, use --image to push an existing Docker image directly as the
+build source. When --image is specified, no blaxel.toml or Dockerfile is needed.
+The platform will pull the image and transform it for the target runtime.
+
+For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
 
@@ -84,6 +111,12 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
   # Push specifying a resource type
   bl push --type agent
+
+  # Push an existing Docker image as the build source
+  bl push --image docker.io/myorg/myapp:latest --type sandbox
+
+  # Push from a private registry with credentials
+  bl push --image ghcr.io/myorg/private-app:v2 --type agent --registry-cred ghcr.io=user:token
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -99,6 +132,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 			}
 
+			// When --image is provided, blaxel.toml is optional
 			if folder != "" {
 				core.ReadConfigToml(folder, false)
 			} else {
@@ -160,7 +194,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				buildTimeout = parsed
 			}
 
-			// Determine name
+			// Determine name: flag > config > image ref > directory
 			if name == "" {
 				name = config.Name
 			}
@@ -171,23 +205,28 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				core.ExitWithError(err)
 			}
 
+			if name == "" && imageFlag != "" {
+				name = imageRefToName(imageFlag)
+			}
 			if name == "" {
 				name = filepath.Base(filepath.Join(cwd, folder))
 			}
 			name = core.Slugify(name)
 
-			// Check for blaxel.toml validation warnings
-			blaxelTomlWarning := core.GetBlaxelTomlWarning()
-			if blaxelTomlWarning != "" {
-				fmt.Println(blaxelTomlWarning)
-				core.ClearBlaxelTomlWarning()
+			// Resolve Docker registry credentials (used for both --image and source builds)
+			projectDir := filepath.Join(cwd, folder)
+			dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
+			if dockerErr != nil {
+				core.PrintError("Push", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
+				core.ExitWithError(dockerErr)
 			}
 
-			// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
-			config.Type = resourceType
-			validationWarning := ValidateBuildConfig(cwd, folder, config)
-			if validationWarning != "" {
-				handleConfigWarning(validationWarning, noTTY)
+			// Determine the image source: --image flag > blaxel.toml image field
+			image := config.Image
+			imageIsBuildSource := false
+			if imageFlag != "" {
+				image = imageFlag
+				imageIsBuildSource = true
 			}
 
 			// Determine generation from runtime config
@@ -200,11 +239,40 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 			}
 
-			// Check if a pre-built image is specified in blaxel.toml
-			image := config.Image
+			if image != "" && imageIsBuildSource {
+				// --image flag flow: use the Docker image as a build source.
+				// The platform pulls the image, transforms it, and pushes to the workspace registry.
+				fmt.Printf("Pushing image %s for %s...\n", image, imageRef(resourceType, name))
+				client := core.GetClient()
+				ctx := context.Background()
 
-			if image != "" {
-				// Direct image flow: skip packaging and upload, register the image directly
+				reqBody := createImageRequest{
+					Name:         name,
+					ResourceType: resourceType,
+					Generation:   generation,
+					Image:        image,
+				}
+				if dockerConfigJSON != nil {
+					reqBody.DockerConfig = string(dockerConfigJSON)
+				}
+
+				var respBody createImageResponse
+				err = client.Post(ctx, "images", reqBody, &respBody,
+					option.WithQuery("build", "true"),
+				)
+				if err != nil {
+					core.PrintError("Push", fmt.Errorf("failed to push image: %w", err))
+					core.ExitWithError(err)
+				}
+
+				// Monitor build logs
+				err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
+				if err != nil {
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
+			} else if image != "" {
+				// blaxel.toml image flow: register the image directly (no build)
 				fmt.Printf("Registering image %s for %s...\n", image, imageRef(resourceType, name))
 				client := core.GetClient()
 				ctx := context.Background()
@@ -225,14 +293,21 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
 				printPushSuccess(resourceType, name, noTTY)
 			} else {
-				// Standard flow: package source code and upload
-				projectDir := filepath.Join(cwd, folder)
-				dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
-				if dockerErr != nil {
-					core.PrintError("Push", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
-					core.ExitWithError(dockerErr)
+				// Check for blaxel.toml validation warnings
+				blaxelTomlWarning := core.GetBlaxelTomlWarning()
+				if blaxelTomlWarning != "" {
+					fmt.Println(blaxelTomlWarning)
+					core.ClearBlaxelTomlWarning()
 				}
 
+				// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
+				config.Type = resourceType
+				validationWarning := ValidateBuildConfig(cwd, folder, config)
+				if validationWarning != "" {
+					handleConfigWarning(validationWarning, noTTY)
+				}
+
+				// Standard flow: package source code and upload
 				// Resolve build-env args
 				envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
 				if buildEnvErr != nil {
@@ -338,6 +413,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().StringVar(&imageFlag, "image", "", "Use an existing Docker image as the build source (e.g. docker.io/myorg/myapp:latest). No blaxel.toml or Dockerfile needed")
 
 	return cmd
 }
