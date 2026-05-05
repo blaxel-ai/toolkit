@@ -357,6 +357,12 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 		opts = append(opts, option.WithQuery("upload", "true"))
 	}
 
+	// Preserve extra runtime fields that the SDK's typed param structs
+	// don't model (e.g. dockerConfig, skipBuild for registry image builds).
+	// These fields are silently dropped during setBodyFieldsFromJSON, so we
+	// re-inject them via WithJSONSet which patches the serialized JSON body.
+	opts = append(opts, preserveExtraRuntimeFields(resourceJson)...)
+
 	// Get function signature information
 	funcType := fn.Type()
 
@@ -475,6 +481,29 @@ func setBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
 			}
 		}
 	}
+}
+
+// preserveExtraRuntimeFields detects fields inside spec.runtime that
+// the SDK's typed param structs do not model and returns WithJSONSet
+// options to re-inject them into the serialised request body.
+func preserveExtraRuntimeFields(resourceJSON []byte) []option.RequestOption {
+	var raw struct {
+		Spec struct {
+			Runtime map[string]interface{} `json:"runtime"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(resourceJSON, &raw); err != nil || raw.Spec.Runtime == nil {
+		return nil
+	}
+
+	extraKeys := []string{"dockerConfig", "skipBuild"}
+	var opts []option.RequestOption
+	for _, key := range extraKeys {
+		if val, ok := raw.Spec.Runtime[key]; ok {
+			opts = append(opts, option.WithJSONSet("spec.runtime."+key, val))
+		}
+	}
+	return opts
 }
 
 // setPathFields sets string fields with `path` tag and `json:"-"` on a struct.

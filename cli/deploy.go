@@ -69,6 +69,10 @@ A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
 
+If the blaxel.toml contains an 'image' field pointing to a registry image,
+the platform will pull the image and transform it via metamorph before deploying.
+For private registries, supply credentials via --registry-cred or --docker-config.
+
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
 - Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation
@@ -152,8 +156,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
 			config := core.GetConfig()
+
 			if config.Name != "" {
 				name = config.Name
+			}
+			if name == "" && config.Image != "" {
+				name = imageRefToName(config.Image)
 			}
 
 			// Slugify the name to ensure it's URL-safe
@@ -209,6 +217,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				buildEnvContent:  buildEnvContent,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
+				skipBuild:        skipBuild,
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -342,6 +351,7 @@ type Deployment struct {
 	buildEnvContent        []byte
 	timeout                time.Duration
 	timeoutExplicit        bool
+	skipBuild              bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -602,9 +612,14 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// If a pre-built image is specified in blaxel.toml, use it directly
 	if config.Image != "" {
 		runtime["image"] = config.Image
+		if d.dockerConfigJSON != nil {
+			runtime["dockerConfig"] = string(d.dockerConfigJSON)
+		}
+		if skipBuild {
+			runtime["skipBuild"] = "true"
+		}
 	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)
@@ -689,8 +704,6 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
-	// Volume-template needs upload even without build
-	// When using a pre-built image, no upload is needed
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
@@ -839,7 +852,7 @@ func (d *Deployment) Apply() error {
 	}
 
 	for _, result := range applyResults {
-		if result.Result.UploadURL != "" {
+		if result.Result.UploadURL != "" && core.GetConfig().Image == "" {
 			if !isStructured {
 				config := core.GetConfig()
 				resourceLabel := "code"
@@ -1098,8 +1111,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		resource.SetMetadataURL(applyResults[0].Result.MetadataURL)
 	}
 
-	// Handle upload if there's an upload URL
-	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
+	// Handle upload if there's an upload URL (skip for registry image deploys — no archive)
+	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" && config.Image == "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 
 		// Check if resource type supports detailed upload progress
@@ -1584,7 +1597,7 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 		TotalDuration: duration,
 	}
 
-	resourceStatus := "UNKNOWN"
+	var resourceStatus string
 	if failed {
 		resourceStatus = "FAILED"
 	} else {
@@ -2174,8 +2187,8 @@ func (d *Deployment) Print(skipBuild bool) error {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	if !skipBuild {
-		config := core.GetConfig()
+	config := core.GetConfig()
+	if !skipBuild && config.Image == "" {
 		if core.IsVolumeTemplate(config.Type) {
 			// Ensure archive is created before trying to print it
 			if d.archive == nil {

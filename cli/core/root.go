@@ -463,6 +463,11 @@ func SetConfigType(t string) {
 	config.Type = t
 }
 
+// SetConfigImage sets the config image field
+func SetConfigImage(image string) {
+	config.Image = image
+}
+
 // GetClient returns the current client
 func GetClient() *blaxel.Client {
 	return client

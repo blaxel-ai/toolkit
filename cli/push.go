@@ -35,6 +35,7 @@ type createImageRequest struct {
 	ResourceType string `json:"resourceType"`
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
+	DockerConfig string `json:"dockerConfig,omitempty"`
 }
 
 // createImageResponse is the response body from POST /images.
@@ -43,6 +44,28 @@ type createImageResponse struct {
 	Name         string `json:"name"`
 	ResourceType string `json:"resourceType"`
 	Image        string `json:"image,omitempty"`
+	Build        bool   `json:"build,omitempty"`
+}
+
+// imageRefToName extracts a human-readable name from a Docker image reference.
+// Examples: "docker.io/library/nginx:latest" → "nginx", "ghcr.io/org/my-app:v2" → "my-app".
+func imageRefToName(ref string) string {
+	// Strip digest first so the tag colon is correctly identified afterward
+	if idx := strings.LastIndex(ref, "@"); idx != -1 {
+		ref = ref[:idx]
+	}
+	// Strip tag, but avoid stripping port numbers (e.g. localhost:5000/image)
+	if idx := strings.LastIndex(ref, ":"); idx != -1 {
+		slash := strings.LastIndex(ref, "/")
+		if idx > slash {
+			ref = ref[:idx]
+		}
+	}
+	// Take the last path segment
+	if idx := strings.LastIndex(ref, "/"); idx != -1 {
+		ref = ref[idx+1:]
+	}
+	return ref
 }
 
 func PushCmd() *cobra.Command {
@@ -54,6 +77,7 @@ func PushCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
+	var skipBuild bool
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -72,7 +96,13 @@ The process includes:
 4. Building container image
 5. Streaming build logs until the image is ready
 
-You must run this command from a directory containing a blaxel.toml file.`,
+If the blaxel.toml contains an 'image' field pointing to a registry image
+(e.g. docker.io/myorg/myapp:latest), the platform will pull the image and
+transform it for the target runtime via metamorph. If the same image was
+already built, the build is triggered again by default. Use --skip-build to
+skip the build if the image was already built.
+
+For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
 
@@ -84,6 +114,12 @@ You must run this command from a directory containing a blaxel.toml file.`,
 
   # Push specifying a resource type
   bl push --type agent
+
+  # Push from a private registry (credentials for blaxel.toml image field)
+  bl push --registry-cred ghcr.io=user:token
+
+  # Skip rebuild if image was already built
+  bl push --skip-build
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -99,6 +135,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 			}
 
+			// When --image is provided, blaxel.toml is optional
 			if folder != "" {
 				core.ReadConfigToml(folder, false)
 			} else {
@@ -160,7 +197,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				buildTimeout = parsed
 			}
 
-			// Determine name
+			// Determine name: flag > config > image ref > directory
 			if name == "" {
 				name = config.Name
 			}
@@ -171,24 +208,23 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				core.ExitWithError(err)
 			}
 
+			if name == "" && config.Image != "" {
+				name = imageRefToName(config.Image)
+			}
 			if name == "" {
 				name = filepath.Base(filepath.Join(cwd, folder))
 			}
 			name = core.Slugify(name)
 
-			// Check for blaxel.toml validation warnings
-			blaxelTomlWarning := core.GetBlaxelTomlWarning()
-			if blaxelTomlWarning != "" {
-				fmt.Println(blaxelTomlWarning)
-				core.ClearBlaxelTomlWarning()
+			// Resolve Docker registry credentials
+			projectDir := filepath.Join(cwd, folder)
+			dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
+			if dockerErr != nil {
+				core.PrintError("Push", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
+				core.ExitWithError(dockerErr)
 			}
 
-			// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
-			config.Type = resourceType
-			validationWarning := ValidateBuildConfig(cwd, folder, config)
-			if validationWarning != "" {
-				handleConfigWarning(validationWarning, noTTY)
-			}
+			image := config.Image
 
 			// Determine generation from runtime config
 			generation := ""
@@ -200,12 +236,12 @@ You must run this command from a directory containing a blaxel.toml file.`,
 				}
 			}
 
-			// Check if a pre-built image is specified in blaxel.toml
-			image := config.Image
-
 			if image != "" {
-				// Direct image flow: skip packaging and upload, register the image directly
-				fmt.Printf("Registering image %s for %s...\n", image, imageRef(resourceType, name))
+				// Image provided (via --image flag or blaxel.toml).
+				// The backend auto-detects registry images (hostname with a dot)
+				// and triggers a build via metamorph. If the image was already
+				// built, the backend rebuilds by default. Use --skip-build to skip.
+				fmt.Printf("Pushing image %s for %s...\n", image, imageRef(resourceType, name))
 				client := core.GetClient()
 				ctx := context.Background()
 
@@ -215,24 +251,50 @@ You must run this command from a directory containing a blaxel.toml file.`,
 					Generation:   generation,
 					Image:        image,
 				}
+				if dockerConfigJSON != nil {
+					reqBody.DockerConfig = string(dockerConfigJSON)
+				}
+
+				opts := []option.RequestOption{}
+				if skipBuild {
+					opts = append(opts, option.WithQuery("skip-build", "true"))
+				}
 
 				var respBody createImageResponse
-				err = client.Post(ctx, "images", reqBody, &respBody)
+				err = client.Post(ctx, "images", reqBody, &respBody, opts...)
 				if err != nil {
-					core.PrintError("Push", fmt.Errorf("failed to register image: %w", err))
+					core.PrintError("Push", fmt.Errorf("failed to push image: %w", err))
 					core.ExitWithError(err)
 				}
 
-				printPushSuccess(resourceType, name, noTTY)
+				if respBody.Build {
+					err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
+					if err != nil {
+						core.PrintError("Push", err)
+						core.ExitWithError(err)
+					}
+				} else {
+					if respBody.Message != "" {
+						fmt.Println(respBody.Message)
+					}
+					printPushSuccess(resourceType, name, noTTY)
+				}
 			} else {
-				// Standard flow: package source code and upload
-				projectDir := filepath.Join(cwd, folder)
-				dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
-				if dockerErr != nil {
-					core.PrintError("Push", fmt.Errorf("failed to resolve Docker registry credentials: %w", dockerErr))
-					core.ExitWithError(dockerErr)
+				// Check for blaxel.toml validation warnings
+				blaxelTomlWarning := core.GetBlaxelTomlWarning()
+				if blaxelTomlWarning != "" {
+					fmt.Println(blaxelTomlWarning)
+					core.ClearBlaxelTomlWarning()
 				}
 
+				// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
+				config.Type = resourceType
+				validationWarning := ValidateBuildConfig(cwd, folder, config)
+				if validationWarning != "" {
+					handleConfigWarning(validationWarning, noTTY)
+				}
+
+				// Standard flow: package source code and upload
 				// Resolve build-env args
 				envArgs, buildEnvErr := core.ReadBuildEnv(projectDir, buildEnvPath)
 				if buildEnvErr != nil {
@@ -338,6 +400,7 @@ You must run this command from a directory containing a blaxel.toml file.`,
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
 	return cmd
 }
