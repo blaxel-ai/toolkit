@@ -703,7 +703,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
-	if !skipBuild || core.IsVolumeTemplate(config.Type) {
+	// Only set auto-generated label for source code builds (not registry image builds).
+	// Registry image builds are triggered separately via POST /images.
+	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	if d.experimental {
@@ -894,43 +896,46 @@ func (d *Deployment) Apply() error {
 		}
 	}
 
-	for _, result := range applyResults {
-		if result.Result.UploadURL != "" {
-			if !isStructured {
-				config := core.GetConfig()
-				resourceLabel := "code"
-				switch strings.ToLower(config.Type) {
-				case "volumetemplate":
-					resourceLabel = "volume template"
-				case "agent":
-					resourceLabel = "agent code"
-				case "function":
-					resourceLabel = "function code"
-				case "job":
-					resourceLabel = "job code"
-				case "sandbox":
-					resourceLabel = "sandbox code"
-				}
-				fmt.Printf("Uploading %s...\n", resourceLabel)
-			}
-
-			err := d.UploadWithRetry(result.Result.UploadURL, func() (string, error) {
-				newResults, err := ApplyResources(d.blaxelDeployments)
-				if err != nil {
-					return "", err
-				}
-				for _, r := range newResults {
-					if r.Kind == result.Kind && r.Name == result.Name && r.Result.UploadURL != "" {
-						return r.Result.UploadURL, nil
+	// Skip upload when deploying from a registry image (no archive to upload).
+	if core.GetConfig().Image == "" {
+		for _, result := range applyResults {
+			if result.Result.UploadURL != "" {
+				if !isStructured {
+					config := core.GetConfig()
+					resourceLabel := "code"
+					switch strings.ToLower(config.Type) {
+					case "volumetemplate":
+						resourceLabel = "volume template"
+					case "agent":
+						resourceLabel = "agent code"
+					case "function":
+						resourceLabel = "function code"
+					case "job":
+						resourceLabel = "job code"
+					case "sandbox":
+						resourceLabel = "sandbox code"
 					}
+					fmt.Printf("Uploading %s...\n", resourceLabel)
 				}
-				return "", fmt.Errorf("no upload URL returned on retry")
-			})
-			if err != nil {
-				return fmt.Errorf("failed to upload file: %w", err)
-			}
-			if !isStructured {
-				fmt.Println("Upload completed")
+
+				err := d.UploadWithRetry(result.Result.UploadURL, func() (string, error) {
+					newResults, err := ApplyResources(d.blaxelDeployments)
+					if err != nil {
+						return "", err
+					}
+					for _, r := range newResults {
+						if r.Kind == result.Kind && r.Name == result.Name && r.Result.UploadURL != "" {
+							return r.Result.UploadURL, nil
+						}
+					}
+					return "", fmt.Errorf("no upload URL returned on retry")
+				})
+				if err != nil {
+					return fmt.Errorf("failed to upload file: %w", err)
+				}
+				if !isStructured {
+					fmt.Println("Upload completed")
+				}
 			}
 		}
 	}
