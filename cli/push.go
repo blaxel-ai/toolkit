@@ -44,6 +44,7 @@ type createImageResponse struct {
 	Name         string `json:"name"`
 	ResourceType string `json:"resourceType"`
 	Image        string `json:"image,omitempty"`
+	Build        bool   `json:"build,omitempty"`
 }
 
 // imageRefToName extracts a human-readable name from a Docker image reference.
@@ -265,15 +266,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					core.ExitWithError(err)
 				}
 
-				switch respBody.Message {
-				case "Image build started", "Build already in progress":
+				if respBody.Build {
 					err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
 					if err != nil {
 						core.PrintError("Push", err)
 						core.ExitWithError(err)
 					}
-				default:
-					fmt.Println(respBody.Message)
+				} else {
+					if respBody.Message != "" {
+						fmt.Println(respBody.Message)
+					}
 					printPushSuccess(resourceType, name, noTTY)
 				}
 			} else {
