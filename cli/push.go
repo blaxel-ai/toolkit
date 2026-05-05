@@ -77,7 +77,7 @@ func PushCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
-	var forceBuild bool
+	var skipBuild bool
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -99,7 +99,8 @@ The process includes:
 If the blaxel.toml contains an 'image' field pointing to a registry image
 (e.g. docker.io/myorg/myapp:latest), the platform will pull the image and
 transform it for the target runtime via metamorph. If the same image was
-already built, the build is skipped unless --force-build is specified.
+already built, the build is triggered again by default. Use --skip-build to
+skip the build if the image was already built.
 
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
@@ -117,8 +118,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
 
-  # Force rebuild an image that was already built
-  bl push --force-build
+  # Skip rebuild if image was already built
+  bl push --skip-build
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -239,7 +240,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				// Image provided (via --image flag or blaxel.toml).
 				// The backend auto-detects registry images (hostname with a dot)
 				// and triggers a build via metamorph. If the image was already
-				// built, the backend skips the build unless --force-build is used.
+				// built, the backend rebuilds by default. Use --skip-build to skip.
 				fmt.Printf("Pushing image %s for %s...\n", image, imageRef(resourceType, name))
 				client := core.GetClient()
 				ctx := context.Background()
@@ -255,8 +256,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 
 				opts := []option.RequestOption{}
-				if forceBuild {
-					opts = append(opts, option.WithQuery("build", "true"))
+				if skipBuild {
+					opts = append(opts, option.WithQuery("skip-build", "true"))
 				}
 
 				var respBody createImageResponse
@@ -399,7 +400,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
-	cmd.Flags().BoolVar(&forceBuild, "force-build", false, "Force a rebuild even if the image was already built")
+	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
 	return cmd
 }

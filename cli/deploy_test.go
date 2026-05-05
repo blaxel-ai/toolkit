@@ -50,10 +50,6 @@ func TestDeployCmd(t *testing.T) {
 	yesFlag := cmd.Flags().Lookup("yes")
 	assert.NotNil(t, yesFlag)
 	assert.Equal(t, "y", yesFlag.Shorthand)
-
-	forceBuildFlag := cmd.Flags().Lookup("force-build")
-	assert.NotNil(t, forceBuildFlag)
-	assert.Equal(t, "false", forceBuildFlag.DefValue)
 }
 
 func TestDeploymentStruct(t *testing.T) {

@@ -48,7 +48,6 @@ func DeployCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
-	var forceBuild bool
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -218,7 +217,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				buildEnvContent:  buildEnvContent,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
-				forceBuild:       forceBuild,
+				skipBuild:        skipBuild,
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -333,7 +332,6 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
-	cmd.Flags().BoolVar(&forceBuild, "force-build", false, "Force a rebuild even if the image was already built")
 	return cmd
 }
 
@@ -353,7 +351,7 @@ type Deployment struct {
 	buildEnvContent        []byte
 	timeout                time.Duration
 	timeoutExplicit        bool
-	forceBuild             bool
+	skipBuild              bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -619,8 +617,8 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if d.dockerConfigJSON != nil {
 			runtime["dockerConfig"] = string(d.dockerConfigJSON)
 		}
-		if d.forceBuild {
-			runtime["forceBuild"] = "true"
+		if skipBuild {
+			runtime["skipBuild"] = "true"
 		}
 	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		// Skip image resolution for volume-template as it doesn't use runtime/image
