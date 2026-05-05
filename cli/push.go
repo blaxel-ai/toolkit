@@ -76,7 +76,6 @@ func PushCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
-	var imageFlag string
 	var forceBuild bool
 
 	cmd := &cobra.Command{
@@ -96,9 +95,10 @@ The process includes:
 4. Building container image
 5. Streaming build logs until the image is ready
 
-Alternatively, use --image to push an existing Docker image directly as the
-build source. When --image is specified, no blaxel.toml or Dockerfile is needed.
-The platform will pull the image and transform it for the target runtime.
+If the blaxel.toml contains an 'image' field pointing to a registry image
+(e.g. docker.io/myorg/myapp:latest), the platform will pull the image and
+transform it for the target runtime via metamorph. If the same image was
+already built, the build is skipped unless --force-build is specified.
 
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
@@ -113,14 +113,11 @@ For private registries, supply credentials via --registry-cred or --docker-confi
   # Push specifying a resource type
   bl push --type agent
 
-  # Push an existing Docker image as the build source
-  bl push --image docker.io/myorg/myapp:latest --type sandbox
-
-  # Push from a private registry with credentials
-  bl push --image ghcr.io/myorg/private-app:v2 --type agent --registry-cred ghcr.io=user:token
+  # Push from a private registry (credentials for blaxel.toml image field)
+  bl push --registry-cred ghcr.io=user:token
 
   # Force rebuild an image that was already built
-  bl push --image docker.io/myorg/myapp:latest --type sandbox --force-build
+  bl push --force-build
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -209,15 +206,15 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				core.ExitWithError(err)
 			}
 
-			if name == "" && imageFlag != "" {
-				name = imageRefToName(imageFlag)
+			if name == "" && config.Image != "" {
+				name = imageRefToName(config.Image)
 			}
 			if name == "" {
 				name = filepath.Base(filepath.Join(cwd, folder))
 			}
 			name = core.Slugify(name)
 
-			// Resolve Docker registry credentials (used for both --image and source builds)
+			// Resolve Docker registry credentials
 			projectDir := filepath.Join(cwd, folder)
 			dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
 			if dockerErr != nil {
@@ -225,11 +222,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				core.ExitWithError(dockerErr)
 			}
 
-			// Determine the image source: --image flag > blaxel.toml image field
 			image := config.Image
-			if imageFlag != "" {
-				image = imageFlag
-			}
 
 			// Determine generation from runtime config
 			generation := ""
@@ -404,7 +397,6 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
-	cmd.Flags().StringVar(&imageFlag, "image", "", "Use an existing Docker image as the build source (e.g. docker.io/myorg/myapp:latest). No blaxel.toml or Dockerfile needed")
 	cmd.Flags().BoolVar(&forceBuild, "force-build", false, "Force a rebuild even if the image was already built")
 
 	return cmd

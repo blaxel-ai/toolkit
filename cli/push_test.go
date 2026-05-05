@@ -83,9 +83,9 @@ func TestPushCmd(t *testing.T) {
 	assert.NotNil(t, typeFlag)
 	assert.Equal(t, "t", typeFlag.Shorthand)
 
-	imageFlag := cmd.Flags().Lookup("image")
-	assert.NotNil(t, imageFlag)
-	assert.Equal(t, "", imageFlag.DefValue)
+	forceBuildFlag := cmd.Flags().Lookup("force-build")
+	assert.NotNil(t, forceBuildFlag)
+	assert.Equal(t, "false", forceBuildFlag.DefValue)
 
 	registryCredFlag := cmd.Flags().Lookup("registry-cred")
 	assert.NotNil(t, registryCredFlag)
