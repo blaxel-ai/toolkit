@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	version   = "dev"
-	commit    = "none"
-	date      = "unknown"
-	sentryDSN = ""
+	version    = "dev"
+	commit     = "none"
+	date       = "unknown"
+	sentryDSN  = ""
+	posthogKey = ""
 )
 
 func main() {
@@ -34,6 +35,12 @@ func main() {
 
 		// Recover from panics and send to Sentry
 		defer core.RecoverWithSentry()
+	}
+
+	// Initialize PostHog tracking
+	if blaxel.IsTrackingEnabled() {
+		core.PosthogAPIKey = posthogKey
+		defer core.FlushPosthog()
 	}
 
 	err := cli.Execute(version, commit, date)
