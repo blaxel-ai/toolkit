@@ -1111,8 +1111,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		resource.SetMetadataURL(applyResults[0].Result.MetadataURL)
 	}
 
-	// Handle upload if there's an upload URL
-	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
+	// Handle upload if there's an upload URL (skip for registry image deploys — no archive)
+	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" && config.Image == "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 
 		// Check if resource type supports detailed upload progress
