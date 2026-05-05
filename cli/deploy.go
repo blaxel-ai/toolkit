@@ -2187,8 +2187,8 @@ func (d *Deployment) Print(skipBuild bool) error {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	if !skipBuild {
-		config := core.GetConfig()
+	config := core.GetConfig()
+	if !skipBuild && config.Image == "" {
 		if core.IsVolumeTemplate(config.Type) {
 			// Ensure archive is created before trying to print it
 			if d.archive == nil {
