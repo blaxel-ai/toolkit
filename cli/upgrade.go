@@ -162,18 +162,25 @@ func runUpgrade(targetVersion string, force bool) error {
 }
 
 // detectInstalledVersion runs the newly installed binary to get its version.
-// It re-resolves the executable symlink so that after a brew upgrade the new
-// cellar path is followed rather than the stale old one.
+// Uses exec.LookPath to find the binary by name so that after a brew upgrade
+// the updated PATH symlink is resolved to the new cellar entry.
 func detectInstalledVersion() string {
 	execPath, err := os.Executable()
 	if err != nil {
 		return ""
 	}
-	// Re-resolve the symlink: after brew upgrade the /usr/local/bin/bl symlink
-	// now points to the new cellar entry, so EvalSymlinks returns the new binary.
-	resolvedPath, err := filepath.EvalSymlinks(execPath)
+	// Look up the binary by its base name in PATH so that after a brew upgrade
+	// the symlink in /usr/local/bin points to the new cellar entry.
+	// os.Executable() on macOS returns the already-resolved cellar path,
+	// so EvalSymlinks alone cannot follow the updated symlink.
+	binaryName := filepath.Base(execPath)
+	resolvedPath, err := exec.LookPath(binaryName)
 	if err != nil {
-		resolvedPath = execPath
+		// Fallback: try EvalSymlinks on the original path
+		resolvedPath, err = filepath.EvalSymlinks(execPath)
+		if err != nil {
+			resolvedPath = execPath
+		}
 	}
 	out, err := exec.Command(resolvedPath, "version").Output()
 	if err != nil {
