@@ -84,6 +84,7 @@ func ExitWithError(err error) {
 		sentry.CaptureException(err)
 		sentry.Flush(2 * time.Second)
 	}
+	FlushPosthog()
 	os.Exit(1)
 }
 
@@ -93,6 +94,7 @@ func ExitWithMessage(msg string) {
 		sentry.CaptureMessage(msg)
 		sentry.Flush(2 * time.Second)
 	}
+	FlushPosthog()
 	os.Exit(1)
 }
 
@@ -101,5 +103,6 @@ func Exit(code int) {
 	if code != 0 && SentryDSN != "" {
 		sentry.Flush(2 * time.Second)
 	}
+	FlushPosthog()
 	os.Exit(code)
 }
