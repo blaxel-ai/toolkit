@@ -852,7 +852,7 @@ func (d *Deployment) Apply() error {
 	}
 
 	for _, result := range applyResults {
-		if result.Result.UploadURL != "" {
+		if result.Result.UploadURL != "" && core.GetConfig().Image == "" {
 			if !isStructured {
 				config := core.GetConfig()
 				resourceLabel := "code"
