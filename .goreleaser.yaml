@@ -25,7 +25,7 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
       - -X main.sentryDSN={{ .Env.SENTRY_DSN }}
-      - -X main.posthogKey={{ .Env.POSTHOG_KEY }}
+      - -X main.posthogKey={{ if index .Env "POSTHOG_KEY" }}{{ .Env.POSTHOG_KEY }}{{ end }}
     goos:
       - linux
       - windows

@@ -76,8 +76,8 @@ func saveTelemetryState(state *telemetryState) {
 	_ = os.WriteFile(path, data, 0600)
 }
 
-// getDistinctID returns the distinct ID for PostHog events.
-// Uses the workspace email if available, otherwise generates and persists a UUID.
+// getDistinctID returns a persistent anonymous UUID for PostHog events.
+// The UUID is generated on first use and stored in ~/.blaxel/telemetry.json.
 func getDistinctID() string {
 	state := loadTelemetryState()
 	if state.DistinctID != "" {

@@ -149,7 +149,10 @@ func runUpgrade(targetVersion string, force bool) error {
 		return upgradeErr
 	}
 
-	// Detect new version after successful upgrade
+	// Detect new version after successful upgrade.
+	// For brew upgrades, the old cellar binary is gone so we must resolve
+	// the symlink again (brew updates the /usr/local/bin symlink to the
+	// new cellar path). For curl upgrades the binary is replaced in-place.
 	newVersion := detectInstalledVersion()
 	if newVersion != "" && newVersion != oldVersion {
 		core.TrackCLIUpgraded(oldVersion, newVersion)
@@ -159,16 +162,20 @@ func runUpgrade(targetVersion string, force bool) error {
 }
 
 // detectInstalledVersion runs the newly installed binary to get its version.
+// It re-resolves the executable symlink so that after a brew upgrade the new
+// cellar path is followed rather than the stale old one.
 func detectInstalledVersion() string {
 	execPath, err := os.Executable()
 	if err != nil {
 		return ""
 	}
-	realPath, err := filepath.EvalSymlinks(execPath)
+	// Re-resolve the symlink: after brew upgrade the /usr/local/bin/bl symlink
+	// now points to the new cellar entry, so EvalSymlinks returns the new binary.
+	resolvedPath, err := filepath.EvalSymlinks(execPath)
 	if err != nil {
-		realPath = execPath
+		resolvedPath = execPath
 	}
-	out, err := exec.Command(realPath, "version").Output()
+	out, err := exec.Command(resolvedPath, "version").Output()
 	if err != nil {
 		return ""
 	}
