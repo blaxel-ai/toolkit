@@ -133,14 +133,53 @@ func runUpgrade(targetVersion string, force bool) error {
 
 	core.PrintInfo(fmt.Sprintf("Detected installation method: %s", method))
 
+	oldVersion := core.GetVersion()
+
+	var upgradeErr error
 	switch method {
 	case "brew":
-		return upgradeViaBrew(force)
+		upgradeErr = upgradeViaBrew(force)
 	case "curl":
-		return upgradeViaCurl(targetVersion)
+		upgradeErr = upgradeViaCurl(targetVersion)
 	default:
 		return fmt.Errorf("unknown installation method: %s", method)
 	}
+
+	if upgradeErr != nil {
+		return upgradeErr
+	}
+
+	// Detect new version after successful upgrade
+	newVersion := detectInstalledVersion()
+	if newVersion != "" && newVersion != oldVersion {
+		core.TrackCLIUpgraded(oldVersion, newVersion)
+	}
+
+	return nil
+}
+
+// detectInstalledVersion runs the newly installed binary to get its version.
+func detectInstalledVersion() string {
+	execPath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		realPath = execPath
+	}
+	out, err := exec.Command(realPath, "version").Output()
+	if err != nil {
+		return ""
+	}
+	// Parse "Version: X.Y.Z" from the output
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	return ""
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew
