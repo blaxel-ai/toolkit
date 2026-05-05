@@ -17,6 +17,7 @@ import (
 	"net/http"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
@@ -614,16 +615,10 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// If a pre-built image is specified, use it directly
 	if config.Image != "" {
-		runtime["image"] = config.Image
-		// Pass docker credentials for private registry images
-		if d.dockerConfigJSON != nil {
-			runtime["dockerConfig"] = string(d.dockerConfigJSON)
-		}
-		if d.forceBuild {
-			runtime["forceBuild"] = "true"
-		}
+		// Registry image: don't set runtime["image"] to the docker ref.
+		// The image will be built via POST /images (handled in Apply/ApplyInteractive)
+		// and stored in the workspace registry under the resource name.
 	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)
@@ -708,9 +703,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
-	// Volume-template needs upload even without build
-	// When using a pre-built image, no upload is needed
-	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
+	if !skipBuild || core.IsVolumeTemplate(config.Type) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
 	if d.experimental {
@@ -725,6 +718,50 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		},
 		Spec: Spec,
 	}
+}
+
+// triggerImageBuild calls POST /images to build a registry image via metamorph.
+// Returns true if a build was started (caller should monitor), false if already built.
+func (d *Deployment) triggerImageBuild() (bool, error) {
+	config := core.GetConfig()
+	if config.Image == "" {
+		return false, nil
+	}
+
+	client := core.GetClient()
+	ctx := context.Background()
+
+	generation := ""
+	if config.Runtime != nil {
+		if gen, ok := (*config.Runtime)["generation"]; ok {
+			if genStr, ok := gen.(string); ok {
+				generation = genStr
+			}
+		}
+	}
+
+	reqBody := createImageRequest{
+		Name:         d.name,
+		ResourceType: config.Type,
+		Generation:   generation,
+		Image:        config.Image,
+	}
+	if d.dockerConfigJSON != nil {
+		reqBody.DockerConfig = string(d.dockerConfigJSON)
+	}
+
+	opts := []option.RequestOption{}
+	if d.forceBuild {
+		opts = append(opts, option.WithQuery("build", "true"))
+	}
+
+	var respBody createImageResponse
+	err := client.Post(ctx, "images", reqBody, &respBody, opts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to trigger image build: %w", err)
+	}
+
+	return respBody.Build, nil
 }
 
 func getResource(resourceType, name string) (map[string]interface{}, error) {
@@ -894,6 +931,31 @@ func (d *Deployment) Apply() error {
 			}
 			if !isStructured {
 				fmt.Println("Upload completed")
+			}
+		}
+	}
+
+	// For registry images, trigger the build via POST /images after resource creation.
+	deployConfig := core.GetConfig()
+	if deployConfig.Image != "" {
+		if !isStructured {
+			fmt.Printf("Triggering image build for %s...\n", deployConfig.Image)
+		}
+		buildStarted, err := d.triggerImageBuild()
+		if err != nil {
+			return fmt.Errorf("failed to trigger image build: %w", err)
+		}
+		if buildStarted {
+			if !isStructured {
+				fmt.Println("Image build started")
+			}
+			err = watchBuildLogsNonInteractive(deployConfig.Type, d.name, true, d.timeout)
+			if err != nil {
+				return fmt.Errorf("image build failed: %w", err)
+			}
+		} else {
+			if !isStructured {
+				fmt.Println("Image already built, skipping build")
 			}
 		}
 	}
@@ -1250,6 +1312,25 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 			return
 		}
 		model.AddBuildLog(idx, "Upload completed successfully")
+	}
+
+	// For registry images, trigger the build via POST /images after resource creation.
+	// The build step function will transform the image via metamorph and update the resource.
+	config = core.GetConfig()
+	if config.Image != "" {
+		model.UpdateResource(idx, deploy.StatusBuilding, "Building image from registry", nil)
+		model.AddBuildLog(idx, fmt.Sprintf("Triggering image build for %s...", config.Image))
+		buildStarted, err := d.triggerImageBuild()
+		if err != nil {
+			model.UpdateResource(idx, deploy.StatusFailed, "Image build failed", err)
+			model.AddBuildLog(idx, fmt.Sprintf("Failed to trigger image build: %v", err))
+			return
+		}
+		if buildStarted {
+			model.AddBuildLog(idx, "Image build started, monitoring progress...")
+		} else {
+			model.AddBuildLog(idx, "Image already built, skipping build")
+		}
 	}
 
 	// For resources that need status monitoring (agent, function, job, sandbox)
