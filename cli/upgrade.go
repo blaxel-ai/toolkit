@@ -182,7 +182,9 @@ func detectInstalledVersion() string {
 			resolvedPath = execPath
 		}
 	}
-	out, err := exec.Command(resolvedPath, "version").Output()
+	cmd := exec.Command(resolvedPath, "version")
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}

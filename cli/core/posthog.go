@@ -28,6 +28,8 @@ type telemetryState struct {
 var (
 	telemetryOnce  sync.Once
 	telemetryCache *telemetryState
+	telemetryRaw   map[string]interface{} // preserves unknown fields from disk
+	posthogWg      sync.WaitGroup
 )
 
 // getTelemetryPath returns the path to the telemetry state file
@@ -45,6 +47,7 @@ func loadTelemetryState() *telemetryState {
 		telemetryCache = &telemetryState{
 			SDKs: make(map[string]string),
 		}
+		telemetryRaw = make(map[string]interface{})
 		path := getTelemetryPath()
 		if path == "" {
 			return
@@ -53,6 +56,8 @@ func loadTelemetryState() *telemetryState {
 		if err != nil {
 			return
 		}
+		// Unmarshal into raw map to preserve unknown fields
+		_ = json.Unmarshal(data, &telemetryRaw)
 		_ = json.Unmarshal(data, telemetryCache)
 		if telemetryCache.SDKs == nil {
 			telemetryCache.SDKs = make(map[string]string)
@@ -61,7 +66,7 @@ func loadTelemetryState() *telemetryState {
 	return telemetryCache
 }
 
-// saveTelemetryState writes the telemetry state to disk
+// saveTelemetryState writes the telemetry state to disk, preserving unknown fields
 func saveTelemetryState(state *telemetryState) {
 	path := getTelemetryPath()
 	if path == "" {
@@ -69,7 +74,19 @@ func saveTelemetryState(state *telemetryState) {
 	}
 	dir := filepath.Dir(path)
 	_ = os.MkdirAll(dir, 0755)
-	data, err := json.MarshalIndent(state, "", "  ")
+
+	// Merge known fields into raw map to preserve unknown fields from disk
+	merged := make(map[string]interface{})
+	for k, v := range telemetryRaw {
+		merged[k] = v
+	}
+	merged["distinct_id"] = state.DistinctID
+	if state.CLI != "" {
+		merged["cli"] = state.CLI
+	}
+	merged["sdks"] = state.SDKs
+
+	data, err := json.MarshalIndent(merged, "", "  ")
 	if err != nil {
 		return
 	}
@@ -110,7 +127,9 @@ func capturePosthogEvent(event string, properties map[string]string) {
 		return
 	}
 
+	posthogWg.Add(1)
 	go func() {
+		defer posthogWg.Done()
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Post(PosthogHost+"/capture/", "application/json", bytes.NewReader(data))
 		if err != nil {
@@ -124,6 +143,10 @@ func capturePosthogEvent(event string, properties map[string]string) {
 // an "Installed CLI" event if it hasn't.
 func TrackCLIInstalled(cliVersion string) {
 	if PosthogAPIKey == "" || cliVersion == "" || cliVersion == "dev" {
+		return
+	}
+	// Skip telemetry in subprocess spawned by detectInstalledVersion()
+	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
 		return
 	}
 
@@ -172,11 +195,19 @@ func generateUUID() string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
-// FlushPosthog waits briefly to allow in-flight PostHog requests to complete.
+// FlushPosthog waits for all in-flight PostHog requests to complete,
+// with a maximum timeout of 5 seconds to avoid blocking indefinitely.
 func FlushPosthog() {
 	if PosthogAPIKey == "" {
 		return
 	}
-	// Give goroutines a moment to finish sending
-	time.Sleep(500 * time.Millisecond)
+	done := make(chan struct{})
+	go func() {
+		posthogWg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
 }
