@@ -21,7 +21,9 @@ func CreateJobCmd() *cobra.Command {
 		Long:   "This command has been deprecated. Please use 'bl new job' instead.",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			core.PrintError("create-job", fmt.Errorf("this command has been deprecated. Please use 'bl new job' instead"))
+			err := fmt.Errorf("this command has been deprecated. Please use 'bl new job' instead")
+			core.PrintError("create-job", err)
+			core.ExitWithError(err)
 		},
 	}
 	return cmd
