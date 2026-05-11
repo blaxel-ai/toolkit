@@ -67,8 +67,8 @@ func runCreateFlow(
 	successFunc func(opts TemplateOptions),
 ) {
 	// Accept shorthand template names without the "template-" prefix
-	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
-		templateNameFlag = "template-" + templateNameFlag
+	if templateNameFlag != "" {
+		templateNameFlag = normalizeTemplateNameFlag(templateNameFlag, cfg.TemplateType)
 	}
 	if dirArg == "" {
 		dirArg = generateRandomDirectoryName(cfg.TemplateType)
@@ -104,26 +104,7 @@ func runCreateFlow(
 		opts = CreateDefaultTemplateOptions(selectedDir, templateNameFlag, templates)
 		if opts.TemplateName == "" {
 			PrintError(cfg.ErrorPrefix, fmt.Errorf("template '%s' not found", templateNameFlag))
-			fmt.Println("Available templates:")
-			langs := templates.GetLanguages()
-			for _, lang := range langs {
-				hasTemplates := false
-				for _, t := range templates {
-					if t.Language != lang {
-						continue
-					}
-					if !hasTemplates {
-						fmt.Printf("- %s:\n", lang)
-						hasTemplates = true
-					}
-					name := strings.TrimPrefix(templateDisplayName(t), "template-")
-					if t.Description != "" {
-						fmt.Printf("  - %-30s %s\n", name, t.Description)
-					} else {
-						fmt.Printf("  - %s\n", name)
-					}
-				}
-			}
+			printAvailableTemplates(templates, cfg.TemplateType)
 			return
 		}
 	case cfg.NoTTY && cfg.TemplateType == "mcp":
@@ -154,6 +135,13 @@ func runCreateFlow(
 
 	CleanTemplate(opts.Directory)
 
+	if cfg.TemplateType == "sandbox" {
+		if err := FinalizeSandboxTemplate(opts); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return
+		}
+	}
+
 	// Optionally update blaxel.toml (only for those commands that did previously)
 	if cfg.BlaxelTomlResourceType != "" {
 		_ = EditBlaxelTomlInCurrentDir(cfg.BlaxelTomlResourceType, opts.ProjectName, opts.Directory)
@@ -183,8 +171,60 @@ func runCreateFlow(
 	successFunc(opts)
 }
 
+func normalizeTemplateNameFlag(templateNameFlag string, templateType string) string {
+	if templateType == "sandbox" {
+		if templateName, ok := sandboxTemplateAlias(templateNameFlag); ok {
+			return templateName
+		}
+	}
+	if !strings.HasPrefix(templateNameFlag, "template-") {
+		return "template-" + templateNameFlag
+	}
+	return templateNameFlag
+}
+
 func templateDisplayName(t Template) string {
 	return regexp.MustCompile(`^\d+-`).ReplaceAllString(t.Name, "")
+}
+
+func printAvailableTemplates(templates Templates, templateType string) {
+	fmt.Println("Available templates:")
+	if templateType == "sandbox" {
+		for _, t := range sandboxTemplatesForDisplay(templates) {
+			printSandboxTemplateLine(t)
+		}
+		return
+	}
+
+	langs := templates.GetLanguages()
+	if len(langs) == 0 {
+		for _, t := range templates {
+			printTemplateLine(t)
+		}
+		return
+	}
+	for _, lang := range langs {
+		hasTemplates := false
+		for _, t := range templates {
+			if t.Language != lang {
+				continue
+			}
+			if !hasTemplates {
+				fmt.Printf("- %s:\n", lang)
+				hasTemplates = true
+			}
+			printTemplateLine(t)
+		}
+	}
+}
+
+func printTemplateLine(t Template) {
+	name := strings.TrimPrefix(templateDisplayName(t), "template-")
+	if t.Description != "" {
+		fmt.Printf("  - %-30s %s\n", name, t.Description)
+	} else {
+		fmt.Printf("  - %s\n", name)
+	}
 }
 
 // PromptTemplateOptions presents a unified interactive form to collect
@@ -363,7 +403,7 @@ func RunSandboxCreation(dirArg string, templateName string, noTTY bool) {
 			SpinnerTitle: "Creating your blaxel sandbox...",
 		},
 		func(directory string, templates Templates) TemplateOptions {
-			return PromptTemplateOptions(directory, templates, "sandbox", false, 5)
+			return PromptSandboxTemplateOptions(directory, templates)
 		},
 		func(opts TemplateOptions) {
 			PrintSuccess("Your blaxel sandbox has been created successfully!")

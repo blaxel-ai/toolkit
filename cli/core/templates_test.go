@@ -152,6 +152,65 @@ func TestTemplatesFind(t *testing.T) {
 	})
 }
 
+func TestEnsureSandboxTemplatesAddsLocalCatalogOptions(t *testing.T) {
+	templates := Templates{
+		{
+			Template: blaxel.Template{
+				Name:        sandboxCodegenTemplate,
+				Description: "Existing sandbox template",
+				URL:         sandboxCodegenTemplateURL,
+				Topics:      []string{"sandbox"},
+			},
+			Type: "sandbox",
+		},
+	}
+
+	result := ensureSandboxTemplates(templates)
+
+	assert.Equal(t, []string{
+		sandboxScratchTemplate,
+		sandboxClaudeCodeTemplate,
+		sandboxCodexTemplate,
+		sandboxCodegenTemplate,
+	}, []string{
+		result[0].Name,
+		result[1].Name,
+		result[2].Name,
+		result[3].Name,
+	})
+	assert.Equal(t, sandboxCodegenTemplateURL, result[0].URL)
+	assert.Equal(t, sandboxClaudeCodeTemplateURL, result[1].URL)
+	assert.Equal(t, sandboxCodegenTemplateURL, result[2].URL)
+}
+
+func TestEnsureSandboxTemplatesKeepsRemoteCatalogOptions(t *testing.T) {
+	templates := Templates{
+		{
+			Template: blaxel.Template{
+				Name:        sandboxClaudeCodeTemplate,
+				Description: "Catalog Claude template",
+				URL:         "https://example.com/catalog-claude.git",
+				Topics:      []string{"sandbox"},
+			},
+			Type: "sandbox",
+		},
+	}
+
+	result := ensureSandboxTemplates(templates)
+
+	claudeCount := 0
+	claudeURL := ""
+	for _, template := range result {
+		if template.Name == sandboxClaudeCodeTemplate {
+			claudeCount++
+			claudeURL = template.URL
+		}
+	}
+
+	assert.Equal(t, 1, claudeCount)
+	assert.Equal(t, "https://example.com/catalog-claude.git", claudeURL)
+}
+
 func TestFindNextAvailablePort(t *testing.T) {
 	tests := []struct {
 		name     string
