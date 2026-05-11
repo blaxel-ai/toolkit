@@ -331,3 +331,46 @@ func TestFinalizeSandboxTemplateWritesScratchRuntimeFiles(t *testing.T) {
 	assert.Contains(t, string(readme), "bl new sandbox my-sandbox -t scratch -y")
 	assert.NotContains(t, string(readme), "--version")
 }
+
+func TestFinalizeSandboxTemplatePreservesLowercaseDockerfileWhenOnlyLowercaseExists(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "dockerfile"), []byte("old lower"), 0644))
+	if _, err := os.Stat(filepath.Join(tempDir, "Dockerfile")); err == nil {
+		t.Skip("case-insensitive filesystem treats Dockerfile and dockerfile as the same path")
+	}
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxCodexTemplate,
+	}))
+
+	lowercaseDockerfile, err := os.ReadFile(filepath.Join(tempDir, "dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(lowercaseDockerfile), "npm install -g @openai/codex@latest")
+
+	_, err = os.Stat(filepath.Join(tempDir, "Dockerfile"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestFinalizeSandboxTemplateRemovesDuplicateLowercaseDockerfile(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "Dockerfile"), []byte("old upper"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "dockerfile"), []byte("old lower"), 0644))
+	upperInfo, err := os.Stat(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	lowerInfo, err := os.Stat(filepath.Join(tempDir, "dockerfile"))
+	require.NoError(t, err)
+	if os.SameFile(upperInfo, lowerInfo) {
+		t.Skip("case-insensitive filesystem treats Dockerfile and dockerfile as the same path")
+	}
+
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxClaudeCodeTemplate,
+	}))
+
+	_, err = os.Stat(filepath.Join(tempDir, "dockerfile"))
+	assert.True(t, os.IsNotExist(err))
+	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(dockerfile), "npm install -g @anthropic-ai/claude-code@latest")
+}

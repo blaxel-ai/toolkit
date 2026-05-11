@@ -278,12 +278,43 @@ ENV PATH="/usr/local/bin:/app/node_modules/.bin:$PATH"
 ENTRYPOINT ["/entrypoint.sh"]
 `, installLine)
 
-	for _, name := range []string{"Dockerfile", "dockerfile"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", name, err)
+	target, stale := sandboxDockerfileTarget(dir)
+	for _, path := range stale {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove duplicate Dockerfile %s: %w", path, err)
 		}
 	}
+	if err := os.WriteFile(target, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", filepath.Base(target), err)
+	}
 	return nil
+}
+
+func sandboxDockerfileTarget(dir string) (string, []string) {
+	upper := filepath.Join(dir, "Dockerfile")
+	lower := filepath.Join(dir, "dockerfile")
+	upperInfo, upperExists := fileInfo(upper)
+	lowerInfo, lowerExists := fileInfo(lower)
+
+	switch {
+	case upperExists:
+		if lowerExists {
+			if os.SameFile(upperInfo, lowerInfo) {
+				return upper, nil
+			}
+			return upper, []string{lower}
+		}
+		return upper, nil
+	case lowerExists:
+		return lower, nil
+	default:
+		return upper, nil
+	}
+}
+
+func fileInfo(path string) (os.FileInfo, bool) {
+	info, err := os.Stat(path)
+	return info, err == nil && !info.IsDir()
 }
 
 func writeSandboxMakefile(dir string, variant sandboxTemplateVariant) error {
