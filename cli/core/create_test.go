@@ -1,11 +1,14 @@
 package core
 
 import (
+	"errors"
+	"path/filepath"
 	"regexp"
 	"testing"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateRandomDirectoryName(t *testing.T) {
@@ -137,4 +140,115 @@ func TestTemplateDisplayNameRegex(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestRunCreateFlowWithDepsReturnsErrorWhenDirectoryExists(t *testing.T) {
+	existingDir := t.TempDir()
+
+	err := runCreateFlowWithDeps(
+		existingDir,
+		"google-adk-py",
+		CreateFlowConfig{
+			TemplateType: "agent",
+			NoTTY:        true,
+			ErrorPrefix:  "Agent creation",
+			SpinnerTitle: "Creating your blaxel agent app...",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			t.Fatal("prompt should not run for an existing directory")
+			return TemplateOptions{}
+		},
+		func(opts TemplateOptions) {
+			t.Fatal("success should not run after an existing directory error")
+		},
+		createFlowDeps{},
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+}
+
+func TestRunCreateFlowWithDepsReturnsErrorWhenTemplateNotFound(t *testing.T) {
+	var err error
+	stdout, stderr := captureStandardStreams(t, func() {
+		err = runCreateFlowWithDeps(
+			filepath.Join(t.TempDir(), "new-agent"),
+			"missing-template",
+			CreateFlowConfig{
+				TemplateType: "agent",
+				NoTTY:        true,
+				ErrorPrefix:  "Agent creation",
+				SpinnerTitle: "Creating your blaxel agent app...",
+			},
+			func(directory string, templates Templates) TemplateOptions {
+				t.Fatal("prompt should not run when a template flag is provided")
+				return TemplateOptions{}
+			},
+			func(opts TemplateOptions) {
+				t.Fatal("success should not run when template resolution fails")
+			},
+			createFlowDeps{
+				RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+					return Templates{
+						{
+							Template: blaxel.Template{Name: "template-google-adk-py"},
+							Language: "python",
+							Type:     "agent",
+						},
+					}, nil
+				},
+			},
+		)
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "template 'template-missing-template' not found")
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Available templates:")
+	assert.Contains(t, stderr, "google-adk-py")
+}
+
+func TestRunCreateFlowWithDepsReturnsCloneFailure(t *testing.T) {
+	cloneErr := errors.New("dependency install failed")
+	cleanCalled := false
+	successCalled := false
+
+	err := runCreateFlowWithDeps(
+		filepath.Join(t.TempDir(), "new-agent"),
+		"google-adk-py",
+		CreateFlowConfig{
+			TemplateType: "agent",
+			NoTTY:        true,
+			ErrorPrefix:  "Agent creation",
+			SpinnerTitle: "Creating your blaxel agent app...",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			t.Fatal("prompt should not run when a template flag is provided")
+			return TemplateOptions{}
+		},
+		func(opts TemplateOptions) {
+			successCalled = true
+		},
+		createFlowDeps{
+			RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+				return Templates{
+					{
+						Template: blaxel.Template{Name: "template-google-adk-py"},
+						Language: "python",
+						Type:     "agent",
+					},
+				}, nil
+			},
+			CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+				return cloneErr
+			},
+			CleanTemplate: func(directory string) {
+				cleanCalled = true
+			},
+		},
+	)
+
+	require.ErrorIs(t, err, cloneErr)
+	assert.False(t, cleanCalled)
+	assert.False(t, successCalled)
 }

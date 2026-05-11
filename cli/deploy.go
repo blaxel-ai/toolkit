@@ -282,11 +282,20 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			if dryRun {
-				err := deployment.Print(skipBuild)
-				if err != nil {
-					err = fmt.Errorf("error printing blaxel deployment: %w", err)
-					core.PrintError("Deploy", err)
-					core.ExitWithError(err)
+				if isStructured {
+					err := deployment.printDryRunStructuredOutput(outputFmt, skipBuild)
+					if err != nil {
+						err = fmt.Errorf("error printing structured dry run: %w", err)
+						core.PrintError("Deploy", err)
+						core.ExitWithError(err)
+					}
+				} else {
+					err := deployment.Print(skipBuild)
+					if err != nil {
+						err = fmt.Errorf("error printing blaxel deployment: %w", err)
+						core.PrintError("Deploy", err)
+						core.ExitWithError(err)
+					}
 				}
 				return
 			}
@@ -1631,6 +1640,115 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 		data, _ := yaml.Marshal(result)
 		fmt.Print(string(data))
 	}
+}
+
+type dryRunFile struct {
+	Name string `json:"name" yaml:"name"`
+	Size int64  `json:"size" yaml:"size"`
+}
+
+type dryRunResult struct {
+	DryRun    bool          `json:"dryRun" yaml:"dryRun"`
+	Resources []core.Result `json:"resources" yaml:"resources"`
+	Files     []dryRunFile  `json:"files,omitempty" yaml:"files,omitempty"`
+}
+
+func (d *Deployment) printDryRunStructuredOutput(outputFmt string, skipBuild bool) error {
+	data, err := d.renderDryRunStructuredOutput(outputFmt, skipBuild)
+	if err != nil {
+		return err
+	}
+	switch outputFmt {
+	case "json":
+		fmt.Println(string(data))
+	case "yaml":
+		fmt.Print(string(data))
+	}
+	return nil
+}
+
+func (d *Deployment) renderDryRunStructuredOutput(outputFmt string, skipBuild bool) ([]byte, error) {
+	files, err := d.collectDryRunFiles(skipBuild)
+	if err != nil {
+		return nil, err
+	}
+	result := dryRunResult{
+		DryRun:    true,
+		Resources: d.blaxelDeployments,
+		Files:     files,
+	}
+	switch outputFmt {
+	case "json":
+		return json.MarshalIndent(result, "", "  ")
+	case "yaml":
+		return yaml.Marshal(result)
+	default:
+		return nil, fmt.Errorf("unsupported dry-run output format %q", outputFmt)
+	}
+}
+
+func (d *Deployment) collectDryRunFiles(skipBuild bool) ([]dryRunFile, error) {
+	config := core.GetConfig()
+	if skipBuild || config.Image != "" {
+		return nil, nil
+	}
+	if d.archive == nil {
+		return nil, nil
+	}
+	if core.IsVolumeTemplate(config.Type) {
+		return collectDryRunTarFiles(d.archive.Name())
+	}
+	return collectDryRunZipFiles(d.archive.Name())
+}
+
+func collectDryRunZipFiles(path string) ([]dryRunFile, error) {
+	zipFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen zip file: %w", err)
+	}
+	defer func() { _ = zipFile.Close() }()
+
+	fileInfo, err := zipFile.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+	zipReader, err := zip.NewReader(zipFile, fileInfo.Size())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zip reader: %w", err)
+	}
+	files := make([]dryRunFile, 0, len(zipReader.File))
+	for _, file := range zipReader.File {
+		files = append(files, dryRunFile{
+			Name: file.Name,
+			Size: int64(file.FileInfo().Size()),
+		})
+	}
+	return files, nil
+}
+
+func collectDryRunTarFiles(path string) ([]dryRunFile, error) {
+	tarFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen tar file: %w", err)
+	}
+	defer func() { _ = tarFile.Close() }()
+
+	tarReader := tar.NewReader(tarFile)
+	var files []dryRunFile
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar header: %w", err)
+		}
+		files = append(files, dryRunFile{
+			Name: header.Name,
+			Size: header.Size,
+		})
+	}
+	return files, nil
 }
 
 func (d *Deployment) Ready() {

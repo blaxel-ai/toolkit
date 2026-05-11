@@ -1,6 +1,9 @@
 package core
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +11,68 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func captureStandardStreams(t *testing.T, fn func()) (string, string) {
+	t.Helper()
+
+	originalStdout := os.Stdout
+	originalStderr := os.Stderr
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	require.NoError(t, err)
+	stderrReader, stderrWriter, err := os.Pipe()
+	require.NoError(t, err)
+
+	os.Stdout = stdoutWriter
+	os.Stderr = stderrWriter
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		os.Stderr = originalStderr
+	})
+
+	fn()
+
+	os.Stdout = originalStdout
+	os.Stderr = originalStderr
+
+	require.NoError(t, stdoutWriter.Close())
+	require.NoError(t, stderrWriter.Close())
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	_, err = io.Copy(&stdout, stdoutReader)
+	require.NoError(t, err)
+	_, err = io.Copy(&stderr, stderrReader)
+	require.NoError(t, err)
+
+	return stdout.String(), stderr.String()
+}
+
+func TestPrintErrorWritesToStderr(t *testing.T) {
+	originalInteractive := interactiveMode
+	interactiveMode = false
+	t.Cleanup(func() { interactiveMode = originalInteractive })
+
+	stdout, stderr := captureStandardStreams(t, func() {
+		PrintError("Test operation", errors.New("bad input"))
+	})
+
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Test operation failed")
+	assert.Contains(t, stderr, "bad input")
+}
+
+func TestPrintWarningWritesToStderr(t *testing.T) {
+	originalInteractive := interactiveMode
+	interactiveMode = false
+	t.Cleanup(func() { interactiveMode = originalInteractive })
+
+	stdout, stderr := captureStandardStreams(t, func() {
+		PrintWarning("careful now")
+	})
+
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "careful now")
+}
 
 func TestSlugify(t *testing.T) {
 	tests := []struct {

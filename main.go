@@ -38,7 +38,7 @@ func main() {
 
 	err := cli.Execute(version, commit, date)
 	if err != nil {
-		fmt.Println("Error", err)
+		fmt.Fprintln(os.Stderr, "Error", err)
 		core.ExitWithError(err)
 	}
 }
