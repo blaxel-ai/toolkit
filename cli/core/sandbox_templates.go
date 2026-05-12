@@ -280,12 +280,12 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 	target, stale := sandboxDockerfileTarget(dir)
 	for _, path := range stale {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := removeSandboxFile(dir, filepath.Base(path)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove duplicate Dockerfile %s: %w", path, err)
 		}
 	}
-	if err := os.WriteFile(target, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", filepath.Base(target), err)
+	if err := writeSandboxFile(dir, filepath.Base(target), []byte(content), 0644); err != nil {
+		return err
 	}
 	return nil
 }
@@ -313,8 +313,56 @@ func sandboxDockerfileTarget(dir string) (string, []string) {
 }
 
 func fileInfo(path string) (os.FileInfo, bool) {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	return info, err == nil && !info.IsDir()
+}
+
+func removeSandboxFile(dir, name string) error {
+	if err := validateSandboxFileName(name); err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("failed to open sandbox directory: %w", err)
+	}
+	defer root.Close()
+	return root.Remove(name)
+}
+
+func writeSandboxFile(dir, name string, data []byte, perm os.FileMode) error {
+	if err := validateSandboxFileName(name); err != nil {
+		return err
+	}
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("failed to open sandbox directory: %w", err)
+	}
+	defer root.Close()
+
+	info, err := root.Lstat(name)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to write %s: target is a symlink", name)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("refusing to write %s: target is a directory", name)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to inspect %s: %w", name, err)
+	}
+
+	if err := root.WriteFile(name, data, perm); err != nil {
+		return fmt.Errorf("failed to write %s: %w", name, err)
+	}
+	return nil
+}
+
+func validateSandboxFileName(name string) error {
+	if name == "" || name == "." || filepath.IsAbs(name) || name != filepath.Base(name) {
+		return fmt.Errorf("invalid sandbox file target %q", name)
+	}
+	return nil
 }
 
 func writeSandboxMakefile(dir string, variant sandboxTemplateVariant) error {
@@ -326,8 +374,8 @@ run:
 	docker run --platform=linux/amd64 -p 8080:8080 -p 3000:3000 --name %[1]s %[1]s
 `, variant.imageName)
 
-	if err := os.WriteFile(filepath.Join(dir, "Makefile"), []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write Makefile: %w", err)
+	if err := writeSandboxFile(dir, "Makefile", []byte(content), 0644); err != nil {
+		return err
 	}
 	return nil
 }
@@ -367,8 +415,8 @@ wait
 `
 
 	path := filepath.Join(dir, "entrypoint.sh")
-	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
-		return fmt.Errorf("failed to write entrypoint.sh: %w", err)
+	if err := writeSandboxFile(dir, filepath.Base(path), []byte(content), 0755); err != nil {
+		return err
 	}
 	return nil
 }
@@ -406,8 +454,8 @@ make run
 - `+"`blaxel.toml`"+` configures the Blaxel sandbox runtime.
 `, variant.title, variant.description, variant.flagName, commandCheck)
 
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write README.md: %w", err)
+	if err := writeSandboxFile(dir, "README.md", []byte(content), 0644); err != nil {
+		return err
 	}
 	return nil
 }

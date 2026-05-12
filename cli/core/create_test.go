@@ -332,6 +332,33 @@ func TestFinalizeSandboxTemplateWritesScratchRuntimeFiles(t *testing.T) {
 	assert.NotContains(t, string(readme), "--version")
 }
 
+func TestFinalizeSandboxTemplateRejectsSymlinkRuntimeFiles(t *testing.T) {
+	for _, name := range []string{"Dockerfile", "Makefile", "entrypoint.sh", "README.md"} {
+		t.Run(name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			outsideDir := t.TempDir()
+			outsidePath := filepath.Join(outsideDir, "outside.txt")
+			require.NoError(t, os.WriteFile(outsidePath, []byte("keep me"), 0644))
+
+			err := os.Symlink(outsidePath, filepath.Join(tempDir, name))
+			if err != nil {
+				t.Skipf("symlinks are not available: %v", err)
+			}
+
+			err = FinalizeSandboxTemplate(TemplateOptions{
+				Directory:    tempDir,
+				TemplateName: sandboxClaudeCodeTemplate,
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "refusing to write "+name)
+
+			outsideContent, readErr := os.ReadFile(outsidePath)
+			require.NoError(t, readErr)
+			assert.Equal(t, "keep me", string(outsideContent))
+		})
+	}
+}
+
 func TestFinalizeSandboxTemplatePreservesLowercaseDockerfileWhenOnlyLowercaseExists(t *testing.T) {
 	tempDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "dockerfile"), []byte("old lower"), 0644))
