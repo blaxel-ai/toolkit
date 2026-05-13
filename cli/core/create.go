@@ -119,9 +119,8 @@ func runCreateFlowWithDeps(
 ) error {
 	deps = fillCreateFlowDeps(deps)
 
-	// Accept shorthand template names without the "template-" prefix
-	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
-		templateNameFlag = "template-" + templateNameFlag
+	if templateNameFlag != "" {
+		templateNameFlag = normalizeTemplateNameFlag(templateNameFlag, cfg.TemplateType)
 	}
 	if dirArg == "" {
 		dirArg = generateRandomDirectoryName(cfg.TemplateType)
@@ -160,26 +159,7 @@ func runCreateFlowWithDeps(
 		if opts.TemplateName == "" {
 			createErr := fmt.Errorf("template '%s' not found", templateNameFlag)
 			PrintError(cfg.ErrorPrefix, createErr)
-			PrintDiagnostic("Available templates:")
-			langs := templates.GetLanguages()
-			for _, lang := range langs {
-				hasTemplates := false
-				for _, t := range templates {
-					if t.Language != lang {
-						continue
-					}
-					if !hasTemplates {
-						PrintDiagnostic(fmt.Sprintf("- %s:", lang))
-						hasTemplates = true
-					}
-					name := strings.TrimPrefix(templateDisplayName(t), "template-")
-					if t.Description != "" {
-						PrintDiagnostic(fmt.Sprintf("  - %-30s %s", name, t.Description))
-					} else {
-						PrintDiagnostic(fmt.Sprintf("  - %s", name))
-					}
-				}
-			}
+			printAvailableTemplates(templates, cfg.TemplateType)
 			return createErr
 		}
 	case cfg.NoTTY && cfg.TemplateType == "mcp":
@@ -212,6 +192,13 @@ func runCreateFlowWithDeps(
 	}
 
 	deps.CleanTemplate(opts.Directory)
+
+	if cfg.TemplateType == "sandbox" {
+		if err := FinalizeSandboxTemplate(opts); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
+		}
+	}
 
 	// Optionally update blaxel.toml (only for those commands that did previously)
 	if cfg.BlaxelTomlResourceType != "" {
@@ -246,8 +233,60 @@ func runCreateFlowWithDeps(
 	return nil
 }
 
+func normalizeTemplateNameFlag(templateNameFlag string, templateType string) string {
+	if templateType == "sandbox" {
+		if templateName, ok := sandboxTemplateAlias(templateNameFlag); ok {
+			return templateName
+		}
+	}
+	if !strings.HasPrefix(templateNameFlag, "template-") {
+		return "template-" + templateNameFlag
+	}
+	return templateNameFlag
+}
+
 func templateDisplayName(t Template) string {
 	return regexp.MustCompile(`^\d+-`).ReplaceAllString(t.Name, "")
+}
+
+func printAvailableTemplates(templates Templates, templateType string) {
+	PrintDiagnostic("Available templates:")
+	if templateType == "sandbox" {
+		for _, t := range sandboxTemplatesForDisplay(templates) {
+			printSandboxTemplateLine(t)
+		}
+		return
+	}
+
+	langs := templates.GetLanguages()
+	if len(langs) == 0 {
+		for _, t := range templates {
+			printTemplateLine(t)
+		}
+		return
+	}
+	for _, lang := range langs {
+		hasTemplates := false
+		for _, t := range templates {
+			if t.Language != lang {
+				continue
+			}
+			if !hasTemplates {
+				PrintDiagnostic(fmt.Sprintf("- %s:", lang))
+				hasTemplates = true
+			}
+			printTemplateLine(t)
+		}
+	}
+}
+
+func printTemplateLine(t Template) {
+	name := strings.TrimPrefix(templateDisplayName(t), "template-")
+	if t.Description != "" {
+		PrintDiagnostic(fmt.Sprintf("  - %-30s %s", name, t.Description))
+	} else {
+		PrintDiagnostic(fmt.Sprintf("  - %s", name))
+	}
 }
 
 // PromptTemplateOptions presents a unified interactive form to collect
