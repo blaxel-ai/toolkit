@@ -224,16 +224,19 @@ func runWorkspaceHipaaUpdate(ctx context.Context, optIn bool, assumeYes bool) {
 	}
 	workspaceName := resolveWorkspaceName()
 
-	if !assumeYes && !confirmHipaaChange(workspaceName, optIn) {
-		core.Print("Aborted.\n")
-		return
-	}
-
+	// Run the cheap client-availability check before any interactive prompt
+	// so an unauthenticated user is told to `bl login` immediately instead
+	// of after a successful y/N dialog.
 	client := core.GetClient()
 	if client == nil {
 		err := fmt.Errorf("no API client available. Please run 'bl login' first")
 		core.PrintError("Workspace", err)
 		core.ExitWithError(err)
+	}
+
+	if !assumeYes && !confirmHipaaChange(workspaceName, optIn) {
+		core.Print("Aborted.\n")
+		return
 	}
 
 	body := map[string]bool{"hipaaOptIn": optIn}
