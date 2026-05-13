@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -251,4 +252,264 @@ func TestRunCreateFlowWithDepsReturnsCloneFailure(t *testing.T) {
 	require.ErrorIs(t, err, cloneErr)
 	assert.False(t, cleanCalled)
 	assert.False(t, successCalled)
+}
+
+func TestNormalizeTemplateNameFlag(t *testing.T) {
+	tests := []struct {
+		name         string
+		templateType string
+		input        string
+		expected     string
+	}{
+		{
+			name:         "keeps non-sandbox full template name",
+			templateType: "agent",
+			input:        "template-google-adk-py",
+			expected:     "template-google-adk-py",
+		},
+		{
+			name:         "prefixes non-sandbox shorthand",
+			templateType: "agent",
+			input:        "google-adk-py",
+			expected:     "template-google-adk-py",
+		},
+		{
+			name:         "maps scratch sandbox alias",
+			templateType: "sandbox",
+			input:        "scratch",
+			expected:     sandboxScratchTemplate,
+		},
+		{
+			name:         "maps claude code sandbox alias",
+			templateType: "sandbox",
+			input:        "claude-code",
+			expected:     sandboxClaudeCodeTemplate,
+		},
+		{
+			name:         "maps codex sandbox alias",
+			templateType: "sandbox",
+			input:        "codex",
+			expected:     sandboxCodexTemplate,
+		},
+		{
+			name:         "keeps legacy sandbox template reachable",
+			templateType: "sandbox",
+			input:        "sandbox-codegen",
+			expected:     "template-sandbox-codegen",
+		},
+		{
+			name:         "keeps full sandbox template name reachable",
+			templateType: "sandbox",
+			input:        "template-sandbox-codegen",
+			expected:     "template-sandbox-codegen",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, normalizeTemplateNameFlag(tt.input, tt.templateType))
+		})
+	}
+}
+
+func TestSandboxTemplatesForDisplay(t *testing.T) {
+	templates := Templates{
+		{Template: blaxel.Template{Name: "template-sandbox-codegen"}},
+		{Template: blaxel.Template{Name: sandboxCodexTemplate}},
+		{Template: blaxel.Template{Name: sandboxScratchTemplate}},
+		{Template: blaxel.Template{Name: sandboxClaudeCodeTemplate}},
+	}
+
+	displayTemplates := sandboxTemplatesForDisplay(templates)
+
+	assert.Equal(t, []string{
+		sandboxScratchTemplate,
+		sandboxClaudeCodeTemplate,
+		sandboxCodexTemplate,
+	}, []string{
+		displayTemplates[0].Name,
+		displayTemplates[1].Name,
+		displayTemplates[2].Name,
+	})
+}
+
+func TestSandboxTemplatesForDisplayFallsBackToAvailableTemplates(t *testing.T) {
+	templates := Templates{
+		{Template: blaxel.Template{Name: "template-sandbox-codegen"}},
+	}
+
+	displayTemplates := sandboxTemplatesForDisplay(templates)
+
+	assert.Len(t, displayTemplates, 1)
+	assert.Equal(t, "template-sandbox-codegen", displayTemplates[0].Name)
+}
+
+func TestSandboxTemplateLabelsAndFlagNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		template Template
+		label    string
+		flagName string
+	}{
+		{
+			name:     "scratch",
+			template: Template{Template: blaxel.Template{Name: sandboxScratchTemplate}},
+			label:    "Scratch",
+			flagName: "scratch",
+		},
+		{
+			name:     "claude code",
+			template: Template{Template: blaxel.Template{Name: sandboxClaudeCodeTemplate}},
+			label:    "Claude Code",
+			flagName: "claude-code",
+		},
+		{
+			name:     "codex",
+			template: Template{Template: blaxel.Template{Name: sandboxCodexTemplate}},
+			label:    "Codex",
+			flagName: "codex",
+		},
+		{
+			name:     "legacy fallback",
+			template: Template{Template: blaxel.Template{Name: "template-sandbox-codegen"}},
+			label:    "sandbox-codegen",
+			flagName: "sandbox-codegen",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.label, sandboxTemplateLabel(tt.template))
+			assert.Equal(t, tt.flagName, sandboxTemplateFlagName(tt.template))
+		})
+	}
+}
+
+func TestFinalizeSandboxTemplateWritesClaudeCodeRuntimeFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxClaudeCodeTemplate,
+	}))
+
+	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(dockerfile), "npm install -g @anthropic-ai/claude-code@latest")
+	assert.Contains(t, string(dockerfile), `ENV PATH="/usr/local/bin:/app/node_modules/.bin:$PATH"`)
+	assert.Contains(t, string(dockerfile), "ripgrep")
+
+	readme, err := os.ReadFile(filepath.Join(tempDir, "README.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(readme), "bl new sandbox my-sandbox -t claude-code -y")
+	assert.Contains(t, string(readme), "claude --version")
+
+	makefile, err := os.ReadFile(filepath.Join(tempDir, "Makefile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(makefile), "blaxel-sandbox-claude-code")
+}
+
+func TestFinalizeSandboxTemplateWritesCodexRuntimeFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxCodexTemplate,
+	}))
+
+	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(dockerfile), "npm install -g @openai/codex@latest")
+	assert.Contains(t, string(dockerfile), `ENV PATH="/usr/local/bin:/app/node_modules/.bin:$PATH"`)
+
+	readme, err := os.ReadFile(filepath.Join(tempDir, "README.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(readme), "bl new sandbox my-sandbox -t codex -y")
+	assert.Contains(t, string(readme), "codex --version")
+}
+
+func TestFinalizeSandboxTemplateWritesScratchRuntimeFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxScratchTemplate,
+	}))
+
+	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	assert.NotContains(t, string(dockerfile), "@anthropic-ai/claude-code")
+	assert.NotContains(t, string(dockerfile), "@openai/codex")
+
+	readme, err := os.ReadFile(filepath.Join(tempDir, "README.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(readme), "bl new sandbox my-sandbox -t scratch -y")
+	assert.NotContains(t, string(readme), "--version")
+}
+
+func TestFinalizeSandboxTemplateRejectsSymlinkRuntimeFiles(t *testing.T) {
+	for _, name := range []string{"Dockerfile", "Makefile", "entrypoint.sh", "README.md"} {
+		t.Run(name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			outsideDir := t.TempDir()
+			outsidePath := filepath.Join(outsideDir, "outside.txt")
+			require.NoError(t, os.WriteFile(outsidePath, []byte("keep me"), 0644))
+
+			err := os.Symlink(outsidePath, filepath.Join(tempDir, name))
+			if err != nil {
+				t.Skipf("symlinks are not available: %v", err)
+			}
+
+			err = FinalizeSandboxTemplate(TemplateOptions{
+				Directory:    tempDir,
+				TemplateName: sandboxClaudeCodeTemplate,
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "refusing to write "+name)
+
+			outsideContent, readErr := os.ReadFile(outsidePath)
+			require.NoError(t, readErr)
+			assert.Equal(t, "keep me", string(outsideContent))
+		})
+	}
+}
+
+func TestFinalizeSandboxTemplatePreservesLowercaseDockerfileWhenOnlyLowercaseExists(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "dockerfile"), []byte("old lower"), 0644))
+	if _, err := os.Stat(filepath.Join(tempDir, "Dockerfile")); err == nil {
+		t.Skip("case-insensitive filesystem treats Dockerfile and dockerfile as the same path")
+	}
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxCodexTemplate,
+	}))
+
+	lowercaseDockerfile, err := os.ReadFile(filepath.Join(tempDir, "dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(lowercaseDockerfile), "npm install -g @openai/codex@latest")
+
+	_, err = os.Stat(filepath.Join(tempDir, "Dockerfile"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestFinalizeSandboxTemplateRemovesDuplicateLowercaseDockerfile(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "Dockerfile"), []byte("old upper"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "dockerfile"), []byte("old lower"), 0644))
+	upperInfo, err := os.Stat(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	lowerInfo, err := os.Stat(filepath.Join(tempDir, "dockerfile"))
+	require.NoError(t, err)
+	if os.SameFile(upperInfo, lowerInfo) {
+		t.Skip("case-insensitive filesystem treats Dockerfile and dockerfile as the same path")
+	}
+
+	require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{
+		Directory:    tempDir,
+		TemplateName: sandboxClaudeCodeTemplate,
+	}))
+
+	_, err = os.Stat(filepath.Join(tempDir, "dockerfile"))
+	assert.True(t, os.IsNotExist(err))
+	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
+	require.NoError(t, err)
+	assert.Contains(t, string(dockerfile), "npm install -g @anthropic-ai/claude-code@latest")
 }

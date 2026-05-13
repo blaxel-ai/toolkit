@@ -177,6 +177,13 @@ After Creation:
   # Create MCP server with default template (non-interactive)
   bl new mcp my-mcp-server -y -t mcp-py
 
+  # Choose a sandbox type interactively
+  bl new sandbox
+
+  # Create Claude Code or Codex sandboxes non-interactively
+  bl new sandbox my-claude-sandbox -t claude-code -y
+  bl new sandbox my-codex-sandbox -t codex -y
+
   # Create job with specific template
   bl new job my-batch-job -t jobs-py
 
