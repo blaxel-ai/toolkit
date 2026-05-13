@@ -169,6 +169,16 @@ func TestVersionCache(t *testing.T) {
 	})
 }
 
+func TestNotifyNewVersionAvailableWritesToStderr(t *testing.T) {
+	stdout, stderr := captureStandardStreams(t, func() {
+		notifyNewVersionAvailable("0.1.93", "0.1.92")
+	})
+
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "A new version of Blaxel CLI is available")
+	assert.Contains(t, stderr, "bl upgrade")
+}
+
 func TestGetConfig(t *testing.T) {
 	// Save original and restore
 	original := config

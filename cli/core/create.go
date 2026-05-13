@@ -51,6 +51,44 @@ type CreateFlowConfig struct {
 	BlaxelTomlResourceType string
 }
 
+type createFlowDeps struct {
+	RetrieveTemplates func(templateType string, noTTY bool, errorPrefix string) (Templates, error)
+	CloneTemplate     func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error
+	CleanTemplate     func(directory string)
+	EditBlaxelToml    func(resourceType string, projectName string, directory string) error
+	OutputFormat      func() string
+}
+
+func defaultCreateFlowDeps() createFlowDeps {
+	return createFlowDeps{
+		RetrieveTemplates: RetrieveTemplatesWithSpinner,
+		CloneTemplate:     CloneTemplateWithSpinner,
+		CleanTemplate:     CleanTemplate,
+		EditBlaxelToml:    EditBlaxelTomlInCurrentDir,
+		OutputFormat:      GetOutputFormat,
+	}
+}
+
+func fillCreateFlowDeps(deps createFlowDeps) createFlowDeps {
+	defaults := defaultCreateFlowDeps()
+	if deps.RetrieveTemplates == nil {
+		deps.RetrieveTemplates = defaults.RetrieveTemplates
+	}
+	if deps.CloneTemplate == nil {
+		deps.CloneTemplate = defaults.CloneTemplate
+	}
+	if deps.CleanTemplate == nil {
+		deps.CleanTemplate = defaults.CleanTemplate
+	}
+	if deps.EditBlaxelToml == nil {
+		deps.EditBlaxelToml = defaults.EditBlaxelToml
+	}
+	if deps.OutputFormat == nil {
+		deps.OutputFormat = defaults.OutputFormat
+	}
+	return deps
+}
+
 // runCreateFlow centralizes the common steps for all create-* commands while
 // preserving each command's specific behavior via the config and callbacks.
 //
@@ -66,6 +104,21 @@ func runCreateFlow(
 	promptFunc func(directory string, templates Templates) TemplateOptions,
 	successFunc func(opts TemplateOptions),
 ) {
+	if err := runCreateFlowWithDeps(dirArg, templateNameFlag, cfg, promptFunc, successFunc, defaultCreateFlowDeps()); err != nil {
+		ExitWithError(err)
+	}
+}
+
+func runCreateFlowWithDeps(
+	dirArg string,
+	templateNameFlag string,
+	cfg CreateFlowConfig,
+	promptFunc func(directory string, templates Templates) TemplateOptions,
+	successFunc func(opts TemplateOptions),
+	deps createFlowDeps,
+) error {
+	deps = fillCreateFlowDeps(deps)
+
 	// Accept shorthand template names without the "template-" prefix
 	if templateNameFlag != "" && !strings.HasPrefix(templateNameFlag, "template-") {
 		templateNameFlag = "template-" + templateNameFlag
@@ -77,15 +130,16 @@ func runCreateFlow(
 	// If directory arg provided, ensure it doesn't already exist
 	if dirArg != "" {
 		if _, err := os.Stat(dirArg); !os.IsNotExist(err) {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("directory '%s' already exists", dirArg))
-			return
+			createErr := fmt.Errorf("directory '%s' already exists", dirArg)
+			PrintError(cfg.ErrorPrefix, createErr)
+			return createErr
 		}
 	}
 
 	// Retrieve templates (with or without spinner)
-	templates, err := RetrieveTemplatesWithSpinner(cfg.TemplateType, cfg.NoTTY, cfg.ErrorPrefix)
+	templates, err := deps.RetrieveTemplates(cfg.TemplateType, cfg.NoTTY, cfg.ErrorPrefix)
 	if err != nil {
-		ExitWithError(err)
+		return err
 	}
 
 	// Resolve options
@@ -98,13 +152,15 @@ func runCreateFlow(
 			selectedDir = templateNameFlag
 		}
 		if _, err := os.Stat(selectedDir); !os.IsNotExist(err) {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("directory '%s' already exists", selectedDir))
-			return
+			createErr := fmt.Errorf("directory '%s' already exists", selectedDir)
+			PrintError(cfg.ErrorPrefix, createErr)
+			return createErr
 		}
 		opts = CreateDefaultTemplateOptions(selectedDir, templateNameFlag, templates)
 		if opts.TemplateName == "" {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("template '%s' not found", templateNameFlag))
-			fmt.Println("Available templates:")
+			createErr := fmt.Errorf("template '%s' not found", templateNameFlag)
+			PrintError(cfg.ErrorPrefix, createErr)
+			PrintDiagnostic("Available templates:")
 			langs := templates.GetLanguages()
 			for _, lang := range langs {
 				hasTemplates := false
@@ -113,24 +169,25 @@ func runCreateFlow(
 						continue
 					}
 					if !hasTemplates {
-						fmt.Printf("- %s:\n", lang)
+						PrintDiagnostic(fmt.Sprintf("- %s:", lang))
 						hasTemplates = true
 					}
 					name := strings.TrimPrefix(templateDisplayName(t), "template-")
 					if t.Description != "" {
-						fmt.Printf("  - %-30s %s\n", name, t.Description)
+						PrintDiagnostic(fmt.Sprintf("  - %-30s %s", name, t.Description))
 					} else {
-						fmt.Printf("  - %s\n", name)
+						PrintDiagnostic(fmt.Sprintf("  - %s", name))
 					}
 				}
 			}
-			return
+			return createErr
 		}
 	case cfg.NoTTY && cfg.TemplateType == "mcp":
 		// Special-case retained behavior: for MCP with --yes but no template we require directory and pick default
 		if dirArg == "" {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("directory name is required"))
-			return
+			createErr := fmt.Errorf("directory name is required")
+			PrintError(cfg.ErrorPrefix, createErr)
+			return createErr
 		}
 		opts = CreateDefaultTemplateOptions(dirArg, "", templates)
 	default:
@@ -138,29 +195,34 @@ func runCreateFlow(
 		opts = promptFunc(dirArg, templates)
 		// Safety checks
 		if opts.Directory == "" {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("directory name is required"))
-			return
+			createErr := fmt.Errorf("directory name is required")
+			PrintError(cfg.ErrorPrefix, createErr)
+			return createErr
 		}
 		if _, err := os.Stat(opts.Directory); !os.IsNotExist(err) {
-			PrintError(cfg.ErrorPrefix, fmt.Errorf("directory '%s' already exists", opts.Directory))
-			return
+			createErr := fmt.Errorf("directory '%s' already exists", opts.Directory)
+			PrintError(cfg.ErrorPrefix, createErr)
+			return createErr
 		}
 	}
 
 	// Clone template using the unified helper
-	if err := CloneTemplateWithSpinner(opts, templates, cfg.NoTTY, cfg.ErrorPrefix, cfg.SpinnerTitle); err != nil {
-		return
+	if err := deps.CloneTemplate(opts, templates, cfg.NoTTY, cfg.ErrorPrefix, cfg.SpinnerTitle); err != nil {
+		return err
 	}
 
-	CleanTemplate(opts.Directory)
+	deps.CleanTemplate(opts.Directory)
 
 	// Optionally update blaxel.toml (only for those commands that did previously)
 	if cfg.BlaxelTomlResourceType != "" {
-		_ = EditBlaxelTomlInCurrentDir(cfg.BlaxelTomlResourceType, opts.ProjectName, opts.Directory)
+		if err := deps.EditBlaxelToml(cfg.BlaxelTomlResourceType, opts.ProjectName, opts.Directory); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
+		}
 	}
 
 	// If structured output is requested, print JSON/YAML and skip the regular success message
-	outputFmt := GetOutputFormat()
+	outputFmt := deps.OutputFormat()
 	if outputFmt == "json" || outputFmt == "yaml" {
 		result := map[string]string{
 			"directory": opts.Directory,
@@ -176,11 +238,12 @@ func runCreateFlow(
 			data, _ := yaml.Marshal(result)
 			fmt.Print(string(data))
 		}
-		return
+		return nil
 	}
 
 	// Let the caller print specific success instructions
 	successFunc(opts)
+	return nil
 }
 
 func templateDisplayName(t Template) string {

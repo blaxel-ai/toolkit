@@ -104,7 +104,7 @@ func writeVersionCache(cache versionCache) error {
 }
 
 func notifyNewVersionAvailable(latestVersion, currentVersion string) {
-	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
+	fmt.Fprintf(os.Stderr, "%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
 		colorYellow, colorBold+colorGreen, latestVersion, colorReset, colorYellow, colorBold, currentVersion, colorReset+colorYellow,
 		colorYellow, colorBold+colorGreen, colorReset+colorYellow,
 		colorYellow, colorCyan, UPDATE_CLI_DOC_URL, colorReset+colorYellow, colorReset)

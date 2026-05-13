@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,6 +51,49 @@ func TestDeployCmd(t *testing.T) {
 	yesFlag := cmd.Flags().Lookup("yes")
 	assert.NotNil(t, yesFlag)
 	assert.Equal(t, "y", yesFlag.Shorthand)
+}
+
+func TestDeploymentDryRunStructuredOutputJSON(t *testing.T) {
+	deployment := Deployment{
+		blaxelDeployments: []core.Result{
+			{
+				ApiVersion: "blaxel.ai/v1alpha1",
+				Kind:       "Sandbox",
+				Metadata: map[string]interface{}{
+					"name": "pm1729-dryrun",
+				},
+				Spec: map[string]interface{}{
+					"runtime": map[string]interface{}{
+						"image": "ubuntu:latest",
+					},
+				},
+			},
+		},
+	}
+
+	output, err := deployment.renderDryRunStructuredOutput("json", true)
+	require.NoError(t, err)
+
+	var payload struct {
+		DryRun    bool          `json:"dryRun"`
+		Resources []core.Result `json:"resources"`
+		Files     []dryRunFile  `json:"files"`
+	}
+	require.NoError(t, json.Unmarshal(output, &payload))
+	assert.True(t, payload.DryRun)
+	require.Len(t, payload.Resources, 1)
+	assert.Equal(t, "Sandbox", payload.Resources[0].Kind)
+	assert.Empty(t, payload.Files)
+}
+
+func TestDeploymentDryRunStructuredOutputRejectsUnknownFormat(t *testing.T) {
+	deployment := Deployment{}
+
+	output, err := deployment.renderDryRunStructuredOutput("table", true)
+
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "unsupported dry-run output format")
 }
 
 func TestDeploymentStruct(t *testing.T) {

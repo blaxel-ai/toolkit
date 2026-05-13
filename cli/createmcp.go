@@ -21,7 +21,9 @@ func CreateMCPCmd() *cobra.Command {
 		Long:   "This command has been deprecated. Please use 'bl new mcp' instead.",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			core.PrintError("create-mcp", fmt.Errorf("this command has been deprecated. Please use 'bl new mcp' instead"))
+			err := fmt.Errorf("this command has been deprecated. Please use 'bl new mcp' instead")
+			core.PrintError("create-mcp", err)
+			core.ExitWithError(err)
 		},
 	}
 	return cmd

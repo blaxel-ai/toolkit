@@ -362,19 +362,19 @@ func GetHuhTheme() *huh.Theme {
 // PrintError prints a formatted error message with colors
 func PrintError(operation string, err error) {
 	// Print error header with red color and bold
-	Print(fmt.Sprintf("%s %s\n",
+	PrintDiagnostic(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed, color.Bold).Sprint("✗"),
 		color.New(color.FgRed, color.Bold).Sprintf("%s failed", operation)))
 
 	// Print reason with lighter red color
-	Print(fmt.Sprintf("%s %s\n",
+	PrintDiagnostic(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed).Sprint("Reason:"),
 		color.New(color.FgWhite).Sprint(err.Error())))
 }
 
 // PrintWarning prints a formatted warning message with colors
 func PrintWarning(message string) {
-	Print(fmt.Sprintf("%s %s\n",
+	PrintDiagnostic(fmt.Sprintf("%s %s\n",
 		color.New(color.FgYellow, color.Bold).Sprint("⚠"),
 		color.New(color.FgYellow).Sprint(message)))
 }
@@ -398,6 +398,11 @@ func PrintInfoWithCommand(message string, command string) {
 		color.New(color.FgBlue, color.Bold).Sprint("ℹ"),
 		color.New(color.FgBlue).Sprint(message),
 		color.New(color.FgWhite, color.Bold).Sprint(command)))
+}
+
+func PrintDiagnostic(message string) {
+	message = strings.TrimSuffix(message, "\n")
+	fmt.Fprintln(os.Stderr, message)
 }
 
 func Print(message string) {
