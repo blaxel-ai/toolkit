@@ -433,10 +433,20 @@ memory = 4096
 # NODE_ENV = "production"
 # ENABLE_TELEMETRY = "true"
 
-# Volumes for Sandbox (optional)
+# Volumes for Sandbox (optional) - attach a pre-existing managed Volume
 # [[volumes]]
 # name = "my-volume"
 # mountPath = "/data"
+
+# Ephemeral volumes for Job (optional) - disk-backed scratch space.
+# Use mountPath = "/" to overlay the entire root filesystem with a writable
+# ephemeral disk (root overlay). For per-subpath ephemeral storage use any
+# other absolute path, e.g. "/home/runner".
+# [[volumes]]
+# name = "scratch"
+# type = "ephemeral"
+# sizeMb = 10240
+# mountPath = "/"
 
 # Volume templates (optional)
 # directory = "."
