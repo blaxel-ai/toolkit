@@ -48,6 +48,7 @@ func DeployCmd() *cobra.Command {
 	var dockerConfigPath string
 	var timeoutStr string
 	var buildEnvPath string
+	var acceptNotHipaa bool
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -116,6 +117,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 		Run: func(cmd *cobra.Command, args []string) {
 			core.LoadCommandSecrets(commandSecrets)
 			core.ReadSecrets(folder, envFiles)
+			SetAcknowledgeNotHipaa(acceptNotHipaa)
 			// If the user did not explicitly set --yes, decide default based on TTY and CI
 			if !cmd.Flags().Changed("yes") {
 				// By default use TTY mode (noTTY=false) if terminal is interactive and not in CI
@@ -341,6 +343,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().BoolVar(&acceptNotHipaa, "accept-not-hipaa", false, "Acknowledge that this deploy may target regions/products that are NOT HIPAA-compliant. Sends X-Blaxel-Acknowledge-Not-Hipaa: true so the controlplane permits the deploy even when the workspace has not set hipaaUnsafe=true.")
 	return cmd
 }
 

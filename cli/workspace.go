@@ -112,25 +112,32 @@ To list all authenticated workspaces, run without arguments.`,
 
 // workspaceHipaaResponse mirrors the parts of the controlplane Workspace JSON
 // response that this command cares about. The sdk-go Workspace struct is
-// generated from an older spec and does not expose hipaaOptIn directly.
+// generated from an older spec and does not expose hipaaUnsafe directly.
 type workspaceHipaaResponse struct {
-	HipaaOptIn bool   `json:"hipaaOptIn"`
-	Name       string `json:"name"`
+	HipaaUnsafe bool   `json:"hipaaUnsafe"`
+	Name        string `json:"name"`
 }
 
 // WorkspaceHipaaCmd is the parent of `bl workspaces hipaa ...`.
 func WorkspaceHipaaCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hipaa",
-		Short: "Manage workspace HIPAA opt-in",
-		Long: `Manage the HIPAA opt-in flag on the current workspace.
+		Short: "Manage non-HIPAA-compliant deploy consent for the workspace",
+		Long: `Manage the workspace-level consent to deploy in non-HIPAA-compliant
+regions/products (workspace.hipaaUnsafe).
 
-Deploying agents, sandboxes, functions or jobs to a HIPAA-gated region
-requires the workspace to explicitly opt in to HIPAA handling. Without
-opt-in, those deployments are rejected by the platform.
+By default, deploying agents, sandboxes, functions or jobs to a region
+that is not HIPAA-compliant is blocked. There are two ways to unblock
+such a deploy:
+  - Standing consent: set workspace.hipaaUnsafe=true with 'accept'. All
+    future non-HIPAA-compliant deploys from this workspace will be
+    allowed.
+  - Per-deploy consent: pass '--accept-not-hipaa' to 'bl deploy' /
+    'bl apply' for a single non-HIPAA-compliant deploy.
 
-Use 'bl workspaces hipaa accept' to opt in, 'bl workspaces hipaa decline'
-to opt out, and 'bl workspaces hipaa status' to inspect the current state.`,
+Use 'bl workspaces hipaa accept' to grant standing consent,
+'bl workspaces hipaa decline' to revoke it, and
+'bl workspaces hipaa status' to inspect the current state.`,
 	}
 
 	cmd.AddCommand(WorkspaceHipaaAcceptCmd())
@@ -139,23 +146,24 @@ to opt out, and 'bl workspaces hipaa status' to inspect the current state.`,
 	return cmd
 }
 
-// WorkspaceHipaaAcceptCmd flips workspace.hipaaOptIn to true.
+// WorkspaceHipaaAcceptCmd flips workspace.hipaaUnsafe to true.
 func WorkspaceHipaaAcceptCmd() *cobra.Command {
 	var assumeYes bool
 
 	cmd := &cobra.Command{
 		Use:   "accept",
-		Short: "Accept HIPAA opt-in for the current workspace",
-		Long: `Opt the current workspace in to HIPAA handling.
+		Short: "Allow non-HIPAA-compliant deploys for the current workspace",
+		Long: `Grant standing consent for the current workspace to deploy in
+regions/products that are NOT HIPAA-compliant (workspace.hipaaUnsafe=true).
 
 By accepting, a workspace admin acknowledges that:
-  - HIPAA-gated regions are now eligible deployment targets for this workspace.
-  - The workspace is responsible for using Blaxel only in line with applicable
-    HIPAA obligations.
+  - Future deploys from this workspace MAY target regions and products
+    that are not HIPAA-compliant, with no further acknowledgement required.
+  - Protected health information must not be processed in those deploys.
 
 The '--workspace' global flag, if set, targets a different workspace. Only
 workspace admins can change this setting.`,
-		Example: `  # Accept HIPAA opt-in for the current workspace (prompts for confirmation)
+		Example: `  # Allow non-HIPAA-compliant deploys for the current workspace (prompts)
   bl workspaces hipaa accept
 
   # Accept without an interactive prompt (useful in CI)
@@ -172,18 +180,19 @@ workspace admins can change this setting.`,
 	return cmd
 }
 
-// WorkspaceHipaaDeclineCmd flips workspace.hipaaOptIn back to false.
+// WorkspaceHipaaDeclineCmd flips workspace.hipaaUnsafe back to false.
 func WorkspaceHipaaDeclineCmd() *cobra.Command {
 	var assumeYes bool
 
 	cmd := &cobra.Command{
 		Use:   "decline",
-		Short: "Withdraw HIPAA opt-in for the current workspace",
-		Long: `Withdraw the workspace's HIPAA opt-in.
+		Short: "Block non-HIPAA-compliant deploys for the current workspace",
+		Long: `Revoke the workspace's standing consent to deploy in non-HIPAA-
+compliant regions/products (workspace.hipaaUnsafe=false).
 
-After declining, deployments to HIPAA-gated regions will be rejected
-until opt-in is accepted again. Existing resources are not affected.
-Only workspace admins can change this setting.`,
+After declining, non-HIPAA-compliant deploys will be rejected unless the
+individual deploy is acknowledged with '--accept-not-hipaa'. Existing
+resources are not affected. Only workspace admins can change this setting.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			runWorkspaceHipaaUpdate(cmd.Context(), false, assumeYes)
 		},
@@ -193,11 +202,11 @@ Only workspace admins can change this setting.`,
 	return cmd
 }
 
-// WorkspaceHipaaStatusCmd prints the current value of workspace.hipaaOptIn.
+// WorkspaceHipaaStatusCmd prints the current value of workspace.hipaaUnsafe.
 func WorkspaceHipaaStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show whether the current workspace has accepted HIPAA opt-in",
+		Short: "Show whether non-HIPAA-compliant deploys are allowed in the workspace",
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := cmd.Context()
 			if ctx == nil {
@@ -209,16 +218,16 @@ func WorkspaceHipaaStatusCmd() *cobra.Command {
 				core.PrintError("Workspace", err)
 				core.ExitWithError(err)
 			}
-			state := "declined"
-			if ws.HipaaOptIn {
-				state = "accepted"
+			state := "blocked (workspace.hipaaUnsafe=false)"
+			if ws.HipaaUnsafe {
+				state = "allowed (workspace.hipaaUnsafe=true)"
 			}
-			fmt.Printf("Workspace %s: HIPAA opt-in %s\n", workspaceName, state)
+			fmt.Printf("Workspace %s: non-HIPAA-compliant deploys %s\n", workspaceName, state)
 		},
 	}
 }
 
-func runWorkspaceHipaaUpdate(ctx context.Context, optIn bool, assumeYes bool) {
+func runWorkspaceHipaaUpdate(ctx context.Context, hipaaUnsafe bool, assumeYes bool) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -234,29 +243,29 @@ func runWorkspaceHipaaUpdate(ctx context.Context, optIn bool, assumeYes bool) {
 		core.ExitWithError(err)
 	}
 
-	if !assumeYes && !confirmHipaaChange(workspaceName, optIn) {
+	if !assumeYes && !confirmHipaaChange(workspaceName, hipaaUnsafe) {
 		core.Print("Aborted.\n")
 		return
 	}
 
-	body := map[string]bool{"hipaaOptIn": optIn}
+	body := map[string]bool{"hipaaUnsafe": hipaaUnsafe}
 	var res workspaceHipaaResponse
 	path := fmt.Sprintf("workspaces/%s/hipaa", workspaceName)
 	if err := client.Put(ctx, path, body, &res); err != nil {
 		msg := extractErrorMessage(err)
-		core.PrintError("Workspace", fmt.Errorf("failed to update HIPAA opt-in: %s", msg))
+		core.PrintError("Workspace", fmt.Errorf("failed to update HIPAA-unsafe consent: %s", msg))
 		core.ExitWithError(err)
 	}
 
-	if optIn {
-		fmt.Printf("Workspace %s: HIPAA opt-in accepted.\n", workspaceName)
+	if hipaaUnsafe {
+		fmt.Printf("Workspace %s: non-HIPAA-compliant deploys are now allowed.\n", workspaceName)
 	} else {
-		fmt.Printf("Workspace %s: HIPAA opt-in declined.\n", workspaceName)
+		fmt.Printf("Workspace %s: non-HIPAA-compliant deploys are now blocked.\n", workspaceName)
 	}
 }
 
 // fetchWorkspaceHipaa loads the workspace through the generic client so we can
-// read fields (hipaaOptIn) that the older sdk-go Workspace struct does not
+// read fields (hipaaUnsafe) that the older sdk-go Workspace struct does not
 // expose as typed members.
 func fetchWorkspaceHipaa(ctx context.Context, workspaceName string) (workspaceHipaaResponse, error) {
 	client := core.GetClient()
@@ -292,14 +301,14 @@ func resolveWorkspaceName() string {
 
 // confirmHipaaChange shows the change and asks for y/N when stdin is a TTY.
 // Non-TTY callers (CI, pipelines) must pass --yes explicitly.
-func confirmHipaaChange(workspaceName string, optIn bool) bool {
+func confirmHipaaChange(workspaceName string, hipaaUnsafe bool) bool {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Fprintln(os.Stderr, "Refusing to change HIPAA opt-in without --yes (stdin is not a terminal).")
+		fmt.Fprintln(os.Stderr, "Refusing to change HIPAA-unsafe consent without --yes (stdin is not a terminal).")
 		return false
 	}
-	action := "accept HIPAA opt-in"
-	if !optIn {
-		action = "decline HIPAA opt-in"
+	action := "ALLOW non-HIPAA-compliant deploys"
+	if !hipaaUnsafe {
+		action = "BLOCK non-HIPAA-compliant deploys"
 	}
 	fmt.Printf("About to %s for workspace '%s'. Continue? [y/N]: ", action, workspaceName)
 	reader := bufio.NewReader(os.Stdin)
