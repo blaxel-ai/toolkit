@@ -43,7 +43,7 @@ func listJobExecutions(jobName string) {
 	ctx := context.Background()
 	client := core.GetClient()
 
-	executions, err := client.Jobs.Executions.List(ctx, jobName, blaxel.JobExecutionListParams{})
+	executions, err := core.ListAllJobExecutions(ctx, client, jobName)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to list job executions: %w", err))
 		os.Exit(1)

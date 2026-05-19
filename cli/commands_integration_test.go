@@ -46,6 +46,17 @@ func setupTestServer(t *testing.T, handlers map[string]http.HandlerFunc) *httpte
 	}))
 }
 
+func paginatedResponse(data interface{}) map[string]interface{} {
+	return map[string]interface{}{
+		"data": data,
+		"meta": map[string]interface{}{
+			"hasMore":    false,
+			"nextCursor": "",
+			"total":      0,
+		},
+	}
+}
+
 // setupTestClient creates and sets a mock blaxel client
 func setupTestClient(t *testing.T, serverURL string) {
 	t.Setenv("BL_API_KEY", "test-api-key")
@@ -81,7 +92,7 @@ func TestListAgentsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(agents)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(agents))
 		},
 	}
 
@@ -91,7 +102,7 @@ func TestListAgentsIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	agents, err := client.Agents.List(ctx)
+	agents, err := core.ListAllAgents(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *agents, 2)
 }
@@ -110,7 +121,7 @@ func TestListFunctionsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(functions)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(functions))
 		},
 	}
 
@@ -120,7 +131,7 @@ func TestListFunctionsIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	functions, err := client.Functions.List(ctx)
+	functions, err := core.ListAllFunctions(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *functions, 1)
 }
@@ -150,7 +161,7 @@ func TestListModelsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(models)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(models))
 		},
 	}
 
@@ -160,7 +171,7 @@ func TestListModelsIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	models, err := client.Models.List(ctx)
+	models, err := core.ListAllModels(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *models, 2)
 }
@@ -179,7 +190,7 @@ func TestListJobsIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(jobs)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(jobs))
 		},
 	}
 
@@ -189,7 +200,7 @@ func TestListJobsIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	jobs, err := client.Jobs.List(ctx)
+	jobs, err := core.ListAllJobs(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *jobs, 1)
 }
@@ -208,7 +219,7 @@ func TestListSandboxesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(sandboxes)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(sandboxes))
 		},
 	}
 
@@ -218,7 +229,7 @@ func TestListSandboxesIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	sandboxes, err := client.Sandboxes.List(ctx)
+	sandboxes, err := core.ListAllSandboxes(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *sandboxes, 1)
 }
@@ -239,7 +250,7 @@ func TestListVolumesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(volumes)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(volumes))
 		},
 	}
 
@@ -249,7 +260,7 @@ func TestListVolumesIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	volumes, err := client.Volumes.List(ctx)
+	volumes, err := core.ListAllVolumes(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *volumes, 1)
 }
@@ -267,7 +278,7 @@ func TestListPoliciesIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(policies)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(policies))
 		},
 	}
 
@@ -277,7 +288,7 @@ func TestListPoliciesIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	policies, err := client.Policies.List(ctx)
+	policies, err := core.ListAllPolicies(ctx, client)
 	require.NoError(t, err)
 	assert.Len(t, *policies, 1)
 }
@@ -469,7 +480,7 @@ func TestJobExecutionsListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(executions)
+			_ = json.NewEncoder(w).Encode(paginatedResponse(executions))
 		},
 	}
 
@@ -479,7 +490,7 @@ func TestJobExecutionsListIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	executions, err := client.Jobs.Executions.List(ctx, "my-job", blaxel.JobExecutionListParams{})
+	executions, err := core.ListAllJobExecutions(ctx, client, "my-job")
 	require.NoError(t, err)
 	assert.Len(t, *executions, 2)
 }
@@ -571,7 +582,7 @@ func TestAPIErrorHandlingIntegration(t *testing.T) {
 
 			ctx := context.Background()
 			client := core.GetClient()
-			_, err := client.Agents.List(ctx)
+			_, err := core.ListAllAgents(ctx, client)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.expected)
 		})

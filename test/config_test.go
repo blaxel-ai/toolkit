@@ -645,10 +645,9 @@ func TestConfigToFunctionConversion(t *testing.T) {
 func TestConfigToJobConversion(t *testing.T) {
 	// Simulate what GenerateDeployment does for job type
 	runtime := map[string]interface{}{
-		"memory":             int64(4096),
-		"maxConcurrentTasks": int64(10),
-		"timeout":            int64(900),
-		"maxRetries":         int64(3),
+		"memory":     int64(4096),
+		"timeout":    int64(900),
+		"maxRetries": int64(3),
 		"envs": []core.Env{
 			{Name: "BATCH_SIZE", Value: "100"},
 		},
@@ -690,7 +689,6 @@ func TestConfigToJobConversion(t *testing.T) {
 
 	// Verify runtime
 	assert.Equal(t, int64(4096), jobParam.Spec.Runtime.Memory.Value)
-	assert.Equal(t, int64(10), jobParam.Spec.Runtime.MaxConcurrentTasks.Value)
 	assert.Equal(t, int64(900), jobParam.Spec.Runtime.Timeout.Value)
 	assert.Equal(t, int64(3), jobParam.Spec.Runtime.MaxRetries.Value)
 

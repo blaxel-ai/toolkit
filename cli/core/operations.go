@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // RegisterResourceOperations registers the SDK client methods for each resource
@@ -16,25 +18,33 @@ func RegisterResourceOperations(ctx context.Context) {
 	for _, resource := range resources {
 		switch resource.Kind {
 		case "Agent":
-			resource.List = c.Agents.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Agent, error) {
+				return ListAllAgents(ctx, c)
+			}
 			resource.Get = c.Agents.Get
 			resource.Delete = c.Agents.Delete
 			resource.Put = c.Agents.Update
 			resource.Post = c.Agents.New
 		case "Policy":
-			resource.List = c.Policies.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Policy, error) {
+				return ListAllPolicies(ctx, c)
+			}
 			resource.Get = c.Policies.Get
 			resource.Delete = c.Policies.Delete
 			resource.Put = c.Policies.Update
 			resource.Post = c.Policies.New
 		case "Model":
-			resource.List = c.Models.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Model, error) {
+				return ListAllModels(ctx, c)
+			}
 			resource.Get = c.Models.Get
 			resource.Delete = c.Models.Delete
 			resource.Put = c.Models.Update
 			resource.Post = c.Models.New
 		case "Function":
-			resource.List = c.Functions.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Function, error) {
+				return ListAllFunctions(ctx, c)
+			}
 			resource.Get = c.Functions.Get
 			resource.Delete = c.Functions.Delete
 			resource.Put = c.Functions.Update
@@ -46,19 +56,25 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Put = c.Integrations.Connections.Update
 			resource.Post = c.Integrations.Connections.New
 		case "Sandbox":
-			resource.List = c.Sandboxes.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Sandbox, error) {
+				return ListAllSandboxes(ctx, c)
+			}
 			resource.Get = c.Sandboxes.Get
 			resource.Delete = c.Sandboxes.Delete
 			resource.Put = c.Sandboxes.Update
 			resource.Post = c.Sandboxes.New
 		case "Job":
-			resource.List = c.Jobs.List
+			resource.List = func(ctx context.Context) (*[]blaxel.Job, error) {
+				return ListAllJobs(ctx, c)
+			}
 			resource.Get = c.Jobs.Get
 			resource.Delete = c.Jobs.Delete
 			resource.Put = c.Jobs.Update
 			resource.Post = c.Jobs.New
 		case "Volume":
-			resource.List = c.Volumes.List
+			resource.List = func(ctx context.Context) (*[]blaxel.VolumeListResponseData, error) {
+				return ListAllVolumes(ctx, c)
+			}
 			resource.Get = c.Volumes.Get
 			resource.Delete = c.Volumes.Delete
 			resource.Put = c.Volumes.Update
@@ -75,7 +91,9 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Delete = c.Images.Delete
 			// Images don't have Put/Post operations
 		case "Drive":
-			resource.List = c.Drives.List
+			resource.List = func(ctx context.Context) (*[]blaxel.DriveListResponseData, error) {
+				return ListAllDrives(ctx, c)
+			}
 			resource.Get = c.Drives.Get
 			resource.Delete = c.Drives.Delete
 			resource.Put = c.Drives.Update

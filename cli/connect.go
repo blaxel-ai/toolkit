@@ -101,7 +101,7 @@ Examples:
 					core.PrintError("Connect", err)
 
 					// List available sandboxes
-					sandboxes, listErr := client.Sandboxes.List(ctx)
+					sandboxes, listErr := core.ListAllSandboxes(ctx, client)
 					if listErr == nil && sandboxes != nil && len(*sandboxes) > 0 {
 						names := make([]string, 0, len(*sandboxes))
 						for _, sb := range *sandboxes {

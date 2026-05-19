@@ -10,6 +10,7 @@ import (
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 )
 
@@ -113,7 +114,6 @@ var sandboxPreviewKeywords = []string{"previews", "preview", "pv"}
 // previewTokenKeywords are the keywords that indicate token nested resources for previews
 var previewTokenKeywords = []string{"tokens", "token", "pvt"}
 
-
 // CompleteSandboxNames returns a list of sandbox names for shell completion
 func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	ctx, cancel := completionContext()
@@ -123,7 +123,7 @@ func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) 
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	sandboxes, err := client.Sandboxes.List(ctx)
+	sandboxes, err := core.ListAllSandboxes(ctx, client)
 	if err != nil || sandboxes == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -338,7 +338,7 @@ func CompleteJobNames(cmd *cobra.Command, args []string, toComplete string) ([]s
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	jobs, err := client.Jobs.List(ctx)
+	jobs, err := core.ListAllJobs(ctx, client)
 	if err != nil || jobs == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -403,7 +403,7 @@ func CompleteJobExecutionIDs(jobName string, toComplete string) ([]string, cobra
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	executions, err := client.Jobs.Executions.List(ctx, jobName, blaxel.JobExecutionListParams{})
+	executions, err := core.ListAllJobExecutions(ctx, client, jobName)
 	if err != nil || executions == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -553,7 +553,7 @@ func CompleteAgentNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	agents, err := client.Agents.List(ctx)
+	agents, err := core.ListAllAgents(ctx, client)
 	if err != nil || agents == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -618,7 +618,7 @@ func CompleteFunctionNames(cmd *cobra.Command, args []string, toComplete string)
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	functions, err := client.Functions.List(ctx)
+	functions, err := core.ListAllFunctions(ctx, client)
 	if err != nil || functions == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -683,7 +683,7 @@ func CompleteModelNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	models, err := client.Models.List(ctx)
+	models, err := core.ListAllModels(ctx, client)
 	if err != nil || models == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -748,7 +748,7 @@ func CompleteVolumeNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	volumes, err := client.Volumes.List(ctx)
+	volumes, err := core.ListAllVolumes(ctx, client)
 	if err != nil || volumes == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -810,7 +810,7 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	policies, err := client.Policies.List(ctx)
+	policies, err := core.ListAllPolicies(ctx, client)
 	if err != nil || policies == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

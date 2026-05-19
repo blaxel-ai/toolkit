@@ -67,7 +67,7 @@ export TOKEN=$(bl token)
 
 			// Get workspace to check if access is allowed + it refreshes the token if needed
 			client := core.GetClient()
-			_, err := client.Workspaces.Get(context.Background(), workspace)
+			_, err := client.Workspaces.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{})
 			if err != nil {
 				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
