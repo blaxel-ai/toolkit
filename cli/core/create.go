@@ -465,7 +465,7 @@ func RunSandboxCreation(dirArg string, templateName string, noTTY bool) {
 			SpinnerTitle: "Creating your blaxel sandbox...",
 		},
 		func(directory string, templates Templates) TemplateOptions {
-			return PromptTemplateOptions(directory, templates, "sandbox", false, 5)
+			return PromptSandboxTemplateOptions(directory, templates)
 		},
 		func(opts TemplateOptions) {
 			PrintSuccess("Your blaxel sandbox has been created successfully!")
