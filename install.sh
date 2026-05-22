@@ -329,6 +329,22 @@ prompt_user() {
   return 0
 }
 
+# Check if the RC file already contains an active PATH entry for the install dir
+rc_file_has_active_path_entry() {
+  local rc_file_path="$1"
+  local shell_name="$2"
+  local bin_path="$3"
+
+  [ -f "$rc_file_path" ] || return 1
+
+  awk -v shell_name="$shell_name" -v bin_path="$bin_path" '
+    /^[[:space:]]*#/ { next }
+    shell_name == "fish" && /^[[:space:]]*set[[:space:]]+-gx[[:space:]]+PATH[[:space:]]+/ && index($0, bin_path) > 0 { found = 1 }
+    shell_name != "fish" && /^[[:space:]]*(export[[:space:]]+)?PATH=/ && index($0, bin_path) > 0 { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$rc_file_path"
+}
+
 # --- Installer setup functions ---
 
 # Function to detect shell and provide PATH instructions
@@ -364,7 +380,7 @@ setup_path_interactive() {
   echo ""
 
   # Check if PATH is already configured
-  if [ -f "$rc_file_path" ] && grep -q "# Added by ${BINARY} installer" "$rc_file_path"; then
+  if rc_file_has_active_path_entry "$rc_file_path" "$shell_name" "$bin_path"; then
     echo "${BINARY} is already configured in your PATH via $rc_file"
     echo ""
     echo "To get started, run: ${BINARY_SHORT_NAME} --help"

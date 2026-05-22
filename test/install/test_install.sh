@@ -27,7 +27,13 @@ export BL_INSTALL_COMPLETION=true
 export BL_INSTALL_TRACKING=true
 
 echo "=== Installing with SHELL=bash ==="
+printf '# Added by blaxel installer\n#export PATH="%s:$PATH"\n' "$HOME/.local/bin" > "$HOME/.bashrc"
 SHELL=/bin/bash sh /home/testuser/install.sh
+if grep -Eq "^[[:space:]]*export[[:space:]]+PATH=.*$HOME/.local/bin" "$HOME/.bashrc"; then
+  pass "bash: commented PATH entry is ignored and active PATH export is added"
+else
+  fail "bash: installer treated commented PATH entry as active"
+fi
 
 echo ""
 echo "=== Adding bl to PATH for subsequent installs ==="
