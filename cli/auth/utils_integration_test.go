@@ -106,17 +106,19 @@ func TestValidateWorkspaceError(t *testing.T) {
 
 	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace \"test-workspace\" does not exist or is not accessible")
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.NotContains(t, err.Error(), "API error")
 }
 
-// TestValidateWorkspaceMissingWorkspace tests that an explicit workspace must exist.
+// TestValidateWorkspaceMissingWorkspace tests explicit workspace validation failure wording.
 func TestValidateWorkspaceMissingWorkspace(t *testing.T) {
 	workspaces := []blaxel.Workspace{{Name: "other-workspace"}}
 	factory := mockClientFactory(&workspaces, nil)
 
 	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workspace \"test-workspace\" does not exist or is not accessible")
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.NotContains(t, err.Error(), "does not exist")
 }
 
 // TestValidateWorkspaceEmptyWorkspace tests validation with empty workspace
