@@ -248,16 +248,18 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	err = validateWorkspace(workspace, creds)
 	if err != nil {
-		core.PrintError("Login", fmt.Errorf("error accessing workspace %s : %w", workspace, err))
-	} else {
-		if err := blaxel.SaveCredentials(workspace, creds); err != nil {
-			core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
-			core.ExitWithError(err)
-		}
-		if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
-			core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
-			core.ExitWithError(err)
-		}
-		core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
+		err = fmt.Errorf("error accessing workspace %s : %w", workspace, err)
+		core.PrintError("Login", err)
+		core.ExitWithError(err)
 	}
+
+	if err := blaxel.SaveCredentials(workspace, creds); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
+		core.ExitWithError(err)
+	}
+	if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
+		core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
+		core.ExitWithError(err)
+	}
+	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 }
