@@ -1,19 +1,9 @@
 setopt prompt_subst
 autoload -U add-zsh-hook
 
-function() {
-  local separator
-
-  # Specify the separator between workspace and environment
-  zstyle -s ':zsh-blaxel-prompt:' separator separator
-  if [[ -z "$separator" ]]; then
-    zstyle ':zsh-blaxel-prompt:' separator '/'
-  fi
-}
-
 add-zsh-hook precmd _zsh_blaxel_prompt_precmd
 function _zsh_blaxel_prompt_precmd() {
-  local config_file workspace env separator preprompt postprompt
+  local config_file workspace preprompt postprompt
   local modified_time_fmt now updated_at
 
   config_file="$HOME/.blaxel/config.yaml"
@@ -72,7 +62,6 @@ function _zsh_blaxel_prompt_precmd() {
   # Build the prompt string
   zstyle -s ':zsh-blaxel-prompt:' preprompt preprompt
   zstyle -s ':zsh-blaxel-prompt:' postprompt postprompt
-  zstyle -s ':zsh-blaxel-prompt:' separator separator
 
   ZSH_BLAXEL_PROMPT="${preprompt}${workspace}${postprompt}"
 

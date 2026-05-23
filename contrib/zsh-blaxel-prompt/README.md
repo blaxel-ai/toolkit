@@ -77,14 +77,6 @@ zgen load blaxel-ai/toolkit contrib/zsh-blaxel-prompt
 
 ## Customization
 
-### Separator
-
-Change the separator (default `/`):
-
-```sh
-zstyle ':zsh-blaxel-prompt:' separator '|'
-```
-
 ### Pre/Post prompt decorators
 
 Add characters before or after the prompt:
