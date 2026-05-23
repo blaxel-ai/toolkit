@@ -11,7 +11,9 @@ function _zsh_blaxel_prompt_precmd() {
   # If BL_WORKSPACE is set, use it directly
   if [[ -n "$BL_WORKSPACE" ]]; then
     ZSH_BLAXEL_WORKSPACE="$BL_WORKSPACE"
-    ZSH_BLAXEL_PROMPT="$BL_WORKSPACE"
+    zstyle -s ':zsh-blaxel-prompt:' preprompt preprompt
+    zstyle -s ':zsh-blaxel-prompt:' postprompt postprompt
+    ZSH_BLAXEL_PROMPT="${preprompt}${BL_WORKSPACE}${postprompt}"
     return 0
   fi
 
