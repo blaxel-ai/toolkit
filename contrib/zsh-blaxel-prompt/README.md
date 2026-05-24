@@ -4,6 +4,8 @@ Display the current Blaxel workspace in your zsh prompt.
 
 ![Example](https://uploads.linear.app/d7de25fb-1674-4125-b664-3cc3bb02df7a/b902a912-c42c-44d5-9c72-112d60864d7a/a17fb5b8-961f-480c-9cb8-fdfd1b6ccaf5)
 
+New to Blaxel? Check out the [Getting Started guide](https://docs.blaxel.ai).
+
 ## Usage
 
 Source the plugin from your `~/.zshrc` and configure your prompt:
@@ -34,21 +36,26 @@ The workspace is resolved in this order:
 
 ### Manual
 
-Clone this repository and source `blaxel.zsh` from your `~/.zshrc`:
+Download `blaxel.zsh` and source it from your `~/.zshrc`:
 
 ```sh
-git clone https://github.com/blaxel-ai/toolkit.git
-source /path/to/toolkit/contrib/zsh-blaxel-prompt/blaxel.zsh
+# Download the plugin
+mkdir -p ~/.zsh/zsh-blaxel-prompt
+curl -o ~/.zsh/zsh-blaxel-prompt/blaxel.zsh \
+  https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/blaxel.zsh
+
+# Add to ~/.zshrc
+echo 'source ~/.zsh/zsh-blaxel-prompt/blaxel.zsh' >> ~/.zshrc
 ```
 
 ### Oh My Zsh
 
-1. Clone into your custom plugins directory:
+1. Install the plugin:
 
 ```sh
-git clone https://github.com/blaxel-ai/toolkit.git
 mkdir -p ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-blaxel-prompt
-cp toolkit/contrib/zsh-blaxel-prompt/blaxel.zsh ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-blaxel-prompt/zsh-blaxel-prompt.plugin.zsh
+curl -o ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-blaxel-prompt/zsh-blaxel-prompt.plugin.zsh \
+  https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/blaxel.zsh
 ```
 
 2. Add `zsh-blaxel-prompt` to your plugins in `~/.zshrc`:
@@ -61,18 +68,6 @@ plugins=( [plugins...] zsh-blaxel-prompt)
 
 ```sh
 RPROMPT='%{$fg[blue]%}($ZSH_BLAXEL_PROMPT)%{$reset_color%}'
-```
-
-### Antigen
-
-```sh
-antigen bundle blaxel-ai/toolkit path:contrib/zsh-blaxel-prompt
-```
-
-### Zgen
-
-```sh
-zgen load blaxel-ai/toolkit contrib/zsh-blaxel-prompt
 ```
 
 ## Customization
@@ -90,7 +85,7 @@ zstyle ':zsh-blaxel-prompt:' postprompt ''
 
 ```sh
 autoload -U colors; colors
-source /path/to/zsh-blaxel-prompt/blaxel.zsh
+source ~/.zsh/zsh-blaxel-prompt/blaxel.zsh
 
 function blaxel_prompt() {
   local color="blue"
