@@ -69,6 +69,7 @@ Run `bl --help` or `bl <command> --help` for detailed usage.
 - 🔧 [Command Examples](./docs/bl.md)
 - 🚀 [Getting Started Guide](https://docs.blaxel.ai)
 - 📦 [Sample Configurations](./samples)
+- 💻 [ZSH Prompt Plugin](./contrib/zsh-blaxel-prompt) — Display your current Blaxel workspace in the shell prompt
 
 ## Repository Structure
 
