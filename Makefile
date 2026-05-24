@@ -78,4 +78,7 @@ test-install:
 	@echo "🧪 Running install.sh tests in Docker..."
 	./test/install/run_tests.sh
 
-.PHONY: test test-integration test-install
+test-zsh-blaxel-prompt:
+	./contrib/zsh-blaxel-prompt/test.sh
+
+.PHONY: test test-integration test-install test-zsh-blaxel-prompt

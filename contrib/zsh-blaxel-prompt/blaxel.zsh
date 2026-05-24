@@ -1,71 +1,116 @@
 setopt prompt_subst
+
 autoload -U add-zsh-hook
 
-add-zsh-hook precmd _zsh_blaxel_prompt_precmd
-function _zsh_blaxel_prompt_precmd() {
-  local config_file workspace preprompt postprompt
-  local modified_time_fmt now updated_at
+BLAXEL_PROMPT_PREFIX="${BLAXEL_PROMPT_PREFIX:-on }"
+BLAXEL_PROMPT_SYMBOL="${BLAXEL_PROMPT_SYMBOL:-🏀 }"
+BLAXEL_PROMPT_SUFFIX="${BLAXEL_PROMPT_SUFFIX:- }"
+BLAXEL_PROMPT_AUTO="${BLAXEL_PROMPT_AUTO:-}"
+
+function _blaxel_prompt_plugin_dir() {
+  print -r -- "${${(%):-%x}:A:h}"
+}
+
+function blaxel_current_workspace() {
+  local helper config_file workspace
+
+  if [[ -n "$BL_WORKSPACE" ]]; then
+    print -r -- "$BL_WORKSPACE"
+    return 0
+  fi
+
+  helper="$(_blaxel_prompt_plugin_dir)/blaxel-workspace"
+  if [[ -x "$helper" ]]; then
+    workspace="$("$helper" 2>/dev/null)" || return 1
+    [[ -n "$workspace" ]] || return 1
+    print -r -- "$workspace"
+    return 0
+  fi
 
   config_file="$HOME/.blaxel/config.yaml"
+  [[ -f "$config_file" ]] || return 1
 
-  # If BL_WORKSPACE is set, use it directly
-  if [[ -n "$BL_WORKSPACE" ]]; then
-    ZSH_BLAXEL_WORKSPACE="$BL_WORKSPACE"
-    zstyle -s ':zsh-blaxel-prompt:' preprompt preprompt
-    zstyle -s ':zsh-blaxel-prompt:' postprompt postprompt
-    ZSH_BLAXEL_PROMPT="${preprompt}${BL_WORKSPACE}${postprompt}"
-    return 0
-  fi
+  workspace="$(
+    awk '
+      /^[[:space:]]*#/ { next }
+      /^[^[:space:]][^:]*:/ {
+        in_context = ($0 ~ /^context:[[:space:]]*$/)
+        next
+      }
+      in_context && /^[[:space:]]+workspace:[[:space:]]*/ {
+        sub(/^[[:space:]]*workspace:[[:space:]]*/, "")
+        sub(/[[:space:]]+#.*$/, "")
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+        gsub(/^["'\''"]|["'\''"]$/, "")
+        print
+        exit
+      }
+    ' "$config_file"
+  )"
 
-  # Check if config file exists
-  if [[ ! -f "$config_file" ]]; then
+  [[ -n "$workspace" ]] || return 1
+  print -r -- "$workspace"
+}
+
+function blaxel_prompt_info() {
+  local workspace
+
+  workspace="$(blaxel_current_workspace)" || return 1
+  [[ -n "$workspace" ]] || return 1
+  workspace="${workspace//\%/%%}"
+
+  print -rn -- "${BLAXEL_PROMPT_PREFIX}${BLAXEL_PROMPT_SYMBOL}${workspace}${BLAXEL_PROMPT_SUFFIX}"
+}
+
+function _blaxel_prompt_segment_ref() {
+  print -r -- '$(blaxel_prompt_info)'
+}
+
+function blaxel_prompt_prepend() {
+  local segment
+
+  segment="$(_blaxel_prompt_segment_ref)"
+  [[ "$PROMPT" == *"$segment"* ]] && return 0
+  PROMPT="${segment}${PROMPT}"
+}
+
+function blaxel_prompt_append() {
+  local segment
+
+  segment="$(_blaxel_prompt_segment_ref)"
+  [[ "$PROMPT" == *"$segment"* ]] && return 0
+  PROMPT="${PROMPT}${segment}"
+}
+
+function _blaxel_prompt_auto_apply() {
+  add-zsh-hook -d precmd _blaxel_prompt_auto_apply 2>/dev/null
+
+  case "$BLAXEL_PROMPT_AUTO" in
+    prepend|prefix|left)
+      blaxel_prompt_prepend
+      ;;
+    append|suffix)
+      blaxel_prompt_append
+      ;;
+  esac
+}
+
+if [[ -n "$BLAXEL_PROMPT_AUTO" ]]; then
+  add-zsh-hook precmd _blaxel_prompt_auto_apply
+fi
+
+# Backward-compatible variables for users who source this plugin directly.
+function _zsh_blaxel_prompt_precmd() {
+  local workspace
+
+  workspace="$(blaxel_current_workspace)" || {
     ZSH_BLAXEL_WORKSPACE=""
-    ZSH_BLAXEL_PROMPT="no config"
+    ZSH_BLAXEL_PROMPT=""
     return 1
-  fi
-
-  # Determine the stat format for modification time
-  zstyle -s ':zsh-blaxel-prompt:' modified_time_fmt modified_time_fmt
-  if [[ -z "$modified_time_fmt" ]]; then
-    if stat --help >/dev/null 2>&1; then
-      modified_time_fmt='-c%y' # GNU coreutils
-    else
-      modified_time_fmt='-f%m' # FreeBSD/macOS
-    fi
-    zstyle ':zsh-blaxel-prompt:' modified_time_fmt "$modified_time_fmt"
-  fi
-
-  # Check if config file has changed since last read
-  now="$(stat -L $modified_time_fmt "$config_file" 2>/dev/null)"
-  if [[ $? -ne 0 ]]; then
-    ZSH_BLAXEL_WORKSPACE=""
-    ZSH_BLAXEL_PROMPT="config error"
-    return 1
-  fi
-
-  zstyle -s ':zsh-blaxel-prompt:' updated_at updated_at
-  if [[ "$updated_at" == "$now" ]]; then
-    return 0
-  fi
-  zstyle ':zsh-blaxel-prompt:' updated_at "$now"
-
-  # Parse workspace from config.yaml
-  # Uses simple grep/sed to avoid requiring external YAML parsers
-  workspace="$(grep -A1 '^context:' "$config_file" 2>/dev/null | grep 'workspace:' | sed 's/.*workspace:[[:space:]]*//' | sed 's/[[:space:]]*$//' | sed 's/^["'"'"']\(.*\)["'"'"']$/\1/')"
-
-  if [[ -z "$workspace" ]]; then
-    ZSH_BLAXEL_WORKSPACE=""
-    ZSH_BLAXEL_PROMPT="no workspace"
-    return 1
-  fi
+  }
 
   ZSH_BLAXEL_WORKSPACE="$workspace"
-
-  # Build the prompt string
-  zstyle -s ':zsh-blaxel-prompt:' preprompt preprompt
-  zstyle -s ':zsh-blaxel-prompt:' postprompt postprompt
-
-  ZSH_BLAXEL_PROMPT="${preprompt}${workspace}${postprompt}"
-
-  return 0
+  ZSH_BLAXEL_PROMPT="$(blaxel_prompt_info)"
 }
+
+add-zsh-hook precmd _zsh_blaxel_prompt_precmd

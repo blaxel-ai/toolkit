@@ -1,110 +1,134 @@
 # zsh-blaxel-prompt
 
-Display the current Blaxel workspace in your zsh prompt.
+Display the current Blaxel workspace in your shell prompt.
 
 ![Example](https://uploads.linear.app/d7de25fb-1674-4125-b664-3cc3bb02df7a/b902a912-c42c-44d5-9c72-112d60864d7a/a17fb5b8-961f-480c-9cb8-fdfd1b6ccaf5)
 
 New to Blaxel? Check out the [Getting Started guide](https://docs.blaxel.ai).
 
-## Usage
+## Oh My Zsh
 
-Source the plugin from your `~/.zshrc` and configure your prompt:
+Install the plugin:
 
 ```sh
-autoload -U colors; colors
-source /path/to/zsh-blaxel-prompt/blaxel.zsh
-RPROMPT='%{$fg[blue]%}($ZSH_BLAXEL_PROMPT)%{$reset_color%}'
+curl -fsSL https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/install.sh | sh
 ```
 
-### Variables
+Enable it in `~/.zshrc`:
 
-The plugin exposes the following variables:
+```zsh
+plugins=(... zsh-blaxel-prompt)
+```
 
-| Variable | Description |
-|----------|-------------|
-| `ZSH_BLAXEL_WORKSPACE` | The current workspace name |
-| `ZSH_BLAXEL_PROMPT` | Formatted prompt string (with pre/post decorators) |
+### Easy Mode
 
-### Priority
+For a quick setup, add this before Oh My Zsh is loaded:
 
-The workspace is resolved in this order:
+```zsh
+BLAXEL_PROMPT_AUTO=prepend
+```
 
-1. `BL_WORKSPACE` environment variable (if set)
-2. `context.workspace` from `~/.blaxel/config.yaml`
+This prepends the Blaxel segment to your existing prompt.
 
-## Installation
+### Theme Placement
 
-### Manual
+For exact placement, put this in your Oh My Zsh theme:
 
-Download `blaxel.zsh` and source it from your `~/.zshrc`:
+```zsh
+$(blaxel_prompt_info)
+```
+
+For example:
+
+```zsh
+PROMPT='$(blaxel_prompt_info)'$PROMPT
+```
+
+## Plain Zsh
+
+Install the files anywhere and source `blaxel.zsh`:
+
+```zsh
+source ~/.zsh/zsh-blaxel-prompt/blaxel.zsh
+PROMPT='$(blaxel_prompt_info)'$PROMPT
+```
+
+You can also use the built-in helpers:
+
+```zsh
+blaxel_prompt_prepend
+blaxel_prompt_append
+```
+
+## Starship
+
+Starship users can use the standalone helper as a custom module.
+
+Install the helper:
 
 ```sh
-# Download the plugin
 mkdir -p ~/.zsh/zsh-blaxel-prompt
-curl -o ~/.zsh/zsh-blaxel-prompt/blaxel.zsh \
-  https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/blaxel.zsh
-
-# Add to ~/.zshrc
-echo 'source ~/.zsh/zsh-blaxel-prompt/blaxel.zsh' >> ~/.zshrc
+curl -o ~/.zsh/zsh-blaxel-prompt/blaxel-workspace \
+  https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/blaxel-workspace
+chmod +x ~/.zsh/zsh-blaxel-prompt/blaxel-workspace
 ```
 
-### Oh My Zsh
+Add this module to `~/.config/starship.toml`:
 
-1. Install the plugin:
-
-```sh
-mkdir -p ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-blaxel-prompt
-curl -o ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-blaxel-prompt/zsh-blaxel-prompt.plugin.zsh \
-  https://raw.githubusercontent.com/blaxel-ai/toolkit/main/contrib/zsh-blaxel-prompt/blaxel.zsh
+```toml
+[custom.blaxel]
+command = "~/.zsh/zsh-blaxel-prompt/blaxel-workspace"
+when = "test -n \"$BL_WORKSPACE\" || test -f \"$HOME/.blaxel/config.yaml\""
+symbol = "🏀 "
+style = "blue bold"
+format = "on [$symbol$output]($style) "
 ```
 
-2. Add `zsh-blaxel-prompt` to your plugins in `~/.zshrc`:
+With Starship's default `format = "$all"`, custom modules are included automatically:
 
-```sh
-plugins=( [plugins...] zsh-blaxel-prompt)
+```text
+toolkit on  branch via 🐹 v1.26.2 on ☁️  (us-east-1) on 🏀 my-workspace
+❯
 ```
 
-3. Configure your prompt:
+If you have a custom Starship `format`, include `$custom` where you want custom modules to appear:
 
-```sh
-RPROMPT='%{$fg[blue]%}($ZSH_BLAXEL_PROMPT)%{$reset_color%}'
+```toml
+format = "$directory$git_branch$git_status$golang$aws$gcloud$custom$line_break$character"
 ```
 
 ## Customization
 
-### Pre/Post prompt decorators
+The zsh plugin follows the same pattern as common prompt plugins: it exposes a prompt function and simple variables.
 
-Add characters before or after the prompt:
-
-```sh
-zstyle ':zsh-blaxel-prompt:' preprompt 'bl:'
-zstyle ':zsh-blaxel-prompt:' postprompt ''
+```zsh
+BLAXEL_PROMPT_PREFIX="on "
+BLAXEL_PROMPT_SYMBOL="🏀 "
+BLAXEL_PROMPT_SUFFIX=" "
 ```
 
-### Example with color based on workspace name
+The prompt function returns an empty segment when no Blaxel workspace is configured:
 
-```sh
-autoload -U colors; colors
-source ~/.zsh/zsh-blaxel-prompt/blaxel.zsh
-
-function blaxel_prompt() {
-  local color="blue"
-
-  if [[ "$ZSH_BLAXEL_WORKSPACE" =~ "prod" ]]; then
-    color=red
-  elif [[ "$ZSH_BLAXEL_WORKSPACE" =~ "staging" ]]; then
-    color=yellow
-  fi
-
-  echo "%{$fg[$color]%}(bl:$ZSH_BLAXEL_PROMPT)%{$reset_color%}"
-}
-
-RPROMPT='$(blaxel_prompt)'
+```zsh
+blaxel_prompt_info
 ```
+
+The raw workspace helper is also available:
+
+```zsh
+blaxel_current_workspace
+```
+
+## Workspace Resolution
+
+The workspace is resolved in this order:
+
+1. `BL_WORKSPACE` environment variable, if set
+2. `context.workspace` from `~/.blaxel/config.yaml`
 
 ## Performance
 
-The plugin only re-reads the config file when its modification time changes, so it has minimal impact on prompt rendering performance.
+The helper reads only `BL_WORKSPACE` or the local Blaxel config file. It does not call the Blaxel API.
 
 ## License
 

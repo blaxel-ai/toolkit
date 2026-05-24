@@ -1,0 +1,30 @@
+#!/bin/sh
+
+if [ -n "${BL_WORKSPACE:-}" ]; then
+  printf '%s\n' "$BL_WORKSPACE"
+  exit 0
+fi
+
+config_file="$HOME/.blaxel/config.yaml"
+[ -f "$config_file" ] || exit 1
+
+workspace="$(
+  awk '
+    /^[[:space:]]*#/ { next }
+    /^[^[:space:]][^:]*:/ {
+      in_context = ($0 ~ /^context:[[:space:]]*$/)
+      next
+    }
+    in_context && /^[[:space:]]+workspace:[[:space:]]*/ {
+      sub(/^[[:space:]]*workspace:[[:space:]]*/, "")
+      sub(/[[:space:]]+#.*$/, "")
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      gsub(/^["'\'']|["'\'']$/, "")
+      print
+      exit
+    }
+  ' "$config_file"
+)"
+
+[ -n "$workspace" ] || exit 1
+printf '%s\n' "$workspace"
