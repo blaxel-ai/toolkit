@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -61,15 +62,15 @@ bl login my-workspace
 After logging in, all commands will use this workspace by default.
 Override with --workspace flag: bl get agents --workspace other-workspace`,
 		Run: func(cmd *cobra.Command, args []string) {
-			workspace := "" // Default workspace
-			if len(args) > 0 {
-				if len(args) > 1 {
-					// Join all arguments and slugify so "My Workspace" -> "my-workspace"
-					workspaceJoined := core.Slugify(strings.Join(args, " "))
-					core.PrintWarning("Login failed: did you mean bl login " + workspaceJoined + " ?")
-					return
-				}
-				workspace = args[0]
+			workspace, workspaceSuggestion, err := resolveLoginWorkspace(cmd, args)
+			if workspaceSuggestion != "" {
+				core.PrintWarning("Login failed: did you mean bl login " + workspaceSuggestion + " ?")
+				return
+			}
+			if err != nil {
+				core.PrintError("Login", err)
+				core.ExitWithError(err)
+				return
 			}
 
 			if workspace == "" {
@@ -93,6 +94,40 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 		},
 	}
 	return cmd
+}
+
+func resolveLoginWorkspace(cmd *cobra.Command, args []string) (string, string, error) {
+	if len(args) > 1 {
+		// Join all arguments and slugify so "My Workspace" -> "my-workspace".
+		return "", core.Slugify(strings.Join(args, " ")), nil
+	}
+
+	positionalWorkspace := ""
+	if len(args) == 1 {
+		positionalWorkspace = args[0]
+	}
+
+	flagWorkspace, flagChanged := explicitWorkspaceFlag(cmd)
+	if positionalWorkspace != "" {
+		if flagChanged && flagWorkspace != "" && flagWorkspace != positionalWorkspace {
+			return "", "", fmt.Errorf("workspace specified twice: positional workspace %q conflicts with --workspace %q", positionalWorkspace, flagWorkspace)
+		}
+		return positionalWorkspace, "", nil
+	}
+
+	if flagChanged {
+		return flagWorkspace, "", nil
+	}
+
+	return "", "", nil
+}
+
+func explicitWorkspaceFlag(cmd *cobra.Command) (string, bool) {
+	flag := cmd.Flag("workspace")
+	if flag == nil || !flag.Changed {
+		return "", false
+	}
+	return flag.Value.String(), true
 }
 
 func showLoginMenu(workspace string) {
