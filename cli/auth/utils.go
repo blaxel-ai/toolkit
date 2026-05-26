@@ -72,7 +72,8 @@ func validateWorkspaceWithFactory(workspace string, credentials blaxel.Credentia
 	// before the workspace is persisted as the current context.
 	if workspace != "" {
 		if _, err := client.Get(context.Background(), workspace); err != nil {
-			return fmt.Errorf("workspace %q does not exist or is not accessible: %w", workspace, err)
+			// Use one message for every explicit workspace validation failure.
+			return fmt.Errorf("permission denied for workspace %q", workspace)
 		}
 		return nil
 	}
