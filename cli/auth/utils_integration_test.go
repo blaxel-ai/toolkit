@@ -43,6 +43,32 @@ func mockClientFactory(workspaces *[]blaxel.Workspace, err error) ClientFactory 
 	}
 }
 
+type countingWorkspaceClient struct {
+	getCalls         int
+	getWorkspaceName string
+	listCalls        int
+	workspace        *blaxel.Workspace
+	workspaces       *[]blaxel.Workspace
+	err              error
+}
+
+func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+	c.getCalls++
+	c.getWorkspaceName = workspaceName
+	if c.err != nil {
+		return nil, c.err
+	}
+	if c.workspace == nil {
+		return nil, errors.New("workspace not found")
+	}
+	return c.workspace, nil
+}
+
+func (c *countingWorkspaceClient) List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error) {
+	c.listCalls++
+	return c.workspaces, c.err
+}
+
 // TestBuildClientOptionsEmpty tests BuildClientOptions with empty credentials
 func TestBuildClientOptionsEmpty(t *testing.T) {
 	opts := BuildClientOptions("", blaxel.Credentials{})
@@ -128,6 +154,36 @@ func TestValidateWorkspaceEmptyWorkspace(t *testing.T) {
 
 	err := validateWorkspaceWithFactory("", blaxel.Credentials{APIKey: "key"}, factory)
 	require.NoError(t, err)
+}
+
+func TestValidateWorkspaceExplicitWorkspaceUsesGet(t *testing.T) {
+	client := &countingWorkspaceClient{
+		workspace: &blaxel.Workspace{Name: "test-workspace"},
+	}
+	factory := func(opts ...option.RequestOption) WorkspaceClient {
+		return client
+	}
+
+	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
+	require.NoError(t, err)
+	assert.Equal(t, 1, client.getCalls)
+	assert.Equal(t, "test-workspace", client.getWorkspaceName)
+	assert.Equal(t, 0, client.listCalls)
+}
+
+func TestValidateWorkspaceEmptyWorkspaceUsesList(t *testing.T) {
+	workspaces := []blaxel.Workspace{{Name: "test-workspace"}}
+	client := &countingWorkspaceClient{
+		workspaces: &workspaces,
+	}
+	factory := func(opts ...option.RequestOption) WorkspaceClient {
+		return client
+	}
+
+	err := validateWorkspaceWithFactory("", blaxel.Credentials{APIKey: "key"}, factory)
+	require.NoError(t, err)
+	assert.Equal(t, 0, client.getCalls)
+	assert.Equal(t, 1, client.listCalls)
 }
 
 // TestListWorkspacesSuccess tests successful workspace listing
