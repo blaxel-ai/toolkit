@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -398,7 +399,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
-	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Idle timeout for build log monitoring (e.g. 30m, 1h). Resets on progress. Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
@@ -432,9 +433,25 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 		close(doneCh)
 	}()
 
+	// Activity-based idle timeout for build monitoring
+	var buildActivityMu sync.Mutex
+	buildLastActivity := time.Now()
+	buildMarkActive := func() {
+		buildActivityMu.Lock()
+		buildLastActivity = time.Now()
+		buildActivityMu.Unlock()
+	}
+	buildCheckIdle := func() bool {
+		buildActivityMu.Lock()
+		elapsed := time.Since(buildLastActivity)
+		buildActivityMu.Unlock()
+		return elapsed >= buildTimeout
+	}
+
 	// Use the BuildLogWatcher to stream logs
 	logWatcher := mon.NewBuildLogWatcher(client, workspace, resourceType, name, func(msg string) {
 		fmt.Println(msg)
+		buildMarkActive()
 	}, buildTimeout)
 	logWatcher.Start()
 	defer logWatcher.Stop()
@@ -443,21 +460,22 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	timeout := time.After(buildTimeout)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("build monitoring cancelled")
-		case <-timeout:
-			return fmt.Errorf("build timed out after %s", buildTimeout)
 		case <-ticker.C:
+			if buildCheckIdle() {
+				return fmt.Errorf("no progress detected for %s", buildTimeout)
+			}
+
 			// Check if the image exists in the registry (build completed)
 			status, err := getImageBuildStatus(resourceType, name)
 			if err != nil {
 				// Image not found yet, continue waiting
 				continue
 			}
+			buildMarkActive()
 			if status == "succeeded" {
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second) // Allow final logs to flush

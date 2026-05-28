@@ -339,7 +339,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
-	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Idle timeout for build and deployment monitoring (e.g. 30m, 1h). Resets on progress. Defaults to 15m")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
 }
@@ -1280,7 +1280,23 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		// Start monitoring the resource status
 		statusTicker := time.NewTicker(3 * time.Second)
 		defer statusTicker.Stop()
-		statusTimeout := time.After(d.timeout)
+
+		// Activity-based idle timeout: resets whenever progress is detected
+		// (status changes or build log activity) so long-running but active
+		// builds are not killed prematurely.
+		var lastActivityMu sync.Mutex
+		lastActivityTime := time.Now()
+		markActive := func() {
+			lastActivityMu.Lock()
+			lastActivityTime = time.Now()
+			lastActivityMu.Unlock()
+		}
+		checkIdleTimeout := func() bool {
+			lastActivityMu.Lock()
+			elapsed := time.Since(lastActivityTime)
+			lastActivityMu.Unlock()
+			return elapsed >= d.timeout
+		}
 
 		// Grace period for stale FAILED status - if we don't see any status change within this time,
 		// accept that the FAILED status is real (handles case where new deployment fails immediately)
@@ -1298,16 +1314,19 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 
 		for {
 			select {
-			case <-statusTimeout:
-				if logWatcher != nil {
-					logWatcher.Stop()
-				}
-				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after %s", d.timeout))
-				return
 			case <-staleFailedGracePeriod:
 				// Grace period expired - if status is still FAILED, accept it as real
 				staleGracePeriodExpired = true
 			case <-statusTicker.C:
+				// Check idle timeout
+				if checkIdleTimeout() {
+					if logWatcher != nil {
+						logWatcher.Stop()
+					}
+					model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("no progress detected for %s", d.timeout))
+					return
+				}
+
 				status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
 				if err != nil {
 					// Continue polling on temporary errors
@@ -1322,6 +1341,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				// Only log status changes
 				if status != lastStatus {
 					lastStatus = status
+					markActive()
 
 					// Map API status to our UI status and update
 					switch status {
@@ -1347,6 +1367,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 								resource.Name,
 								func(log string) {
 									model.AddBuildLog(idx, log)
+									markActive()
 								},
 								d.timeout,
 							)
@@ -1472,95 +1493,111 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 							additionalTimeout = d.timeout
 						}
 						ticker := time.NewTicker(3 * time.Second)
-						timeout := time.After(additionalTimeout)
+
+						// Activity-based idle timeout for additional resources
+						var addlActivityMu sync.Mutex
+						addlLastActivity := time.Now()
+						addlMarkActive := func() {
+							addlActivityMu.Lock()
+							addlLastActivity = time.Now()
+							addlActivityMu.Unlock()
+						}
+						addlCheckIdle := func() bool {
+							addlActivityMu.Lock()
+							elapsed := time.Since(addlLastActivity)
+							addlActivityMu.Unlock()
+							return elapsed >= additionalTimeout
+						}
+
 						lastStatus := "" // Track last status to avoid duplicate logs
 						var logWatcher interface{ Stop() }
 						buildLogStarted := false
 						sawBuildingStatus := false // Track if we've seen BUILDING status
 
-						for {
-							select {
-							case <-timeout:
+						for range ticker.C {
+							if addlCheckIdle() {
 								if logWatcher != nil {
 									logWatcher.Stop()
 								}
-								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
+								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("no progress detected for %s", additionalTimeout))
 								ticker.Stop()
 								return
-							case <-ticker.C:
-								status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
-								if err != nil {
-									continue
-								}
+							}
 
-								// Logs handling
-								if status != lastStatus {
-									lastStatus = status
-									model.AddBuildLog(idx, fmt.Sprintf("Status: %s", status))
+							status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+							if err != nil {
+								continue
+							}
 
-									switch status {
-									case "UPLOADING":
-										model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
-									case "BUILDING":
-										sawBuildingStatus = true
-										model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
+							// Logs handling
+							if status != lastStatus {
+								lastStatus = status
+								addlMarkActive()
+								model.AddBuildLog(idx, fmt.Sprintf("Status: %s", status))
 
-										// Start build log watcher if not already started
-										if !buildLogStarted {
-											buildLogStarted = true
-											client := core.GetClient()
-											workspace := core.GetWorkspace()
+								switch status {
+								case "UPLOADING":
+									model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
+								case "BUILDING":
+									sawBuildingStatus = true
+									model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
 
-											lw := mon.NewBuildLogWatcher(
-												client,
-												workspace,
-												strings.ToLower(resource.Kind),
-												resource.Name,
-												func(log string) {
-													model.AddBuildLog(idx, log)
-												},
-												additionalTimeout,
-											)
-											lw.Start()
-											logWatcher = lw
-										}
-									case "DEPLOYING":
-										if logWatcher != nil {
-											logWatcher.Stop()
-											logWatcher = nil
-										}
-										model.UpdateResource(idx, deploy.StatusDeploying, "Deploying to cluster", nil)
-									case "DEPLOYED":
-										// If skipBuild is false (AutoGenerated=true), we MUST have seen BUILDING status
-										if resource.AutoGenerated && !sawBuildingStatus {
-											// This is a mistake - continue monitoring
-											continue
-										}
-										if logWatcher != nil {
-											logWatcher.Stop()
-										}
+									// Start build log watcher if not already started
+									if !buildLogStarted {
+										buildLogStarted = true
+										client := core.GetClient()
+										workspace := core.GetWorkspace()
 
-										model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
-										ticker.Stop()
-										return
-									case "FAILED":
-										if logWatcher != nil {
-											logWatcher.Stop()
-										}
-										model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
-										ticker.Stop()
-										return
-									case "DEACTIVATED", "DEACTIVATING", "DELETING":
-										if logWatcher != nil {
-											logWatcher.Stop()
-										}
-										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
-										ticker.Stop()
-										return
-									default:
-										// Continue monitoring for unknown statuses
-										model.UpdateResource(idx, deploy.StatusDeploying, fmt.Sprintf("Status: %s", status), nil)
+										lw := mon.NewBuildLogWatcher(
+											client,
+											workspace,
+											strings.ToLower(resource.Kind),
+											resource.Name,
+											func(log string) {
+												model.AddBuildLog(idx, log)
+												addlMarkActive()
+											},
+											additionalTimeout,
+										)
+										lw.Start()
+										logWatcher = lw
 									}
+								case "DEPLOYING":
+									if logWatcher != nil {
+										logWatcher.Stop()
+										logWatcher = nil
+									}
+									model.UpdateResource(idx, deploy.StatusDeploying, "Deploying to cluster", nil)
+								case "DEPLOYED":
+									// If skipBuild is false (AutoGenerated=true), we MUST have seen BUILDING status
+									if resource.AutoGenerated && !sawBuildingStatus {
+										// This is a mistake - continue monitoring
+										continue
+									}
+									if logWatcher != nil {
+										logWatcher.Stop()
+									}
+
+									model.UpdateResource(idx, deploy.StatusComplete, "Applied successfully", nil)
+									ticker.Stop()
+									return
+								case "FAILED":
+									if logWatcher != nil {
+										logWatcher.Stop()
+									}
+									model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
+									ticker.Stop()
+									return
+								case "DEACTIVATED", "DEACTIVATING", "DELETING":
+									if logWatcher != nil {
+										logWatcher.Stop()
+									}
+									model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+									ticker.Stop()
+									return
+								default:
+									// Continue monitoring for unknown statuses
+									model.UpdateResource(idx, deploy.StatusDeploying, fmt.Sprintf("Status: %s", status), nil)
 								}
 							}
 						}
