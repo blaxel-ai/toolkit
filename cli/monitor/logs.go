@@ -47,11 +47,11 @@ type BuildLogWatcher struct {
 }
 
 // DefaultBuildTimeout is the default timeout for build log monitoring.
-const DefaultBuildTimeout = 15 * time.Minute
+const DefaultBuildTimeout = 1 * time.Hour
 
 // NewBuildLogWatcher creates a new build log watcher.
 // The timeout parameter controls the log query window duration.
-// Pass 0 to use the default of 15 minutes.
+// Pass 0 to use the default of 1 hour.
 func NewBuildLogWatcher(client *blaxel.Client, workspace, resourceType, resourceName string, onLog func(string), timeout time.Duration) *BuildLogWatcher {
 	if timeout <= 0 {
 		timeout = DefaultBuildTimeout

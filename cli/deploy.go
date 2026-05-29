@@ -339,7 +339,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
-	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
 }
@@ -1465,7 +1465,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, "Verifying deployment status...")
 
 						// Simple status monitoring for additional resources
-						// Additional resources use a shorter default (10m) than the main resource (15m),
+						// Additional resources use a shorter default (10m) than the main resource (1h),
 						// but respect the user-specified --timeout if explicitly provided.
 						additionalTimeout := 10 * time.Minute
 						if d.timeoutExplicit {
