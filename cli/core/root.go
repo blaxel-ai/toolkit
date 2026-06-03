@@ -376,6 +376,17 @@ func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string
 }
 
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
+	if version == "" {
+		version = releaseVersion
+	}
+	if commit == "" {
+		commit = releaseCommit
+	}
+	if date == "" {
+		date = releaseDate
+	}
+	rootCmd.Version = version
+
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
 
@@ -407,15 +418,6 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	}
 	blaxel.InitializeEnvironment(workspace)
 
-	if version == "" {
-		version = releaseVersion
-	}
-	if commit == "" {
-		commit = releaseCommit
-	}
-	if date == "" {
-		date = releaseDate
-	}
 	SetSentryTag("version", version)
 	SetSentryTag("commit", commit)
 	SetSentryTag("workspace", workspace)
@@ -558,12 +560,8 @@ func promptForTracking() {
 		return
 	}
 
-	// Skip for completion and version commands
-	if len(os.Args) > 1 {
-		cmd := os.Args[1]
-		if cmd == "completion" || cmd == "__complete" || cmd == "version" {
-			return
-		}
+	if isTrackingPromptCommandExempt(os.Args) {
+		return
 	}
 
 	// Skip in CI environments
@@ -598,4 +596,13 @@ func promptForTracking() {
 		fmt.Println("✓ Tracking disabled.")
 	}
 	fmt.Println()
+}
+
+func isTrackingPromptCommandExempt(args []string) bool {
+	if len(args) <= 1 {
+		return false
+	}
+
+	cmd := args[1]
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
 }
