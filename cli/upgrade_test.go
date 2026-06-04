@@ -24,6 +24,81 @@ func TestUpgradeCmd(t *testing.T) {
 	assert.Equal(t, "false", forceFlag.DefValue)
 }
 
+func TestNormalizeUpgradeVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty version",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "bare semver",
+			input:    "0.1.97",
+			expected: "v0.1.97",
+		},
+		{
+			name:     "already prefixed semver",
+			input:    "v0.1.97",
+			expected: "v0.1.97",
+		},
+		{
+			name:     "bare prerelease semver",
+			input:    "0.1.97-rc.1",
+			expected: "v0.1.97-rc.1",
+		},
+		{
+			name:     "bare build metadata semver",
+			input:    "0.1.97+build.1",
+			expected: "v0.1.97+build.1",
+		},
+		{
+			name:     "version with surrounding space",
+			input:    " 0.1.97 ",
+			expected: "v0.1.97",
+		},
+		{
+			name:     "latest alias",
+			input:    "latest",
+			expected: "latest",
+		},
+		{
+			name:     "latest alias with surrounding space",
+			input:    " latest ",
+			expected: "latest",
+		},
+		{
+			name:     "partial semver",
+			input:    "0.1",
+			expected: "0.1",
+		},
+		{
+			name:     "custom tag",
+			input:    "release-0.1.97",
+			expected: "release-0.1.97",
+		},
+		{
+			name:     "custom tag with surrounding space",
+			input:    " release-0.1.97 ",
+			expected: "release-0.1.97",
+		},
+		{
+			name:     "whitespace only",
+			input:    " \t ",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, normalizeUpgradeVersion(tt.input))
+		})
+	}
+}
+
 func TestNeedsSudoForPath(t *testing.T) {
 	tests := []struct {
 		name     string
