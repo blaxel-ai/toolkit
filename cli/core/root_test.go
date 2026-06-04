@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -282,6 +283,45 @@ func TestGetVerbose(t *testing.T) {
 
 	verbose = false
 	assert.False(t, GetVerbose())
+}
+
+func TestRootVersionFlagPreservesVerboseShorthand(t *testing.T) {
+	originalRootCmd := rootCmd
+	defer func() { rootCmd = originalRootCmd }()
+
+	rootCmd = &cobra.Command{
+		Use:     "bl",
+		Version: "1.2.3",
+	}
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+
+	var output bytes.Buffer
+	rootCmd.SetOut(&output)
+	rootCmd.SetArgs([]string{"--version"})
+
+	err := rootCmd.Execute()
+
+	assert.NoError(t, err)
+	assert.Contains(t, output.String(), "bl version 1.2.3")
+
+	versionFlag := rootCmd.Flags().Lookup("version")
+	assert.NotNil(t, versionFlag)
+	assert.Equal(t, "", versionFlag.Shorthand)
+
+	verboseFlag := rootCmd.PersistentFlags().Lookup("verbose")
+	assert.NotNil(t, verboseFlag)
+	assert.Equal(t, "v", verboseFlag.Shorthand)
+}
+
+func TestTrackingPromptCommandExemptions(t *testing.T) {
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "version"}))
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "--version"}))
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "completion"}))
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "__complete"}))
+
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl"}))
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "-v"}))
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "get"}))
 }
 
 func TestReadWriteVersionCache(t *testing.T) {
