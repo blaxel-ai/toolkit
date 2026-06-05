@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -231,8 +232,8 @@ func DriveUnmountCmd() *cobra.Command {
 
 			sandboxURL, token := resolveSandbox(ctx, sandboxName)
 
-			// The mount path must be URL-encoded in the path; strip leading / for the API path
-			encodedPath := strings.TrimPrefix(mountPath, "/")
+			// URL-encode the mount path for safe inclusion in the request path
+			encodedPath := url.PathEscape(strings.TrimPrefix(mountPath, "/"))
 			apiPath := fmt.Sprintf("/drives/mount/%s", encodedPath)
 
 			resp, err := sandboxRequest(ctx, http.MethodDelete, sandboxURL, apiPath, token, nil)
