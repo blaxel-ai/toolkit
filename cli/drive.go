@@ -74,22 +74,48 @@ type sandboxAPIError struct {
 func DriveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "drive",
-		Short: "Manage drives mounted to sandboxes",
-		Long: `Manage drives mounted to sandboxes.
+		Short: "Manage drives and drive mounts on sandboxes",
+		Long: `Manage drives and drive mounts on sandboxes.
 
-Use these commands to mount, unmount, and list drives attached to sandbox
-environments at runtime. This is useful as a recovery tool when mounts are
-lost or need to be re-established.`,
-		Example: `  # Mount a drive to a sandbox
+Drive CRUD:
+  bl drive list                       List all drives in the workspace
+  bl drive get <name>                 Get details of a specific drive
+  bl drive create                     Create a new drive
+  bl drive delete <name>              Delete a drive
+
+Sandbox mount operations:
+  bl drive mount --sandbox <s> ...    Mount a drive to a running sandbox
+  bl drive unmount --sandbox <s> ...  Unmount a drive from a running sandbox
+  bl drive mounts --sandbox <s>       List drives mounted in a running sandbox`,
+		Example: `  # List all drives
+  bl drive list
+
+  # Get details of a drive
+  bl drive get my-drive
+
+  # Create a new drive
+  bl drive create --name my-drive --region us-pdx-1
+
+  # Delete a drive
+  bl drive delete my-drive
+
+  # Mount a drive to a sandbox
   bl drive mount --sandbox my-sandbox --drive my-drive --mount-path /mnt/data
 
   # Unmount a drive from a sandbox
   bl drive unmount --sandbox my-sandbox --mount-path /mnt/data
 
-  # List all mounted drives in a sandbox
+  # List mounted drives in a sandbox
   bl drive mounts --sandbox my-sandbox`,
 	}
 
+	// CRUD subcommands
+	cmd.AddCommand(DriveListCmd())
+	cmd.AddCommand(DriveGetCmd())
+	cmd.AddCommand(DriveCreateCmd())
+	cmd.AddCommand(DriveDeleteCmd())
+
+	// Mount subcommands
 	cmd.AddCommand(DriveMountCmd())
 	cmd.AddCommand(DriveUnmountCmd())
 	cmd.AddCommand(DriveMountsCmd())
@@ -336,6 +362,135 @@ func DriveMountsCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("sandbox")
 
 	return cmd
+}
+
+// driveResource returns the Drive resource definition from the resource registry.
+func driveResource() *core.Resource {
+	for _, r := range core.GetResources() {
+		if r.Kind == "Drive" {
+			return r
+		}
+	}
+	return nil
+}
+
+func DriveListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all drives in the workspace",
+		Long:  `List all drives in the current workspace.`,
+		Example: `  # List all drives
+  bl drive list
+
+  # List drives in JSON format
+  bl drive list -o json`,
+		Aliases: []string{"ls"},
+		Run: func(cmd *cobra.Command, args []string) {
+			r := driveResource()
+			if r == nil {
+				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
+				core.ExitWithError(fmt.Errorf("drive resource not found"))
+			}
+			ListFn(r)
+		},
+	}
+}
+
+func DriveGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <name>",
+		Short: "Get details of a specific drive",
+		Long:  `Get detailed information about a drive in the current workspace.`,
+		Example: `  # Get drive details
+  bl drive get my-drive
+
+  # Get drive details in JSON format
+  bl drive get my-drive -o json`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := driveResource()
+			if r == nil {
+				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
+				core.ExitWithError(fmt.Errorf("drive resource not found"))
+			}
+			GetFn(r, args[0])
+		},
+	}
+}
+
+func DriveCreateCmd() *cobra.Command {
+	var name, region string
+	var size int64
+
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new drive",
+		Long:  `Create a new drive in the current workspace.`,
+		Example: `  # Create a drive in a specific region
+  bl drive create --name my-drive --region us-pdx-1
+
+  # Create a drive with a size limit (in GB)
+  bl drive create --name my-drive --region us-pdx-1 --size 10`,
+		Run: func(cmd *cobra.Command, args []string) {
+			ctx := context.Background()
+			client := core.GetClient()
+
+			params := blaxel.DriveNewParams{
+				Metadata: blaxel.MetadataParam{
+					Name: name,
+				},
+				Spec: blaxel.DriveSpecParam{
+					Region: blaxel.String(region),
+				},
+			}
+			if size > 0 {
+				params.Spec.Size = blaxel.Int(size)
+			}
+
+			resp, err := client.Drives.New(ctx, params)
+			if err != nil {
+				core.PrintError("Drive create", fmt.Errorf("failed to create drive: %w", err))
+				core.ExitWithError(err)
+			}
+
+			outputFormat := core.GetOutputFormat()
+			if outputFormat == "json" || outputFormat == "yaml" {
+				outputDriveData(resp, outputFormat)
+				return
+			}
+
+			core.PrintInfo(fmt.Sprintf("Drive '%s' created", name))
+		},
+	}
+
+	cmd.Flags().StringVar(&name, "name", "", "Name of the drive")
+	cmd.Flags().StringVar(&region, "region", "", "Deployment region (e.g., us-pdx-1, eu-lon-1)")
+	cmd.Flags().Int64Var(&size, "size", 0, "Size limit in GB (optional, 0 for unlimited)")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("region")
+
+	return cmd
+}
+
+func DriveDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete <name>",
+		Short: "Delete a drive",
+		Long:  `Delete a drive from the current workspace.`,
+		Example: `  # Delete a drive
+  bl drive delete my-drive`,
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := driveResource()
+			if r == nil {
+				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
+				core.ExitWithError(fmt.Errorf("drive resource not found"))
+			}
+			if err := DeleteFn(r, args[0]); err != nil {
+				core.ExitWithError(err)
+			}
+		},
+	}
 }
 
 // resolveSandbox retrieves the sandbox URL and auth token for the given sandbox name.
