@@ -23,6 +23,10 @@ A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
 
+If the blaxel.toml contains an 'image' field pointing to a registry image,
+the platform will pull the image and transform it via metamorph before deploying.
+For private registries, supply credentials via --registry-cred or --docker-config.
+
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
 - Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation
@@ -88,7 +92,7 @@ bl deploy [flags]
   -c, --registry-cred stringArray   Registry credentials (format: registry=username:password, repeatable)
   -s, --secrets strings             Secrets to deploy
       --skip-build                  Skip the build step
-      --timeout string              Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m
+      --timeout string              Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h
   -t, --type string                 Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'
   -y, --yes                         Skip interactive mode
 ```
