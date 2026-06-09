@@ -677,3 +677,85 @@ workspace = "test-workspace"
 	assert.Equal(t, "my-function", config.Name)
 	assert.Equal(t, "function", config.Type)
 }
+
+func TestDockerfileProvidesSandboxAPI(t *testing.T) {
+	tests := []struct {
+		name       string
+		dockerfile string
+		want       bool
+	}{
+		{
+			name:       "blaxel sandbox base image",
+			dockerfile: "FROM ghcr.io/blaxel-ai/sandbox:latest\n",
+			want:       true,
+		},
+		{
+			name:       "blaxel sandbox base image with platform flag",
+			dockerfile: "FROM --platform=linux/amd64 ghcr.io/blaxel-ai/sandbox:latest\n",
+			want:       true,
+		},
+		{
+			name: "direct multi-stage copy from the image",
+			dockerfile: `FROM debian:bookworm-slim
+COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox-api
+`,
+			want: true,
+		},
+		{
+			name: "copy from a named build stage",
+			dockerfile: `FROM --platform=linux/amd64 ghcr.io/blaxel-ai/sandbox:latest AS blaxel-sandbox
+FROM --platform=linux/amd64 node:22-bookworm-slim
+COPY --from=blaxel-sandbox /sandbox-api /usr/local/bin/sandbox-api
+`,
+			want: true,
+		},
+		{
+			name: "stage names are case-insensitive",
+			dockerfile: `FROM ghcr.io/blaxel-ai/sandbox:latest AS Blaxel-Sandbox
+FROM debian:bookworm-slim
+COPY --from=BLAXEL-SANDBOX /sandbox-api /usr/local/bin/sandbox-api
+`,
+			want: true,
+		},
+		{
+			name: "copy from an indexed build stage",
+			dockerfile: `FROM ghcr.io/blaxel-ai/sandbox:latest
+FROM debian:bookworm-slim
+COPY --from=0 /sandbox-api /usr/local/bin/sandbox-api
+`,
+			want: true,
+		},
+		{
+			name: "copy from a stage built on a sandbox stage",
+			dockerfile: `FROM ghcr.io/blaxel-ai/sandbox:latest AS base
+FROM base AS tools
+FROM debian:bookworm-slim
+COPY --from=tools /sandbox-api /usr/local/bin/sandbox-api
+`,
+			want: true,
+		},
+		{
+			name:       "plain image without the binary",
+			dockerfile: "FROM debian:bookworm-slim\nRUN apt-get update\n",
+			want:       false,
+		},
+		{
+			name: "sandbox stage that is never copied from",
+			dockerfile: `FROM ghcr.io/blaxel-ai/sandbox:latest AS unused
+FROM debian:bookworm-slim
+COPY --from=somewhere-else /thing /thing
+`,
+			want: false,
+		},
+		{
+			name:       "empty dockerfile",
+			dockerfile: "",
+			want:       false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, dockerfileProvidesSandboxAPI(tt.dockerfile))
+		})
+	}
+}

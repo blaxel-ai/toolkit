@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -506,16 +507,9 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 		}
 
 		// Dockerfile exists, check if sandbox-api binary is available in the image.
-		// Valid patterns:
-		// 1. Base image from blaxel (already contains sandbox-api): FROM ghcr.io/blaxel-ai/sandbox
-		// 2. Multi-stage copy of the binary: COPY --from=ghcr.io/blaxel-ai/sandbox
 		dockerfileContent, err := os.ReadFile(dockerfilePath)
 		if err == nil {
-			content := string(dockerfileContent)
-			hasBlaxelSandboxBase := strings.Contains(content, "FROM ghcr.io/blaxel-ai/sandbox")
-			hasCopySandboxAPI := strings.Contains(content, "COPY --from=ghcr.io/blaxel-ai/sandbox")
-
-			if !hasBlaxelSandboxBase && !hasCopySandboxAPI {
+			if !dockerfileProvidesSandboxAPI(string(dockerfileContent)) {
 				var warningMsg strings.Builder
 				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -592,6 +586,68 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	return warningMsg.String()
+}
+
+// dockerfileProvidesSandboxAPI reports whether a sandbox Dockerfile makes the
+// sandbox-api binary available in the final image. Valid patterns:
+//  1. The final stage builds on a Blaxel sandbox base image:
+//     FROM ghcr.io/blaxel-ai/sandbox
+//  2. A copy of the binary, directly from the image or via a named or indexed
+//     build stage based on it:
+//     FROM ghcr.io/blaxel-ai/sandbox:latest AS blaxel-sandbox
+//     COPY --from=blaxel-sandbox /sandbox-api /usr/local/bin/sandbox-api
+//
+// FROM flags such as --platform are ignored.
+func dockerfileProvidesSandboxAPI(content string) bool {
+	const sandboxImage = "ghcr.io/blaxel-ai/sandbox"
+	sandboxStageNames := map[string]bool{}
+	var stageIsSandbox []bool
+	for line := range strings.Lines(content) {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 0 {
+			continue
+		}
+		switch strings.ToUpper(fields[0]) {
+		case "FROM":
+			image := ""
+			alias := ""
+			for i := 1; i < len(fields); i++ {
+				field := fields[i]
+				if strings.HasPrefix(field, "--") {
+					continue // FROM flags such as --platform
+				}
+				if image == "" {
+					image = field
+				} else if strings.EqualFold(field, "AS") && i+1 < len(fields) {
+					alias = fields[i+1]
+					break
+				}
+			}
+			// A stage is sandbox-based when it builds on the image itself or
+			// on an earlier sandbox-based stage. Stage names are case-insensitive.
+			isSandbox := strings.Contains(image, sandboxImage) ||
+				sandboxStageNames[strings.ToLower(image)]
+			stageIsSandbox = append(stageIsSandbox, isSandbox)
+			if isSandbox && alias != "" {
+				sandboxStageNames[strings.ToLower(alias)] = true
+			}
+		case "COPY":
+			for _, field := range fields[1:] {
+				ref, ok := strings.CutPrefix(field, "--from=")
+				if !ok {
+					continue
+				}
+				if strings.Contains(ref, sandboxImage) || sandboxStageNames[strings.ToLower(ref)] {
+					return true
+				}
+				if index, err := strconv.Atoi(ref); err == nil &&
+					index >= 0 && index < len(stageIsSandbox) && stageIsSandbox[index] {
+					return true
+				}
+			}
+		}
+	}
+	return len(stageIsSandbox) > 0 && stageIsSandbox[len(stageIsSandbox)-1]
 }
 
 func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
