@@ -18,9 +18,14 @@ type AuthSource struct {
 // authSource holds the resolved authentication source for the current session.
 var authSource AuthSource
 
+// authHintPrinted prevents the auth-source hint from being printed twice
+// (e.g. once in PrintError and once in ExitWithError).
+var authHintPrinted bool
+
 // SetAuthSource stores the authentication source for later use in error messages.
 func SetAuthSource(src AuthSource) {
 	authSource = src
+	authHintPrinted = false
 }
 
 // GetAuthSource returns the currently stored authentication source.
@@ -81,11 +86,17 @@ func IsAuthError(err error) bool {
 // PrintAuthSourceHint prints a coloured hint about the authentication source
 // to stderr. Call this after printing an auth-related error so the user can
 // immediately see where the credentials came from.
+// The hint is printed at most once per session to avoid duplicate output
+// when both PrintError and ExitWithError are on the same code path.
 func PrintAuthSourceHint() {
+	if authHintPrinted {
+		return
+	}
 	src := GetAuthSource()
 	if src.Origin == "" {
 		return
 	}
+	authHintPrinted = true
 
 	hint := fmt.Sprintf("Authentication is using %s from %s", src.Method, src.Origin)
 	PrintDiagnostic(fmt.Sprintf("%s %s",

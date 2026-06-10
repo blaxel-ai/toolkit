@@ -41,6 +41,33 @@ func TestSetGetAuthSource(t *testing.T) {
 	assert.Equal(t, expected, GetAuthSource())
 }
 
+func TestSetAuthSource_ResetsHintFlag(t *testing.T) {
+	original := GetAuthSource()
+	defer SetAuthSource(original)
+
+	// Print the hint once so the flag is set.
+	SetAuthSource(AuthSource{Method: "API key", Origin: "environment variable BL_API_KEY"})
+	PrintAuthSourceHint()
+	assert.True(t, authHintPrinted)
+
+	// SetAuthSource should reset the flag.
+	SetAuthSource(AuthSource{Method: "access token", Origin: "credentials file (~/.blaxel/config.yaml) for workspace \"ws\""})
+	assert.False(t, authHintPrinted)
+}
+
+func TestPrintAuthSourceHint_OnlyOnce(t *testing.T) {
+	original := GetAuthSource()
+	defer SetAuthSource(original)
+
+	SetAuthSource(AuthSource{Method: "API key", Origin: "environment variable BL_API_KEY"})
+	PrintAuthSourceHint()
+	assert.True(t, authHintPrinted)
+
+	// Second call should be a no-op (flag already set).
+	PrintAuthSourceHint()
+	assert.True(t, authHintPrinted)
+}
+
 func TestIsAuthError_401(t *testing.T) {
 	assert.True(t, IsAuthError(fmt.Errorf("401 Unauthorized")))
 }
@@ -95,5 +122,14 @@ func TestPrintAuthSourceHint_WithEnvSource(t *testing.T) {
 
 	SetAuthSource(AuthSource{Method: "API key", Origin: "environment variable BL_API_KEY"})
 	// Should not panic
+	PrintAuthSourceHint()
+}
+
+func TestPrintAuthSourceHint_WithConfigSource(t *testing.T) {
+	original := GetAuthSource()
+	defer SetAuthSource(original)
+
+	SetAuthSource(AuthSource{Method: "access token", Origin: "credentials file (~/.blaxel/config.yaml) for workspace \"my-ws\""})
+	// Should not panic — hint is shown for all auth modes, not just env vars.
 	PrintAuthSourceHint()
 }
