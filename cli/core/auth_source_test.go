@@ -88,6 +88,18 @@ func TestIsAuthError_RegularError(t *testing.T) {
 	assert.False(t, IsAuthError(fmt.Errorf("connection timeout")))
 }
 
+func TestIsAuthError_FalsePositivePort(t *testing.T) {
+	assert.False(t, IsAuthError(fmt.Errorf("failed to connect to port 4031")))
+}
+
+func TestIsAuthError_FalsePositiveResourceID(t *testing.T) {
+	assert.False(t, IsAuthError(fmt.Errorf("resource ID 14012 not found")))
+}
+
+func TestIsAuthError_SDKFormat(t *testing.T) {
+	assert.True(t, IsAuthError(fmt.Errorf(`GET "https://api.blaxel.ai/v0/models": 401 Unauthorized {"code":401,"error":"Unauthorized"}`)))
+}
+
 func TestIsAuthError_Nil(t *testing.T) {
 	assert.False(t, IsAuthError(nil))
 }

@@ -77,8 +77,10 @@ func IsAuthError(err error) bool {
 		return e.StatusCode == 401 || e.StatusCode == 403
 	}
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "401") ||
-		strings.Contains(msg, "403") ||
+	// Use "401 " / "403 " (with trailing space) to avoid false-positives on
+	// port numbers or resource IDs that happen to contain these digits.
+	return strings.Contains(msg, "401 ") ||
+		strings.Contains(msg, "403 ") ||
 		strings.Contains(msg, "unauthorized") ||
 		strings.Contains(msg, "permission denied")
 }
