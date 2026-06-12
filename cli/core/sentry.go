@@ -78,8 +78,14 @@ func RecoverWithSentry() {
 	}
 }
 
-// ExitWithError captures the error to Sentry and exits with code 1
+// ExitWithError captures the error to Sentry and exits with code 1.
+// When the error looks like an auth failure it also prints a hint about
+// the credential source (env var vs config file) so the user can spot
+// stale or mismatched credentials immediately.
 func ExitWithError(err error) {
+	if IsAuthError(err) {
+		PrintAuthSourceHint()
+	}
 	if err != nil && SentryDSN != "" {
 		sentry.CaptureException(err)
 		sentry.Flush(2 * time.Second)

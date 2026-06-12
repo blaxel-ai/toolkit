@@ -2,7 +2,7 @@
 
 Display the current Blaxel workspace in your shell prompt.
 
-![Example](https://uploads.linear.app/d7de25fb-1674-4125-b664-3cc3bb02df7a/b902a912-c42c-44d5-9c72-112d60864d7a/a17fb5b8-961f-480c-9cb8-fdfd1b6ccaf5)
+![Example](./example.png)
 
 New to Blaxel? Check out the [Getting Started guide](https://docs.blaxel.ai).
 

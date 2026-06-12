@@ -347,6 +347,10 @@ var rootCmd = &cobra.Command{
 		}
 		client = c
 
+		// Resolve and store the authentication source so that error messages
+		// can tell the user where their credentials came from.
+		SetAuthSource(ResolveAuthSource(workspace))
+
 		// Register SDK CLI commands
 		ctx := context.Background()
 		RegisterResourceOperations(ctx)

@@ -359,7 +359,10 @@ func GetHuhTheme() *huh.Theme {
 	return t
 }
 
-// PrintError prints a formatted error message with colors
+// PrintError prints a formatted error message with colors.
+// When the error looks like an authentication failure (401/403), it also
+// prints a hint showing where the credentials came from so the user can
+// quickly spot stale or mismatched credentials.
 func PrintError(operation string, err error) {
 	// Print error header with red color and bold
 	PrintDiagnostic(fmt.Sprintf("%s %s\n",
@@ -370,6 +373,11 @@ func PrintError(operation string, err error) {
 	PrintDiagnostic(fmt.Sprintf("%s %s\n",
 		color.New(color.FgRed).Sprint("Reason:"),
 		color.New(color.FgWhite).Sprint(err.Error())))
+
+	// On auth errors, show where the credentials came from.
+	if IsAuthError(err) {
+		PrintAuthSourceHint()
+	}
 }
 
 // PrintWarning prints a formatted warning message with colors
