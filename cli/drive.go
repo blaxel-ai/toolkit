@@ -78,6 +78,7 @@ func DriveCmd() *cobra.Command {
 		Short: "Manage drives and drive mounts on sandboxes",
 		Long: `Manage drives and drive mounts on sandboxes.
 
+` + "```" + `
 Drive CRUD:
   bl drive list                       List all drives in the workspace
   bl drive get <name>                 Get details of a specific drive
@@ -87,7 +88,8 @@ Drive CRUD:
 Sandbox mount operations:
   bl drive mount --sandbox <s> ...    Mount a drive to a running sandbox
   bl drive unmount --sandbox <s> ...  Unmount a drive from a running sandbox
-  bl drive mounts --sandbox <s>       List drives mounted in a running sandbox`,
+  bl drive mounts --sandbox <s>       List drives mounted in a running sandbox
+` + "```",
 		Example: `  # List all drives
   bl drive list
 
