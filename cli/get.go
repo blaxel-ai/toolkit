@@ -621,8 +621,19 @@ func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll
 		return
 	}
 
-	// --all: fetch everything.
+	// --all: fetch everything, but respect --limit if explicitly set.
 	if fetchAll {
+		if limit != core.DefaultPageLimit {
+			// --all --limit N: auto-paginate up to N items.
+			result, err := core.ListWithLimit(resource, limit)
+			if err != nil {
+				fmt.Println(err)
+				core.ExitWithError(err)
+			}
+			core.Output(*resource, result.Items, core.GetOutputFormat())
+			return
+		}
+		// --all without explicit --limit: fetch everything.
 		items, err := core.ListAllPaginated(resource)
 		if err != nil {
 			fmt.Println(err)
