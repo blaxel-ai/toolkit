@@ -22,12 +22,21 @@ bl drive list [flags]
 
   # List drives in JSON format
   bl drive list -o json
+
+  # Fetch the next page
+  bl drive list --cursor <cursor>
+
+  # Fetch every drive
+  bl drive list --all
 ```
 
 ### Options
 
 ```
-  -h, --help   help for list
+      --all             Fetch all pages (may be slow for large collections)
+      --cursor string   Cursor from a previous page to fetch the next page of results
+  -h, --help            help for list
+      --limit int       Maximum number of items to return (auto-paginates when above 200) (default 200)
 ```
 
 ### Options inherited from parent commands

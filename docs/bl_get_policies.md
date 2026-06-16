@@ -13,7 +13,10 @@ bl get policies [flags]
 ### Options
 
 ```
-  -h, --help   help for policies
+      --all             Fetch all pages (may be slow for large collections)
+      --cursor string   Cursor from a previous page to fetch the next page of results
+  -h, --help            help for policies
+      --limit int       Maximum number of items to return (auto-paginates when above 200) (default 200)
 ```
 
 ### Options inherited from parent commands

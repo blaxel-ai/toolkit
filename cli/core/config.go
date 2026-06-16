@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +30,8 @@ type Resource struct {
 	SpecType    reflect.Type
 	ParentField string            // metadata field that contains the parent resource name (for nested resources like Preview)
 	PathMapping map[string]string // maps path tag values to metadata field names (for deeply nested resources like PreviewToken)
+	APIPath     string            // API endpoint path used for paginated listing (e.g. "sandboxes", "volumes")
+	Paginated   bool              // true when the controlplane supports cursor-paginated listings for this resource
 	List        interface{}
 	Get         interface{}
 	Delete      interface{}
@@ -38,11 +42,13 @@ type Resource struct {
 
 var resources = []*Resource{
 	{
-		Kind:     "Policy",
-		Short:    "pol",
-		Plural:   "policies",
-		Singular: "policy",
-		SpecType: reflect.TypeOf(blaxel.Policy{}),
+		Kind:      "Policy",
+		Short:     "pol",
+		Plural:    "policies",
+		Singular:  "policy",
+		APIPath:   "policies",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Policy{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -50,11 +56,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Model",
-		Short:    "ml",
-		Plural:   "models",
-		Singular: "model",
-		SpecType: reflect.TypeOf(blaxel.Model{}),
+		Kind:      "Model",
+		Short:     "ml",
+		Plural:    "models",
+		Singular:  "model",
+		APIPath:   "models",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Model{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -63,12 +71,14 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Function",
-		Short:    "fn",
-		Plural:   "functions",
-		Singular: "function",
-		Aliases:  []string{"mcp", "mcps"},
-		SpecType: reflect.TypeOf(blaxel.Function{}),
+		Kind:      "Function",
+		Short:     "fn",
+		Plural:    "functions",
+		Singular:  "function",
+		Aliases:   []string{"mcp", "mcps"},
+		APIPath:   "functions",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Function{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -78,11 +88,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Agent",
-		Short:    "ag",
-		Plural:   "agents",
-		Singular: "agent",
-		SpecType: reflect.TypeOf(blaxel.Agent{}),
+		Kind:      "Agent",
+		Short:     "ag",
+		Plural:    "agents",
+		Singular:  "agent",
+		APIPath:   "agents",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Agent{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -104,11 +116,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Sandbox",
-		Short:    "sbx",
-		Plural:   "sandboxes",
-		Singular: "sandbox",
-		SpecType: reflect.TypeOf(blaxel.Sandbox{}),
+		Kind:      "Sandbox",
+		Short:     "sbx",
+		Plural:    "sandboxes",
+		Singular:  "sandbox",
+		APIPath:   "sandboxes",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Sandbox{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -119,11 +133,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Job",
-		Short:    "jb",
-		Plural:   "jobs",
-		Singular: "job",
-		SpecType: reflect.TypeOf(blaxel.Job{}),
+		Kind:      "Job",
+		Short:     "jb",
+		Plural:    "jobs",
+		Singular:  "job",
+		APIPath:   "jobs",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Job{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -133,11 +149,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Volume",
-		Short:    "vol",
-		Plural:   "volumes",
-		Singular: "volume",
-		SpecType: reflect.TypeOf(blaxel.Volume{}),
+		Kind:      "Volume",
+		Short:     "vol",
+		Plural:    "volumes",
+		Singular:  "volume",
+		APIPath:   "volumes",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Volume{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
@@ -177,11 +195,13 @@ var resources = []*Resource{
 		},
 	},
 	{
-		Kind:     "Drive",
-		Short:    "drv",
-		Plural:   "drives",
-		Singular: "drive",
-		SpecType: reflect.TypeOf(blaxel.DriveGetResponse{}),
+		Kind:      "Drive",
+		Short:     "drv",
+		Plural:    "drives",
+		Singular:  "drive",
+		APIPath:   "drives",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.DriveGetResponse{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "metadata.workspace"},
 			{Key: "NAME", Value: "metadata.name"},
@@ -500,10 +520,46 @@ func PromptForDeploymentType() string {
 
 // Add missing methods for Resource struct
 
-// ListExec method for Resource
+// ListExec lists all items for this resource. It uses paginated listing when
+// the resource supports it, otherwise falls back to the unpaginated SDK
+// List method.
 func (r *Resource) ListExec() ([]interface{}, error) {
-	// This is a placeholder - the actual implementation should be moved here from CLI files
-	return nil, nil
+	if r.Paginated && r.APIPath != "" {
+		result, err := ListPaginated(r, DefaultPageLimit, "")
+		if err != nil {
+			return nil, err
+		}
+		return result.Items, nil
+	}
+	// Fall back to unpaginated SDK List for resources without pagination support.
+	if r.List == nil {
+		return nil, nil
+	}
+	ctx := context.Background()
+	funcValue := reflect.ValueOf(r.List)
+	if funcValue.Kind() != reflect.Func {
+		return nil, fmt.Errorf("list is not a valid function")
+	}
+	results := funcValue.Call([]reflect.Value{reflect.ValueOf(ctx)})
+	if len(results) <= 1 {
+		return nil, nil
+	}
+	if err, ok := results[1].Interface().(error); ok && err != nil {
+		return nil, err
+	}
+	result := results[0].Interface()
+	if result == nil {
+		return nil, nil
+	}
+	jsonData, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	var items []interface{}
+	if err := json.Unmarshal(jsonData, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // PutFn method for Resource - placeholder implementation
