@@ -757,13 +757,21 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 	case "application":
 		Kind = "Application"
+		memory := 2048
+		if config.Memory > 0 {
+			memory = config.Memory
+		}
+		revision := map[string]interface{}{
+			"image":  runtime["image"],
+			"memory": memory,
+		}
+		if config.Port > 0 {
+			revision["port"] = config.Port
+		}
 		Spec = map[string]interface{}{
 			"enabled": true,
 			"revisions": []map[string]interface{}{
-				{
-					"image":  runtime["image"],
-					"memory": 2048,
-				},
+				revision,
 			},
 		}
 		if config.Region != "" {

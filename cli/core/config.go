@@ -299,6 +299,8 @@ type Config struct {
 	Region       string                    `toml:"region,omitempty"`
 	Public       *bool                     `toml:"public,omitempty"`
 	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
+	Memory       int                       `toml:"memory,omitempty"`
+	Port         int                       `toml:"port,omitempty"`
 	Image        string                    `toml:"image,omitempty"`
 	Build        *BuildConfig              `toml:"build,omitempty"`
 }
