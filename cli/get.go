@@ -161,6 +161,11 @@ The command can list all resources of a type or get details for a specific one.`
 		// Capture resource in closure for ValidArgsFunction
 		resourceKind := resource.Kind
 
+		// Per-subcommand pagination flags (only meaningful for list, ignored for get).
+		var pageLimit int
+		var pageCursor string
+		var fetchAll bool
+
 		subcmd := &cobra.Command{
 			Use:               resource.Plural,
 			Aliases:           aliases,
@@ -247,7 +252,7 @@ The command can list all resources of a type or get details for a specific one.`
 					}
 
 					if len(args) == 0 {
-						ListFn(resource)
+						ListFnPaginated(resource, pageLimit, pageCursor, fetchAll)
 						return
 					}
 					if len(args) == 1 {
@@ -255,6 +260,12 @@ The command can list all resources of a type or get details for a specific one.`
 					}
 				}
 			},
+		}
+
+		if resource.Paginated {
+			subcmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (max 200)")
+			subcmd.Flags().StringVar(&pageCursor, "cursor", "", "Cursor from a previous page to fetch the next page of results")
+			subcmd.Flags().BoolVar(&fetchAll, "all", false, "Fetch all pages (may be slow for large collections)")
 		}
 
 		cmd.AddCommand(subcmd)
@@ -592,13 +603,69 @@ func ListFn(resource *core.Resource) {
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
-	// Check the output format
 	core.Output(*resource, slices, core.GetOutputFormat())
+}
+
+// ListFnPaginated fetches items with pagination support. When fetchAll is true
+// it auto-paginates through every page showing a progress indicator. Otherwise
+// it fetches a single page and prints the next cursor when more results exist.
+func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll bool) {
+	if !resource.Paginated || resource.APIPath == "" {
+		ListFn(resource)
+		return
+	}
+
+	if fetchAll {
+		items, err := core.ListAllPaginated(resource)
+		if err != nil {
+			fmt.Println(err)
+			core.ExitWithError(err)
+		}
+		core.Output(*resource, items, core.GetOutputFormat())
+		return
+	}
+
+	items, meta, err := ListExecPaginated(resource, limit, cursor)
+	if err != nil {
+		fmt.Println(err)
+		core.ExitWithError(err)
+	}
+
+	core.Output(*resource, items, core.GetOutputFormat())
+
+	if meta.HasMore && meta.NextCursor != "" {
+		fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see the next page run:\n  bl get %s --cursor %s\n",
+			len(items), meta.Total, resource.Plural, resource.Plural, meta.NextCursor)
+	}
+}
+
+// ListExecPaginated fetches a single page of items using cursor-based
+// pagination. It returns the items and the pagination metadata (which
+// includes the next cursor and total count). limit and cursor are the
+// user-supplied --limit and --cursor flag values (zero/empty = defaults).
+func ListExecPaginated(resource *core.Resource, limit int, cursor string) ([]interface{}, core.PaginationMeta, error) {
+	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
+	result, err := core.ListPaginated(resource, limit, cursor)
+	if err != nil {
+		return nil, core.PaginationMeta{}, fmt.Errorf("%s%v", formattedError, err)
+	}
+	return result.Items, result.Meta, nil
 }
 
 func ListExec(resource *core.Resource) ([]interface{}, error) {
 	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
 
+	// Use paginated listing when the resource supports it.
+	if resource.Paginated && resource.APIPath != "" {
+		items, _, err := ListExecPaginated(resource, core.DefaultPageLimit, "")
+		if err != nil {
+			return nil, fmt.Errorf("%s%v", formattedError, err)
+		}
+		return items, nil
+	}
+
+	// Fall back to the unpaginated SDK List method for resources that don't
+	// support pagination (e.g. IntegrationConnection, VolumeTemplate).
 	if resource.List == nil {
 		hint := nestedResourceHint(resource, "get")
 		return nil, fmt.Errorf("%s'bl get %s' is not supported directly.%s", formattedError, resource.Plural, hint)

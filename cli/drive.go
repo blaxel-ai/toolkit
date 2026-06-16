@@ -378,7 +378,11 @@ func driveResource() *core.Resource {
 }
 
 func DriveListCmd() *cobra.Command {
-	return &cobra.Command{
+	var pageLimit int
+	var pageCursor string
+	var fetchAll bool
+
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all drives in the workspace",
 		Long:  `List all drives in the current workspace.`,
@@ -386,7 +390,13 @@ func DriveListCmd() *cobra.Command {
   bl drive list
 
   # List drives in JSON format
-  bl drive list -o json`,
+  bl drive list -o json
+
+  # Fetch the next page
+  bl drive list --cursor <cursor>
+
+  # Fetch every drive
+  bl drive list --all`,
 		Aliases: []string{"ls"},
 		Run: func(cmd *cobra.Command, args []string) {
 			r := driveResource()
@@ -394,9 +404,15 @@ func DriveListCmd() *cobra.Command {
 				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
 				core.ExitWithError(fmt.Errorf("drive resource not found"))
 			}
-			ListFn(r)
+			ListFnPaginated(r, pageLimit, pageCursor, fetchAll)
 		},
 	}
+
+	cmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (max 200)")
+	cmd.Flags().StringVar(&pageCursor, "cursor", "", "Cursor from a previous page to fetch the next page of results")
+	cmd.Flags().BoolVar(&fetchAll, "all", false, "Fetch all pages (may be slow for large collections)")
+
+	return cmd
 }
 
 func DriveGetCmd() *cobra.Command {
