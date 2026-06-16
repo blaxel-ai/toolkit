@@ -946,6 +946,8 @@ func (d *Deployment) Apply() error {
 					resourceLabel = "job code"
 				case "sandbox":
 					resourceLabel = "sandbox code"
+				case "application":
+					resourceLabel = "application code"
 				}
 				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
@@ -1213,6 +1215,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		case "sandbox":
 			needsUploadProgress = true
 			uploadLabel = "sandbox code"
+		case "application":
+			needsUploadProgress = true
+			uploadLabel = "application code"
 		}
 
 		// Set up upload progress callback for supported resources
@@ -1328,7 +1333,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	// For resources that need status monitoring (agent, function, job, sandbox)
 	needsStatusMonitoring := false
 	switch strings.ToLower(resource.Kind) {
-	case "agent", "function", "job", "sandbox":
+	case "agent", "function", "job", "sandbox", "application":
 		needsStatusMonitoring = true
 	case "volumetemplate":
 		needsStatusMonitoring = false
@@ -1523,7 +1528,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 					// For resources that need monitoring, start status polling
 					needsMonitoring := false
 					switch strings.ToLower(resource.Kind) {
-					case "agent", "function", "job", "sandbox":
+					case "agent", "function", "job", "sandbox", "application":
 						needsMonitoring = true
 					case "volumetemplate":
 						needsMonitoring = false
