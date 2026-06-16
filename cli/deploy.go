@@ -694,14 +694,26 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
-			if rt, ok := spec["runtime"].(map[string]interface{}); ok {
+			imageFound := false
+			if config.Type == "application" {
+				if revisions, ok := spec["revisions"].([]interface{}); ok && len(revisions) > 0 {
+					if rev, ok := revisions[0].(map[string]interface{}); ok {
+						if image, ok := rev["image"].(string); ok && image != "" {
+							runtime["image"] = image
+							imageFound = true
+						}
+					}
+				}
+			} else if rt, ok := spec["runtime"].(map[string]interface{}); ok {
 				if image, ok := rt["image"].(string); ok && image != "" {
 					runtime["image"] = image
-				} else {
-					err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
-					core.PrintError("Deployment", err)
-					core.ExitWithError(err)
+					imageFound = true
 				}
+			}
+			if !imageFound {
+				err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
+				core.PrintError("Deployment", err)
+				core.ExitWithError(err)
 			}
 		}
 	}
@@ -757,9 +769,27 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 	case "application":
 		Kind = "Application"
-		Spec = map[string]interface{}{"runtime": runtime}
+		revision := map[string]interface{}{}
+		if envs, ok := runtime["envs"]; ok {
+			revision["envs"] = envs
+		}
+		if image, ok := runtime["image"]; ok {
+			revision["image"] = image
+		}
+		if config.Memory > 0 {
+			revision["memory"] = config.Memory
+		} else {
+			revision["memory"] = 2048
+		}
+		Spec = map[string]interface{}{
+			"enabled":   true,
+			"revisions": []interface{}{revision},
+		}
 		if config.Region != "" {
 			Spec["region"] = config.Region
+		}
+		if config.Port > 0 {
+			Spec["port"] = config.Port
 		}
 	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
