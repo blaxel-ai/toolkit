@@ -260,7 +260,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			config = core.GetConfig()
 
 			// Check if agent/function code uses HOST/PORT environment variables
-			if (config.Type == "agent" || config.Type == "function") && !skipBuild && config.Image == "" {
+			if (config.Type == "agent" || config.Type == "function" || config.Type == "application") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
 				if !core.CheckServerEnvUsage(folder, language) {
@@ -335,7 +335,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
-	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
@@ -757,23 +757,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 	case "application":
 		Kind = "Application"
-		memory := 2048
-		if config.Memory > 0 {
-			memory = config.Memory
-		}
-		revision := map[string]interface{}{
-			"image":  runtime["image"],
-			"memory": memory,
-		}
-		if config.Port > 0 {
-			revision["port"] = config.Port
-		}
-		Spec = map[string]interface{}{
-			"enabled": true,
-			"revisions": []map[string]interface{}{
-				revision,
-			},
-		}
+		Spec = map[string]interface{}{"runtime": runtime}
 		if config.Region != "" {
 			Spec["region"] = config.Region
 		}
