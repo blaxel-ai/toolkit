@@ -755,6 +755,20 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if config.Volumes != nil {
 			Spec["volumes"] = *config.Volumes
 		}
+	case "application":
+		Kind = "Application"
+		Spec = map[string]interface{}{
+			"enabled": true,
+			"revisions": []map[string]interface{}{
+				{
+					"image":  runtime["image"],
+					"memory": 2048,
+				},
+			},
+		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
 	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
 		Spec = map[string]interface{}{}
@@ -802,6 +816,10 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		var appResult map[string]interface{}
+		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
+		result = appResult
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
@@ -847,6 +865,10 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		var appResult map[string]interface{}
+		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
+		result = appResult
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:

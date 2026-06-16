@@ -502,6 +502,7 @@ func PromptForDeploymentType() string {
 				Title("What are you trying to deploy ?").
 				Options(
 					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Application", "application"),
 					huh.NewOption("Agent", "agent"),
 					huh.NewOption("Job", "job"),
 					huh.NewOption("MCP (Function)", "function"),
