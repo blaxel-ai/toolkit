@@ -133,6 +133,21 @@ var resources = []*Resource{
 		},
 	},
 	{
+		Kind:      "Application",
+		Short:     "app",
+		Plural:    "applications",
+		Singular:  "application",
+		Aliases:   []string{"apps"},
+		APIPath:   "applications",
+		Paginated: true,
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+		},
+	},
+	{
 		Kind:      "Job",
 		Short:     "jb",
 		Plural:    "jobs",
