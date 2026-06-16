@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
@@ -96,6 +97,10 @@ func ForkCmd() *cobra.Command {
 				}
 			}
 
+			if strings.Contains(sourceName, "/") || strings.Contains(sourceName, "..") {
+				core.PrintError("Fork", fmt.Errorf("invalid sandbox name: %s", sourceName))
+				core.ExitWithError(fmt.Errorf("invalid sandbox name"))
+			}
 			path := fmt.Sprintf("sandboxes/%s/fork", sourceName)
 			var result json.RawMessage
 			err := client.Post(ctx, path, reqBody, &result)

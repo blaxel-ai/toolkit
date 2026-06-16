@@ -26,6 +26,7 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl delete](bl_delete.md)	 - Delete resources from your workspace
 * [bl deploy](bl_deploy.md)	 - Build, push, and deploy your project to Blaxel
 * [bl drive](bl_drive.md)	 - Manage drives and drive mounts on sandboxes
+* [bl fork](bl_fork.md)	 - Fork a sandbox into a new sandbox or application
 * [bl get](bl_get.md)	 - List or retrieve Blaxel resources in your workspace
 * [bl login](bl_login.md)	 - Login to Blaxel
 * [bl logout](bl_logout.md)	 - Logout from Blaxel
