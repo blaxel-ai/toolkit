@@ -408,7 +408,7 @@ func DriveListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (max 200)")
+	cmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (auto-paginates when above 200)")
 	cmd.Flags().StringVar(&pageCursor, "cursor", "", "Cursor from a previous page to fetch the next page of results")
 	cmd.Flags().BoolVar(&fetchAll, "all", false, "Fetch all pages (may be slow for large collections)")
 

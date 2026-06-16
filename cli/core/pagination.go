@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -15,8 +16,8 @@ import (
 // listing responses ({data, meta}) instead of bare arrays.
 const blaxelVersionPaginated = "2026-04-28"
 
-// DefaultPageLimit is the per-page size sent with paginated requests. Matches
-// the API maximum of 200.
+// DefaultPageLimit is the default number of items returned when no --limit or
+// --all flag is provided. Also the maximum per-page size the API accepts.
 const DefaultPageLimit = 200
 
 // PaginationMeta mirrors the controlplane's PaginationMeta shape.
@@ -43,7 +44,7 @@ func fetchPage(c *blaxel.Client, apiPath string, limit int, cursor string) (Pagi
 	ctx := context.Background()
 	path := fmt.Sprintf("%s?limit=%d", apiPath, limit)
 	if cursor != "" {
-		path += "&cursor=" + cursor
+		path += "&cursor=" + url.QueryEscape(cursor)
 	}
 
 	var page paginatedResponse
@@ -62,11 +63,9 @@ func fetchPage(c *blaxel.Client, apiPath string, limit int, cursor string) (Pagi
 	return PaginatedResult{Items: items, Meta: page.Meta}, nil
 }
 
-// ListPaginated fetches a single page of items for the given resource. It
-// sends the Blaxel-Version header so the API returns the cursor-paginated
-// response shape. The returned PaginatedResult contains the items and
-// pagination metadata (nextCursor, hasMore, total).
-func ListPaginated(resource *Resource, limit int, cursor string) (PaginatedResult, error) {
+// ListPaginated fetches a single page of items starting from the given cursor.
+// Used when --cursor is supplied for explicit page-by-page navigation.
+func ListPaginated(resource *Resource, pageSize int, cursor string) (PaginatedResult, error) {
 	c := GetClient()
 	if c == nil {
 		return PaginatedResult{}, fmt.Errorf("client not initialized")
@@ -74,15 +73,71 @@ func ListPaginated(resource *Resource, limit int, cursor string) (PaginatedResul
 	if !resource.Paginated || resource.APIPath == "" {
 		return PaginatedResult{}, fmt.Errorf("resource %s does not support pagination", resource.Kind)
 	}
-	if limit <= 0 || limit > DefaultPageLimit {
-		limit = DefaultPageLimit
+	if pageSize <= 0 || pageSize > DefaultPageLimit {
+		pageSize = DefaultPageLimit
 	}
-	return fetchPage(c, resource.APIPath, limit, cursor)
+	return fetchPage(c, resource.APIPath, pageSize, cursor)
+}
+
+// ListWithLimit fetches up to maxItems items, auto-paginating in pages of up to
+// 200. A progress indicator is shown on stderr when the output is a terminal
+// and more than one page is needed. The returned PaginatedResult.Meta reflects
+// the last page fetched (so HasMore/NextCursor tell the caller whether there
+// are items beyond the requested limit).
+func ListWithLimit(resource *Resource, maxItems int) (PaginatedResult, error) {
+	c := GetClient()
+	if c == nil {
+		return PaginatedResult{}, fmt.Errorf("client not initialized")
+	}
+	if !resource.Paginated || resource.APIPath == "" {
+		return PaginatedResult{}, fmt.Errorf("resource %s does not support pagination", resource.Kind)
+	}
+
+	isTTY := term.IsTerminal(int(os.Stderr.Fd()))
+	var all []any
+	cursor := ""
+	var lastMeta PaginationMeta
+
+	for {
+		remaining := maxItems - len(all)
+		pageSize := DefaultPageLimit
+		if remaining < pageSize {
+			pageSize = remaining
+		}
+
+		result, err := fetchPage(c, resource.APIPath, pageSize, cursor)
+		if err != nil {
+			return PaginatedResult{}, err
+		}
+		all = append(all, result.Items...)
+		lastMeta = result.Meta
+
+		if isTTY && maxItems > DefaultPageLimit {
+			if lastMeta.Total > 0 {
+				fmt.Fprintf(os.Stderr, "\rFetching %s... %d/%d", resource.Plural, len(all), lastMeta.Total)
+			} else {
+				fmt.Fprintf(os.Stderr, "\rFetching %s... %d", resource.Plural, len(all))
+			}
+		}
+
+		if len(all) >= maxItems {
+			break
+		}
+		if !result.Meta.HasMore || result.Meta.NextCursor == "" {
+			break
+		}
+		cursor = result.Meta.NextCursor
+	}
+
+	if isTTY && maxItems > DefaultPageLimit {
+		fmt.Fprintf(os.Stderr, "\r\033[K")
+	}
+
+	return PaginatedResult{Items: all, Meta: lastMeta}, nil
 }
 
 // ListAllPaginated fetches every page from a paginated listing endpoint,
 // showing a progress indicator on stderr when the output is a terminal.
-// Returns all collected items.
 func ListAllPaginated(resource *Resource) ([]any, error) {
 	c := GetClient()
 	if c == nil {
@@ -117,7 +172,6 @@ func ListAllPaginated(resource *Resource) ([]any, error) {
 		cursor = result.Meta.NextCursor
 	}
 
-	// Clear the progress line.
 	if isTTY {
 		fmt.Fprintf(os.Stderr, "\r\033[K")
 	}

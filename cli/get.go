@@ -263,7 +263,7 @@ The command can list all resources of a type or get details for a specific one.`
 		}
 
 		if resource.Paginated {
-			subcmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (max 200)")
+			subcmd.Flags().IntVar(&pageLimit, "limit", core.DefaultPageLimit, "Maximum number of items to return (auto-paginates when above 200)")
 			subcmd.Flags().StringVar(&pageCursor, "cursor", "", "Cursor from a previous page to fetch the next page of results")
 			subcmd.Flags().BoolVar(&fetchAll, "all", false, "Fetch all pages (may be slow for large collections)")
 		}
@@ -606,15 +606,22 @@ func ListFn(resource *core.Resource) {
 	core.Output(*resource, slices, core.GetOutputFormat())
 }
 
-// ListFnPaginated fetches items with pagination support. When fetchAll is true
-// it auto-paginates through every page showing a progress indicator. Otherwise
-// it fetches a single page and prints the next cursor when more results exist.
+// ListFnPaginated fetches items with pagination support.
+//
+// Behavior matrix:
+//
+//	--all            → fetch every page with progress bar
+//	--cursor <c>     → single page from that cursor (limit capped at 200)
+//	--limit N (>200) → auto-paginate up to N items with progress bar
+//	--limit N (≤200) → single page of N items, print next cursor if more
+//	(default)        → single page of 200 items, print next cursor if more
 func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll bool) {
 	if !resource.Paginated || resource.APIPath == "" {
 		ListFn(resource)
 		return
 	}
 
+	// --all: fetch everything.
 	if fetchAll {
 		items, err := core.ListAllPaginated(resource)
 		if err != nil {
@@ -625,17 +632,50 @@ func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll
 		return
 	}
 
-	items, meta, err := ListExecPaginated(resource, limit, cursor)
+	// --cursor: always a single-page fetch.
+	if cursor != "" {
+		pageSize := limit
+		if pageSize <= 0 || pageSize > core.DefaultPageLimit {
+			pageSize = core.DefaultPageLimit
+		}
+		result, err := core.ListPaginated(resource, pageSize, cursor)
+		if err != nil {
+			fmt.Println(err)
+			core.ExitWithError(err)
+		}
+		core.Output(*resource, result.Items, core.GetOutputFormat())
+		if result.Meta.HasMore && result.Meta.NextCursor != "" {
+			fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see the next page run:\n  bl get %s --cursor %s\n",
+				len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
+		}
+		return
+	}
+
+	// --limit N where N > API page size: auto-paginate up to N items.
+	if limit > core.DefaultPageLimit {
+		result, err := core.ListWithLimit(resource, limit)
+		if err != nil {
+			fmt.Println(err)
+			core.ExitWithError(err)
+		}
+		core.Output(*resource, result.Items, core.GetOutputFormat())
+		if result.Meta.HasMore && result.Meta.NextCursor != "" {
+			fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see more run:\n  bl get %s --cursor %s\n",
+				len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
+		}
+		return
+	}
+
+	// Default / small --limit: single page.
+	result, err := core.ListPaginated(resource, limit, "")
 	if err != nil {
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
-
-	core.Output(*resource, items, core.GetOutputFormat())
-
-	if meta.HasMore && meta.NextCursor != "" {
+	core.Output(*resource, result.Items, core.GetOutputFormat())
+	if result.Meta.HasMore && result.Meta.NextCursor != "" {
 		fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see the next page run:\n  bl get %s --cursor %s\n",
-			len(items), meta.Total, resource.Plural, resource.Plural, meta.NextCursor)
+			len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
 	}
 }
 
