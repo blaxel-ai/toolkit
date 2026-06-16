@@ -1286,6 +1286,7 @@ var newResourceTypesWithDesc = []struct {
 	desc string
 }{
 	{"agent", "AI agent application"},
+	{"app", "Web application deployed on Blaxel"},
 	{"mcp", "MCP server (Model Context Protocol)"},
 	{"sandbox", "Isolated execution environment"},
 	{"job", "Batch processing task"},
