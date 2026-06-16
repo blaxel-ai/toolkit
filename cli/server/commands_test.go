@@ -261,6 +261,63 @@ func TestFindRootCmdAsStringWithAutoDetection(t *testing.T) {
 			assert.NotEmpty(t, cmd)
 		}
 	})
+
+	t.Run("detects go with cmd named main.go", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "go_cmd_named")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy_mcp"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/dummy"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy_mcp", "main.go"), []byte("package main"), 0644))
+
+		cfg := RootCmdConfig{
+			Folder:    dir,
+			Hotreload: false,
+		}
+
+		cmd, err := FindRootCmdAsString(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"go", "run", "./cmd/dummy_mcp"}, cmd)
+	})
+
+	t.Run("errors when go cmd entrypoint is ambiguous", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "go_cmd_ambiguous")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "api"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "worker"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/dummy"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "api", "main.go"), []byte("package main"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "worker", "main.go"), []byte("package main"), 0644))
+
+		cfg := RootCmdConfig{
+			Folder:    dir,
+			Hotreload: false,
+		}
+
+		_, err := FindRootCmdAsString(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "multiple Go entrypoints")
+		assert.Contains(t, err.Error(), "cmd/api/main.go")
+		assert.Contains(t, err.Error(), "cmd/worker/main.go")
+	})
+
+	t.Run("uses explicit go entrypoint before auto detection", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "go_explicit")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "api"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "worker"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/dummy"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "api", "main.go"), []byte("package main"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "worker", "main.go"), []byte("package main"), 0644))
+
+		cfg := RootCmdConfig{
+			Folder:    dir,
+			Hotreload: false,
+			Entrypoint: core.Entrypoints{
+				Production: "go run ./cmd/api",
+			},
+		}
+
+		cmd, err := FindRootCmdAsString(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, []string{"go", "run", "./cmd/api"}, cmd)
+	})
 }
 
 func TestGetServerEnvironmentWithSecrets(t *testing.T) {
