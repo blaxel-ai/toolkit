@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -77,5 +78,20 @@ func findGoRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		}
 		return strings.Split(cfg.Entrypoint.Production, " "), nil
 	}
+	entryFile, err := core.FindGoEntryFile(cfg.Folder)
+	if err != nil {
+		return nil, err
+	}
+	if entryFile != "" {
+		return []string{"go", "run", goRunTargetFromEntryFile(entryFile)}, nil
+	}
 	return nil, fmt.Errorf("entrypoint not found in config")
+}
+
+func goRunTargetFromEntryFile(entryFile string) string {
+	entryDir := filepath.Dir(entryFile)
+	if entryDir == "." {
+		return "."
+	}
+	return "./" + filepath.ToSlash(entryDir)
 }

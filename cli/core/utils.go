@@ -246,6 +246,14 @@ func HasPythonEntryFile(directory string) bool {
 
 // HasGoEntryFile checks if common Go entry files exist in the given directory
 func HasGoEntryFile(directory string) bool {
+	entryFile, err := FindGoEntryFile(directory)
+	return err == nil && entryFile != ""
+}
+
+var safeGoCmdEntrypointPattern = regexp.MustCompile(`^cmd/[A-Za-z0-9_.-]+/main\.go$`)
+
+// FindGoEntryFile finds a single automatic Go entrypoint in the given directory.
+func FindGoEntryFile(directory string) (string, error) {
 	files := []string{
 		"main.go",
 		"src/main.go",
@@ -253,10 +261,33 @@ func HasGoEntryFile(directory string) bool {
 	}
 	for _, f := range files {
 		if _, err := os.Stat(filepath.Join(directory, f)); err == nil {
-			return true
+			return f, nil
 		}
 	}
-	return false
+
+	matches, err := filepath.Glob(filepath.Join(directory, "cmd", "*", "main.go"))
+	if err != nil {
+		return "", fmt.Errorf("error finding Go entrypoint: %w", err)
+	}
+	candidates := make([]string, 0, len(matches))
+	for _, match := range matches {
+		rel, err := filepath.Rel(directory, match)
+		if err != nil {
+			return "", fmt.Errorf("error finding Go entrypoint: %w", err)
+		}
+		rel = filepath.ToSlash(rel)
+		if !safeGoCmdEntrypointPattern.MatchString(rel) {
+			return "", fmt.Errorf("unsupported Go entrypoint path %q; automatic cmd/*/main.go detection only supports command directory names with letters, numbers, dots, underscores, and hyphens; configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", rel)
+		}
+		candidates = append(candidates, rel)
+	}
+	if len(candidates) == 0 {
+		return "", nil
+	}
+	if len(candidates) > 1 {
+		return "", fmt.Errorf("multiple Go entrypoints found under cmd/*/main.go (%s); configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", strings.Join(candidates, ", "))
+	}
+	return candidates[0], nil
 }
 
 // HasTypeScriptEntryFile checks if common TypeScript/JavaScript entry files exist in the given directory

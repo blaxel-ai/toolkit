@@ -572,7 +572,7 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", pythonFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "go":
-			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go")
+			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go, cmd/<name>/main.go")
 			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", goFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "typescript":
