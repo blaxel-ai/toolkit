@@ -298,6 +298,23 @@ func TestFindRootCmdAsStringWithAutoDetection(t *testing.T) {
 		assert.Contains(t, err.Error(), "cmd/worker/main.go")
 	})
 
+	t.Run("rejects unsafe go cmd entrypoint before command construction", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "go_cmd_unsafe")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy;echo pwned"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/dummy"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy;echo pwned", "main.go"), []byte("package main"), 0644))
+
+		cfg := RootCmdConfig{
+			Folder:    dir,
+			Hotreload: false,
+		}
+
+		_, err := FindRootCmdAsString(cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported Go entrypoint path")
+		assert.Contains(t, err.Error(), "cmd/dummy;echo pwned/main.go")
+	})
+
 	t.Run("uses explicit go entrypoint before auto detection", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "go_explicit")
 		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "api"), 0755))

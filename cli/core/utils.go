@@ -250,6 +250,8 @@ func HasGoEntryFile(directory string) bool {
 	return err == nil && entryFile != ""
 }
 
+var safeGoCmdEntrypointPattern = regexp.MustCompile(`^cmd/[A-Za-z0-9_.-]+/main\.go$`)
+
 // FindGoEntryFile finds a single automatic Go entrypoint in the given directory.
 func FindGoEntryFile(directory string) (string, error) {
 	files := []string{
@@ -273,7 +275,11 @@ func FindGoEntryFile(directory string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("error finding Go entrypoint: %w", err)
 		}
-		candidates = append(candidates, filepath.ToSlash(rel))
+		rel = filepath.ToSlash(rel)
+		if !safeGoCmdEntrypointPattern.MatchString(rel) {
+			return "", fmt.Errorf("unsupported Go entrypoint path %q; automatic cmd/*/main.go detection only supports command directory names with letters, numbers, dots, underscores, and hyphens; configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", rel)
+		}
+		candidates = append(candidates, rel)
 	}
 	if len(candidates) == 0 {
 		return "", nil

@@ -371,6 +371,19 @@ func TestFindGoEntryFile(t *testing.T) {
 		assert.Contains(t, err.Error(), "cmd/worker/main.go")
 		assert.Contains(t, err.Error(), "[entrypoint]")
 	})
+
+	t.Run("rejects unsafe cmd named entrypoint", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "unsafe_cmd")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy;echo pwned"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy;echo pwned", "main.go"), []byte("package main"), 0644))
+
+		entryFile, err := FindGoEntryFile(dir)
+		assert.Empty(t, entryFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported Go entrypoint path")
+		assert.Contains(t, err.Error(), "cmd/dummy;echo pwned/main.go")
+		assert.Contains(t, err.Error(), "[entrypoint]")
+	})
 }
 
 func TestHasTypeScriptEntryFile(t *testing.T) {
