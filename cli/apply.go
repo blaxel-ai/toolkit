@@ -496,7 +496,7 @@ func preserveExtraRuntimeFields(resourceJSON []byte) []option.RequestOption {
 		return nil
 	}
 
-	extraKeys := []string{"dockerConfig", "skipBuild"}
+	extraKeys := []string{"dockerConfig", "skipBuild", "ports"}
 	var opts []option.RequestOption
 	for _, key := range extraKeys {
 		if val, ok := raw.Spec.Runtime[key]; ok {
