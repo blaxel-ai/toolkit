@@ -136,14 +136,69 @@ func runUpgrade(targetVersion string, force bool) error {
 
 	core.PrintInfo(fmt.Sprintf("Detected installation method: %s", method))
 
+	oldVersion := core.GetVersion()
+
+	var upgradeErr error
 	switch method {
 	case "brew":
-		return upgradeViaBrew(force)
+		upgradeErr = upgradeViaBrew(force)
 	case "curl":
-		return upgradeViaCurl(targetVersion)
+		upgradeErr = upgradeViaCurl(targetVersion)
 	default:
 		return fmt.Errorf("unknown installation method: %s", method)
 	}
+
+	if upgradeErr != nil {
+		return upgradeErr
+	}
+
+	// Detect new version after successful upgrade.
+	// For brew upgrades, the old cellar binary is gone so we must resolve
+	// the symlink again (brew updates the /usr/local/bin symlink to the
+	// new cellar path). For curl upgrades the binary is replaced in-place.
+	newVersion := detectInstalledVersion()
+	if newVersion != "" && newVersion != oldVersion {
+		core.TrackCLIUpgraded(oldVersion, newVersion)
+	}
+
+	return nil
+}
+
+// detectInstalledVersion runs the newly installed binary to get its version.
+// Uses exec.LookPath to find the binary by name so that after a brew upgrade
+// the updated PATH symlink is resolved to the new cellar entry.
+func detectInstalledVersion() string {
+	execPath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	// Look up the binary by its base name in PATH so that after a brew upgrade
+	// the symlink in /usr/local/bin points to the new cellar entry.
+	// os.Executable() on macOS returns the already-resolved cellar path,
+	// so EvalSymlinks alone cannot follow the updated symlink.
+	binaryName := filepath.Base(execPath)
+	resolvedPath, err := exec.LookPath(binaryName)
+	if err != nil {
+		// Fallback: try EvalSymlinks on the original path
+		resolvedPath, err = filepath.EvalSymlinks(execPath)
+		if err != nil {
+			resolvedPath = execPath
+		}
+	}
+	cmd := exec.Command(resolvedPath, "version")
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	// Parse "Version: X.Y.Z" from the output
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	return ""
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew
