@@ -304,6 +304,20 @@ func TestSetBodyFieldsFromJSON(t *testing.T) {
 	assert.Equal(t, 42, parent.Inner.Value)
 }
 
+func TestPreserveExtraRuntimeFieldsIncludesSandboxStorage(t *testing.T) {
+	resourceJSON := []byte(`{
+		"spec": {
+			"runtime": {
+				"storageMb": 102400
+			}
+		}
+	}`)
+
+	opts := preserveExtraRuntimeFields(resourceJSON)
+
+	assert.Len(t, opts, 1)
+}
+
 func TestApplyResourcesEmpty(t *testing.T) {
 	results := []core.Result{}
 

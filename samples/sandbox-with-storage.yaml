@@ -1,0 +1,15 @@
+apiVersion: blaxel.ai/v1alpha1
+kind: Sandbox
+metadata:
+  name: sandbox-with-storage
+  displayName: Sandbox with Storage
+spec:
+  enabled: true
+  runtime:
+    image: blaxel/base-image:latest
+    ports:
+      - name: sandbox-api
+        target: 8080
+        protocol: HTTP
+    memory: 4096
+    storageMb: 102400
