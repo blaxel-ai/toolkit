@@ -1,6 +1,6 @@
 module github.com/blaxel-ai/toolkit
 
-go 1.25.0
+go 1.25.11
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -73,7 +73,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55 // indirect
 	google.golang.org/grpc v1.31.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
@@ -93,4 +93,4 @@ require (
 	golang.org/x/text v0.30.0 // indirect
 )
 
-replace github.com/blaxel-ai/sdk-go => github.com/blaxel-ai/sdk-go-staging v0.0.0-20260526221412-97c3065cb396
+replace github.com/blaxel-ai/sdk-go => github.com/blaxel-ai/sdk-go-staging v0.0.0-20260630195852-f6dde8270bb0
