@@ -90,6 +90,12 @@ func RegisterResourceOperations(ctx context.Context) {
 			// Only Post is registered; Get/Delete require parent params
 			// that the generic CLI commands cannot provide.
 			resource.Post = c.Sandboxes.Previews.Tokens.New
+		case "Application":
+			appSvc := &applicationService{}
+			resource.Get = appSvc.Get
+			resource.Delete = appSvc.Delete
+			resource.Put = appSvc.Update
+			resource.Post = appSvc.New
 		}
 	}
 }

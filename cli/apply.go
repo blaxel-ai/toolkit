@@ -219,7 +219,7 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 				}
 
 				var resultOp *ResourceOperationResult
-				if resource.Kind == "Sandbox" {
+				if resource.Kind == "Sandbox" || resource.Kind == "Application" {
 					resultOp = PostThenPutFn(resource, result.Kind, name, result, parentName, metadata)
 				} else {
 					resultOp = PutFn(resource, result.Kind, name, result, parentName, metadata)

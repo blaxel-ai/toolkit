@@ -1,12 +1,12 @@
 module github.com/blaxel-ai/toolkit
 
-go 1.25.0
+go 1.25.11
 
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/blaxel-ai/sdk-go v0.18.0
+	github.com/blaxel-ai/sdk-go v0.23.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
@@ -71,7 +71,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55 // indirect
 	google.golang.org/grpc v1.31.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect

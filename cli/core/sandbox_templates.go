@@ -208,9 +208,7 @@ func sandboxTemplatesForDisplay(templates Templates) Templates {
 		return knownTemplates
 	}
 
-	for _, t := range templates {
-		remainingTemplates = append(remainingTemplates, t)
-	}
+	remainingTemplates = append(remainingTemplates, templates...)
 	return remainingTemplates
 }
 

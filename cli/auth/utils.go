@@ -10,7 +10,7 @@ import (
 
 // WorkspaceClient interface for workspace lookups (allows mocking)
 type WorkspaceClient interface {
-	Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error)
+	Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error)
 	List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error)
 }
 
@@ -71,7 +71,7 @@ func validateWorkspaceWithFactory(workspace string, credentials blaxel.Credentia
 	// validating the credentials. This catches typos during `bl login <workspace>`
 	// before the workspace is persisted as the current context.
 	if workspace != "" {
-		if _, err := client.Get(context.Background(), workspace); err != nil {
+		if _, err := client.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{}); err != nil {
 			// Use one message for every explicit workspace validation failure.
 			return fmt.Errorf("permission denied for workspace %q", workspace)
 		}

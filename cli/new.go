@@ -17,6 +17,7 @@ type newType string
 
 const (
 	newTypeAgent          newType = "agent"
+	newTypeApp            newType = "app"
 	newTypeMCP            newType = "mcp"
 	newTypeSandbox        newType = "sandbox"
 	newTypeJob            newType = "job"
@@ -45,7 +46,7 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "new [type] [directory]",
 		Args:              cobra.RangeArgs(0, 2),
-		Short:             "Scaffold a new project from a template (agent, mcp, sandbox, job, volume-template)",
+		Short:             "Scaffold a new project from a template (agent, app, mcp, sandbox, job, volume-template)",
 		ValidArgsFunction: GetNewValidArgsFunction(),
 		Long: `Create a new Blaxel resource from templates.
 
@@ -55,6 +56,9 @@ dependencies, and example code to get you started quickly.
 Resource Types:
   agent     - AI agent application that can chat, use tools, and access data
               Use cases: Customer support bots, coding assistants, data analysts
+
+  app       - Web application deployed on Blaxel infrastructure
+              Use cases: Next.js apps, web services, frontend applications
 
   mcp       - Model Context Protocol server that extends agent capabilities
               Use cases: Custom tools, API integrations, database connectors
@@ -114,7 +118,7 @@ After Creation:
 
 			if t == "" {
 				if noTTY {
-					err := fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volumetemplate")
+					err := fmt.Errorf("type is required when using --yes. Allowed: agent | app | mcp | sandbox | job | volumetemplate")
 					core.PrintError("New", err)
 					core.ExitWithError(err)
 				}
@@ -126,6 +130,7 @@ After Creation:
 							Title("What do you want to create?").
 							Options(
 								huh.NewOption("Agent app", string(newTypeAgent)),
+								huh.NewOption("Application", string(newTypeApp)),
 								huh.NewOption("MCP server", string(newTypeMCP)),
 								huh.NewOption("Sandbox", string(newTypeSandbox)),
 								huh.NewOption("Job", string(newTypeJob)),
@@ -145,6 +150,8 @@ After Creation:
 			switch t {
 			case newTypeAgent:
 				core.RunAgentAppCreation(dirArg, templateName, noTTY)
+			case newTypeApp:
+				core.RunAppCreation(dirArg, templateName, noTTY)
 			case newTypeMCP:
 				core.RunMCPCreation(dirArg, templateName, noTTY)
 			case newTypeSandbox:
@@ -154,7 +161,7 @@ After Creation:
 			case newTypeVolumeTemplate:
 				core.RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
-				err := fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volumetemplate", t)
+				err := fmt.Errorf("unknown type '%s'. Allowed: agent | app | mcp | sandbox | job | volumetemplate", t)
 				core.PrintError("New", err)
 				core.ExitWithError(err)
 			}
@@ -209,6 +216,8 @@ func parseNewType(s string) newType {
 	switch strings.ToLower(s) {
 	case string(newTypeAgent), "ag":
 		return newTypeAgent
+	case string(newTypeApp), "application":
+		return newTypeApp
 	case string(newTypeMCP):
 		return newTypeMCP
 	case string(newTypeSandbox), "sbx":
@@ -224,10 +233,14 @@ func parseNewType(s string) newType {
 
 // newTypeToTemplateKey maps a newType to the template topic key used by RetrieveTemplates.
 func newTypeToTemplateKey(t newType) string {
-	if t == newTypeVolumeTemplate {
+	switch t {
+	case newTypeVolumeTemplate:
 		return "volume-template"
+	case newTypeApp:
+		return "application"
+	default:
+		return string(t)
 	}
-	return string(t)
 }
 
 type templateInfo struct {
@@ -242,7 +255,7 @@ type templateInfo struct {
 // listAvailableTemplates retrieves and displays templates in the requested format.
 // filterType narrows results to a specific template type (e.g. "agent", "mcp").
 func listAvailableTemplates(filterType string, outputFormat string) {
-	types := []string{"agent", "mcp", "sandbox", "job", "volume-template"}
+	types := []string{"agent", "application", "mcp", "sandbox", "job", "volume-template"}
 	if filterType != "" {
 		types = []string{filterType}
 	}

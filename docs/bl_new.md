@@ -4,7 +4,7 @@ slug: bl_new
 ---
 ## bl new
 
-Scaffold a new project from a template (agent, mcp, sandbox, job, volume-template)
+Scaffold a new project from a template (agent, app, mcp, sandbox, job, volume-template)
 
 ### Synopsis
 
@@ -16,6 +16,9 @@ dependencies, and example code to get you started quickly.
 Resource Types:
   agent     - AI agent application that can chat, use tools, and access data
               Use cases: Customer support bots, coding assistants, data analysts
+
+  app       - Web application deployed on Blaxel infrastructure
+              Use cases: Next.js apps, web services, frontend applications
 
   mcp       - Model Context Protocol server that extends agent capabilities
               Use cases: Custom tools, API integrations, database connectors

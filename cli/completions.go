@@ -123,7 +123,7 @@ func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) 
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	sandboxes, err := client.Sandboxes.List(ctx)
+	sandboxes, err := client.Sandboxes.List(ctx, blaxel.SandboxListParams{})
 	if err != nil || sandboxes == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -135,7 +135,7 @@ func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) 
 	}
 	var filtered []resourceWithTime
 
-	for _, sbx := range *sandboxes {
+	for _, sbx := range sandboxes.Data {
 		if sbx.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(sbx.Metadata.Name, toComplete) {
 				var descParts []string
@@ -338,7 +338,7 @@ func CompleteJobNames(cmd *cobra.Command, args []string, toComplete string) ([]s
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	jobs, err := client.Jobs.List(ctx)
+	jobs, err := client.Jobs.List(ctx, blaxel.JobListParams{})
 	if err != nil || jobs == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -350,7 +350,7 @@ func CompleteJobNames(cmd *cobra.Command, args []string, toComplete string) ([]s
 	}
 	var filtered []resourceWithTime
 
-	for _, job := range *jobs {
+	for _, job := range jobs.Data {
 		if job.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(job.Metadata.Name, toComplete) {
 				var descParts []string
@@ -416,7 +416,7 @@ func CompleteJobExecutionIDs(jobName string, toComplete string) ([]string, cobra
 	}
 	var filtered []execWithTime
 
-	for _, exec := range *executions {
+	for _, exec := range executions.Data {
 		if exec.Metadata.ID != "" {
 			if toComplete == "" || strings.HasPrefix(exec.Metadata.ID, toComplete) {
 				// Format: id\tDATE status
@@ -553,7 +553,7 @@ func CompleteAgentNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	agents, err := client.Agents.List(ctx)
+	agents, err := client.Agents.List(ctx, blaxel.AgentListParams{})
 	if err != nil || agents == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -565,7 +565,7 @@ func CompleteAgentNames(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 	var filtered []resourceWithTime
 
-	for _, agent := range *agents {
+	for _, agent := range agents.Data {
 		if agent.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(agent.Metadata.Name, toComplete) {
 				var descParts []string
@@ -618,7 +618,7 @@ func CompleteFunctionNames(cmd *cobra.Command, args []string, toComplete string)
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	functions, err := client.Functions.List(ctx)
+	functions, err := client.Functions.List(ctx, blaxel.FunctionListParams{})
 	if err != nil || functions == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -630,7 +630,7 @@ func CompleteFunctionNames(cmd *cobra.Command, args []string, toComplete string)
 	}
 	var filtered []resourceWithTime
 
-	for _, fn := range *functions {
+	for _, fn := range functions.Data {
 		if fn.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(fn.Metadata.Name, toComplete) {
 				var descParts []string
@@ -683,7 +683,7 @@ func CompleteModelNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	models, err := client.Models.List(ctx)
+	models, err := client.Models.List(ctx, blaxel.ModelListParams{})
 	if err != nil || models == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -695,7 +695,7 @@ func CompleteModelNames(cmd *cobra.Command, args []string, toComplete string) ([
 	}
 	var filtered []resourceWithTime
 
-	for _, model := range *models {
+	for _, model := range models.Data {
 		if model.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(model.Metadata.Name, toComplete) {
 				var descParts []string
@@ -748,7 +748,7 @@ func CompleteVolumeNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	volumes, err := client.Volumes.List(ctx)
+	volumes, err := client.Volumes.List(ctx, blaxel.VolumeListParams{})
 	if err != nil || volumes == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -760,7 +760,7 @@ func CompleteVolumeNames(cmd *cobra.Command, args []string, toComplete string) (
 	}
 	var filtered []resourceWithTime
 
-	for _, vol := range *volumes {
+	for _, vol := range volumes.Data {
 		if vol.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(vol.Metadata.Name, toComplete) {
 				var descParts []string
@@ -810,7 +810,7 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	policies, err := client.Policies.List(ctx)
+	policies, err := client.Policies.List(ctx, blaxel.PolicyListParams{})
 	if err != nil || policies == nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -822,7 +822,7 @@ func CompletePolicyNames(cmd *cobra.Command, args []string, toComplete string) (
 	}
 	var filtered []resourceWithTime
 
-	for _, pol := range *policies {
+	for _, pol := range policies.Data {
 		if pol.Metadata.Name != "" {
 			if toComplete == "" || strings.HasPrefix(pol.Metadata.Name, toComplete) {
 				var descParts []string
@@ -1286,6 +1286,7 @@ var newResourceTypesWithDesc = []struct {
 	desc string
 }{
 	{"agent", "AI agent application"},
+	{"app", "Web application deployed on Blaxel"},
 	{"mcp", "MCP server (Model Context Protocol)"},
 	{"sandbox", "Isolated execution environment"},
 	{"job", "Batch processing task"},

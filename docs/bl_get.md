@@ -15,6 +15,7 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - functions/mcp: Model Context Protocol servers (tool providers)
 - jobs: Batch processing tasks
 - sandboxes: Isolated execution environments
+- applications: Application deployments with revision-based traffic management
 - models: AI model configurations
 - policies: Access control policies
 - volumes: Persistent storage
@@ -144,6 +145,7 @@ The command can list all resources of a type or get details for a specific one.
 
 * [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl get agents](bl_get_agents.md)	 - List all agents or get details of a specific one
+* [bl get applications](bl_get_applications.md)	 - List all applications or get details of a specific one
 * [bl get drives](bl_get_drives.md)	 - List all drives or get details of a specific one
 * [bl get functions](bl_get_functions.md)	 - List all functions or get details of a specific one
 * [bl get image](bl_get_image.md)	 - Get image information

@@ -260,7 +260,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			config = core.GetConfig()
 
 			// Check if agent/function code uses HOST/PORT environment variables
-			if (config.Type == "agent" || config.Type == "function") && !skipBuild && config.Image == "" {
+			if (config.Type == "agent" || config.Type == "function" || config.Type == "application") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
 				if !core.CheckServerEnvUsage(folder, language) {
@@ -335,7 +335,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
-	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
@@ -694,14 +694,26 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
-			if rt, ok := spec["runtime"].(map[string]interface{}); ok {
+			imageFound := false
+			if config.Type == "application" {
+				if revisions, ok := spec["revisions"].([]interface{}); ok && len(revisions) > 0 {
+					if rev, ok := revisions[0].(map[string]interface{}); ok {
+						if image, ok := rev["image"].(string); ok && image != "" {
+							runtime["image"] = image
+							imageFound = true
+						}
+					}
+				}
+			} else if rt, ok := spec["runtime"].(map[string]interface{}); ok {
 				if image, ok := rt["image"].(string); ok && image != "" {
 					runtime["image"] = image
-				} else {
-					err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
-					core.PrintError("Deployment", err)
-					core.ExitWithError(err)
+					imageFound = true
 				}
+			}
+			if !imageFound {
+				err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
+				core.PrintError("Deployment", err)
+				core.ExitWithError(err)
 			}
 		}
 	}
@@ -755,6 +767,30 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if config.Volumes != nil {
 			Spec["volumes"] = *config.Volumes
 		}
+	case "application":
+		Kind = "Application"
+		revision := map[string]interface{}{}
+		if envs, ok := runtime["envs"]; ok {
+			revision["envs"] = envs
+		}
+		if image, ok := runtime["image"]; ok {
+			revision["image"] = image
+		}
+		if config.Memory > 0 {
+			revision["memory"] = config.Memory
+		} else {
+			revision["memory"] = 2048
+		}
+		Spec = map[string]interface{}{
+			"enabled":   true,
+			"revisions": []interface{}{revision},
+		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
+		if config.Port > 0 {
+			Spec["port"] = config.Port
+		}
 	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
 		Spec = map[string]interface{}{}
@@ -802,6 +838,10 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		var appResult map[string]interface{}
+		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
+		result = appResult
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
@@ -847,6 +887,10 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		var appResult map[string]interface{}
+		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
+		result = appResult
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
@@ -932,6 +976,8 @@ func (d *Deployment) Apply() error {
 					resourceLabel = "job code"
 				case "sandbox":
 					resourceLabel = "sandbox code"
+				case "application":
+					resourceLabel = "application code"
 				}
 				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
@@ -1199,6 +1245,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		case "sandbox":
 			needsUploadProgress = true
 			uploadLabel = "sandbox code"
+		case "application":
+			needsUploadProgress = true
+			uploadLabel = "application code"
 		}
 
 		// Set up upload progress callback for supported resources
@@ -1314,7 +1363,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	// For resources that need status monitoring (agent, function, job, sandbox)
 	needsStatusMonitoring := false
 	switch strings.ToLower(resource.Kind) {
-	case "agent", "function", "job", "sandbox":
+	case "agent", "function", "job", "sandbox", "application":
 		needsStatusMonitoring = true
 	case "volumetemplate":
 		needsStatusMonitoring = false
@@ -1509,7 +1558,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 					// For resources that need monitoring, start status polling
 					needsMonitoring := false
 					switch strings.ToLower(resource.Kind) {
-					case "agent", "function", "job", "sandbox":
+					case "agent", "function", "job", "sandbox", "application":
 						needsMonitoring = true
 					case "volumetemplate":
 						needsMonitoring = false
