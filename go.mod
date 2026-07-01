@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/atotto/clipboard v0.1.4
-	github.com/blaxel-ai/sdk-go v0.18.0
+	github.com/blaxel-ai/sdk-go v0.23.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
@@ -92,5 +92,3 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 )
-
-replace github.com/blaxel-ai/sdk-go => github.com/blaxel-ai/sdk-go-staging v0.0.0-20260630195852-f6dde8270bb0
