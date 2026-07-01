@@ -10,24 +10,33 @@ Fork a sandbox into a new sandbox or application
 
 Create a new sandbox or application by forking an existing sandbox.
 
+Arguments use the type/name format:
+  sbx/name or sandbox/name  — sandbox resource
+  app/name or application/name — application resource
+
+If the source has no type prefix, it defaults to sandbox.
+
 ```
-bl fork <source-sandbox> <target-name> [flags]
+bl fork <source> <target> [flags]
 ```
 
 ### Examples
 
 ```
   # Fork a sandbox into a new sandbox
-  bl fork my-sandbox my-sandbox-fork
+  bl fork sbx/my-sandbox sbx/my-sandbox-fork
 
   # Fork a sandbox into an application
-  bl fork my-sandbox my-app --type application
+  bl fork sbx/my-sandbox app/my-app
 
-  # Fork with canary traffic percentage and port
-  bl fork my-sandbox my-app --type application --traffic 20 --port 8080
+  # Fork with canary traffic and port
+  bl fork sbx/my-sandbox app/my-app --traffic 20 --port 8080
 
   # Fork with custom memory
-  bl fork my-sandbox my-sandbox-fork --memory 4096
+  bl fork sbx/my-sandbox sbx/my-fork --memory 4096
+
+  # Short form (source defaults to sandbox)
+  bl fork my-sandbox app/my-app
 ```
 
 ### Options
@@ -37,7 +46,6 @@ bl fork <source-sandbox> <target-name> [flags]
       --memory int    Memory in MB (inherits from source if not specified)
       --port int      Port to expose
       --traffic int   Canary traffic percentage for the new revision
-      --type string   Target resource type (sandbox or application) (default "sandbox")
 ```
 
 ### Options inherited from parent commands
