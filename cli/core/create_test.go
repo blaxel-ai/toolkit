@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestGenerateRandomDirectoryName(t *testing.T) {
@@ -209,6 +211,302 @@ func TestRunCreateFlowWithDepsReturnsErrorWhenTemplateNotFound(t *testing.T) {
 	assert.Contains(t, stderr, "google-adk-py")
 }
 
+func TestRunCreateFlowWithDepsRequiresJobTemplateWithYes(t *testing.T) {
+	var runErr error
+	stdout, stderr := captureStandardStreams(t, func() {
+		runErr = runCreateFlowWithDeps(
+			filepath.Join(t.TempDir(), "new-job"),
+			"",
+			CreateFlowConfig{
+				TemplateType: "job",
+				NoTTY:        true,
+				ErrorPrefix:  "Job creation",
+				SpinnerTitle: "Creating your blaxel job...",
+			},
+			func(directory string, templates Templates) TemplateOptions {
+				t.Fatal("prompt should not run in non-interactive job creation")
+				return TemplateOptions{}
+			},
+			func(opts TemplateOptions) {
+				t.Fatal("success should not run without an explicit template")
+			},
+			createFlowDeps{
+				RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+					t.Fatal("catalog retrieval should not run without an explicit template")
+					return nil, nil
+				},
+				CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+					t.Fatal("clone should not run without an explicit template")
+					return nil
+				},
+			},
+		)
+	})
+
+	require.Error(t, runErr)
+	assert.Contains(t, runErr.Error(), "--template is required")
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "bl new job --list")
+}
+
+func TestRunCreateFlowWithDepsValidatesJobTemplateBeforeDirectory(t *testing.T) {
+	existingDirectory := t.TempDir()
+	err := runCreateFlowWithDeps(
+		existingDirectory,
+		"",
+		CreateFlowConfig{TemplateType: "job", NoTTY: true, ErrorPrefix: "Job creation"},
+		func(directory string, templates Templates) TemplateOptions {
+			t.Fatal("prompt should not run in non-interactive job creation")
+			return TemplateOptions{}
+		},
+		func(opts TemplateOptions) {
+			t.Fatal("success should not run without an explicit template")
+		},
+		createFlowDeps{
+			RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+				t.Fatal("catalog retrieval should not run without an explicit template")
+				return nil, nil
+			},
+		},
+	)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "--template is required")
+	assert.NotContains(t, err.Error(), "already exists")
+}
+
+func TestRunCreateFlowWithDepsReturnsErrorWhenGithubRunnerIsUnavailable(t *testing.T) {
+	cloneCalled := false
+	cleanCalled := false
+	successCalled := false
+	var runErr error
+	stdout, stderr := captureStandardStreams(t, func() {
+		runErr = runCreateFlowWithDeps(
+			filepath.Join(t.TempDir(), "new-runner"),
+			"github-runner",
+			CreateFlowConfig{
+				TemplateType: "job",
+				NoTTY:        true,
+				ErrorPrefix:  "Job creation",
+			},
+			func(directory string, templates Templates) TemplateOptions {
+				t.Fatal("prompt should not run when a template flag is provided")
+				return TemplateOptions{}
+			},
+			func(opts TemplateOptions) {
+				successCalled = true
+			},
+			createFlowDeps{
+				RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+					return testJobTemplates(false, ""), nil
+				},
+				CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+					cloneCalled = true
+					return nil
+				},
+				CleanTemplate: func(directory string) {
+					cleanCalled = true
+				},
+			},
+		)
+	})
+
+	require.Error(t, runErr)
+	assert.ErrorContains(t, runErr, "template 'template-github-runner' not found")
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "jobs-ts")
+	assert.Contains(t, stderr, "jobs-py")
+	assert.NotContains(t, stderr, "  - github-runner")
+	assert.False(t, cloneCalled)
+	assert.False(t, cleanCalled)
+	assert.False(t, successCalled)
+}
+
+func TestRunCreateFlowWithDepsResolvesJobTemplateAliases(t *testing.T) {
+	tests := []struct {
+		name             string
+		templateFlag     string
+		expectedTemplate string
+		expectedLanguage string
+	}{
+		{name: "python blank", templateFlag: "jobs-py", expectedTemplate: jobPythonTemplate, expectedLanguage: "python"},
+		{name: "typescript blank", templateFlag: "jobs-ts", expectedTemplate: jobTypescriptTemplate, expectedLanguage: "typescript"},
+		{name: "github runner", templateFlag: "github-runner", expectedTemplate: jobGithubRunnerTemplate},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			directory := filepath.Join(t.TempDir(), "new-job")
+			var clonedOpts TemplateOptions
+			var successOpts TemplateOptions
+			err := runCreateFlowWithDeps(
+				directory,
+				tt.templateFlag,
+				CreateFlowConfig{TemplateType: "job", NoTTY: true, ErrorPrefix: "Job creation"},
+				func(directory string, templates Templates) TemplateOptions {
+					t.Fatal("prompt should not run when a template flag is provided")
+					return TemplateOptions{}
+				},
+				func(opts TemplateOptions) {
+					successOpts = opts
+				},
+				createFlowDeps{
+					RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+						return testJobTemplates(true, ""), nil
+					},
+					CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+						clonedOpts = opts
+						return nil
+					},
+					CleanTemplate: func(directory string) {},
+					OutputFormat:  func() string { return "pretty" },
+				},
+			)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedTemplate, clonedOpts.TemplateName)
+			assert.Equal(t, tt.expectedLanguage, clonedOpts.Language)
+			assert.Equal(t, directory, clonedOpts.Directory)
+			assert.Equal(t, clonedOpts, successOpts)
+		})
+	}
+}
+
+func TestRunCreateFlowWithDepsRejectsInvalidJobLanguageMetadata(t *testing.T) {
+	tests := []struct {
+		name         string
+		templateFlag string
+		templates    Templates
+		wantError    string
+	}{
+		{
+			name:         "runner language",
+			templateFlag: "github-runner",
+			templates:    testJobTemplates(true, "python"),
+			wantError:    "must not declare a language",
+		},
+		{
+			name:         "numeric runner language",
+			templateFlag: "github-runner",
+			templates: Templates{
+				{Template: blaxel.Template{Name: "1-" + jobGithubRunnerTemplate}, Language: "python", Type: "job"},
+			},
+			wantError: "must not declare a language",
+		},
+		{
+			name:         "python blank mislabeled",
+			templateFlag: "jobs-py",
+			templates: Templates{
+				{Template: blaxel.Template{Name: jobPythonTemplate}, Language: "typescript", Type: "job"},
+			},
+			wantError: "must declare language",
+		},
+		{
+			name:         "typescript blank missing language",
+			templateFlag: "jobs-ts",
+			templates: Templates{
+				{Template: blaxel.Template{Name: jobTypescriptTemplate}, Type: "job"},
+			},
+			wantError: "must declare language",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cloneCalled := false
+			err := runCreateFlowWithDeps(
+				filepath.Join(t.TempDir(), "new-job"),
+				tt.templateFlag,
+				CreateFlowConfig{TemplateType: "job", NoTTY: true, ErrorPrefix: "Job creation"},
+				func(directory string, templates Templates) TemplateOptions {
+					t.Fatal("prompt should not run when a template flag is provided")
+					return TemplateOptions{}
+				},
+				func(opts TemplateOptions) {
+					t.Fatal("success should not run for invalid job metadata")
+				},
+				createFlowDeps{
+					RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+						return tt.templates, nil
+					},
+					CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+						cloneCalled = true
+						return nil
+					},
+				},
+			)
+
+			require.Error(t, err)
+			assert.ErrorContains(t, err, tt.wantError)
+			assert.False(t, cloneCalled)
+		})
+	}
+}
+
+func TestRunCreateFlowWithDepsPrintsStructuredJobOutput(t *testing.T) {
+	tests := []struct {
+		name         string
+		format       string
+		templateFlag string
+		templateName string
+		language     string
+	}{
+		{name: "runner json", format: "json", templateFlag: "github-runner", templateName: jobGithubRunnerTemplate},
+		{name: "blank json", format: "json", templateFlag: "jobs-py", templateName: jobPythonTemplate, language: "python"},
+		{name: "runner yaml", format: "yaml", templateFlag: "github-runner", templateName: jobGithubRunnerTemplate},
+		{name: "blank yaml", format: "yaml", templateFlag: "jobs-ts", templateName: jobTypescriptTemplate, language: "typescript"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			directory := filepath.Join(t.TempDir(), "new-job")
+			successCalled := false
+			var runErr error
+			stdout, stderr := captureStandardStreams(t, func() {
+				runErr = runCreateFlowWithDeps(
+					directory,
+					tt.templateFlag,
+					CreateFlowConfig{TemplateType: "job", NoTTY: true, ErrorPrefix: "Job creation"},
+					func(directory string, templates Templates) TemplateOptions {
+						t.Fatal("prompt should not run when a template flag is provided")
+						return TemplateOptions{}
+					},
+					func(opts TemplateOptions) {
+						successCalled = true
+					},
+					createFlowDeps{
+						RetrieveTemplates: func(templateType string, noTTY bool, errorPrefix string) (Templates, error) {
+							return testJobTemplates(true, ""), nil
+						},
+						CloneTemplate: func(opts TemplateOptions, templates Templates, noTTY bool, errorPrefix string, spinnerTitle string) error {
+							return nil
+						},
+						CleanTemplate: func(directory string) {},
+						OutputFormat:  func() string { return tt.format },
+					},
+				)
+			})
+
+			require.NoError(t, runErr)
+			assert.Empty(t, stderr)
+			assert.False(t, successCalled)
+
+			result := map[string]string{}
+			if tt.format == "json" {
+				require.NoError(t, json.Unmarshal([]byte(stdout), &result))
+			} else {
+				require.NoError(t, yaml.Unmarshal([]byte(stdout), &result))
+			}
+			assert.Equal(t, map[string]string{
+				"directory": directory,
+				"template":  tt.templateName,
+				"language":  tt.language,
+				"type":      "job",
+			}, result)
+		})
+	}
+}
+
 func TestRunCreateFlowWithDepsReturnsCloneFailure(t *testing.T) {
 	cloneErr := errors.New("dependency install failed")
 	cleanCalled := false
@@ -266,6 +564,12 @@ func TestNormalizeTemplateNameFlag(t *testing.T) {
 			templateType: "agent",
 			input:        "template-google-adk-py",
 			expected:     "template-google-adk-py",
+		},
+		{
+			name:         "maps github runner job shorthand",
+			templateType: "job",
+			input:        "github-runner",
+			expected:     jobGithubRunnerTemplate,
 		},
 		{
 			name:         "prefixes non-sandbox shorthand",
