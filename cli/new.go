@@ -63,7 +63,8 @@ Resource Types:
               Use cases: Code execution, testing, isolated workloads
 
   job       - Batch processing task that runs on-demand or on schedule
-              Use cases: ETL pipelines, data processing, scheduled workflows
+              Use cases: ETL pipelines, data processing, scheduled workflows,
+                         GitHub Actions runners
 
   volumetemplate - Pre-configured volume template for creating volumes
               		Use cases: Persistent storage templates, data volume configurations
@@ -85,9 +86,8 @@ Use --template and --yes flags for automation and CI/CD workflows.
 After Creation:
 1. cd into your new directory
 2. Review and customize the generated blaxel.toml configuration
-3. Develop your resource locally with 'bl serve --hotreload'
-4. Test it works as expected
-5. Deploy to Blaxel with 'bl deploy'`,
+3. Follow the resource-specific instructions printed after scaffolding
+4. Test the resource and deploy it when ready`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Handle --list flag
 			if listTemplates {
@@ -162,7 +162,7 @@ After Creation:
 	}
 
 	cmd.Flags().StringVarP(&templateName, "template", "t", "", "Template to use (skips interactive prompt)")
-	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive prompts and use defaults")
+	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive prompts (job creation also requires --template)")
 	cmd.Flags().BoolVarP(&listTemplates, "list", "l", false, "List available templates with descriptions")
 
 	cmd.Example = `  # Interactive creation (recommended for beginners)
@@ -186,6 +186,9 @@ After Creation:
 
   # Create job with specific template
   bl new job my-batch-job -t jobs-py
+
+  # Create a GitHub Actions runner job non-interactively
+  bl new job my-github-runner -t github-runner -y
 
   # List all available templates
   bl new --list

@@ -24,7 +24,8 @@ Resource Types:
               Use cases: Code execution, testing, isolated workloads
 
   job       - Batch processing task that runs on-demand or on schedule
-              Use cases: ETL pipelines, data processing, scheduled workflows
+              Use cases: ETL pipelines, data processing, scheduled workflows,
+                         GitHub Actions runners
 
   volumetemplate - Pre-configured volume template for creating volumes
               		Use cases: Persistent storage templates, data volume configurations
@@ -46,9 +47,8 @@ Use --template and --yes flags for automation and CI/CD workflows.
 After Creation:
 1. cd into your new directory
 2. Review and customize the generated blaxel.toml configuration
-3. Develop your resource locally with 'bl serve --hotreload'
-4. Test it works as expected
-5. Deploy to Blaxel with 'bl deploy'
+3. Follow the resource-specific instructions printed after scaffolding
+4. Test the resource and deploy it when ready
 
 ```
 bl new [type] [directory] [flags]
@@ -79,6 +79,9 @@ bl new [type] [directory] [flags]
   # Create job with specific template
   bl new job my-batch-job -t jobs-py
 
+  # Create a GitHub Actions runner job non-interactively
+  bl new job my-github-runner -t github-runner -y
+
   # List all available templates
   bl new --list
 
@@ -102,7 +105,7 @@ bl new [type] [directory] [flags]
   -h, --help              help for new
   -l, --list              List available templates with descriptions
   -t, --template string   Template to use (skips interactive prompt)
-  -y, --yes               Skip interactive prompts and use defaults
+  -y, --yes               Skip interactive prompts (job creation also requires --template)
 ```
 
 ### Options inherited from parent commands

@@ -119,6 +119,12 @@ func runCreateFlowWithDeps(
 ) error {
 	deps = fillCreateFlowDeps(deps)
 
+	if cfg.NoTTY && cfg.TemplateType == "job" && templateNameFlag == "" {
+		createErr := fmt.Errorf("--template is required when using --yes for job creation; run 'bl new job --list' to see available templates")
+		PrintError(cfg.ErrorPrefix, createErr)
+		return createErr
+	}
+
 	if templateNameFlag != "" {
 		templateNameFlag = normalizeTemplateNameFlag(templateNameFlag, cfg.TemplateType)
 	}
@@ -186,6 +192,13 @@ func runCreateFlowWithDeps(
 		}
 	}
 
+	if cfg.TemplateType == "job" {
+		if err := validateJobTemplateOptions(opts); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
+		}
+	}
+
 	// Clone template using the unified helper
 	if err := deps.CloneTemplate(opts, templates, cfg.NoTTY, cfg.ErrorPrefix, cfg.SpinnerTitle); err != nil {
 		return err
@@ -246,7 +259,11 @@ func normalizeTemplateNameFlag(templateNameFlag string, templateType string) str
 }
 
 func templateDisplayName(t Template) string {
-	return regexp.MustCompile(`^\d+-`).ReplaceAllString(t.Name, "")
+	return canonicalTemplateName(t.Name)
+}
+
+func canonicalTemplateName(name string) string {
+	return regexp.MustCompile(`^\d+-`).ReplaceAllString(name, "")
 }
 
 func printAvailableTemplates(templates Templates, templateType string) {
@@ -254,6 +271,12 @@ func printAvailableTemplates(templates Templates, templateType string) {
 	if templateType == "sandbox" {
 		for _, t := range sandboxTemplatesForDisplay(templates) {
 			printSandboxTemplateLine(t)
+		}
+		return
+	}
+	if templateType == "job" {
+		for _, t := range jobTemplatesForDisplay(templates) {
+			printJobTemplateLine(t)
 		}
 		return
 	}
@@ -295,6 +318,22 @@ func printTemplateLine(t Template) {
 // directory is empty.
 // resource is used in messages, e.g. "agent app", "job", "mcp server".
 func PromptTemplateOptions(directory string, templates Templates, resource string, includeLanguage bool, templateHeight int) TemplateOptions {
+	return promptTemplateOptions(directory, templates, resource, includeLanguage, templateHeight, templateOptionLabel)
+}
+
+func templateOptionLabel(t Template) string {
+	key := canonicalTemplateName(t.Name)
+	return strings.TrimPrefix(key, "template-")
+}
+
+func promptTemplateOptions(
+	directory string,
+	templates Templates,
+	resource string,
+	includeLanguage bool,
+	templateHeight int,
+	optionLabel func(Template) string,
+) TemplateOptions {
 	options := TemplateOptions{
 		ProjectName:  directory,
 		Directory:    directory,
@@ -308,9 +347,8 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 		options.Author = "blaxel"
 	}
 
-	stripRe := regexp.MustCompile(`^\d+-`)
 	isBlank := func(t Template) bool {
-		name := strings.ToLower(stripRe.ReplaceAllString(t.Name, ""))
+		name := strings.ToLower(canonicalTemplateName(t.Name))
 		return strings.Contains(name, "template-blank") || strings.HasPrefix(name, "blank-") || name == "blank"
 	}
 
@@ -428,9 +466,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 				if isBlank(t) {
 					continue
 				}
-				key := stripRe.ReplaceAllString(t.Name, "")
-				key = strings.TrimPrefix(key, "template-")
-				templateOptions = append(templateOptions, huh.NewOption(key, t.Name))
+				templateOptions = append(templateOptions, huh.NewOption(optionLabel(t), t.Name))
 			}
 		}).
 		Run()
@@ -515,14 +551,10 @@ func RunJobCreation(dirArg string, templateName string, noTTY bool) {
 			SpinnerTitle: "Creating your blaxel job...",
 		},
 		func(directory string, templates Templates) TemplateOptions {
-			return PromptTemplateOptions(directory, templates, "job", true, 5)
+			return PromptJobTemplateOptions(directory, templates)
 		},
 		func(opts TemplateOptions) {
-			PrintSuccess("Your blaxel job has been created successfully!")
-			fmt.Printf(`Start working on it:
-  cd %s
-  bl run job %s --local --file batches/sample-batch.json
-`, opts.Directory, opts.Directory)
+			printJobCreationSuccess(opts)
 		},
 	)
 }
