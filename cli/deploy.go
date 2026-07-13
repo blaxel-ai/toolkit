@@ -696,13 +696,10 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
 			imageFound := false
 			if config.Type == "application" {
-				if revisions, ok := spec["revisions"].([]interface{}); ok && len(revisions) > 0 {
-					if rev, ok := revisions[0].(map[string]interface{}); ok {
-						if image, ok := rev["image"].(string); ok && image != "" {
-							runtime["image"] = image
-							imageFound = true
-						}
-					}
+				// New format: image is directly in spec
+				if image, ok := spec["image"].(string); ok && image != "" {
+					runtime["image"] = image
+					imageFound = true
 				}
 			} else if rt, ok := spec["runtime"].(map[string]interface{}); ok {
 				if image, ok := rt["image"].(string); ok && image != "" {
@@ -769,21 +766,20 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 	case "application":
 		Kind = "Application"
-		revision := map[string]interface{}{}
+		Spec = map[string]interface{}{
+			"enabled": true,
+		}
+		// Runtime fields are now directly in spec (no revisions array)
 		if envs, ok := runtime["envs"]; ok {
-			revision["envs"] = envs
+			Spec["envs"] = envs
 		}
 		if image, ok := runtime["image"]; ok {
-			revision["image"] = image
+			Spec["image"] = image
 		}
 		if config.Memory > 0 {
-			revision["memory"] = config.Memory
+			Spec["memory"] = config.Memory
 		} else {
-			revision["memory"] = 2048
-		}
-		Spec = map[string]interface{}{
-			"enabled":   true,
-			"revisions": []interface{}{revision},
+			Spec["memory"] = 2048
 		}
 		if config.Region != "" {
 			Spec["region"] = config.Region

@@ -92,3 +92,5 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 )
+
+replace github.com/blaxel-ai/sdk-go v0.23.0 => github.com/blaxel-ai/sdk-go v0.24.3-0.20200101000000-bc501638c274
