@@ -17,23 +17,21 @@ func init() {
 }
 
 type forkRequest struct {
-	TargetName string       `json:"target_name"`
-	Type       string       `json:"type,omitempty"`
-	Traffic    *int         `json:"traffic,omitempty"`
-	Port       *int         `json:"port,omitempty"`
-	Memory     *int         `json:"memory,omitempty"`
-	Spec       *forkAppSpec `json:"spec,omitempty"`
+	TargetName string `json:"target_name"`
+	Type       string `json:"type,omitempty"`
+	Traffic    *int   `json:"traffic,omitempty"`
+	Port       *int   `json:"port,omitempty"`
+	Memory     *int   `json:"memory,omitempty"`
 }
 
-type forkAppSpec struct {
-	Enabled   bool              `json:"enabled"`
-	Revisions []forkAppRevision `json:"revisions"`
-}
-
-type forkAppRevision struct {
-	Traffic int `json:"traffic,omitempty"`
-	Port    int `json:"port,omitempty"`
-	Memory  int `json:"memory,omitempty"`
+func buildForkRequest(targetName, targetType string, traffic, port, memory *int) forkRequest {
+	return forkRequest{
+		TargetName: targetName,
+		Type:       targetType,
+		Traffic:    traffic,
+		Port:       port,
+		Memory:     memory,
+	}
 }
 
 // parseForkArg parses a "type/name" argument. Accepted type prefixes:
@@ -49,6 +47,9 @@ func parseForkArg(arg string) (resourceType, name string, err error) {
 	name = parts[1]
 	if name == "" {
 		return "", "", fmt.Errorf("missing name after '/' in %q", arg)
+	}
+	if strings.Contains(name, "/") {
+		return "", "", fmt.Errorf("resource name must not contain '/': %q", name)
 	}
 	switch strings.ToLower(parts[0]) {
 	case "sbx", "sandbox":
@@ -122,37 +123,17 @@ If the source has no type prefix, it defaults to sandbox.`,
 			client := core.GetClient()
 			ctx := context.Background()
 
-			reqBody := forkRequest{
-				TargetName: targetName,
-				Type:       targetType,
+			var trafficParam, portParam, memoryParam *int
+			if cmd.Flags().Changed("traffic") {
+				trafficParam = &traffic
 			}
-
-			if targetType == "application" {
-				revision := forkAppRevision{}
-				if cmd.Flags().Changed("traffic") {
-					revision.Traffic = traffic
-				}
-				if cmd.Flags().Changed("port") {
-					revision.Port = port
-				}
-				if cmd.Flags().Changed("memory") {
-					revision.Memory = memory
-				}
-				reqBody.Spec = &forkAppSpec{
-					Enabled:   true,
-					Revisions: []forkAppRevision{revision},
-				}
-			} else {
-				if cmd.Flags().Changed("traffic") {
-					reqBody.Traffic = &traffic
-				}
-				if cmd.Flags().Changed("port") {
-					reqBody.Port = &port
-				}
-				if cmd.Flags().Changed("memory") {
-					reqBody.Memory = &memory
-				}
+			if cmd.Flags().Changed("port") {
+				portParam = &port
 			}
+			if cmd.Flags().Changed("memory") {
+				memoryParam = &memory
+			}
+			reqBody := buildForkRequest(targetName, targetType, trafficParam, portParam, memoryParam)
 
 			path := fmt.Sprintf("sandboxes/%s/fork", sourceName)
 			var result json.RawMessage
