@@ -696,10 +696,13 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
 			imageFound := false
 			if config.Type == "application" {
-				// New format: image is directly in spec
-				if image, ok := spec["image"].(string); ok && image != "" {
-					runtime["image"] = image
-					imageFound = true
+				if revisions, ok := spec["revisions"].([]interface{}); ok && len(revisions) > 0 {
+					if revision, ok := revisions[0].(map[string]interface{}); ok {
+						if image, ok := revision["image"].(string); ok && image != "" {
+							runtime["image"] = image
+							imageFound = true
+						}
+					}
 				}
 			} else if rt, ok := spec["runtime"].(map[string]interface{}); ok {
 				if image, ok := rt["image"].(string); ok && image != "" {
@@ -766,20 +769,21 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 	case "application":
 		Kind = "Application"
-		Spec = map[string]interface{}{
-			"enabled": true,
-		}
-		// Runtime fields are now directly in spec (no revisions array)
+		revision := map[string]interface{}{}
 		if envs, ok := runtime["envs"]; ok {
-			Spec["envs"] = envs
+			revision["envs"] = envs
 		}
 		if image, ok := runtime["image"]; ok {
-			Spec["image"] = image
+			revision["image"] = image
 		}
 		if config.Memory > 0 {
-			Spec["memory"] = config.Memory
+			revision["memory"] = config.Memory
 		} else {
-			Spec["memory"] = 2048
+			revision["memory"] = 2048
+		}
+		Spec = map[string]interface{}{
+			"enabled":   true,
+			"revisions": []interface{}{revision},
 		}
 		if config.Region != "" {
 			Spec["region"] = config.Region
@@ -835,9 +839,7 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
 	case "application":
-		var appResult map[string]interface{}
-		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
-		result = appResult
+		result, err = client.Applications.Get(ctx, name)
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
@@ -884,9 +886,7 @@ func getResourceStatus(resourceType, name string) (string, error) {
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
 	case "application":
-		var appResult map[string]interface{}
-		err = client.Get(ctx, fmt.Sprintf("applications/%s", name), nil, &appResult)
-		result = appResult
+		result, err = client.Applications.Get(ctx, name)
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:

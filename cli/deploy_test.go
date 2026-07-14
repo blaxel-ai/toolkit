@@ -96,6 +96,48 @@ func TestDeploymentDryRunStructuredOutputRejectsUnknownFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported dry-run output format")
 }
 
+func TestGenerateApplicationDeploymentUsesRevisionSpec(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.Chdir(originalDir)) }()
+
+	tomlContent := `name = "my-app"
+type = "application"
+workspace = "test-workspace"
+image = "registry.example.com/my-app:latest"
+memory = 4096
+port = 8080
+region = "us-pdx-1"
+
+[env]
+FOO = "bar"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
+	require.NoError(t, os.Chdir(tempDir))
+	core.ResetConfig()
+	core.ReadConfigToml("", true)
+
+	deployment := Deployment{name: "my-app", cwd: tempDir}
+	result := deployment.GenerateDeployment(false)
+
+	assert.Equal(t, "Application", result.Kind)
+	spec := result.Spec.(map[string]interface{})
+	assert.Equal(t, true, spec["enabled"])
+	assert.Equal(t, "us-pdx-1", spec["region"])
+	assert.Equal(t, 8080, spec["port"])
+	assert.NotContains(t, spec, "image")
+	assert.NotContains(t, spec, "memory")
+	assert.NotContains(t, spec, "envs")
+
+	revisions := spec["revisions"].([]interface{})
+	require.Len(t, revisions, 1)
+	revision := revisions[0].(map[string]interface{})
+	assert.Equal(t, "registry.example.com/my-app:latest", revision["image"])
+	assert.Equal(t, 4096, revision["memory"])
+	assert.Len(t, revision["envs"], 1)
+}
+
 func TestDeploymentStruct(t *testing.T) {
 	d := Deployment{
 		dir:    ".blaxel",

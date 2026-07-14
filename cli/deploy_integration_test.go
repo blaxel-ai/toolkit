@@ -988,7 +988,7 @@ func TestZipContainsDockerConfig(t *testing.T) {
 	// Read the zip and verify .docker/config.json is present
 	reader, err := zip.OpenReader(d.archive.Name())
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { require.NoError(t, reader.Close()) }()
 
 	var found bool
 	for _, f := range reader.File {
@@ -997,7 +997,7 @@ func TestZipContainsDockerConfig(t *testing.T) {
 			rc, err := f.Open()
 			require.NoError(t, err)
 			data, err := io.ReadAll(rc)
-			rc.Close()
+			require.NoError(t, rc.Close())
 			require.NoError(t, err)
 
 			var config core.DockerConfig
@@ -1039,7 +1039,7 @@ func TestZipExcludesRawDockerDir(t *testing.T) {
 
 	reader, err := zip.OpenReader(d.archive.Name())
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { require.NoError(t, reader.Close()) }()
 
 	dockerConfigCount := 0
 	for _, f := range reader.File {
@@ -1048,7 +1048,7 @@ func TestZipExcludesRawDockerDir(t *testing.T) {
 			rc, err := f.Open()
 			require.NoError(t, err)
 			data, err := io.ReadAll(rc)
-			rc.Close()
+			require.NoError(t, rc.Close())
 			require.NoError(t, err)
 
 			// Should contain the injected config, not the on-disk one
@@ -1081,7 +1081,7 @@ func TestZipNoDockerConfigWhenNil(t *testing.T) {
 
 	reader, err := zip.OpenReader(d.archive.Name())
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { require.NoError(t, reader.Close()) }()
 
 	for _, f := range reader.File {
 		assert.NotEqual(t, ".docker/config.json", f.Name, "should not contain .docker/config.json when dockerConfigJSON is nil")

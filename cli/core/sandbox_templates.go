@@ -323,7 +323,7 @@ func removeSandboxFile(dir, name string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open sandbox directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	return root.Remove(name)
 }
 
@@ -336,7 +336,7 @@ func writeSandboxFile(dir, name string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("failed to open sandbox directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	info, err := root.Lstat(name)
 	if err == nil {

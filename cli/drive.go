@@ -175,7 +175,7 @@ the blfs filesystem. It can be used as a recovery tool when mounts are lost.`,
 				core.PrintError("Drive mount", err)
 				core.ExitWithError(err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -243,7 +243,7 @@ func DriveUnmountCmd() *cobra.Command {
 				core.PrintError("Drive unmount", err)
 				core.ExitWithError(err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -283,9 +283,9 @@ func DriveMountsCmd() *cobra.Command {
 	var sandboxName string
 
 	cmd := &cobra.Command{
-		Use:     "mounts",
-		Short:   "List mounted drives in a sandbox",
-		Long:    `List all currently mounted drives in a sandbox environment.`,
+		Use:   "mounts",
+		Short: "List mounted drives in a sandbox",
+		Long:  `List all currently mounted drives in a sandbox environment.`,
 		Example: `  # List all mounted drives
   bl drive mounts --sandbox my-sandbox`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -301,7 +301,7 @@ func DriveMountsCmd() *cobra.Command {
 				core.PrintError("Drive mounts", err)
 				core.ExitWithError(err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {

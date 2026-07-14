@@ -140,6 +140,7 @@ var resources = []*Resource{
 		Aliases:   []string{"apps"},
 		APIPath:   "applications",
 		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Application{}),
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},

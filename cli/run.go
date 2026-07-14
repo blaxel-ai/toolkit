@@ -335,11 +335,12 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 					fmt.Println()
 				}
 				// For JSON output, wrap the accumulated text
-				if outputFormat == "json" {
+				switch outputFormat {
+				case "json":
 					result := map[string]string{"output": accumulated.String()}
 					jsonData, _ := json.MarshalIndent(result, "", "  ")
 					fmt.Println(string(jsonData))
-				} else if outputFormat == "yaml" {
+				case "yaml":
 					result := map[string]string{"output": accumulated.String()}
 					yamlData, _ := yaml.Marshal(result)
 					fmt.Print(string(yamlData))

@@ -91,11 +91,11 @@ func RegisterResourceOperations(ctx context.Context) {
 			// that the generic CLI commands cannot provide.
 			resource.Post = c.Sandboxes.Previews.Tokens.New
 		case "Application":
-			appSvc := &applicationService{}
-			resource.Get = appSvc.Get
-			resource.Delete = appSvc.Delete
-			resource.Put = appSvc.Update
-			resource.Post = appSvc.New
+			resource.List = c.Applications.List
+			resource.Get = c.Applications.Get
+			resource.Delete = c.Applications.Delete
+			resource.Put = c.Applications.Update
+			resource.Post = c.Applications.New
 		}
 	}
 }
