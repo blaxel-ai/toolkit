@@ -655,10 +655,7 @@ func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll
 			core.ExitWithError(err)
 		}
 		core.Output(*resource, result.Items, core.GetOutputFormat())
-		if result.Meta.HasMore && result.Meta.NextCursor != "" {
-			fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see the next page run:\n  bl get %s --cursor %s\n",
-				len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
-		}
+		printCursorHint(resource, result, core.GetOutputFormat())
 		return
 	}
 
@@ -670,10 +667,7 @@ func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll
 			core.ExitWithError(err)
 		}
 		core.Output(*resource, result.Items, core.GetOutputFormat())
-		if result.Meta.HasMore && result.Meta.NextCursor != "" {
-			fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see more run:\n  bl get %s --cursor %s\n",
-				len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
-		}
+		printCursorHint(resource, result, core.GetOutputFormat())
 		return
 	}
 
@@ -684,6 +678,15 @@ func ListFnPaginated(resource *core.Resource, limit int, cursor string, fetchAll
 		core.ExitWithError(err)
 	}
 	core.Output(*resource, result.Items, core.GetOutputFormat())
+	printCursorHint(resource, result, core.GetOutputFormat())
+}
+
+// printCursorHint prints the next-page hint on stderr. Skipped for
+// machine-readable output formats (json/yaml) so piped output stays clean.
+func printCursorHint(resource *core.Resource, result core.PaginatedResult, format string) {
+	if format == "json" || format == "yaml" {
+		return
+	}
 	if result.Meta.HasMore && result.Meta.NextCursor != "" {
 		fmt.Fprintf(os.Stderr, "\nShowing %d of %d %s. To see the next page run:\n  bl get %s --cursor %s\n",
 			len(result.Items), result.Meta.Total, resource.Plural, resource.Plural, result.Meta.NextCursor)
