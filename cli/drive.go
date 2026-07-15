@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -70,6 +71,17 @@ type driveListResponse struct {
 // sandboxAPIError is an error returned by the sandbox API.
 type sandboxAPIError struct {
 	Error string `json:"error"`
+}
+
+// sandboxErrorResponse represents the full structured error response from the sandbox API,
+// including retry guidance.
+type sandboxErrorResponse struct {
+	Error struct {
+		Code      string `json:"code"`
+		Message   string `json:"message"`
+		Retryable bool   `json:"retryable"`
+		Action    string `json:"action"`
+	} `json:"error"`
 }
 
 func DriveCmd() *cobra.Command {
@@ -170,16 +182,9 @@ the blfs filesystem. It can be used as a recovery tool when mounts are lost.`,
 				core.ExitWithError(err)
 			}
 
-			resp, err := sandboxRequest(ctx, http.MethodPost, sandboxURL, "/drives/mount", token, bytes.NewReader(jsonBody))
+			resp, respBody, err := sandboxRequestWithRetry(ctx, http.MethodPost, sandboxURL, "/drives/mount", token, jsonBody)
 			if err != nil {
 				core.PrintError("Drive mount", err)
-				core.ExitWithError(err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				core.PrintError("Drive mount", fmt.Errorf("failed to read response: %w", err))
 				core.ExitWithError(err)
 			}
 
@@ -238,16 +243,9 @@ func DriveUnmountCmd() *cobra.Command {
 			encodedPath := url.PathEscape(strings.TrimPrefix(mountPath, "/"))
 			apiPath := fmt.Sprintf("/drives/mount/%s", encodedPath)
 
-			resp, err := sandboxRequest(ctx, http.MethodDelete, sandboxURL, apiPath, token, nil)
+			resp, respBody, err := sandboxRequestWithRetry(ctx, http.MethodDelete, sandboxURL, apiPath, token, nil)
 			if err != nil {
 				core.PrintError("Drive unmount", err)
-				core.ExitWithError(err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				core.PrintError("Drive unmount", fmt.Errorf("failed to read response: %w", err))
 				core.ExitWithError(err)
 			}
 
@@ -296,16 +294,9 @@ func DriveMountsCmd() *cobra.Command {
 
 			sandboxURL, token := resolveSandbox(ctx, sandboxName)
 
-			resp, err := sandboxRequest(ctx, http.MethodGet, sandboxURL, "/drives/mount", token, nil)
+			resp, respBody, err := sandboxRequestWithRetry(ctx, http.MethodGet, sandboxURL, "/drives/mount", token, nil)
 			if err != nil {
 				core.PrintError("Drive mounts", err)
-				core.ExitWithError(err)
-			}
-			defer resp.Body.Close()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				core.PrintError("Drive mounts", fmt.Errorf("failed to read response: %w", err))
 				core.ExitWithError(err)
 			}
 
@@ -591,6 +582,61 @@ func sandboxRequest(ctx context.Context, method, sandboxURL, path, token string,
 	}
 
 	return resp, nil
+}
+
+// sandboxRequestWithRetry wraps sandboxRequest with exponential backoff retry logic
+// for responses marked as retryable by the sandbox API.
+func sandboxRequestWithRetry(ctx context.Context, method, sandboxURL, path, token string, body []byte) (*http.Response, []byte, error) {
+	const (
+		initialBackoff = 500 * time.Millisecond
+		maxBackoff     = 30 * time.Second
+		totalBudget    = 60 * time.Second
+	)
+
+	deadline := time.Now().Add(totalBudget)
+	backoff := initialBackoff
+	retried := false
+
+	for {
+		var bodyReader io.Reader
+		if body != nil {
+			bodyReader = bytes.NewReader(body)
+		}
+
+		resp, err := sandboxRequest(ctx, method, sandboxURL, path, token, bodyReader)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return resp, respBody, nil
+		}
+
+		// Check if error is retryable
+		var errResp sandboxErrorResponse
+		if err := json.Unmarshal(respBody, &errResp); err == nil && errResp.Error.Retryable {
+			if time.Now().Add(backoff).After(deadline) {
+				// Budget exhausted, return the error
+				return resp, respBody, nil
+			}
+			if !retried {
+				core.PrintInfo("Waiting for sandbox to become available...")
+				retried = true
+			}
+			time.Sleep(backoff)
+			backoff = min(backoff*2, maxBackoff)
+			continue
+		}
+
+		// Not retryable, return immediately
+		return resp, respBody, nil
+	}
 }
 
 // handleSandboxAPIError extracts an error message from a sandbox API response and exits.
