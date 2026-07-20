@@ -773,15 +773,16 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	if resourceName == "Preview" {
+	switch resourceName {
+	case "Preview":
 		printPreviewURL(opResult.Response, resourceName, name, "configured")
-	} else if resourceName == "PreviewToken" {
+	case "PreviewToken":
 		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
 			core.Print(fmt.Sprintf("Resource %s:%s configured url=%s\n", resourceName, name, tokenURL))
 		} else {
 			core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 		}
-	} else {
+	default:
 		core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 	}
 
@@ -817,15 +818,16 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	if resourceName == "Preview" {
+	switch resourceName {
+	case "Preview":
 		printPreviewURL(opResult.Response, resourceName, name, "created")
-	} else if resourceName == "PreviewToken" {
+	case "PreviewToken":
 		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
 			core.Print(fmt.Sprintf("Resource %s:%s created url=%s\n", resourceName, name, tokenURL))
 		} else {
 			core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 		}
-	} else {
+	default:
 		core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 	}
 

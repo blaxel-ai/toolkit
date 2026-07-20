@@ -751,7 +751,7 @@ func renderCodeBlock(code string) string {
 	var b strings.Builder
 	b.WriteString(border.Sprint("  ┌─────────────────────────────────────────────────────────") + "\n")
 	for _, line := range strings.Split(code, "\n") {
-		b.WriteString(fmt.Sprintf("  %s %s\n", border.Sprint("│"), codeColor.Sprint(line)))
+		fmt.Fprintf(&b, "  %s %s\n", border.Sprint("│"), codeColor.Sprint(line))
 	}
 	b.WriteString(border.Sprint("  └─────────────────────────────────────────────────────────"))
 	return b.String()
