@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -283,9 +282,9 @@ func DriveMountsCmd() *cobra.Command {
 	var sandboxName string
 
 	cmd := &cobra.Command{
-		Use:     "mounts",
-		Short:   "List mounted drives in a sandbox",
-		Long:    `List all currently mounted drives in a sandbox environment.`,
+		Use:   "mounts",
+		Short: "List mounted drives in a sandbox",
+		Long:  `List all currently mounted drives in a sandbox environment.`,
 		Example: `  # List all mounted drives
   bl drive mounts --sandbox my-sandbox`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -401,8 +400,9 @@ func DriveListCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			r := driveResource()
 			if r == nil {
-				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
-				core.ExitWithError(fmt.Errorf("drive resource not found"))
+				err := fmt.Errorf("internal drive resource registry invariant failed")
+				core.PrintError("Drive", err)
+				core.ExitWithError(err)
 			}
 			ListFnPaginated(r, pageLimit, pageCursor, fetchAll)
 		},
@@ -429,8 +429,9 @@ func DriveGetCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			r := driveResource()
 			if r == nil {
-				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
-				core.ExitWithError(fmt.Errorf("drive resource not found"))
+				err := fmt.Errorf("internal drive resource registry invariant failed")
+				core.PrintError("Drive", err)
+				core.ExitWithError(err)
 			}
 			GetFn(r, args[0])
 		},
@@ -502,8 +503,9 @@ func DriveDeleteCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			r := driveResource()
 			if r == nil {
-				core.PrintError("Drive", fmt.Errorf("drive resource not found"))
-				core.ExitWithError(fmt.Errorf("drive resource not found"))
+				err := fmt.Errorf("internal drive resource registry invariant failed")
+				core.PrintError("Drive", err)
+				core.ExitWithError(err)
 			}
 			if err := DeleteFn(r, args[0]); err != nil {
 				core.ExitWithError(err)
@@ -517,14 +519,20 @@ func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token 
 	currentContext, _ := blaxel.CurrentContext()
 	workspace := currentContext.Workspace
 	if workspace == "" {
-		err := fmt.Errorf("no workspace found in current context. Please run 'bl login' first")
+		err := core.MarkExpectedError(
+			fmt.Errorf("no workspace found in current context. Please run 'bl login' first"),
+			core.CLIErrorAuthentication,
+		)
 		core.PrintError("Drive", err)
 		core.ExitWithError(err)
 	}
 
 	credentials, _ := blaxel.LoadCredentials(workspace)
 	if !credentials.IsValid() {
-		err := fmt.Errorf("no valid credentials found. Please run 'bl login' first")
+		err := core.MarkExpectedError(
+			fmt.Errorf("no valid credentials found. Please run 'bl login' first"),
+			core.CLIErrorAuthentication,
+		)
 		core.PrintError("Drive", err)
 		core.ExitWithError(err)
 	}
@@ -534,7 +542,10 @@ func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token 
 		token = credentials.APIKey
 	}
 	if token == "" {
-		err := fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first")
+		err := core.MarkExpectedError(
+			fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first"),
+			core.CLIErrorAuthentication,
+		)
 		core.PrintError("Drive", err)
 		core.ExitWithError(err)
 	}
@@ -544,7 +555,10 @@ func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token 
 	if err != nil {
 		var apiErr *blaxel.Error
 		if isBlaxelError(err, &apiErr) && apiErr.StatusCode == 404 {
-			err = fmt.Errorf("sandbox '%s' not found", sandboxName)
+			err = core.MarkExpectedError(
+				fmt.Errorf("sandbox '%s' not found", sandboxName),
+				core.CLIErrorNotFound,
+			)
 			core.PrintError("Drive", err)
 
 			sandboxes, listErr := client.Sandboxes.List(ctx)
@@ -599,11 +613,11 @@ func handleSandboxAPIError(body []byte, statusCode int, operation string) {
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error != "" {
 		err := fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, apiErr.Error)
 		core.PrintError("Drive", err)
-		core.ExitWithError(err)
+		core.ExitWithError(core.MarkExpectedHTTPError(err, statusCode))
 	}
 	err := fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, string(body))
 	core.PrintError("Drive", err)
-	core.ExitWithError(err)
+	core.ExitWithError(core.MarkExpectedHTTPError(err, statusCode))
 }
 
 // outputDriveData marshals the given data to JSON or YAML format and prints it.
@@ -618,8 +632,9 @@ func outputDriveData(data interface{}, format string) {
 		output, err = yaml.Marshal(data)
 	}
 	if err != nil {
-		core.PrintError("Drive", fmt.Errorf("failed to marshal output: %w", err))
-		os.Exit(1)
+		err = fmt.Errorf("failed to marshal output: %w", err)
+		core.PrintError("Drive", err)
+		core.ExitWithError(err)
 	}
 	fmt.Println(string(output))
 }

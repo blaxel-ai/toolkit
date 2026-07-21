@@ -355,7 +355,10 @@ Output formats:
 			client := core.GetClient()
 			if client == nil {
 				core.PrintError("Sandbox Hub", fmt.Errorf("client not initialized, please log in with 'bl login'"))
-				core.ExitWithError(fmt.Errorf("client not initialized"))
+				core.ExitWithError(core.MarkExpectedError(
+					fmt.Errorf("client not initialized"),
+					core.CLIErrorAuthentication,
+				))
 			}
 			resp, err := client.Sandboxes.GetHub(context.Background())
 			if err != nil {
@@ -463,7 +466,10 @@ Output formats:
 			client := core.GetClient()
 			if client == nil {
 				core.PrintError("MCP Hub", fmt.Errorf("client not initialized, please log in with 'bl login'"))
-				core.ExitWithError(fmt.Errorf("client not initialized"))
+				core.ExitWithError(core.MarkExpectedError(
+					fmt.Errorf("client not initialized"),
+					core.CLIErrorAuthentication,
+				))
 			}
 
 			var resp []mcpHubDefinition
@@ -525,7 +531,10 @@ func GetFn(resource *core.Resource, name string) {
 
 	if resource.Get == nil {
 		hint := nestedResourceHint(resource, "get")
-		err := fmt.Errorf("%s'bl get %s <name>' is not supported directly.%s", formattedError, resource.Singular, hint)
+		err := core.MarkExpectedError(
+			fmt.Errorf("%s'bl get %s <name>' is not supported directly.%s", formattedError, resource.Singular, hint),
+			core.CLIErrorValidation,
+		)
 		core.PrintError("Get", err)
 		core.ExitWithError(err)
 	}
@@ -701,7 +710,7 @@ func ListExecPaginated(resource *core.Resource, limit int, cursor string) ([]int
 	formattedError := fmt.Sprintf("Resource %s error: ", resource.Kind)
 	result, err := core.ListPaginated(resource, limit, cursor)
 	if err != nil {
-		return nil, core.PaginationMeta{}, fmt.Errorf("%s%v", formattedError, err)
+		return nil, core.PaginationMeta{}, fmt.Errorf("%s%w", formattedError, err)
 	}
 	return result.Items, result.Meta, nil
 }
@@ -713,7 +722,7 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	if resource.Paginated && resource.APIPath != "" {
 		items, _, err := ListExecPaginated(resource, core.DefaultPageLimit, "")
 		if err != nil {
-			return nil, fmt.Errorf("%s%v", formattedError, err)
+			return nil, fmt.Errorf("%s%w", formattedError, err)
 		}
 		return items, nil
 	}
@@ -722,7 +731,10 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	// support pagination (e.g. IntegrationConnection, VolumeTemplate).
 	if resource.List == nil {
 		hint := nestedResourceHint(resource, "get")
-		return nil, fmt.Errorf("%s'bl get %s' is not supported directly.%s", formattedError, resource.Plural, hint)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("%s'bl get %s' is not supported directly.%s", formattedError, resource.Plural, hint),
+			core.CLIErrorValidation,
+		)
 	}
 
 	ctx := context.Background()
@@ -744,7 +756,7 @@ func ListExec(resource *core.Resource) ([]interface{}, error) {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
-		return nil, fmt.Errorf("%s%v", formattedError, err)
+		return nil, fmt.Errorf("%s%w", formattedError, err)
 	}
 
 	// The new SDK returns typed responses (e.g., *[]Agent), not *http.Response

@@ -223,7 +223,10 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]bufferedLogEntry, error)
 
 	_, ok := response[w.resourceName]
 	if !ok {
-		return nil, fmt.Errorf("resource %s not found", w.resourceName)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("resource %s not found", w.resourceName),
+			core.CLIErrorNotFound,
+		)
 	}
 
 	// Extract log entries with parsed timestamps for proper ordering

@@ -114,7 +114,10 @@ func findPythonRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 
 	file := FindPythonEntryFile(cfg.Folder)
 	if file == "" {
-		return nil, fmt.Errorf("app.py or main.py not found in current directory")
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("app.py or main.py not found in current directory"),
+			core.CLIErrorNotFound,
+		)
 	}
 
 	venv := ".venv"

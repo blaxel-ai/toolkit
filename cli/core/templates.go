@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/charmbracelet/huh/spinner"
@@ -49,10 +49,12 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 	}
 	resp, err := client.Templates.List(context.Background())
 	if err != nil {
-		// Check if it's an authentication error
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "401") || strings.Contains(errMsg, "403") {
-			return nil, fmt.Errorf("authentication required: please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one")
+		var apiErr *blaxel.Error
+		if errors.As(err, &apiErr) && (apiErr.StatusCode == 401 || apiErr.StatusCode == 403) {
+			return nil, MarkExpectedError(
+				fmt.Errorf("authentication required: please log in to your workspace using 'bl login'.\nIf you don't have a workspace yet, visit https://app.blaxel.ai to create one"),
+				CLIErrorAuthentication,
+			)
 		}
 		return nil, err
 	}
@@ -112,7 +114,10 @@ func RetrieveTemplatesWithSpinner(templateType string, noTTY bool, errorPrefix s
 	}
 
 	if len(templates) == 0 {
-		err := fmt.Errorf("no %s templates available. Please contact support", templateType)
+		err := MarkExpectedError(
+			fmt.Errorf("no %s templates available. Please contact support", templateType),
+			CLIErrorOperational,
+		)
 		PrintError(errorPrefix, err)
 		return nil, err
 	}
@@ -255,7 +260,10 @@ func (t Templates) Find(name string) (Template, error) {
 			return template, nil
 		}
 	}
-	return Template{}, fmt.Errorf("template not found")
+	return Template{}, MarkExpectedError(
+		fmt.Errorf("template not found"),
+		CLIErrorNotFound,
+	)
 }
 
 func (t Template) Clone(opts TemplateOptions) error {

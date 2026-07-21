@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSummarizeApplyFailuresDoesNotHideUnexpectedFailure(t *testing.T) {
+	expected := core.MarkExpectedError(errors.New("invalid manifest"), core.CLIErrorValidation)
+	unexpected := errors.New("internal apply invariant failed")
+
+	tests := []struct {
+		name                string
+		results             []ApplyResult
+		hasFailures         bool
+		allFailuresExpected bool
+	}{
+		{name: "success", results: []ApplyResult{{Result: ResourceOperationResult{Status: "created"}}}, allFailuresExpected: true},
+		{name: "expected only", results: []ApplyResult{{Result: ResourceOperationResult{Status: "failed", cause: expected}}}, hasFailures: true, allFailuresExpected: true},
+		{name: "unexpected only", results: []ApplyResult{{Result: ResourceOperationResult{Status: "failed", cause: unexpected}}}, hasFailures: true, allFailuresExpected: false},
+		{name: "mixed", results: []ApplyResult{
+			{Result: ResourceOperationResult{Status: "failed", cause: expected}},
+			{Result: ResourceOperationResult{Status: "failed", cause: unexpected}},
+		}, hasFailures: true, allFailuresExpected: false},
+		{name: "missing cause", results: []ApplyResult{{Result: ResourceOperationResult{Status: "failed"}}}, hasFailures: true, allFailuresExpected: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			hasFailures, allFailuresExpected := summarizeApplyFailures(test.results)
+			assert.Equal(t, test.hasFailures, hasFailures)
+			assert.Equal(t, test.allFailuresExpected, allFailuresExpected)
+		})
+	}
+}
 
 func TestGetCmd(t *testing.T) {
 	cmd := GetCmd()
