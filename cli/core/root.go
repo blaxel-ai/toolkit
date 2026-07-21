@@ -104,7 +104,7 @@ func writeVersionCache(cache versionCache) error {
 }
 
 func notifyNewVersionAvailable(latestVersion, currentVersion string) {
-	fmt.Printf("%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
+	fmt.Fprintf(os.Stderr, "%s⚠️  A new version of Blaxel CLI is available: %s%s%s%s (current: %s%s%s)\n%sYou can update by running: %sbl upgrade%s\n%sOr follow the instructions at %s%s%s\n\n%s",
 		colorYellow, colorBold+colorGreen, latestVersion, colorReset, colorYellow, colorBold, currentVersion, colorReset+colorYellow,
 		colorYellow, colorBold+colorGreen, colorReset+colorYellow,
 		colorYellow, colorCyan, UPDATE_CLI_DOC_URL, colorReset+colorYellow, colorReset)
@@ -347,6 +347,10 @@ var rootCmd = &cobra.Command{
 		}
 		client = c
 
+		// Resolve and store the authentication source so that error messages
+		// can tell the user where their credentials came from.
+		SetAuthSource(ResolveAuthSource(workspace))
+
 		// Register SDK CLI commands
 		ctx := context.Background()
 		RegisterResourceOperations(ctx)
@@ -376,6 +380,17 @@ func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string
 }
 
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
+	if version == "" {
+		version = releaseVersion
+	}
+	if commit == "" {
+		commit = releaseCommit
+	}
+	if date == "" {
+		date = releaseDate
+	}
+	rootCmd.Version = version
+
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
 
@@ -407,15 +422,6 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	}
 	blaxel.InitializeEnvironment(workspace)
 
-	if version == "" {
-		version = releaseVersion
-	}
-	if commit == "" {
-		commit = releaseCommit
-	}
-	if date == "" {
-		date = releaseDate
-	}
 	SetSentryTag("version", version)
 	SetSentryTag("commit", commit)
 	SetSentryTag("workspace", workspace)
@@ -464,6 +470,11 @@ func ResetConfig() {
 // SetConfigType sets the config type
 func SetConfigType(t string) {
 	config.Type = t
+}
+
+// SetConfigImage sets the config image field
+func SetConfigImage(image string) {
+	config.Image = image
 }
 
 // GetClient returns the current client
@@ -556,12 +567,8 @@ func promptForTracking() {
 		return
 	}
 
-	// Skip for completion and version commands
-	if len(os.Args) > 1 {
-		cmd := os.Args[1]
-		if cmd == "completion" || cmd == "__complete" || cmd == "version" {
-			return
-		}
+	if isTrackingPromptCommandExempt(os.Args) {
+		return
 	}
 
 	// Skip in CI environments
@@ -596,4 +603,13 @@ func promptForTracking() {
 		fmt.Println("✓ Tracking disabled.")
 	}
 	fmt.Println()
+}
+
+func isTrackingPromptCommandExempt(args []string) bool {
+	if len(args) <= 1 {
+		return false
+	}
+
+	cmd := args[1]
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
 }

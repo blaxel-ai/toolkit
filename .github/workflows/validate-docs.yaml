@@ -1,0 +1,66 @@
+name: Validate CLI docs
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "cli/**"
+      - "main.go"
+      - "docs/**"
+      - ".github/workflows/validate-docs.yaml"
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # The blaxel-ai/docs sync workflow copies the committed docs/ folder
+      # verbatim (it does not run `bl docs`), so committed docs must match the
+      # source. Fail if someone changed command help text without running
+      # `make doc`.
+      - name: Check committed docs are up to date
+        run: |
+          make doc
+          if ! git diff --quiet docs/; then
+            echo "::error::docs/ is out of date with the CLI source. Run 'make doc' and commit the result."
+            git --no-pager diff docs/
+            exit 1
+          fi
+
+      # Catch MDX parsing errors (e.g. unescaped <name>/<s> angle brackets
+      # outside code fences) before they reach the docs site.
+      - name: Mintlify validate
+        run: |
+          npm install -g mint
+          workdir="$(mktemp -d)"
+          mkdir -p "$workdir/cli-reference/commands"
+          cp docs/*.md "$workdir/cli-reference/commands/"
+          pages="$(cd "$workdir" && ls cli-reference/commands/*.md | sed 's#\.md$##' | jq -R . | jq -s .)"
+          jq -n --argjson pages "$pages" '{
+            "$schema": "https://mintlify.com/docs.json",
+            "theme": "mint",
+            "name": "Blaxel CLI",
+            "colors": {"primary": "#000000"},
+            "navigation": {"pages": $pages}
+          }' > "$workdir/docs.json"
+          cd "$workdir"
+          mint validate

@@ -2,7 +2,11 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -13,6 +17,10 @@ func init() {
 	core.RegisterCommand("token", func() *cobra.Command {
 		return TokenCmd()
 	})
+}
+
+var authHeadersForCredentials = func(ctx context.Context, credentials blaxel.Credentials, workspace string) (map[string]string, error) {
+	return credentials.AuthHeaders(ctx, workspace)
 }
 
 func TokenCmd() *cobra.Command {
@@ -65,9 +73,14 @@ export TOKEN=$(bl token)
 				core.ExitWithError(err)
 			}
 
-			// Get workspace to check if access is allowed + it refreshes the token if needed
-			client := core.GetClient()
-			_, err := client.Workspaces.Get(context.Background(), workspace)
+			// Get workspace to check if access is allowed + it refreshes the token if needed.
+			client, err := blaxel.NewClientFromConfig(workspace)
+			if err != nil {
+				err := fmt.Errorf("failed to create client for workspace '%s': %w", workspace, err)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
+			}
+			_, err = client.Workspaces.Get(context.Background(), workspace)
 			if err != nil {
 				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
@@ -75,28 +88,21 @@ export TOKEN=$(bl token)
 			}
 
 			// Load credentials for the workspace
-			credentials, _ := blaxel.LoadCredentials(workspace)
+			credentials, err := blaxel.LoadCredentials(workspace)
+			if err != nil {
+				err := fmt.Errorf("failed to load credentials for workspace '%s': %w", workspace, err)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
+			}
 			if !credentials.IsValid() {
 				err := fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
 
-			// Get token based on credential type
-			token := ""
-			if credentials.APIKey != "" {
-				token = credentials.APIKey
-			} else if credentials.AccessToken != "" {
-				// TODO: Check if token needs refresh and refresh if needed
-				token = credentials.AccessToken
-			} else if credentials.ClientCredentials != "" {
-				// For client credentials, we'd need to exchange for an access token
-				// For now, just return the client credentials value
-				token = credentials.ClientCredentials
-			}
-
-			if token == "" {
-				err := fmt.Errorf("no token found in credentials")
+			token, err := tokenForCredentials(context.Background(), workspace, credentials)
+			if err != nil {
+				err := fmt.Errorf("failed to retrieve token for workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
@@ -107,4 +113,54 @@ export TOKEN=$(bl token)
 	}
 
 	return cmd
+}
+
+func tokenForCredentials(ctx context.Context, workspace string, credentials blaxel.Credentials) (string, error) {
+	headers, err := authHeadersForCredentials(ctx, credentials, workspace)
+	if err != nil {
+		return "", err
+	}
+
+	token := bearerTokenFromHeaders(headers)
+	if token == "" {
+		return "", fmt.Errorf("no bearer token found in credentials")
+	}
+
+	if expired, ok := jwtExpired(token, time.Now()); ok && expired && credentials.APIKey == "" {
+		return "", fmt.Errorf("access token is expired and could not be refreshed. Please run 'bl login %s'", workspace)
+	}
+
+	return token, nil
+}
+
+func bearerTokenFromHeaders(headers map[string]string) string {
+	for _, name := range []string{"Authorization", "X-Blaxel-Authorization"} {
+		value := strings.TrimSpace(headers[name])
+		if token, ok := strings.CutPrefix(value, "Bearer "); ok {
+			return strings.TrimSpace(token)
+		}
+	}
+	return ""
+}
+
+func jwtExpired(token string, now time.Time) (bool, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return false, false
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return false, false
+	}
+
+	var claims struct {
+		Exp float64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil || claims.Exp == 0 {
+		return false, false
+	}
+
+	expiresAt := time.Unix(int64(claims.Exp), 0)
+	return !expiresAt.After(now), true
 }

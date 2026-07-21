@@ -77,6 +77,9 @@ func RetrieveTemplates(templateType string) (Templates, error) {
 			}
 		}
 	}
+	if templateType == "sandbox" {
+		templates = ensureSandboxTemplates(templates)
+	}
 	return templates, nil
 }
 

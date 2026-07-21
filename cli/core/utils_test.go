@@ -1,6 +1,9 @@
 package core
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +11,68 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func captureStandardStreams(t *testing.T, fn func()) (string, string) {
+	t.Helper()
+
+	originalStdout := os.Stdout
+	originalStderr := os.Stderr
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	require.NoError(t, err)
+	stderrReader, stderrWriter, err := os.Pipe()
+	require.NoError(t, err)
+
+	os.Stdout = stdoutWriter
+	os.Stderr = stderrWriter
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		os.Stderr = originalStderr
+	})
+
+	fn()
+
+	os.Stdout = originalStdout
+	os.Stderr = originalStderr
+
+	require.NoError(t, stdoutWriter.Close())
+	require.NoError(t, stderrWriter.Close())
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	_, err = io.Copy(&stdout, stdoutReader)
+	require.NoError(t, err)
+	_, err = io.Copy(&stderr, stderrReader)
+	require.NoError(t, err)
+
+	return stdout.String(), stderr.String()
+}
+
+func TestPrintErrorWritesToStderr(t *testing.T) {
+	originalInteractive := interactiveMode
+	interactiveMode = false
+	t.Cleanup(func() { interactiveMode = originalInteractive })
+
+	stdout, stderr := captureStandardStreams(t, func() {
+		PrintError("Test operation", errors.New("bad input"))
+	})
+
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "Test operation failed")
+	assert.Contains(t, stderr, "bad input")
+}
+
+func TestPrintWarningWritesToStderr(t *testing.T) {
+	originalInteractive := interactiveMode
+	interactiveMode = false
+	t.Cleanup(func() { interactiveMode = originalInteractive })
+
+	stdout, stderr := captureStandardStreams(t, func() {
+		PrintWarning("careful now")
+	})
+
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "careful now")
+}
 
 func TestSlugify(t *testing.T) {
 	tests := []struct {
@@ -238,12 +303,86 @@ func TestHasGoEntryFile(t *testing.T) {
 		assert.True(t, HasGoEntryFile(dir))
 	})
 
+	t.Run("finds cmd named main.go", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "cmd_named_main")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy_mcp"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy_mcp", "main.go"), []byte("package main"), 0644))
+
+		assert.True(t, HasGoEntryFile(dir))
+	})
+
 	t.Run("returns false when no entry file", func(t *testing.T) {
 		dir := filepath.Join(tempDir, "no_entry")
 		require.NoError(t, os.MkdirAll(dir, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "utils.go"), []byte("package utils"), 0644))
 
 		assert.False(t, HasGoEntryFile(dir))
+	})
+
+	t.Run("returns false when cmd entrypoint is ambiguous", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "ambiguous_cmd")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "api"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "worker"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "api", "main.go"), []byte("package main"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "worker", "main.go"), []byte("package main"), 0644))
+
+		assert.False(t, HasGoEntryFile(dir))
+	})
+}
+
+func TestFindGoEntryFile(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "find_go_entry_test")
+	require.NoError(t, err)
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	t.Run("prefers conventional main.go", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "prefer_conventional")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy_mcp"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy_mcp", "main.go"), []byte("package main"), 0644))
+
+		entryFile, err := FindGoEntryFile(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "main.go", entryFile)
+	})
+
+	t.Run("finds single cmd named entrypoint", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "cmd_named")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy_mcp"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy_mcp", "main.go"), []byte("package main"), 0644))
+
+		entryFile, err := FindGoEntryFile(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "cmd/dummy_mcp/main.go", entryFile)
+	})
+
+	t.Run("errors on multiple cmd named entrypoints", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "multiple_cmd")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "api"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "worker"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "api", "main.go"), []byte("package main"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "worker", "main.go"), []byte("package main"), 0644))
+
+		entryFile, err := FindGoEntryFile(dir)
+		assert.Empty(t, entryFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "multiple Go entrypoints")
+		assert.Contains(t, err.Error(), "cmd/api/main.go")
+		assert.Contains(t, err.Error(), "cmd/worker/main.go")
+		assert.Contains(t, err.Error(), "[entrypoint]")
+	})
+
+	t.Run("rejects unsafe cmd named entrypoint", func(t *testing.T) {
+		dir := filepath.Join(tempDir, "unsafe_cmd")
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "cmd", "dummy;echo pwned"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "cmd", "dummy;echo pwned", "main.go"), []byte("package main"), 0644))
+
+		entryFile, err := FindGoEntryFile(dir)
+		assert.Empty(t, entryFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported Go entrypoint path")
+		assert.Contains(t, err.Error(), "cmd/dummy;echo pwned/main.go")
+		assert.Contains(t, err.Error(), "[entrypoint]")
 	})
 }
 

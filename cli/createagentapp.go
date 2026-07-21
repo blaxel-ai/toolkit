@@ -21,7 +21,9 @@ func CreateAgentAppCmd() *cobra.Command {
 		Long:   "This command has been deprecated. Please use 'bl new agent' instead.",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			core.PrintError("create-agent-app", fmt.Errorf("this command has been deprecated. Please use 'bl new agent' instead"))
+			err := fmt.Errorf("this command has been deprecated. Please use 'bl new agent' instead")
+			core.PrintError("create-agent-app", err)
+			core.ExitWithError(err)
 		},
 	}
 	return cmd

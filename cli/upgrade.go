@@ -5,11 +5,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 )
+
+var bareSemverUpgradeVersionPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$`)
 
 func init() {
 	// Auto-register this command
@@ -272,6 +275,7 @@ func upgradeViaBrew(force bool) error {
 // upgradeViaCurl upgrades the CLI using the install script
 func upgradeViaCurl(targetVersion string) error {
 	core.PrintInfo("Upgrading Blaxel CLI via install script...")
+	targetVersion = normalizeUpgradeVersion(targetVersion)
 
 	// Get the current executable path to determine if we need sudo
 	execPath, err := os.Executable()
@@ -328,6 +332,15 @@ func upgradeViaCurl(targetVersion string) error {
 
 	core.PrintSuccess("Blaxel CLI upgraded successfully")
 	return nil
+}
+
+func normalizeUpgradeVersion(targetVersion string) string {
+	trimmedVersion := strings.TrimSpace(targetVersion)
+	if bareSemverUpgradeVersionPattern.MatchString(trimmedVersion) {
+		return "v" + trimmedVersion
+	}
+
+	return trimmedVersion
 }
 
 // needsSudoForPath determines if we need sudo to write to a directory

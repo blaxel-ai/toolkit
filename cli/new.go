@@ -114,8 +114,9 @@ After Creation:
 
 			if t == "" {
 				if noTTY {
-					core.PrintError("New", fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volumetemplate"))
-					return
+					err := fmt.Errorf("type is required when using --yes. Allowed: agent | mcp | sandbox | job | volumetemplate")
+					core.PrintError("New", err)
+					core.ExitWithError(err)
 				}
 				// Prompt for type using huh
 				var selected string
@@ -153,7 +154,9 @@ After Creation:
 			case newTypeVolumeTemplate:
 				core.RunVolumeTemplateCreation(dirArg, templateName, noTTY)
 			default:
-				core.PrintError("New", fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volumetemplate", t))
+				err := fmt.Errorf("unknown type '%s'. Allowed: agent | mcp | sandbox | job | volumetemplate", t)
+				core.PrintError("New", err)
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -173,6 +176,13 @@ After Creation:
 
   # Create MCP server with default template (non-interactive)
   bl new mcp my-mcp-server -y -t mcp-py
+
+  # Choose a sandbox type interactively
+  bl new sandbox
+
+  # Create Claude Code or Codex sandboxes non-interactively
+  bl new sandbox my-claude-sandbox -t claude-code -y
+  bl new sandbox my-codex-sandbox -t codex -y
 
   # Create job with specific template
   bl new job my-batch-job -t jobs-py

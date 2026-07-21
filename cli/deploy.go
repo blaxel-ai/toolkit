@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -68,6 +69,10 @@ to your workspace. The deployment process includes:
 A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
+
+If the blaxel.toml contains an 'image' field pointing to a registry image,
+the platform will pull the image and transform it via metamorph before deploying.
+For private registries, supply credentials via --registry-cred or --docker-config.
 
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
@@ -152,8 +157,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			// Additional deployment directory, for blaxel yaml files
 			deployDir := ".blaxel"
 			config := core.GetConfig()
+
 			if config.Name != "" {
 				name = config.Name
+			}
+			if name == "" && config.Image != "" {
+				name = imageRefToName(config.Image)
 			}
 
 			// Slugify the name to ensure it's URL-safe
@@ -209,6 +218,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				buildEnvContent:  buildEnvContent,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
+				skipBuild:        skipBuild,
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -273,11 +283,20 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			if dryRun {
-				err := deployment.Print(skipBuild)
-				if err != nil {
-					err = fmt.Errorf("error printing blaxel deployment: %w", err)
-					core.PrintError("Deploy", err)
-					core.ExitWithError(err)
+				if isStructured {
+					err := deployment.printDryRunStructuredOutput(outputFmt, skipBuild)
+					if err != nil {
+						err = fmt.Errorf("error printing structured dry run: %w", err)
+						core.PrintError("Deploy", err)
+						core.ExitWithError(err)
+					}
+				} else {
+					err := deployment.Print(skipBuild)
+					if err != nil {
+						err = fmt.Errorf("error printing blaxel deployment: %w", err)
+						core.PrintError("Deploy", err)
+						core.ExitWithError(err)
+					}
 				}
 				return
 			}
@@ -321,7 +340,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
-	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 15m")
+	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
 }
@@ -342,6 +361,7 @@ type Deployment struct {
 	buildEnvContent        []byte
 	timeout                time.Duration
 	timeoutExplicit        bool
+	skipBuild              bool
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -487,16 +507,9 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 		}
 
 		// Dockerfile exists, check if sandbox-api binary is available in the image.
-		// Valid patterns:
-		// 1. Base image from blaxel (already contains sandbox-api): FROM ghcr.io/blaxel-ai/sandbox
-		// 2. Multi-stage copy of the binary: COPY --from=ghcr.io/blaxel-ai/sandbox
 		dockerfileContent, err := os.ReadFile(dockerfilePath)
 		if err == nil {
-			content := string(dockerfileContent)
-			hasBlaxelSandboxBase := strings.Contains(content, "FROM ghcr.io/blaxel-ai/sandbox")
-			hasCopySandboxAPI := strings.Contains(content, "COPY --from=ghcr.io/blaxel-ai/sandbox")
-
-			if !hasBlaxelSandboxBase && !hasCopySandboxAPI {
+			if !dockerfileProvidesSandboxAPI(string(dockerfileContent)) {
 				var warningMsg strings.Builder
 				warningMsg.WriteString("⚠️  Sandbox Configuration Warning\n")
 				warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -559,7 +572,7 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", pythonFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "go":
-			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go")
+			goFiles := codeColor.Sprint("main.go, src/main.go, cmd/main.go, cmd/<name>/main.go")
 			fmt.Fprintf(&warningMsg, "  • Add automatic entrypoint %s OR\n", goFiles)
 			warningMsg.WriteString(entrypointSection)
 		case "typescript":
@@ -573,6 +586,68 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	warningMsg.WriteString("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 	return warningMsg.String()
+}
+
+// dockerfileProvidesSandboxAPI reports whether a sandbox Dockerfile makes the
+// sandbox-api binary available in the final image. Valid patterns:
+//  1. The final stage builds on a Blaxel sandbox base image:
+//     FROM ghcr.io/blaxel-ai/sandbox
+//  2. A copy of the binary, directly from the image or via a named or indexed
+//     build stage based on it:
+//     FROM ghcr.io/blaxel-ai/sandbox:latest AS blaxel-sandbox
+//     COPY --from=blaxel-sandbox /sandbox-api /usr/local/bin/sandbox-api
+//
+// FROM flags such as --platform are ignored.
+func dockerfileProvidesSandboxAPI(content string) bool {
+	const sandboxImage = "ghcr.io/blaxel-ai/sandbox"
+	sandboxStageNames := map[string]bool{}
+	var stageIsSandbox []bool
+	for line := range strings.Lines(content) {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 0 {
+			continue
+		}
+		switch strings.ToUpper(fields[0]) {
+		case "FROM":
+			image := ""
+			alias := ""
+			for i := 1; i < len(fields); i++ {
+				field := fields[i]
+				if strings.HasPrefix(field, "--") {
+					continue // FROM flags such as --platform
+				}
+				if image == "" {
+					image = field
+				} else if strings.EqualFold(field, "AS") && i+1 < len(fields) {
+					alias = fields[i+1]
+					break
+				}
+			}
+			// A stage is sandbox-based when it builds on the image itself or
+			// on an earlier sandbox-based stage. Stage names are case-insensitive.
+			isSandbox := strings.Contains(image, sandboxImage) ||
+				sandboxStageNames[strings.ToLower(image)]
+			stageIsSandbox = append(stageIsSandbox, isSandbox)
+			if isSandbox && alias != "" {
+				sandboxStageNames[strings.ToLower(alias)] = true
+			}
+		case "COPY":
+			for _, field := range fields[1:] {
+				ref, ok := strings.CutPrefix(field, "--from=")
+				if !ok {
+					continue
+				}
+				if strings.Contains(ref, sandboxImage) || sandboxStageNames[strings.ToLower(ref)] {
+					return true
+				}
+				if index, err := strconv.Atoi(ref); err == nil &&
+					index >= 0 && index < len(stageIsSandbox) && stageIsSandbox[index] {
+					return true
+				}
+			}
+		}
+	}
+	return len(stageIsSandbox) > 0 && stageIsSandbox[len(stageIsSandbox)-1]
 }
 
 func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
@@ -602,9 +677,14 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		runtime["type"] = "mcp"
 	}
 
-	// If a pre-built image is specified in blaxel.toml, use it directly
 	if config.Image != "" {
 		runtime["image"] = config.Image
+		if d.dockerConfigJSON != nil {
+			runtime["dockerConfig"] = string(d.dockerConfigJSON)
+		}
+		if skipBuild {
+			runtime["skipBuild"] = "true"
+		}
 	} else if skipBuild && !core.IsVolumeTemplate(config.Type) {
 		// Skip image resolution for volume-template as it doesn't use runtime/image
 		resource, err := getResource(config.Type, d.name)
@@ -689,8 +769,6 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
-	// Volume-template needs upload even without build
-	// When using a pre-built image, no upload is needed
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
@@ -839,7 +917,7 @@ func (d *Deployment) Apply() error {
 	}
 
 	for _, result := range applyResults {
-		if result.Result.UploadURL != "" {
+		if result.Result.UploadURL != "" && core.GetConfig().Image == "" {
 			if !isStructured {
 				config := core.GetConfig()
 				resourceLabel := "code"
@@ -1098,8 +1176,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		resource.SetMetadataURL(applyResults[0].Result.MetadataURL)
 	}
 
-	// Handle upload if there's an upload URL
-	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" {
+	// Handle upload if there's an upload URL (skip for registry image deploys — no archive)
+	if len(applyResults) > 0 && applyResults[0].Result.UploadURL != "" && config.Image == "" {
 		model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 
 		// Check if resource type supports detailed upload progress
@@ -1443,7 +1521,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						model.AddBuildLog(idx, "Verifying deployment status...")
 
 						// Simple status monitoring for additional resources
-						// Additional resources use a shorter default (10m) than the main resource (15m),
+						// Additional resources use a shorter default (10m) than the main resource (1h),
 						// but respect the user-specified --timeout if explicitly provided.
 						additionalTimeout := 10 * time.Minute
 						if d.timeoutExplicit {
@@ -1584,7 +1662,7 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 		TotalDuration: duration,
 	}
 
-	resourceStatus := "UNKNOWN"
+	var resourceStatus string
 	if failed {
 		resourceStatus = "FAILED"
 	} else {
@@ -1618,6 +1696,115 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 		data, _ := yaml.Marshal(result)
 		fmt.Print(string(data))
 	}
+}
+
+type dryRunFile struct {
+	Name string `json:"name" yaml:"name"`
+	Size int64  `json:"size" yaml:"size"`
+}
+
+type dryRunResult struct {
+	DryRun    bool          `json:"dryRun" yaml:"dryRun"`
+	Resources []core.Result `json:"resources" yaml:"resources"`
+	Files     []dryRunFile  `json:"files,omitempty" yaml:"files,omitempty"`
+}
+
+func (d *Deployment) printDryRunStructuredOutput(outputFmt string, skipBuild bool) error {
+	data, err := d.renderDryRunStructuredOutput(outputFmt, skipBuild)
+	if err != nil {
+		return err
+	}
+	switch outputFmt {
+	case "json":
+		fmt.Println(string(data))
+	case "yaml":
+		fmt.Print(string(data))
+	}
+	return nil
+}
+
+func (d *Deployment) renderDryRunStructuredOutput(outputFmt string, skipBuild bool) ([]byte, error) {
+	files, err := d.collectDryRunFiles(skipBuild)
+	if err != nil {
+		return nil, err
+	}
+	result := dryRunResult{
+		DryRun:    true,
+		Resources: d.blaxelDeployments,
+		Files:     files,
+	}
+	switch outputFmt {
+	case "json":
+		return json.MarshalIndent(result, "", "  ")
+	case "yaml":
+		return yaml.Marshal(result)
+	default:
+		return nil, fmt.Errorf("unsupported dry-run output format %q", outputFmt)
+	}
+}
+
+func (d *Deployment) collectDryRunFiles(skipBuild bool) ([]dryRunFile, error) {
+	config := core.GetConfig()
+	if skipBuild || config.Image != "" {
+		return nil, nil
+	}
+	if d.archive == nil {
+		return nil, nil
+	}
+	if core.IsVolumeTemplate(config.Type) {
+		return collectDryRunTarFiles(d.archive.Name())
+	}
+	return collectDryRunZipFiles(d.archive.Name())
+}
+
+func collectDryRunZipFiles(path string) ([]dryRunFile, error) {
+	zipFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen zip file: %w", err)
+	}
+	defer func() { _ = zipFile.Close() }()
+
+	fileInfo, err := zipFile.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+	zipReader, err := zip.NewReader(zipFile, fileInfo.Size())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zip reader: %w", err)
+	}
+	files := make([]dryRunFile, 0, len(zipReader.File))
+	for _, file := range zipReader.File {
+		files = append(files, dryRunFile{
+			Name: file.Name,
+			Size: int64(file.FileInfo().Size()),
+		})
+	}
+	return files, nil
+}
+
+func collectDryRunTarFiles(path string) ([]dryRunFile, error) {
+	tarFile, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen tar file: %w", err)
+	}
+	defer func() { _ = tarFile.Close() }()
+
+	tarReader := tar.NewReader(tarFile)
+	var files []dryRunFile
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar header: %w", err)
+		}
+		files = append(files, dryRunFile{
+			Name: header.Name,
+			Size: header.Size,
+		})
+	}
+	return files, nil
 }
 
 func (d *Deployment) Ready() {
@@ -2174,8 +2361,8 @@ func (d *Deployment) Print(skipBuild bool) error {
 		fmt.Print(deployment.ToString())
 		fmt.Println("---")
 	}
-	if !skipBuild {
-		config := core.GetConfig()
+	config := core.GetConfig()
+	if !skipBuild && config.Image == "" {
 		if core.IsVolumeTemplate(config.Type) {
 			// Ensure archive is created before trying to print it
 			if d.archive == nil {

@@ -8,16 +8,17 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 )
 
-// WorkspaceLister interface for listing workspaces (allows mocking)
-type WorkspaceLister interface {
+// WorkspaceClient interface for workspace lookups (allows mocking)
+type WorkspaceClient interface {
+	Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error)
 	List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error)
 }
 
 // ClientFactory creates clients for workspace operations
-type ClientFactory func(opts ...option.RequestOption) WorkspaceLister
+type ClientFactory func(opts ...option.RequestOption) WorkspaceClient
 
 // defaultClientFactory creates the real blaxel client
-var defaultClientFactory ClientFactory = func(opts ...option.RequestOption) WorkspaceLister {
+var defaultClientFactory ClientFactory = func(opts ...option.RequestOption) WorkspaceClient {
 	client := blaxel.NewClient(opts...)
 	return &client.Workspaces
 }
@@ -29,7 +30,7 @@ func SetClientFactory(factory ClientFactory) {
 
 // ResetClientFactory resets to the default client factory
 func ResetClientFactory() {
-	defaultClientFactory = func(opts ...option.RequestOption) WorkspaceLister {
+	defaultClientFactory = func(opts ...option.RequestOption) WorkspaceClient {
 		client := blaxel.NewClient(opts...)
 		return &client.Workspaces
 	}
@@ -66,7 +67,18 @@ func validateWorkspaceWithFactory(workspace string, credentials blaxel.Credentia
 	opts := BuildClientOptions(workspace, credentials)
 	client := factory(opts...)
 
-	// Try to make a simple API call to validate
+	// If a workspace was provided, validate that exact workspace instead of only
+	// validating the credentials. This catches typos during `bl login <workspace>`
+	// before the workspace is persisted as the current context.
+	if workspace != "" {
+		if _, err := client.Get(context.Background(), workspace); err != nil {
+			// Use one message for every explicit workspace validation failure.
+			return fmt.Errorf("permission denied for workspace %q", workspace)
+		}
+		return nil
+	}
+
+	// No explicit workspace: just verify the credentials can list accessible workspaces.
 	_, err := client.List(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to validate workspace credentials: %w", err)

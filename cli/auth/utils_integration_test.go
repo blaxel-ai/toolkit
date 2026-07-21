@@ -11,21 +11,62 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockWorkspaceLister implements WorkspaceLister for testing
-type mockWorkspaceLister struct {
+// mockWorkspaceClient implements WorkspaceClient for testing
+type mockWorkspaceClient struct {
 	workspaces *[]blaxel.Workspace
 	err        error
 }
 
-func (m *mockWorkspaceLister) List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error) {
+func (m *mockWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	if m.workspaces == nil {
+		return nil, errors.New("workspace list unavailable")
+	}
+	for _, workspace := range *m.workspaces {
+		if workspace.Name == workspaceName {
+			return &workspace, nil
+		}
+	}
+	return nil, errors.New("workspace not found")
+}
+
+func (m *mockWorkspaceClient) List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error) {
 	return m.workspaces, m.err
 }
 
 // mockClientFactory creates a mock client factory for testing
 func mockClientFactory(workspaces *[]blaxel.Workspace, err error) ClientFactory {
-	return func(opts ...option.RequestOption) WorkspaceLister {
-		return &mockWorkspaceLister{workspaces: workspaces, err: err}
+	return func(opts ...option.RequestOption) WorkspaceClient {
+		return &mockWorkspaceClient{workspaces: workspaces, err: err}
 	}
+}
+
+type countingWorkspaceClient struct {
+	getCalls         int
+	getWorkspaceName string
+	listCalls        int
+	workspace        *blaxel.Workspace
+	workspaces       *[]blaxel.Workspace
+	err              error
+}
+
+func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+	c.getCalls++
+	c.getWorkspaceName = workspaceName
+	if c.err != nil {
+		return nil, c.err
+	}
+	if c.workspace == nil {
+		return nil, errors.New("workspace not found")
+	}
+	return c.workspace, nil
+}
+
+func (c *countingWorkspaceClient) List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error) {
+	c.listCalls++
+	return c.workspaces, c.err
 }
 
 // TestBuildClientOptionsEmpty tests BuildClientOptions with empty credentials
@@ -91,7 +132,19 @@ func TestValidateWorkspaceError(t *testing.T) {
 
 	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to validate workspace credentials")
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.NotContains(t, err.Error(), "API error")
+}
+
+// TestValidateWorkspaceMissingWorkspace tests explicit workspace validation failure wording.
+func TestValidateWorkspaceMissingWorkspace(t *testing.T) {
+	workspaces := []blaxel.Workspace{{Name: "other-workspace"}}
+	factory := mockClientFactory(&workspaces, nil)
+
+	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
+	require.Error(t, err)
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.NotContains(t, err.Error(), "does not exist")
 }
 
 // TestValidateWorkspaceEmptyWorkspace tests validation with empty workspace
@@ -101,6 +154,36 @@ func TestValidateWorkspaceEmptyWorkspace(t *testing.T) {
 
 	err := validateWorkspaceWithFactory("", blaxel.Credentials{APIKey: "key"}, factory)
 	require.NoError(t, err)
+}
+
+func TestValidateWorkspaceExplicitWorkspaceUsesGet(t *testing.T) {
+	client := &countingWorkspaceClient{
+		workspace: &blaxel.Workspace{Name: "test-workspace"},
+	}
+	factory := func(opts ...option.RequestOption) WorkspaceClient {
+		return client
+	}
+
+	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
+	require.NoError(t, err)
+	assert.Equal(t, 1, client.getCalls)
+	assert.Equal(t, "test-workspace", client.getWorkspaceName)
+	assert.Equal(t, 0, client.listCalls)
+}
+
+func TestValidateWorkspaceEmptyWorkspaceUsesList(t *testing.T) {
+	workspaces := []blaxel.Workspace{{Name: "test-workspace"}}
+	client := &countingWorkspaceClient{
+		workspaces: &workspaces,
+	}
+	factory := func(opts ...option.RequestOption) WorkspaceClient {
+		return client
+	}
+
+	err := validateWorkspaceWithFactory("", blaxel.Credentials{APIKey: "key"}, factory)
+	require.NoError(t, err)
+	assert.Equal(t, 0, client.getCalls)
+	assert.Equal(t, 1, client.listCalls)
 }
 
 // TestListWorkspacesSuccess tests successful workspace listing
@@ -174,7 +257,7 @@ func TestListWorkspacesWithClientCredentials(t *testing.T) {
 
 // TestValidateWorkspaceWithAccessToken tests validation with access token
 func TestValidateWorkspaceWithAccessToken(t *testing.T) {
-	workspaces := []blaxel.Workspace{}
+	workspaces := []blaxel.Workspace{{Name: "ws"}}
 	factory := mockClientFactory(&workspaces, nil)
 
 	err := validateWorkspaceWithFactory("ws", blaxel.Credentials{AccessToken: "token"}, factory)
@@ -183,7 +266,7 @@ func TestValidateWorkspaceWithAccessToken(t *testing.T) {
 
 // TestValidateWorkspaceWithClientCredentials tests validation with client credentials
 func TestValidateWorkspaceWithClientCredentials(t *testing.T) {
-	workspaces := []blaxel.Workspace{}
+	workspaces := []blaxel.Workspace{{Name: "ws"}}
 	factory := mockClientFactory(&workspaces, nil)
 
 	err := validateWorkspaceWithFactory("ws", blaxel.Credentials{ClientCredentials: "creds"}, factory)
@@ -196,7 +279,7 @@ func TestSetAndResetClientFactory(t *testing.T) {
 	original := defaultClientFactory
 
 	// Set a mock factory
-	workspaces := []blaxel.Workspace{}
+	workspaces := []blaxel.Workspace{{Name: "test"}}
 	SetClientFactory(mockClientFactory(&workspaces, nil))
 
 	// Verify it's set (by calling the function which should work with mock)
@@ -222,7 +305,7 @@ func TestPublicFunctions(t *testing.T) {
 	SetClientFactory(mockClientFactory(&workspaces, nil))
 
 	// Test ValidateWorkspace
-	err := ValidateWorkspace("test", blaxel.Credentials{APIKey: "key"})
+	err := ValidateWorkspace("test-ws", blaxel.Credentials{APIKey: "key"})
 	require.NoError(t, err)
 
 	// Test ListWorkspaces
@@ -243,7 +326,7 @@ func TestLegacyFunctions(t *testing.T) {
 	SetClientFactory(mockClientFactory(&workspaces, nil))
 
 	// Test validateWorkspace (lowercase)
-	err := validateWorkspace("test", blaxel.Credentials{APIKey: "key"})
+	err := validateWorkspace("test-ws", blaxel.Credentials{APIKey: "key"})
 	require.NoError(t, err)
 
 	// Test listWorkspaces (lowercase)
