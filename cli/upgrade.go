@@ -153,7 +153,7 @@ func runUpgrade(targetVersion string, force bool) error {
 	// For brew upgrades, the old cellar binary is gone so we must resolve
 	// the symlink again (brew updates the /usr/local/bin symlink to the
 	// new cellar path). For curl upgrades the binary is replaced in-place.
-	newVersion := detectInstalledVersion()
+	newVersion := detectInstalledVersion(method)
 	if newVersion != "" && newVersion != oldVersion {
 		core.TrackCLIUpgraded(oldVersion, newVersion)
 	}
@@ -161,28 +161,47 @@ func runUpgrade(targetVersion string, force bool) error {
 	return nil
 }
 
-// detectInstalledVersion runs the newly installed binary to get its version.
-// Uses exec.LookPath to find the binary by name so that after a brew upgrade
-// the updated PATH symlink is resolved to the new cellar entry.
-func detectInstalledVersion() string {
-	execPath, err := os.Executable()
+// detectInstalledVersion runs the upgraded binary at the location controlled
+// by the installation method. It deliberately never resolves the CLI through
+// PATH, where an unrelated binary with the same name could be executed.
+func detectInstalledVersion(method string) string {
+	binaryPath, err := upgradedCLIPath(method)
 	if err != nil {
 		return ""
 	}
-	// Look up the binary by its base name in PATH so that after a brew upgrade
-	// the symlink in /usr/local/bin points to the new cellar entry.
-	// os.Executable() on macOS returns the already-resolved cellar path,
-	// so EvalSymlinks alone cannot follow the updated symlink.
-	binaryName := filepath.Base(execPath)
-	resolvedPath, err := exec.LookPath(binaryName)
-	if err != nil {
-		// Fallback: try EvalSymlinks on the original path
-		resolvedPath, err = filepath.EvalSymlinks(execPath)
+	return detectVersionAtPath(binaryPath)
+}
+
+func upgradedCLIPath(method string) (string, error) {
+	switch method {
+	case "brew":
+		// The old Cellar path may disappear during upgrade. Homebrew's formula
+		// prefix resolves the new Cellar entry without selecting a CLI from PATH.
+		output, err := exec.Command("brew", "--prefix", "blaxel").Output()
 		if err != nil {
-			resolvedPath = execPath
+			return "", err
 		}
+		prefix := strings.TrimSpace(string(output))
+		if prefix == "" {
+			return "", fmt.Errorf("homebrew returned an empty blaxel prefix")
+		}
+		return filepath.Join(prefix, "bin", "blaxel"), nil
+	case "curl":
+		execPath, err := os.Executable()
+		if err != nil {
+			return "", err
+		}
+		if realPath, err := filepath.EvalSymlinks(execPath); err == nil {
+			execPath = realPath
+		}
+		return execPath, nil
+	default:
+		return "", fmt.Errorf("unknown installation method: %s", method)
 	}
-	cmd := exec.Command(resolvedPath, "version")
+}
+
+func detectVersionAtPath(binaryPath string) string {
+	cmd := exec.Command(binaryPath, "version")
 	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
 	out, err := cmd.Output()
 	if err != nil {

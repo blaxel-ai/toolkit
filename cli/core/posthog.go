@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // PostHog API key injected at build time via ldflags
@@ -26,10 +28,12 @@ type telemetryState struct {
 }
 
 var (
-	telemetryOnce  sync.Once
-	telemetryCache *telemetryState
-	telemetryRaw   map[string]interface{} // preserves unknown fields from disk
-	posthogWg      sync.WaitGroup
+	telemetryOnce    sync.Once
+	telemetryMu      sync.Mutex
+	telemetryCache   *telemetryState
+	telemetryRaw     map[string]interface{} // preserves unknown fields from disk
+	pendingCLIEvents = make(map[string]struct{})
+	posthogWg        sync.WaitGroup
 )
 
 // getTelemetryPath returns the path to the telemetry state file
@@ -96,6 +100,9 @@ func saveTelemetryState(state *telemetryState) {
 // getDistinctID returns a persistent anonymous UUID for PostHog events.
 // The UUID is generated on first use and stored in ~/.blaxel/telemetry.json.
 func getDistinctID() string {
+	telemetryMu.Lock()
+	defer telemetryMu.Unlock()
+
 	state := loadTelemetryState()
 	if state.DistinctID != "" {
 		return state.DistinctID
@@ -105,11 +112,12 @@ func getDistinctID() string {
 	return state.DistinctID
 }
 
-// capturePosthogEvent sends an event to PostHog via HTTP POST.
-// This is fire-and-forget: errors are silently ignored.
-func capturePosthogEvent(event string, properties map[string]string) {
-	if PosthogAPIKey == "" {
-		return
+// capturePosthogEvent sends an event to PostHog via HTTP POST. onComplete is
+// called with true only after PostHog accepts the event with a 2xx response.
+// Delivery errors remain silent so telemetry can never cause a user-facing failure.
+func capturePosthogEvent(event string, properties map[string]string, onComplete func(success bool)) bool {
+	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() {
+		return false
 	}
 
 	distinctID := getDistinctID()
@@ -124,25 +132,30 @@ func capturePosthogEvent(event string, properties map[string]string) {
 
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return
+		return false
 	}
 
 	posthogWg.Add(1)
 	go func() {
 		defer posthogWg.Done()
+		success := false
+		defer func() { onComplete(success) }()
+
 		client := &http.Client{Timeout: 5 * time.Second}
 		resp, err := client.Post(PosthogHost+"/capture/", "application/json", bytes.NewReader(data))
 		if err != nil {
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
+		success = resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices
 	}()
+	return true
 }
 
 // TrackCLIInstalled checks if this CLI version has been reported and sends
 // an "Installed CLI" event if it hasn't.
 func TrackCLIInstalled(cliVersion string) {
-	if PosthogAPIKey == "" || cliVersion == "" || cliVersion == "dev" {
+	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
 		return
 	}
 	// Skip telemetry in subprocess spawned by detectInstalledVersion()
@@ -150,37 +163,83 @@ func TrackCLIInstalled(cliVersion string) {
 		return
 	}
 
+	eventKey := "install:" + cliVersion
+	telemetryMu.Lock()
 	state := loadTelemetryState()
 	if state.CLI == cliVersion {
+		telemetryMu.Unlock()
 		return
 	}
+	if _, pending := pendingCLIEvents[eventKey]; pending {
+		telemetryMu.Unlock()
+		return
+	}
+	pendingCLIEvents[eventKey] = struct{}{}
+	telemetryMu.Unlock()
 
-	capturePosthogEvent("Installed CLI", map[string]string{
+	started := capturePosthogEvent("Installed CLI", map[string]string{
 		"version": cliVersion,
+	}, func(success bool) {
+		telemetryMu.Lock()
+		defer telemetryMu.Unlock()
+		delete(pendingCLIEvents, eventKey)
+		if !success {
+			return
+		}
+		state := loadTelemetryState()
+		// An upgrade may complete before this older install event. Do not
+		// overwrite the newer version recorded by that successful upgrade.
+		if state.CLI == "" || state.CLI == cliVersion {
+			state.CLI = cliVersion
+			saveTelemetryState(state)
+		}
 	})
-
-	state.CLI = cliVersion
-	saveTelemetryState(state)
+	if !started {
+		telemetryMu.Lock()
+		delete(pendingCLIEvents, eventKey)
+		telemetryMu.Unlock()
+	}
 }
 
 // TrackCLIUpgraded sends an "Upgraded CLI" event with old and new versions.
 func TrackCLIUpgraded(oldVersion string, newVersion string) {
-	if PosthogAPIKey == "" {
+	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() {
 		return
 	}
 	if oldVersion == "" || newVersion == "" || oldVersion == newVersion {
 		return
 	}
 
-	capturePosthogEvent("Upgraded CLI", map[string]string{
+	eventKey := "upgrade:" + oldVersion + ":" + newVersion
+	telemetryMu.Lock()
+	if _, pending := pendingCLIEvents[eventKey]; pending {
+		telemetryMu.Unlock()
+		return
+	}
+	pendingCLIEvents[eventKey] = struct{}{}
+	telemetryMu.Unlock()
+
+	started := capturePosthogEvent("Upgraded CLI", map[string]string{
 		"old_version": oldVersion,
 		"new_version": newVersion,
+	}, func(success bool) {
+		// Prevent the next process from reporting the successfully delivered
+		// upgraded version as a fresh installation.
+		telemetryMu.Lock()
+		defer telemetryMu.Unlock()
+		delete(pendingCLIEvents, eventKey)
+		if !success {
+			return
+		}
+		state := loadTelemetryState()
+		state.CLI = newVersion
+		saveTelemetryState(state)
 	})
-
-	// Update the stored CLI version so "Installed CLI" won't re-fire
-	state := loadTelemetryState()
-	state.CLI = newVersion
-	saveTelemetryState(state)
+	if !started {
+		telemetryMu.Lock()
+		delete(pendingCLIEvents, eventKey)
+		telemetryMu.Unlock()
+	}
 }
 
 // generateUUID creates a random UUID v4 string without external dependencies.

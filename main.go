@@ -19,6 +19,11 @@ var (
 )
 
 func main() {
+	// Configure PostHog before Execute prompts for first-run consent. Event
+	// tracking still checks the saved consent before sending anything.
+	core.PosthogAPIKey = posthogKey
+	defer core.FlushPosthog()
+
 	// Initialize Sentry for error tracking only if tracking is enabled
 	if blaxel.IsTrackingEnabled() {
 		err := core.InitSentry(core.SentryConfig{
@@ -35,12 +40,6 @@ func main() {
 
 		// Recover from panics and send to Sentry
 		defer core.RecoverWithSentry()
-	}
-
-	// Initialize PostHog tracking
-	if blaxel.IsTrackingEnabled() {
-		core.PosthogAPIKey = posthogKey
-		defer core.FlushPosthog()
 	}
 
 	err := cli.Execute(version, commit, date)
