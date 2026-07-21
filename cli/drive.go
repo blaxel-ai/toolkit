@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
@@ -69,6 +70,45 @@ type driveListResponse struct {
 // sandboxAPIError is an error returned by the sandbox API.
 type sandboxAPIError struct {
 	Error string `json:"error"`
+}
+
+// sandboxGatewayErrorResponse is the typed error envelope emitted by the
+// Blaxel gateway. It is deliberately separate from sandboxAPIError because
+// workload-owned APIs may still return the legacy {"error": "..."} shape.
+type sandboxGatewayErrorResponse struct {
+	Error sandboxGatewayError `json:"error"`
+}
+
+type sandboxGatewayError struct {
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Origin    string `json:"origin"`
+	Retryable bool   `json:"retryable"`
+	Action    string `json:"action"`
+}
+
+type sandboxReadResponse struct {
+	StatusCode                  int
+	Body                        []byte
+	PlatformWorkloadUnavailable bool
+}
+
+type sandboxRetryPolicy struct {
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+	TotalBudget    time.Duration
+	HTTPClient     *http.Client
+	Now            func() time.Time
+	Sleep          func(context.Context, time.Duration) error
+}
+
+var defaultSandboxReadRetryPolicy = sandboxRetryPolicy{
+	InitialBackoff: 500 * time.Millisecond,
+	MaxBackoff:     30 * time.Second,
+	TotalBudget:    60 * time.Second,
+	HTTPClient:     http.DefaultClient,
+	Now:            time.Now,
+	Sleep:          sleepWithContext,
 }
 
 func DriveCmd() *cobra.Command {
@@ -295,25 +335,17 @@ func DriveMountsCmd() *cobra.Command {
 
 			sandboxURL, token := resolveSandbox(ctx, sandboxName)
 
-			resp, err := sandboxRequest(ctx, http.MethodGet, sandboxURL, "/drives/mount", token, nil)
+			resp, err := sandboxReadRequestWithRetry(ctx, sandboxURL, "/drives/mount", token)
 			if err != nil {
 				core.PrintError("Drive mounts", err)
 				core.ExitWithError(err)
 			}
-			defer func() { _ = resp.Body.Close() }()
-
-			respBody, err := io.ReadAll(resp.Body)
-			if err != nil {
-				core.PrintError("Drive mounts", fmt.Errorf("failed to read response: %w", err))
-				core.ExitWithError(err)
-			}
-
 			if resp.StatusCode != http.StatusOK {
-				handleSandboxAPIError(respBody, resp.StatusCode, "list mounted drives")
+				handleSandboxReadAPIError(resp, "list mounted drives")
 			}
 
 			var listResp driveListResponse
-			if err := json.Unmarshal(respBody, &listResp); err != nil {
+			if err := json.Unmarshal(resp.Body, &listResp); err != nil {
 				core.PrintError("Drive mounts", fmt.Errorf("failed to parse response: %w", err))
 				core.ExitWithError(err)
 			}
@@ -590,6 +622,10 @@ func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token 
 
 // sandboxRequest makes an authenticated HTTP request to the sandbox API.
 func sandboxRequest(ctx context.Context, method, sandboxURL, path, token string, body io.Reader) (*http.Response, error) {
+	return sandboxRequestWithClient(ctx, http.DefaultClient, method, sandboxURL, path, token, body)
+}
+
+func sandboxRequestWithClient(ctx context.Context, client *http.Client, method, sandboxURL, path, token string, body io.Reader) (*http.Response, error) {
 	url := strings.TrimSuffix(sandboxURL, "/") + path
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
@@ -599,7 +635,7 @@ func sandboxRequest(ctx context.Context, method, sandboxURL, path, token string,
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request to sandbox failed: %w", err)
 	}
@@ -607,17 +643,146 @@ func sandboxRequest(ctx context.Context, method, sandboxURL, path, token string,
 	return resp, nil
 }
 
+// sandboxReadRequestWithRetry retries only the idempotent GET used to list
+// mounted drives. Keeping the method out of this API makes it impossible for a
+// caller to accidentally reuse this policy for a mutation.
+func sandboxReadRequestWithRetry(ctx context.Context, sandboxURL, path, token string) (*sandboxReadResponse, error) {
+	return sandboxReadRequestWithRetryPolicy(
+		ctx,
+		sandboxURL,
+		path,
+		token,
+		defaultSandboxReadRetryPolicy,
+		func() { core.PrintInfo("Waiting for sandbox to become available...") },
+	)
+}
+
+func sandboxReadRequestWithRetryPolicy(
+	ctx context.Context,
+	sandboxURL string,
+	path string,
+	token string,
+	policy sandboxRetryPolicy,
+	onFirstRetry func(),
+) (*sandboxReadResponse, error) {
+	if policy.InitialBackoff <= 0 || policy.MaxBackoff <= 0 || policy.TotalBudget <= 0 || policy.HTTPClient == nil || policy.Now == nil || policy.Sleep == nil {
+		return nil, fmt.Errorf("invalid sandbox retry policy")
+	}
+
+	startedAt := policy.Now()
+	backoff := policy.InitialBackoff
+	retried := false
+
+	for {
+		resp, err := sandboxRequestWithClient(ctx, policy.HTTPClient, http.MethodGet, sandboxURL, path, token, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("failed to read sandbox response: %w", readErr)
+		}
+
+		platformWorkloadUnavailable := isRetryableWorkloadUnavailable(resp, respBody)
+		result := &sandboxReadResponse{
+			StatusCode:                  resp.StatusCode,
+			Body:                        respBody,
+			PlatformWorkloadUnavailable: platformWorkloadUnavailable,
+		}
+		if !platformWorkloadUnavailable {
+			return result, nil
+		}
+
+		remaining := policy.TotalBudget - policy.Now().Sub(startedAt)
+		if remaining <= 0 {
+			return result, nil
+		}
+
+		delay := min(backoff, policy.MaxBackoff, remaining)
+		if !retried {
+			if onFirstRetry != nil {
+				onFirstRetry()
+			}
+			retried = true
+		}
+
+		if err := policy.Sleep(ctx, delay); err != nil {
+			return nil, fmt.Errorf("sandbox retry interrupted: %w", err)
+		}
+		backoff = min(backoff*2, policy.MaxBackoff)
+	}
+}
+
+func isRetryableWorkloadUnavailable(resp *http.Response, body []byte) bool {
+	if resp.StatusCode != http.StatusNotFound {
+		return false
+	}
+
+	var gatewayErr sandboxGatewayErrorResponse
+	if err := json.Unmarshal(body, &gatewayErr); err != nil {
+		return false
+	}
+
+	isPlatformError := strings.EqualFold(resp.Header.Get("X-Blaxel-Source"), "platform") ||
+		strings.EqualFold(gatewayErr.Error.Origin, "platform")
+	return isPlatformError &&
+		gatewayErr.Error.Code == "WORKLOAD_UNAVAILABLE" &&
+		gatewayErr.Error.Retryable
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // handleSandboxAPIError extracts an error message from a sandbox API response and exits.
 func handleSandboxAPIError(body []byte, statusCode int, operation string) {
+	err := core.MarkExpectedHTTPError(newSandboxAPIError(body, statusCode, operation), statusCode)
+	core.PrintError("Drive", err)
+	core.ExitWithError(err)
+}
+
+func handleSandboxReadAPIError(response *sandboxReadResponse, operation string) {
+	err := classifySandboxReadAPIError(response, operation)
+	core.PrintError("Drive", err)
+	core.ExitWithError(err)
+}
+
+func classifySandboxReadAPIError(response *sandboxReadResponse, operation string) error {
+	err := newSandboxAPIError(response.Body, response.StatusCode, operation)
+	if response.PlatformWorkloadUnavailable {
+		return err
+	}
+	return core.MarkExpectedHTTPError(err, response.StatusCode)
+}
+
+func newSandboxAPIError(body []byte, statusCode int, operation string) error {
+	var gatewayErr sandboxGatewayErrorResponse
+	if err := json.Unmarshal(body, &gatewayErr); err == nil && gatewayErr.Error.Message != "" {
+		detail := gatewayErr.Error.Message
+		if gatewayErr.Error.Action != "" {
+			detail = fmt.Sprintf("%s. %s", strings.TrimSuffix(detail, "."), gatewayErr.Error.Action)
+		}
+		if gatewayErr.Error.Code != "" {
+			return fmt.Errorf("failed to %s (HTTP %d, %s): %s", operation, statusCode, gatewayErr.Error.Code, detail)
+		}
+		return fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, detail)
+	}
+
 	var apiErr sandboxAPIError
 	if err := json.Unmarshal(body, &apiErr); err == nil && apiErr.Error != "" {
-		err := fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, apiErr.Error)
-		core.PrintError("Drive", err)
-		core.ExitWithError(core.MarkExpectedHTTPError(err, statusCode))
+		return fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, apiErr.Error)
 	}
-	err := fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, string(body))
-	core.PrintError("Drive", err)
-	core.ExitWithError(core.MarkExpectedHTTPError(err, statusCode))
+	return fmt.Errorf("failed to %s (HTTP %d): %s", operation, statusCode, string(body))
 }
 
 // outputDriveData marshals the given data to JSON or YAML format and prints it.
