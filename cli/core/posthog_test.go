@@ -15,7 +15,9 @@ import (
 
 func resetPosthogTestState(t *testing.T, host string) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("DO_NOT_TRACK", "0")
 
 	oldKey, oldHost := PosthogAPIKey, PosthogHost
