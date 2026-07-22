@@ -193,7 +193,6 @@ func PromptSandboxTemplateOptions(directory string, templates Templates) Templat
 
 func sandboxTemplatesForDisplay(templates Templates) Templates {
 	knownTemplates := Templates{}
-	remainingTemplates := Templates{}
 
 	for _, name := range []string{sandboxScratchTemplate, sandboxClaudeCodeTemplate, sandboxCodexTemplate} {
 		for _, t := range templates {
@@ -208,10 +207,7 @@ func sandboxTemplatesForDisplay(templates Templates) Templates {
 		return knownTemplates
 	}
 
-	for _, t := range templates {
-		remainingTemplates = append(remainingTemplates, t)
-	}
-	return remainingTemplates
+	return append(Templates{}, templates...)
 }
 
 func sandboxTemplateLabel(t Template) string {
@@ -325,7 +321,7 @@ func removeSandboxFile(dir, name string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open sandbox directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	return root.Remove(name)
 }
 
@@ -338,7 +334,7 @@ func writeSandboxFile(dir, name string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("failed to open sandbox directory: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 
 	info, err := root.Lstat(name)
 	if err == nil {
