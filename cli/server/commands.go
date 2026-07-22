@@ -19,7 +19,7 @@ func FindRootCmd(port int, host string, hotreload bool, folder string, config co
 		Envs:       GetServerEnvironment(port, host, hotreload, config),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error finding root cmd: %v", err)
+		return nil, fmt.Errorf("error finding root cmd: %w", err)
 	}
 	return exec.Command("sh", "-c", strings.Join(rootCmd, " ")), nil
 }
@@ -67,21 +67,27 @@ func FindRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 		return findGoRootCmdAsString(cfg)
 	default:
 		if cfg.Hotreload {
-			return nil, fmt.Errorf("no dev entrypoint configured and language not supported")
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("no dev entrypoint configured and language not supported"),
+				core.CLIErrorValidation,
+			)
 		}
-		return nil, fmt.Errorf("no prod entrypoint configured and language not supported")
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("no prod entrypoint configured and language not supported"),
+			core.CLIErrorValidation,
+		)
 	}
 }
 
 func FindJobCommand(task map[string]interface{}, folder string, config core.Config) (*exec.Cmd, error) {
 	rootCmd, err := FindRootCmd(0, "localhost", false, folder, config)
 	if err != nil {
-		return nil, fmt.Errorf("error finding root cmd: %v", err)
+		return nil, fmt.Errorf("error finding root cmd: %w", err)
 	}
 	for arg := range task {
 		jsonencoded, err := json.Marshal(task[arg])
 		if err != nil {
-			return nil, fmt.Errorf("error marshalling task: %v", err)
+			return nil, fmt.Errorf("error marshalling task: %w", err)
 		}
 		lastArg := rootCmd.Args[len(rootCmd.Args)-1]
 		lastArg = strings.Join([]string{lastArg, "--" + arg, string(jsonencoded)}, " ")

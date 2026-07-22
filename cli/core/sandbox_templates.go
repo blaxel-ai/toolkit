@@ -356,7 +356,10 @@ func writeSandboxFile(dir, name string, data []byte, perm os.FileMode) error {
 
 func validateSandboxFileName(name string) error {
 	if name == "" || name == "." || filepath.IsAbs(name) || name != filepath.Base(name) {
-		return fmt.Errorf("invalid sandbox file target %q", name)
+		return MarkExpectedError(
+			fmt.Errorf("invalid sandbox file target %q", name),
+			CLIErrorValidation,
+		)
 	}
 	return nil
 }

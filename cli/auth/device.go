@@ -133,7 +133,10 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 			deviceModeLoginFinalize(deviceCode, workspace, retries-1)
 			return
 		} else {
-			err := fmt.Errorf("login timed out waiting for confirmation")
+			err := core.MarkExpectedError(
+				fmt.Errorf("login timed out waiting for confirmation"),
+				core.CLIErrorOperational,
+			)
 			core.PrintError("Login", err)
 			core.ExitWithError(err)
 		}
@@ -149,7 +152,10 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 					deviceModeLoginFinalize(deviceCode, workspace, retries-1)
 					return
 				} else {
-					err := fmt.Errorf("login timed out waiting for confirmation")
+					err := core.MarkExpectedError(
+						fmt.Errorf("login timed out waiting for confirmation"),
+						core.CLIErrorOperational,
+					)
 					core.PrintError("Login", err)
 					core.ExitWithError(err)
 				}
@@ -164,7 +170,10 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 
 	if res.StatusCode != http.StatusOK {
 		// This is a real error, not just pending
-		err := fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body))
+		err := core.MarkExpectedError(
+			fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)),
+			core.CLIErrorAuthentication,
+		)
 		core.PrintError("Login", err)
 		core.ExitWithError(err)
 	}
@@ -186,7 +195,10 @@ func deviceModeLoginFinalize(deviceCode string, workspace string, retries int) {
 			return
 		}
 		if len(workspaces) == 0 {
-			err := fmt.Errorf("no workspaces are available for your account.\nVisit %s to create one", blaxel.GetAppURL())
+			err := core.MarkExpectedError(
+				fmt.Errorf("no workspaces are available for your account.\nVisit %s to create one", blaxel.GetAppURL()),
+				core.CLIErrorOperational,
+			)
 			core.PrintError("Login", err)
 			core.ExitWithError(err)
 			return

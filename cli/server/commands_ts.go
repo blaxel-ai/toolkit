@@ -95,22 +95,28 @@ func StartTypescriptServer(port int, host string, hotreload bool, folder string,
 func getPackageJson(folder string) (PackageJson, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return PackageJson{}, fmt.Errorf("error getting current directory: %v", err)
+		return PackageJson{}, fmt.Errorf("error getting current directory: %w", err)
 	}
 	packageJsonPath := filepath.Join(currentDir, folder, "package.json")
 	if _, err := os.Stat(packageJsonPath); err == nil {
 		packageJson, err := os.ReadFile(packageJsonPath)
 		if err != nil {
-			return PackageJson{}, fmt.Errorf("error reading package.json: %v", err)
+			return PackageJson{}, fmt.Errorf("error reading package.json: %w", err)
 		}
 		var packageJsonObj PackageJson
 		err = json.Unmarshal(packageJson, &packageJsonObj)
 		if err != nil {
-			return PackageJson{}, fmt.Errorf("error unmarshalling package.json: %v", err)
+			return PackageJson{}, core.MarkExpectedError(
+				fmt.Errorf("error unmarshalling package.json: %w", err),
+				core.CLIErrorValidation,
+			)
 		}
 		return packageJsonObj, nil
 	}
-	return PackageJson{}, fmt.Errorf("package.json not found in current directory")
+	return PackageJson{}, core.MarkExpectedError(
+		fmt.Errorf("package.json not found in current directory"),
+		core.CLIErrorNotFound,
+	)
 }
 
 func findTSPackageManagerLockFile() string {
@@ -215,5 +221,8 @@ func findTSRootCmdAsString(config RootCmdConfig) ([]string, error) {
 			return []string{nodeExec, file}, nil
 		}
 	}
-	return nil, fmt.Errorf("index.js, index.ts, app.js or app.ts not found in current directory")
+	return nil, core.MarkExpectedError(
+		fmt.Errorf("index.js, index.ts, app.js or app.ts not found in current directory"),
+		core.CLIErrorNotFound,
+	)
 }

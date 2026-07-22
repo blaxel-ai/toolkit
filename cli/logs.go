@@ -55,7 +55,10 @@ func normalizeResourceType(resourceType string) (string, error) {
 		return canonical, nil
 	}
 
-	return "", fmt.Errorf("invalid resource type '%s'. Valid types: sandbox/sbx, job/j, agent/ag, function/fn/mcp", resourceType)
+	return "", core.MarkExpectedError(
+		fmt.Errorf("invalid resource type '%s'. Valid types: sandbox/sbx, job/j, agent/ag, function/fn/mcp", resourceType),
+		core.CLIErrorValidation,
+	)
 }
 
 // parseTimeFlag parses a time string flag value
@@ -79,7 +82,10 @@ func parseTimeFlag(timeStr string) (time.Time, error) {
 		return time.Date(t.Year(), t.Month(), t.Day(), 12, 0, 0, 0, time.UTC), nil
 	}
 
-	return time.Time{}, fmt.Errorf("invalid time format '%s'. Use RFC3339 format (e.g., 2006-01-02T15:04:05Z) or YYYY-MM-DD", timeStr)
+	return time.Time{}, core.MarkExpectedError(
+		fmt.Errorf("invalid time format '%s'. Use RFC3339 format (e.g., 2006-01-02T15:04:05Z) or YYYY-MM-DD", timeStr),
+		core.CLIErrorValidation,
+	)
 }
 
 // validateTimeRange ensures the time range doesn't exceed 3 days
@@ -88,11 +94,17 @@ func validateTimeRange(start, end time.Time) error {
 	maxDuration := 3 * 24 * time.Hour // 3 days
 
 	if duration > maxDuration {
-		return fmt.Errorf("time range exceeds maximum of 3 days (requested: %v)", duration)
+		return core.MarkExpectedError(
+			fmt.Errorf("time range exceeds maximum of 3 days (requested: %v)", duration),
+			core.CLIErrorValidation,
+		)
 	}
 
 	if duration < 0 {
-		return fmt.Errorf("start time must be before end time")
+		return core.MarkExpectedError(
+			fmt.Errorf("start time must be before end time"),
+			core.CLIErrorValidation,
+		)
 	}
 
 	return nil
@@ -258,14 +270,14 @@ Examples:
 				// Use explicit start and end times
 				startTime, err = parseTimeFlag(startTimeStr)
 				if err != nil {
-					err = fmt.Errorf("invalid start time: %v", err)
+					err = fmt.Errorf("invalid start time: %w", err)
 					core.PrintError("logs", err)
 					core.ExitWithError(err)
 				}
 
 				endTime, err = parseTimeFlag(endTimeStr)
 				if err != nil {
-					err = fmt.Errorf("invalid end time: %v", err)
+					err = fmt.Errorf("invalid end time: %w", err)
 					core.PrintError("logs", err)
 					core.ExitWithError(err)
 				}
@@ -283,7 +295,7 @@ Examples:
 				// Only start time provided
 				startTime, err = parseTimeFlag(startTimeStr)
 				if err != nil {
-					err = fmt.Errorf("invalid start time: %v", err)
+					err = fmt.Errorf("invalid start time: %w", err)
 					core.PrintError("logs", err)
 					core.ExitWithError(err)
 				}

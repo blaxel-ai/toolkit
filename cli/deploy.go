@@ -203,7 +203,10 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				}
 				if parsed <= 0 {
 					core.PrintError("Deploy", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-					core.ExitWithError(fmt.Errorf("invalid timeout"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("invalid timeout"),
+						core.CLIErrorValidation,
+					))
 				}
 				deployTimeout = parsed
 			}
@@ -805,14 +808,20 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
-		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("unknown resource type: %s", resourceType),
+			core.CLIErrorValidation,
+		)
 	}
 
 	if err != nil {
 		// Check if it's a not found error
 		var apiErr *blaxel.Error
 		if isBlaxelErrorDeploy(err, &apiErr) && apiErr.StatusCode == 404 {
-			return nil, fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name)
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name),
+				core.CLIErrorNotFound,
+			)
 		}
 		return nil, err
 	}
@@ -1041,7 +1050,10 @@ func (d *Deployment) ApplyInteractive() error {
 	// Check if any resources failed
 	for _, r := range resources {
 		if r.Status == deploy.StatusFailed {
-			return fmt.Errorf("deployment failed for %s/%s: %v", r.Kind, r.Name, r.Error)
+			if r.Error == nil {
+				return fmt.Errorf("deployment failed for %s/%s without error detail", r.Kind, r.Name)
+			}
+			return fmt.Errorf("deployment failed for %s/%s: %w", r.Kind, r.Name, r.Error)
 		}
 	}
 
@@ -1358,7 +1370,10 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				if logWatcher != nil {
 					logWatcher.Stop()
 				}
-				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after %s", d.timeout))
+				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", core.MarkExpectedError(
+					fmt.Errorf("deployment timed out after %s", d.timeout),
+					core.CLIErrorOperational,
+				))
 				return
 			case <-staleFailedGracePeriod:
 				// Grace period expired - if status is still FAILED, accept it as real
@@ -1440,14 +1455,20 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
-						model.UpdateResource(idx, deploy.StatusFailed, "Deployment failed", fmt.Errorf("resource deployment failed"))
+						model.UpdateResource(idx, deploy.StatusFailed, "Deployment failed", core.MarkExpectedError(
+							fmt.Errorf("resource deployment failed"),
+							core.CLIErrorOperational,
+						))
 						model.AddBuildLog(idx, "Status changed to: FAILED - Deployment failed")
 						return
 					case "DEACTIVATED", "DEACTIVATING", "DELETING":
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
-						model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+						model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), core.MarkExpectedError(
+							fmt.Errorf("resource is being deactivated or deleted"),
+							core.CLIErrorOperational,
+						))
 						model.AddBuildLog(idx, fmt.Sprintf("Unexpected status: %s", status))
 						return
 					default:
@@ -1540,7 +1561,10 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 								if logWatcher != nil {
 									logWatcher.Stop()
 								}
-								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
+								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", core.MarkExpectedError(
+									fmt.Errorf("deployment timed out after %s", additionalTimeout),
+									core.CLIErrorOperational,
+								))
 								ticker.Stop()
 								return
 							case <-ticker.C:
@@ -1603,14 +1627,20 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
+										model.UpdateResource(idx, deploy.StatusFailed, "Failed", core.MarkExpectedError(
+											fmt.Errorf("deployment failed"),
+											core.CLIErrorOperational,
+										))
 										ticker.Stop()
 										return
 									case "DEACTIVATED", "DEACTIVATING", "DELETING":
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), core.MarkExpectedError(
+											fmt.Errorf("resource is being deactivated or deleted"),
+											core.CLIErrorOperational,
+										))
 										ticker.Stop()
 										return
 									default:
@@ -1739,7 +1769,10 @@ func (d *Deployment) renderDryRunStructuredOutput(outputFmt string, skipBuild bo
 	case "yaml":
 		return yaml.Marshal(result)
 	default:
-		return nil, fmt.Errorf("unsupported dry-run output format %q", outputFmt)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("unsupported dry-run output format %q", outputFmt),
+			core.CLIErrorValidation,
+		)
 	}
 }
 
@@ -2107,7 +2140,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 
 		// Validate that the directory exists
 		if _, err := os.Stat(archiveRoot); err != nil {
-			return fmt.Errorf("volume template directory does not exist: %s", volumeDir)
+			if os.IsNotExist(err) {
+				return core.MarkExpectedError(
+					fmt.Errorf("volume template directory does not exist: %s", volumeDir),
+					core.CLIErrorNotFound,
+				)
+			}
+			return fmt.Errorf("failed to inspect volume template directory %q: %w", volumeDir, err)
 		}
 	}
 
@@ -2464,7 +2503,7 @@ func deployPackage(dryRun bool, name string) bool {
 func getDeployCommands(dryRun bool, defaultName string) ([]server.PackageCommand, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("error getting current directory: %v", err)
+		return nil, fmt.Errorf("error getting current directory: %w", err)
 	}
 	command := server.PackageCommand{
 		Name:    "root",

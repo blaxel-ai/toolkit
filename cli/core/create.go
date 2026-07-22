@@ -126,12 +126,11 @@ func runCreateFlowWithDeps(
 		dirArg = generateRandomDirectoryName(cfg.TemplateType)
 	}
 
-	// If directory arg provided, ensure it doesn't already exist
+	// If directory arg provided, ensure it doesn't already exist.
 	if dirArg != "" {
-		if _, err := os.Stat(dirArg); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", dirArg)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(dirArg); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 	}
 
@@ -150,14 +149,16 @@ func runCreateFlowWithDeps(
 		if selectedDir == "" {
 			selectedDir = templateNameFlag
 		}
-		if _, err := os.Stat(selectedDir); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", selectedDir)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(selectedDir); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 		opts = CreateDefaultTemplateOptions(selectedDir, templateNameFlag, templates)
 		if opts.TemplateName == "" {
-			createErr := fmt.Errorf("template '%s' not found", templateNameFlag)
+			createErr := MarkExpectedError(
+				fmt.Errorf("template '%s' not found", templateNameFlag),
+				CLIErrorNotFound,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			printAvailableTemplates(templates, cfg.TemplateType)
 			return createErr
@@ -165,7 +166,10 @@ func runCreateFlowWithDeps(
 	case cfg.NoTTY && cfg.TemplateType == "mcp":
 		// Special-case retained behavior: for MCP with --yes but no template we require directory and pick default
 		if dirArg == "" {
-			createErr := fmt.Errorf("directory name is required")
+			createErr := MarkExpectedError(
+				fmt.Errorf("directory name is required"),
+				CLIErrorUsage,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			return createErr
 		}
@@ -175,14 +179,16 @@ func runCreateFlowWithDeps(
 		opts = promptFunc(dirArg, templates)
 		// Safety checks
 		if opts.Directory == "" {
-			createErr := fmt.Errorf("directory name is required")
+			createErr := MarkExpectedError(
+				fmt.Errorf("directory name is required"),
+				CLIErrorUsage,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			return createErr
 		}
-		if _, err := os.Stat(opts.Directory); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", opts.Directory)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(opts.Directory); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 	}
 
@@ -231,6 +237,20 @@ func runCreateFlowWithDeps(
 	// Let the caller print specific success instructions
 	successFunc(opts)
 	return nil
+}
+
+func ensureCreateDirectoryAvailable(directory string) error {
+	_, err := os.Stat(directory)
+	if err == nil {
+		return MarkExpectedError(
+			fmt.Errorf("directory '%s' already exists", directory),
+			CLIErrorConflict,
+		)
+	}
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return fmt.Errorf("failed to inspect directory %q: %w", directory, err)
 }
 
 func normalizeTemplateNameFlag(templateNameFlag string, templateType string) string {
