@@ -90,3 +90,44 @@ func TestTokenCmdArguments(t *testing.T) {
 	// Token cmd takes optional workspace argument
 	assert.NotNil(t, cmd.Args)
 }
+
+func TestWorkspaceHipaaCmd(t *testing.T) {
+	cmd := WorkspaceHipaaCmd()
+
+	assert.Equal(t, "hipaa", cmd.Use)
+	assert.NotEmpty(t, cmd.Short)
+	assert.NotEmpty(t, cmd.Long)
+
+	subcommands := make(map[string]bool, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		subcommands[sub.Use] = true
+	}
+	assert.True(t, subcommands["accept"], "expected accept subcommand")
+	assert.True(t, subcommands["decline"], "expected decline subcommand")
+	assert.True(t, subcommands["status"], "expected status subcommand")
+}
+
+func TestWorkspaceHipaaSubcommandFlags(t *testing.T) {
+	for _, name := range []string{"accept", "decline"} {
+		var cmd = WorkspaceHipaaAcceptCmd()
+		if name == "decline" {
+			cmd = WorkspaceHipaaDeclineCmd()
+		}
+		flag := cmd.Flags().Lookup("yes")
+		assert.NotNil(t, flag, "%s should expose --yes", name)
+		assert.Equal(t, "y", flag.Shorthand, "%s --yes shorthand", name)
+	}
+}
+
+func TestListOrSetWorkspacesCmdRegistersHipaaSubcommand(t *testing.T) {
+	cmd := ListOrSetWorkspacesCmd()
+
+	var hipaa bool
+	for _, sub := range cmd.Commands() {
+		if sub.Use == "hipaa" {
+			hipaa = true
+			break
+		}
+	}
+	assert.True(t, hipaa, "workspaces command should attach `hipaa` subcommand")
+}
