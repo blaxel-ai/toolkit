@@ -438,6 +438,8 @@ MY_VAR = "my-value"
 # Runtime configuration (optional)
 [runtime]
 memory = 4096
+# Sandbox root storage in MB (optional)
+# storageMb = 102400
 # Job configuration (optional)
 # maxConcurrentTasks = 10
 # timeout = "15m"  # Supports: 30s, 5m, 1h, 2d, 1w or plain seconds (900)
