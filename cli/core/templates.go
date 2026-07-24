@@ -303,7 +303,7 @@ func CreateDefaultTemplateOptions(directory, templateName string, templates Temp
 	// Find the template by name (supports both full name and display name)
 	var foundTemplate *Template
 	for _, template := range templates {
-		key := regexp.MustCompile(`^\d+-`).ReplaceAllString(template.Name, "")
+		key := canonicalTemplateName(template.Name)
 		if template.Name == templateName || key == templateName {
 			foundTemplate = &template
 			break

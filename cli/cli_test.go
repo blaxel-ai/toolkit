@@ -478,6 +478,10 @@ func TestNewCmd(t *testing.T) {
 	yesFlag := cmd.Flags().Lookup("yes")
 	assert.NotNil(t, yesFlag)
 	assert.Equal(t, "y", yesFlag.Shorthand)
+	assert.Contains(t, yesFlag.Usage, "job creation also requires --template")
+
+	assert.Contains(t, cmd.Long, "GitHub Actions runners")
+	assert.Contains(t, cmd.Example, "bl new job my-github-runner -t github-runner -y")
 }
 
 func TestParseNewType(t *testing.T) {
