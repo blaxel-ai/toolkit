@@ -997,8 +997,9 @@ func TestZipContainsDockerConfig(t *testing.T) {
 			rc, err := f.Open()
 			require.NoError(t, err)
 			data, err := io.ReadAll(rc)
-			require.NoError(t, rc.Close())
+			closeErr := rc.Close()
 			require.NoError(t, err)
+			require.NoError(t, closeErr)
 
 			var config core.DockerConfig
 			require.NoError(t, json.Unmarshal(data, &config))
@@ -1048,8 +1049,9 @@ func TestZipExcludesRawDockerDir(t *testing.T) {
 			rc, err := f.Open()
 			require.NoError(t, err)
 			data, err := io.ReadAll(rc)
-			require.NoError(t, rc.Close())
+			closeErr := rc.Close()
 			require.NoError(t, err)
+			require.NoError(t, closeErr)
 
 			// Should contain the injected config, not the on-disk one
 			var config core.DockerConfig

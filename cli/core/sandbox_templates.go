@@ -193,7 +193,6 @@ func PromptSandboxTemplateOptions(directory string, templates Templates) Templat
 
 func sandboxTemplatesForDisplay(templates Templates) Templates {
 	knownTemplates := Templates{}
-	remainingTemplates := Templates{}
 
 	for _, name := range []string{sandboxScratchTemplate, sandboxClaudeCodeTemplate, sandboxCodexTemplate} {
 		for _, t := range templates {
@@ -208,8 +207,7 @@ func sandboxTemplatesForDisplay(templates Templates) Templates {
 		return knownTemplates
 	}
 
-	remainingTemplates = append(remainingTemplates, templates...)
-	return remainingTemplates
+	return append(Templates{}, templates...)
 }
 
 func sandboxTemplateLabel(t Template) string {
