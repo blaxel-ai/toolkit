@@ -24,6 +24,7 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/server"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
+	"github.com/moby/patternmatcher"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -2023,8 +2024,7 @@ func (d *Deployment) IgnoredPaths() []string {
 
 	// Parse the .blaxelignore file, filtering out comments and empty lines
 	lines := strings.Split(string(content), "\n")
-	// Always exclude .env.build regardless of .blaxelignore content
-	ignoredPaths := []string{".env.build"}
+	ignoredPaths := []string{}
 	for _, line := range lines {
 		// Trim whitespace
 		line = strings.TrimSpace(line)
@@ -2042,23 +2042,54 @@ func (d *Deployment) IgnoredPaths() []string {
 		}
 		ignoredPaths = append(ignoredPaths, line)
 	}
-	return ignoredPaths
+	// Keep .env.build excluded even if an earlier pattern re-includes it.
+	return append(ignoredPaths, ".env.build")
 }
 
-func (d *Deployment) shouldIgnorePath(path string, ignoredPaths []string) bool {
-	sep := string(filepath.Separator)
-	for _, ignoredPath := range ignoredPaths {
-		if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
-			return true
-		}
-		if strings.Contains(path, sep+ignoredPath+sep) {
-			return true
-		}
-		if strings.HasSuffix(path, sep+ignoredPath) {
-			return true
-		}
+type ignoredPathMatcher struct {
+	root    string
+	matcher *patternmatcher.PatternMatcher
+}
+
+func newIgnoredPathMatcher(root string, patterns []string) (*ignoredPathMatcher, error) {
+	normalizedPatterns := make([]string, 0, len(patterns))
+	for _, pattern := range patterns {
+		normalizedPatterns = append(normalizedPatterns, normalizeIgnorePattern(pattern))
 	}
-	return false
+
+	matcher, err := patternmatcher.New(normalizedPatterns)
+	if err != nil {
+		return nil, fmt.Errorf("invalid .blaxelignore pattern: %w", err)
+	}
+	return &ignoredPathMatcher{root: root, matcher: matcher}, nil
+}
+
+// normalizeIgnorePattern preserves the previous behavior where literal paths
+// matched at any depth. Glob patterns retain Docker ignore-file semantics.
+func normalizeIgnorePattern(pattern string) string {
+	negated := strings.HasPrefix(pattern, "!")
+	if negated {
+		pattern = pattern[1:]
+	}
+
+	anchored := strings.HasPrefix(pattern, "/") || strings.HasPrefix(pattern, "./")
+	pattern = strings.TrimPrefix(strings.TrimPrefix(pattern, "./"), "/")
+	if !anchored && !strings.ContainsAny(pattern, "*?[") {
+		pattern = "**/" + pattern
+	}
+
+	if negated {
+		return "!" + pattern
+	}
+	return pattern
+}
+
+func (m *ignoredPathMatcher) matches(path string) (bool, error) {
+	relativePath, err := filepath.Rel(m.root, path)
+	if err != nil {
+		return false, fmt.Errorf("resolve ignored path %q: %w", path, err)
+	}
+	return m.matcher.MatchesOrParentMatches(toArchivePath(relativePath))
 }
 
 // toArchivePath normalizes a file path for use in zip/tar archives.
@@ -2135,9 +2166,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	config := core.GetConfig()
 
 	// For volume-template, don't apply ignore logic
-	var ignoredPaths []string
+	var ignoreMatcher *ignoredPathMatcher
 	if !core.IsVolumeTemplate(config.Type) {
-		ignoredPaths = d.IgnoredPaths()
+		var err error
+		ignoreMatcher, err = newIgnoredPathMatcher(d.cwd, d.IgnoredPaths())
+		if err != nil {
+			return err
+		}
 	}
 
 	// Determine the root directory to archive
@@ -2179,8 +2214,14 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 
 		// Only apply ignore logic for non-volume-template types
-		if !core.IsVolumeTemplate(config.Type) && d.shouldIgnorePath(path, ignoredPaths) {
-			return nil
+		if ignoreMatcher != nil {
+			ignored, err := ignoreMatcher.matches(path)
+			if err != nil {
+				return err
+			}
+			if ignored {
+				return nil
+			}
 		}
 
 		// For volume-templates, exclude blaxel.toml from the archive
