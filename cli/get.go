@@ -39,6 +39,7 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - functions/mcp: Model Context Protocol servers (tool providers)
 - jobs: Batch processing tasks
 - sandboxes: Isolated execution environments
+- applications: Application deployments with revision-based traffic management
 - models: AI model configurations
 - policies: Access control policies
 - volumes: Persistent storage

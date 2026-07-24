@@ -17,7 +17,7 @@ type mockWorkspaceClient struct {
 	err        error
 }
 
-func (m *mockWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+func (m *mockWorkspaceClient) Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -52,7 +52,7 @@ type countingWorkspaceClient struct {
 	err              error
 }
 
-func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error) {
 	c.getCalls++
 	c.getWorkspaceName = workspaceName
 	if c.err != nil {

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -325,6 +326,41 @@ func TestResourceStructure(t *testing.T) {
 	assert.Equal(t, "test", resource.Singular)
 }
 
+func TestSetBodyFieldsFromJSONApplicationParams(t *testing.T) {
+	bodyJSON := []byte(`{
+		"metadata": {"name": "my-app"},
+		"spec": {
+			"enabled": true,
+			"region": "us-pdx-1",
+			"port": 8080,
+			"revisions": [{
+				"image": "registry.example.com/my-app:latest",
+				"memory": 2048,
+				"envs": [{"name": "FOO", "value": "bar"}]
+			}]
+		}
+	}`)
+
+	var params blaxel.ApplicationNewParams
+	setBodyFieldsFromJSON(reflect.ValueOf(&params).Elem(), bodyJSON)
+
+	payload, err := json.Marshal(params)
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(payload, &body))
+	spec := body["spec"].(map[string]any)
+	assert.Equal(t, true, spec["enabled"])
+	assert.Equal(t, "us-pdx-1", spec["region"])
+	assert.Equal(t, float64(8080), spec["port"])
+
+	revisions := spec["revisions"].([]any)
+	revision := revisions[0].(map[string]any)
+	assert.Equal(t, "registry.example.com/my-app:latest", revision["image"])
+	assert.Equal(t, float64(2048), revision["memory"])
+	assert.Len(t, revision["envs"], 1)
+}
+
 func TestHandleResourceOperationNilFunction(t *testing.T) {
 	resource := &core.Resource{
 		Kind: "Test",
@@ -453,6 +489,9 @@ func TestParseNewType(t *testing.T) {
 		{"agent", "agent", newTypeAgent},
 		{"ag alias", "ag", newTypeAgent},
 		{"Agent uppercase", "Agent", newTypeAgent},
+		{"app", "app", newTypeApp},
+		{"application alias", "application", newTypeApp},
+		{"App uppercase", "App", newTypeApp},
 		{"mcp", "mcp", newTypeMCP},
 		{"MCP uppercase", "MCP", newTypeMCP},
 		{"sandbox", "sandbox", newTypeSandbox},

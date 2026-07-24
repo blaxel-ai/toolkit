@@ -503,6 +503,31 @@ func RunAgentAppCreation(dirArg string, templateName string, noTTY bool) {
 	)
 }
 
+// RunAppCreation is a reusable wrapper that executes the application creation flow.
+func RunAppCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType:           "application",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "Application creation",
+			SpinnerTitle:           "Creating your blaxel application...",
+			BlaxelTomlResourceType: "application",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "application", true, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel application has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
+		},
+	)
+}
+
 // RunJobCreation is a reusable wrapper that executes the job creation flow.
 func RunJobCreation(dirArg string, templateName string, noTTY bool) {
 	runCreateFlow(

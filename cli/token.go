@@ -80,7 +80,7 @@ export TOKEN=$(bl token)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
-			_, err = client.Workspaces.Get(context.Background(), workspace)
+			_, err = client.Workspaces.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{})
 			if err != nil {
 				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
