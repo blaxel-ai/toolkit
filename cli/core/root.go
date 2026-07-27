@@ -233,6 +233,9 @@ var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI - manage and deploy AI agents, sandboxes, and resources",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Command paths contain only registered command names, never user args.
+		SetSentryTag("command.class", cmd.CommandPath())
+
 		// Skip version warning for specific commands/conditions
 		shouldSkipWarning := skipVersionWarning ||
 			cmd.Name() == "__complete" ||
@@ -424,7 +427,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 
 	SetSentryTag("version", version)
 	SetSentryTag("commit", commit)
-	SetSentryTag("workspace", workspace)
+	SetSentryTag("command.class", "bl command-resolution")
 
 	return rootCmd.Execute()
 }

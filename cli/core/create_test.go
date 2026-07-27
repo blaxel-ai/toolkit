@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -167,6 +168,19 @@ func TestRunCreateFlowWithDepsReturnsErrorWhenDirectoryExists(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already exists")
+	assert.True(t, IsExpectedCLIError(err))
+}
+
+func TestEnsureCreateDirectoryAvailableDoesNotMislabelInspectionFailureAsConflict(t *testing.T) {
+	tooLong := filepath.Join(t.TempDir(), strings.Repeat("x", 5000))
+
+	err := ensureCreateDirectoryAvailable(tooLong)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to inspect directory")
+	classification := classifyCLIError(err)
+	assert.True(t, classification.expected)
+	assert.Equal(t, CLIErrorOperational, classification.category)
 }
 
 func TestRunCreateFlowWithDepsReturnsErrorWhenTemplateNotFound(t *testing.T) {

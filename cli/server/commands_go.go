@@ -85,7 +85,10 @@ func findGoRootCmdAsString(cfg RootCmdConfig) ([]string, error) {
 	if entryFile != "" {
 		return []string{"go", "run", goRunTargetFromEntryFile(entryFile)}, nil
 	}
-	return nil, fmt.Errorf("entrypoint not found in config")
+	return nil, core.MarkExpectedError(
+		fmt.Errorf("entrypoint not found in config"),
+		core.CLIErrorNotFound,
+	)
 }
 
 func goRunTargetFromEntryFile(entryFile string) string {

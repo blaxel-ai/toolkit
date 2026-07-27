@@ -27,12 +27,27 @@ type ResourceOperationResult struct {
 	ErrorMsg       string
 	CallbackSecret string
 	MetadataURL    string
+	cause          error
 }
 
 type ApplyResult struct {
 	Kind   string
 	Name   string
 	Result ResourceOperationResult
+}
+
+func summarizeApplyFailures(results []ApplyResult) (hasFailures, allFailuresExpected bool) {
+	allFailuresExpected = true
+	for _, result := range results {
+		if result.Result.Status != "failed" {
+			continue
+		}
+		hasFailures = true
+		if !core.IsExpectedCLIError(result.Result.cause) {
+			allFailuresExpected = false
+		}
+	}
+	return hasFailures, allFailuresExpected
 }
 
 // ApplyOption defines a function type for apply options
@@ -155,14 +170,9 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 				core.ExitWithError(err)
 			}
 
-			// Check if any resources failed
-			hasFailures := false
-			for _, result := range applyResults {
-				if result.Result.Status == "failed" {
-					hasFailures = true
-					break
-				}
-			}
+			// Check if any resources failed without allowing one unexpected
+			// failure to be hidden by expected failures in the same manifest.
+			hasFailures, allFailuresExpected := summarizeApplyFailures(applyResults)
 
 			outputFmt := core.GetOutputFormat()
 			if outputFmt == "json" || outputFmt == "yaml" {
@@ -170,7 +180,11 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 			}
 
 			if hasFailures {
-				core.ExitWithError(fmt.Errorf("one or more resources failed to apply"))
+				err := fmt.Errorf("one or more resources failed to apply")
+				if allFailuresExpected {
+					err = core.MarkExpectedError(err, core.CLIErrorOperational)
+				}
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -212,6 +226,10 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 							Result: ResourceOperationResult{
 								Status:   "failed",
 								ErrorMsg: fmt.Sprintf("metadata.%s is required", resource.ParentField),
+								cause: core.MarkExpectedError(
+									fmt.Errorf("metadata.%s is required", resource.ParentField),
+									core.CLIErrorValidation,
+								),
 							},
 						})
 						continue
@@ -697,12 +715,14 @@ func PostThenPutFn(resource *core.Resource, resourceName string, name string, re
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
 		}
 	}
 
@@ -756,10 +776,15 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
-		return nil
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
+		}
 	}
 
 	result := ResourceOperationResult{
@@ -798,12 +823,14 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
 		}
 	}
 

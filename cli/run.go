@@ -150,7 +150,10 @@ This is useful for testing specific endpoints or non-standard API calls.`,
   bl run sbx my-sandbox --path /process --data '{"command": "python script.py", "waitForCompletion": true}'`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || len(args) == 1 {
-				err := fmt.Errorf("resource type and name are required")
+				err := core.MarkExpectedError(
+					fmt.Errorf("resource type and name are required"),
+					core.CLIErrorUsage,
+				)
 				core.PrintError("Run", err)
 				core.ExitWithError(err)
 			}
@@ -167,7 +170,10 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			for _, header := range headerFlags {
 				parts := strings.SplitN(header, ":", 2)
 				if len(parts) != 2 {
-					err := fmt.Errorf("invalid header format '%s'. Must be 'Key: Value'", header)
+					err := core.MarkExpectedError(
+						fmt.Errorf("invalid header format '%s'. Must be 'Key: Value'", header),
+						core.CLIErrorValidation,
+					)
 					core.PrintError("Run", err)
 					core.ExitWithError(err)
 				}
@@ -188,12 +194,12 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 					var yamlData interface{}
 					if err := yaml.Unmarshal(fileContent, &yamlData); err != nil {
 						core.PrintError("Run", fmt.Errorf("error parsing YAML file: %w", err))
-						core.ExitWithError(err)
+						core.ExitWithError(core.MarkExpectedError(err, core.CLIErrorValidation))
 					}
 					jsonBytes, err := json.Marshal(yamlData)
 					if err != nil {
 						core.PrintError("Run", fmt.Errorf("error converting YAML to JSON: %w", err))
-						core.ExitWithError(err)
+						core.ExitWithError(core.MarkExpectedError(err, core.CLIErrorValidation))
 					}
 					data = string(jsonBytes)
 				} else {
@@ -284,7 +290,10 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 			)
 			if err != nil {
 				if ctx.Err() == context.DeadlineExceeded {
-					err = fmt.Errorf("request timed out after %ds", timeout)
+					err = core.MarkExpectedError(
+						fmt.Errorf("request timed out after %ds", timeout),
+						core.CLIErrorOperational,
+					)
 				} else {
 					err = fmt.Errorf("error making request: %w", err)
 				}
@@ -325,7 +334,10 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				})
 				if err != nil {
 					if ctx.Err() == context.DeadlineExceeded {
-						err = fmt.Errorf("request timed out after %ds", timeout)
+						err = core.MarkExpectedError(
+							fmt.Errorf("request timed out after %ds", timeout),
+							core.CLIErrorOperational,
+						)
 					}
 					core.PrintError("Run", fmt.Errorf("error reading stream: %w", err))
 					core.ExitWithError(err)
@@ -446,9 +458,12 @@ func validateInlineRunDataJSON(data, resourceType, path string) error {
 
 	var raw json.RawMessage
 	if err := json.Unmarshal([]byte(data), &raw); err != nil {
-		return fmt.Errorf(
-			"invalid JSON passed to --data: %v. For sandbox /process payloads with nested quotes, backslashes, or newlines, write the JSON to a file and pass it via --file <path> to avoid shell-escaping collisions",
-			err,
+		return core.MarkExpectedError(
+			fmt.Errorf(
+				"invalid JSON passed to --data: %w. For sandbox /process payloads with nested quotes, backslashes, or newlines, write the JSON to a file and pass it via --file <path> to avoid shell-escaping collisions",
+				err,
+			),
+			core.CLIErrorValidation,
 		)
 	}
 	return nil
@@ -571,7 +586,10 @@ func runJobLocally(data string, folder string, config core.Config, concurrent in
 	batch := Batch{}
 	err := json.Unmarshal([]byte(data), &batch)
 	if err != nil {
-		err = fmt.Errorf("invalid JSON: %w", err)
+		err = core.MarkExpectedError(
+			fmt.Errorf("invalid JSON: %w", err),
+			core.CLIErrorValidation,
+		)
 		core.PrintError("Run", err)
 		core.ExitWithError(err)
 	}

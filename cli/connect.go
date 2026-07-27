@@ -58,7 +58,10 @@ Examples:
 
 			// Check if stdin is a terminal
 			if !term.IsTerminal(int(os.Stdin.Fd())) {
-				err := fmt.Errorf("this command requires an interactive terminal")
+				err := core.MarkExpectedError(
+					fmt.Errorf("this command requires an interactive terminal"),
+					core.CLIErrorUsage,
+				)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
@@ -67,7 +70,10 @@ Examples:
 			currentContext, _ := blaxel.CurrentContext()
 			workspace := currentContext.Workspace
 			if workspace == "" {
-				err := fmt.Errorf("no workspace found in current context. Please run 'bl login' first")
+				err := core.MarkExpectedError(
+					fmt.Errorf("no workspace found in current context. Please run 'bl login' first"),
+					core.CLIErrorAuthentication,
+				)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
@@ -75,7 +81,10 @@ Examples:
 			// Load credentials
 			credentials, _ := blaxel.LoadCredentials(workspace)
 			if !credentials.IsValid() {
-				err := fmt.Errorf("no valid credentials found. Please run 'bl login' first")
+				err := core.MarkExpectedError(
+					fmt.Errorf("no valid credentials found. Please run 'bl login' first"),
+					core.CLIErrorAuthentication,
+				)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
@@ -86,7 +95,10 @@ Examples:
 				token = credentials.APIKey
 			}
 			if token == "" {
-				err := fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first")
+				err := core.MarkExpectedError(
+					fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first"),
+					core.CLIErrorAuthentication,
+				)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
@@ -97,7 +109,10 @@ Examples:
 			if err != nil {
 				var apiErr *blaxel.Error
 				if isBlaxelError(err, &apiErr) && apiErr.StatusCode == 404 {
-					err := fmt.Errorf("sandbox '%s' not found", sandboxName)
+					err := core.MarkExpectedError(
+						fmt.Errorf("sandbox '%s' not found", sandboxName),
+						core.CLIErrorNotFound,
+					)
 					core.PrintError("Connect", err)
 
 					// List available sandboxes

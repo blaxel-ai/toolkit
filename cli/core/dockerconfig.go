@@ -25,23 +25,38 @@ type DockerConfig struct {
 func ParseRegistryCred(cred string) (string, string, error) {
 	registry, userPass, found := strings.Cut(cred, "=")
 	if !found {
-		return "", "", fmt.Errorf("invalid registry credential format: expected registry=username:password")
+		return "", "", MarkExpectedError(
+			fmt.Errorf("invalid registry credential format: expected registry=username:password"),
+			CLIErrorValidation,
+		)
 	}
 
 	if registry == "" {
-		return "", "", fmt.Errorf("invalid registry credential: registry cannot be empty")
+		return "", "", MarkExpectedError(
+			fmt.Errorf("invalid registry credential: registry cannot be empty"),
+			CLIErrorValidation,
+		)
 	}
 
 	username, password, found := strings.Cut(userPass, ":")
 	if !found {
-		return "", "", fmt.Errorf("invalid registry credential: expected username:password after '='")
+		return "", "", MarkExpectedError(
+			fmt.Errorf("invalid registry credential: expected username:password after '='"),
+			CLIErrorValidation,
+		)
 	}
 
 	if username == "" {
-		return "", "", fmt.Errorf("invalid registry credential: username cannot be empty")
+		return "", "", MarkExpectedError(
+			fmt.Errorf("invalid registry credential: username cannot be empty"),
+			CLIErrorValidation,
+		)
 	}
 	if password == "" {
-		return "", "", fmt.Errorf("invalid registry credential: password cannot be empty")
+		return "", "", MarkExpectedError(
+			fmt.Errorf("invalid registry credential: password cannot be empty"),
+			CLIErrorValidation,
+		)
 	}
 
 	auth := base64.StdEncoding.EncodeToString([]byte(userPass))
@@ -57,7 +72,10 @@ func LoadDockerConfigFile(path string) (*DockerConfig, error) {
 
 	var config DockerConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse docker config file: %w", err)
+		return nil, MarkExpectedError(
+			fmt.Errorf("failed to parse docker config file: %w", err),
+			CLIErrorValidation,
+		)
 	}
 
 	if config.Auths == nil {
