@@ -690,7 +690,6 @@ func TestConfigToJobConversion(t *testing.T) {
 
 	// Verify runtime
 	assert.Equal(t, int64(4096), jobParam.Spec.Runtime.Memory.Value)
-	assert.Equal(t, int64(10), jobParam.Spec.Runtime.MaxConcurrentTasks.Value)
 	assert.Equal(t, int64(900), jobParam.Spec.Runtime.Timeout.Value)
 	assert.Equal(t, int64(3), jobParam.Spec.Runtime.MaxRetries.Value)
 

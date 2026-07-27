@@ -93,7 +93,7 @@ bl deploy [flags]
   -s, --secrets strings             Secrets to deploy
       --skip-build                  Skip the build step
       --timeout string              Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h
-  -t, --type string                 Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'
+  -t, --type string                 Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'
   -y, --yes                         Skip interactive mode
 ```
 

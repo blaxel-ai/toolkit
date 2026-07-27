@@ -21,7 +21,7 @@ func (e *workspaceValidationError) Unwrap() error { return e.cause }
 
 // WorkspaceClient interface for workspace lookups (allows mocking)
 type WorkspaceClient interface {
-	Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error)
+	Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error)
 	List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error)
 }
 
@@ -82,7 +82,7 @@ func validateWorkspaceWithFactory(workspace string, credentials blaxel.Credentia
 	// validating the credentials. This catches typos during `bl login <workspace>`
 	// before the workspace is persisted as the current context.
 	if workspace != "" {
-		if _, err := client.Get(context.Background(), workspace); err != nil {
+		if _, err := client.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{}); err != nil {
 			// Keep the stable, non-sensitive user message while preserving the
 			// concrete cause for typed telemetry classification.
 			return &workspaceValidationError{workspace: workspace, cause: err}

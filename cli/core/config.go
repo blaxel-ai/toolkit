@@ -133,6 +133,22 @@ var resources = []*Resource{
 		},
 	},
 	{
+		Kind:      "Application",
+		Short:     "app",
+		Plural:    "applications",
+		Singular:  "application",
+		Aliases:   []string{"apps"},
+		APIPath:   "applications",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Application{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+		},
+	},
+	{
 		Kind:      "Job",
 		Short:     "jb",
 		Plural:    "jobs",
@@ -284,6 +300,8 @@ type Config struct {
 	Region       string                    `toml:"region,omitempty"`
 	Public       *bool                     `toml:"public,omitempty"`
 	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
+	Memory       int                       `toml:"memory,omitempty"`
+	Port         int                       `toml:"port,omitempty"`
 	Image        string                    `toml:"image,omitempty"`
 	Build        *BuildConfig              `toml:"build,omitempty"`
 }
@@ -502,6 +520,7 @@ func PromptForDeploymentType() string {
 				Title("What are you trying to deploy ?").
 				Options(
 					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Application", "application"),
 					huh.NewOption("Agent", "agent"),
 					huh.NewOption("Job", "job"),
 					huh.NewOption("MCP (Function)", "function"),

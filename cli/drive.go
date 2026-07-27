@@ -561,10 +561,10 @@ func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token 
 			)
 			core.PrintError("Drive", err)
 
-			sandboxes, listErr := client.Sandboxes.List(ctx)
-			if listErr == nil && sandboxes != nil && len(*sandboxes) > 0 {
-				names := make([]string, 0, len(*sandboxes))
-				for _, sb := range *sandboxes {
+			sandboxes, listErr := client.Sandboxes.List(ctx, blaxel.SandboxListParams{})
+			if listErr == nil && sandboxes != nil && len(sandboxes.Data) > 0 {
+				names := make([]string, 0, len(sandboxes.Data))
+				for _, sb := range sandboxes.Data {
 					if sb.Metadata.Name != "" {
 						names = append(names, sb.Metadata.Name)
 					}

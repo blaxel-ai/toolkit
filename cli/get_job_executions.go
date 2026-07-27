@@ -49,14 +49,14 @@ func listJobExecutions(jobName string) {
 		os.Exit(1)
 	}
 
-	if executions == nil || len(*executions) == 0 {
+	if executions == nil || len(executions.Data) == 0 {
 		core.PrintError("Get", fmt.Errorf("no executions found"))
 		os.Exit(1)
 	}
 
 	// Convert JobExecution structs to maps for output formatting
 	// Marshal to JSON and unmarshal back to []interface{} to get map representation
-	jsonData, err := json.Marshal(executions)
+	jsonData, err := json.Marshal(executions.Data)
 	if err != nil {
 		core.PrintError("Get", fmt.Errorf("failed to marshal executions: %w", err))
 		os.Exit(1)
