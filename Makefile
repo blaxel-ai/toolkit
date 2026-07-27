@@ -19,7 +19,7 @@ build:
 # Development build without goreleaser
 build-dev:
 	@echo "🔨 Development build with commit: $(GIT_COMMIT_SHORT)"
-	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ) -X main.sentryDSN=$(SENTRY_DSN)" -o ./bin/blaxel ./
+	go build -ldflags "-X main.version=dev -X main.commit=$(GIT_COMMIT) -X main.date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ) -X main.sentryDSN=$(SENTRY_DSN) -X main.posthogKey=$(POSTHOG_KEY)" -o ./bin/blaxel ./
 	cp ./bin/blaxel ~/.local/bin/blaxel;
 	cp ~/.local/bin/blaxel ~/.local/bin/bl;
 	rm -r ./bin;
