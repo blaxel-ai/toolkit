@@ -19,6 +19,7 @@ func TestParseForkArg(t *testing.T) {
 		{name: "untyped", arg: "source", resourceName: "source"},
 		{name: "sandbox", arg: "sbx/source", resourceType: "sandbox", resourceName: "source"},
 		{name: "application", arg: "application/target", resourceType: "application", resourceName: "target"},
+		{name: "empty name", arg: "", wantErr: "resource name must not be empty"},
 		{name: "missing name", arg: "sbx/", wantErr: "missing name"},
 		{name: "unknown type", arg: "agent/source", wantErr: "unknown resource type"},
 		{name: "nested path", arg: "sbx/foo/bar", wantErr: "must not contain '/'"},
