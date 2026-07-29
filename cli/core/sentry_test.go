@@ -123,6 +123,7 @@ func TestExpectedErrorClassification(t *testing.T) {
 		{name: "deployment failure", err: MarkExpectedError(errors.New("deployment failed for /snapshot: apply returned no results"), CLIErrorOperational), category: CLIErrorOperational},
 		{name: "non-interactive command", err: MarkExpectedError(errors.New("this command requires an interactive terminal"), CLIErrorUsage), category: CLIErrorUsage},
 		{name: "websocket handshake", err: fmt.Errorf("failed to connect to terminal: %w", websocket.ErrBadHandshake), category: CLIErrorOperational},
+		{name: "workspace permission denied", err: MarkExpectedError(fmt.Errorf("failed to access workspace 'workspace-name': %w", errors.New("permission denied for workspace \"workspace-name\"")), CLIErrorAuthentication), category: CLIErrorAuthentication},
 	}
 
 	for _, test := range tests {
@@ -164,6 +165,7 @@ func TestExpectedErrorsCreateNoSentryEvents(t *testing.T) {
 		MarkExpectedError(errors.New("image build failed"), CLIErrorOperational),
 		MarkExpectedError(errors.New("this command requires an interactive terminal"), CLIErrorUsage),
 		fmt.Errorf("failed to connect to terminal: %w", websocket.ErrBadHandshake),
+		MarkExpectedError(fmt.Errorf("failed to access workspace 'test': %w", errors.New("permission denied")), CLIErrorAuthentication),
 	}
 
 	for _, err := range expectedErrors {
