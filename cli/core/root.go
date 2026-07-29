@@ -233,6 +233,9 @@ var rootCmd = &cobra.Command{
 	Use:   "bl",
 	Short: "Blaxel CLI - manage and deploy AI agents, sandboxes, and resources",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Command paths contain only registered command names, never user args.
+		SetSentryTag("command.class", cmd.CommandPath())
+
 		// Skip version warning for specific commands/conditions
 		shouldSkipWarning := skipVersionWarning ||
 			cmd.Name() == "__complete" ||
@@ -263,7 +266,17 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		blaxel.ApplyEnvironmentOverrides()
+		// Flags are parsed by now: make the resolved workspace (flag > BL_WORKSPACE
+		// > context) authoritative for the whole process and re-initialize the
+		// environment from it. Without this, a -w override keeps the current
+		// context's env, and SDK client constructors that re-derive the workspace
+		// from BL_WORKSPACE/context send requests to the wrong environment
+		// domain (ENG-4262). InitializeEnvironment ends by applying the BL_* URL
+		// overrides, preserving the previous behavior here.
+		if workspace != "" {
+			_ = os.Setenv("BL_WORKSPACE", workspace)
+		}
+		blaxel.InitializeEnvironment(workspace)
 
 		// Skip config reading for deploy and push commands as they handle their own config logic
 		if cmd.Name() != "deploy" && cmd.Name() != "push" {
@@ -424,7 +437,7 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 
 	SetSentryTag("version", version)
 	SetSentryTag("commit", commit)
-	SetSentryTag("workspace", workspace)
+	SetSentryTag("command.class", "bl command-resolution")
 
 	return rootCmd.Execute()
 }

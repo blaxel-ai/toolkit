@@ -94,7 +94,7 @@ func handleSecret(filePath string, content string) (string, error) {
 		formTemplates.WithTheme(GetHuhTheme())
 		err := formTemplates.Run()
 		if err != nil {
-			return content, fmt.Errorf("error handling secret: %v", err)
+			return content, fmt.Errorf("error handling secret: %w", err)
 		}
 	}
 	for key, value := range values {
@@ -112,7 +112,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 	} else {
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("error getting file info: %v", err)
+			return nil, fmt.Errorf("error getting file info: %w", err)
 		}
 		// If the path is a directory, read all files in the directory
 		if fileInfo.IsDir() {
@@ -127,7 +127,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 		}
 		file, err := os.Open(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("error opening file: %v", err)
+			return nil, fmt.Errorf("error opening file: %w", err)
 		}
 		defer func() { _ = file.Close() }()
 		reader = file
@@ -135,7 +135,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 	// Read the entire content as a string first
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, fmt.Errorf("error reading content: %v", err)
+		return nil, fmt.Errorf("error reading content: %w", err)
 	}
 
 	contentStr := string(content)
@@ -162,7 +162,7 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 		})
 		contentStr, err = handleSecret(filePath, contentStr)
 		if err != nil {
-			return nil, fmt.Errorf("error handling secret: %v", err)
+			return nil, fmt.Errorf("error handling secret: %w", err)
 		}
 	}
 	// Lire et parser les documents YAML
@@ -174,7 +174,10 @@ func getResultsWrapper(action string, filePath string, recursive bool, n int) ([
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error decoding YAML: %v", err)
+			return nil, MarkExpectedError(
+				fmt.Errorf("error decoding YAML: %w", err),
+				CLIErrorValidation,
+			)
 		}
 		results = append(results, result)
 	}
@@ -185,7 +188,7 @@ func handleDirectory(action string, filePath string, recursive bool, n int) ([]R
 	var results []Result
 	files, err := os.ReadDir(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading directory %s: %v", filePath, err)
+		return nil, fmt.Errorf("error reading directory %s: %w", filePath, err)
 	}
 
 	for _, file := range files {
@@ -277,7 +280,10 @@ func FindGoEntryFile(directory string) (string, error) {
 		}
 		rel = filepath.ToSlash(rel)
 		if !safeGoCmdEntrypointPattern.MatchString(rel) {
-			return "", fmt.Errorf("unsupported Go entrypoint path %q; automatic cmd/*/main.go detection only supports command directory names with letters, numbers, dots, underscores, and hyphens; configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", rel)
+			return "", MarkExpectedError(
+				fmt.Errorf("unsupported Go entrypoint path %q; automatic cmd/*/main.go detection only supports command directory names with letters, numbers, dots, underscores, and hyphens; configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", rel),
+				CLIErrorValidation,
+			)
 		}
 		candidates = append(candidates, rel)
 	}
@@ -285,7 +291,10 @@ func FindGoEntryFile(directory string) (string, error) {
 		return "", nil
 	}
 	if len(candidates) > 1 {
-		return "", fmt.Errorf("multiple Go entrypoints found under cmd/*/main.go (%s); configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", strings.Join(candidates, ", "))
+		return "", MarkExpectedError(
+			fmt.Errorf("multiple Go entrypoints found under cmd/*/main.go (%s); configure [entrypoint] prod = \"go run ./cmd/<name>\" in blaxel.toml", strings.Join(candidates, ", ")),
+			CLIErrorValidation,
+		)
 	}
 	return candidates[0], nil
 }
@@ -649,16 +658,25 @@ const MaxDurationSeconds = 365 * 24 * 60 * 60 // 31,536,000 seconds
 func ParseDurationToSeconds(duration string) (int, error) {
 	duration = strings.TrimSpace(duration)
 	if duration == "" {
-		return 0, fmt.Errorf("empty duration string")
+		return 0, MarkExpectedError(
+			fmt.Errorf("empty duration string"),
+			CLIErrorValidation,
+		)
 	}
 
 	// Try parsing as plain integer first
 	if seconds, err := strconv.Atoi(duration); err == nil {
 		if seconds < 0 {
-			return 0, fmt.Errorf("negative duration not allowed: %d", seconds)
+			return 0, MarkExpectedError(
+				fmt.Errorf("negative duration not allowed: %d", seconds),
+				CLIErrorValidation,
+			)
 		}
 		if seconds > MaxDurationSeconds {
-			return 0, fmt.Errorf("duration exceeds maximum allowed (%d seconds / ~1 year): %d", MaxDurationSeconds, seconds)
+			return 0, MarkExpectedError(
+				fmt.Errorf("duration exceeds maximum allowed (%d seconds / ~1 year): %d", MaxDurationSeconds, seconds),
+				CLIErrorValidation,
+			)
 		}
 		return seconds, nil
 	}
@@ -667,16 +685,25 @@ func ParseDurationToSeconds(duration string) (int, error) {
 	re := regexp.MustCompile(`^(\d+)([smhdw])$`)
 	matches := re.FindStringSubmatch(strings.ToLower(duration))
 	if len(matches) != 3 {
-		return 0, fmt.Errorf("invalid duration format: %s (expected formats: 30s, 5m, 1h, 2d, 1w)", duration)
+		return 0, MarkExpectedError(
+			fmt.Errorf("invalid duration format: %s (expected formats: 30s, 5m, 1h, 2d, 1w)", duration),
+			CLIErrorValidation,
+		)
 	}
 
 	value, err := strconv.Atoi(matches[1])
 	if err != nil {
-		return 0, fmt.Errorf("invalid numeric value in duration: %s", duration)
+		return 0, MarkExpectedError(
+			fmt.Errorf("invalid numeric value in duration: %s", duration),
+			CLIErrorValidation,
+		)
 	}
 
 	if value < 0 {
-		return 0, fmt.Errorf("negative duration not allowed: %s", duration)
+		return 0, MarkExpectedError(
+			fmt.Errorf("negative duration not allowed: %s", duration),
+			CLIErrorValidation,
+		)
 	}
 
 	// Define multipliers and max safe values for each unit to prevent overflow
@@ -697,12 +724,18 @@ func ParseDurationToSeconds(duration string) (int, error) {
 	unit := matches[2]
 	config, ok := units[unit]
 	if !ok {
-		return 0, fmt.Errorf("unknown duration unit: %s", unit)
+		return 0, MarkExpectedError(
+			fmt.Errorf("unknown duration unit: %s", unit),
+			CLIErrorValidation,
+		)
 	}
 
 	// Check bounds before multiplication to prevent overflow
 	if value > config.maxValue {
-		return 0, fmt.Errorf("duration exceeds maximum allowed (~1 year): %s (max: %d%s)", duration, config.maxValue, unit)
+		return 0, MarkExpectedError(
+			fmt.Errorf("duration exceeds maximum allowed (~1 year): %s (max: %d%s)", duration, config.maxValue, unit),
+			CLIErrorValidation,
+		)
 	}
 
 	return value * config.multiplier, nil

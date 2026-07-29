@@ -99,6 +99,7 @@ separately if needed.`,
 
 			// At this point, results contains all your YAML documents
 			hasFailures := false
+			allFailuresExpected := true
 			var deleted []deleteEntry
 			var failed []deleteEntry
 			for _, result := range results {
@@ -107,6 +108,9 @@ separately if needed.`,
 						name := result.Metadata.(map[string]interface{})["name"].(string)
 						if err := DeleteFn(resource, name); err != nil {
 							hasFailures = true
+							if !core.IsExpectedCLIError(err) {
+								allFailuresExpected = false
+							}
 							failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
 						} else {
 							deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
@@ -117,7 +121,11 @@ separately if needed.`,
 
 			printDeleteStructuredOutput(deleted, failed)
 			if hasFailures {
-				core.ExitWithError(fmt.Errorf("one or more deletions failed"))
+				err := fmt.Errorf("one or more deletions failed")
+				if allFailuresExpected {
+					err = core.MarkExpectedError(err, core.CLIErrorOperational)
+				}
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -153,7 +161,10 @@ separately if needed.`,
 			ValidArgsFunction: GetResourceValidArgsFunction(resourceKind),
 			Run: func(cmd *cobra.Command, args []string) {
 				if len(args) == 0 {
-					err := fmt.Errorf("no resource name provided")
+					err := core.MarkExpectedError(
+						fmt.Errorf("no resource name provided"),
+						core.CLIErrorValidation,
+					)
 					fmt.Println(err)
 					core.ExitWithError(err)
 				}
@@ -166,11 +177,15 @@ separately if needed.`,
 				}
 
 				hasFailures := false
+				allFailuresExpected := true
 				var deleted []deleteEntry
 				var failed []deleteEntry
 				for _, name := range args {
 					if err := DeleteFn(resource, name); err != nil {
 						hasFailures = true
+						if !core.IsExpectedCLIError(err) {
+							allFailuresExpected = false
+						}
 						failed = append(failed, deleteEntry{Kind: resource.Kind, Name: name})
 					} else {
 						deleted = append(deleted, deleteEntry{Kind: resource.Kind, Name: name})
@@ -178,7 +193,11 @@ separately if needed.`,
 				}
 				printDeleteStructuredOutput(deleted, failed)
 				if hasFailures {
-					core.ExitWithError(fmt.Errorf("one or more deletions failed"))
+					err := fmt.Errorf("one or more deletions failed")
+					if allFailuresExpected {
+						err = core.MarkExpectedError(err, core.CLIErrorOperational)
+					}
+					core.ExitWithError(err)
 				}
 			},
 		}
@@ -191,7 +210,10 @@ separately if needed.`,
 func DeleteFn(resource *core.Resource, name string) error {
 	if resource.Delete == nil {
 		hint := nestedResourceHint(resource, "delete")
-		err := fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint)
+		err := core.MarkExpectedError(
+			fmt.Errorf("'bl delete %s' is not supported directly.%s", resource.Singular, hint),
+			core.CLIErrorValidation,
+		)
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}

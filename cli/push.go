@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -151,7 +152,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			if resourceType == "" {
 				if noTTY {
 					core.PrintError("Push", fmt.Errorf("resource type is required. Specify it with --type (-t) flag or set 'type' in blaxel.toml"))
-					core.ExitWithError(fmt.Errorf("resource type is required"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("resource type is required"),
+						core.CLIErrorValidation,
+					))
 				}
 				// Interactive prompt for resource type
 				var selected string
@@ -179,7 +183,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			validTypes := map[string]bool{"agent": true, "function": true, "sandbox": true, "job": true}
 			if !validTypes[resourceType] {
 				core.PrintError("Push", fmt.Errorf("invalid resource type %q: must be one of sandbox, agent, job, function", resourceType))
-				core.ExitWithError(fmt.Errorf("invalid resource type"))
+				core.ExitWithError(core.MarkExpectedError(
+					fmt.Errorf("invalid resource type"),
+					core.CLIErrorValidation,
+				))
 			}
 
 			// Parse timeout early to fail fast before expensive upload
@@ -192,7 +199,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 				if parsed <= 0 {
 					core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-					core.ExitWithError(fmt.Errorf("invalid timeout"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("invalid timeout"),
+						core.CLIErrorValidation,
+					))
 				}
 				buildTimeout = parsed
 			}
@@ -448,9 +458,15 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("build monitoring cancelled")
+			return core.MarkExpectedError(
+				fmt.Errorf("build monitoring cancelled"),
+				core.CLIErrorOperational,
+			)
 		case <-timeout:
-			return fmt.Errorf("build timed out after %s", buildTimeout)
+			return core.MarkExpectedError(
+				fmt.Errorf("build timed out after %s", buildTimeout),
+				core.CLIErrorOperational,
+			)
 		case <-ticker.C:
 			// Check if the image exists in the registry (build completed)
 			status, err := getImageBuildStatus(resourceType, name)
@@ -467,7 +483,10 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 			if status == "failed" {
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second)
-				return fmt.Errorf("image build failed")
+				return core.MarkExpectedError(
+					fmt.Errorf("image build failed"),
+					core.CLIErrorOperational,
+				)
 			}
 		}
 	}
@@ -496,8 +515,7 @@ func getImageBuildStatus(resourceType, name string) (string, error) {
 	}
 	err := client.Get(ctx, path, nil, &result)
 	if err != nil {
-		errStr := err.Error()
-		if strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
+		if isAPIStatus(err, http.StatusNotFound) {
 			return "", nil // Not found yet, build may still be in progress
 		}
 		return "", err
@@ -511,6 +529,11 @@ func getImageBuildStatus(resourceType, name string) (string, error) {
 	default:
 		return "", nil // Still building (UPLOADING, BUILDING, or no status)
 	}
+}
+
+func isAPIStatus(err error, statusCode int) bool {
+	var apiErr *blaxel.Error
+	return errors.As(err, &apiErr) && apiErr.StatusCode == statusCode
 }
 
 func imageRef(resourceType, name string) string {

@@ -110,7 +110,10 @@ func resolveLoginWorkspace(cmd *cobra.Command, args []string) (string, string, e
 	flagWorkspace, flagChanged := explicitWorkspaceFlag(cmd)
 	if positionalWorkspace != "" {
 		if flagChanged && flagWorkspace != "" && flagWorkspace != positionalWorkspace {
-			return "", "", fmt.Errorf("workspace specified twice: positional workspace %q conflicts with --workspace %q", positionalWorkspace, flagWorkspace)
+			return "", "", core.MarkExpectedError(
+				fmt.Errorf("workspace specified twice: positional workspace %q conflicts with --workspace %q", positionalWorkspace, flagWorkspace),
+				core.CLIErrorValidation,
+			)
 		}
 		return positionalWorkspace, "", nil
 	}

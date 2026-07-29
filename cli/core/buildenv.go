@@ -35,7 +35,10 @@ func ReadBuildEnv(projectDir string, customPath string) (map[string]string, erro
 			return nil, nil
 		}
 		if os.IsNotExist(err) && required {
-			return nil, fmt.Errorf(".env.build file not found: %s", filePath)
+			return nil, MarkExpectedError(
+				fmt.Errorf(".env.build file not found: %s", filePath),
+				CLIErrorNotFound,
+			)
 		}
 		return nil, fmt.Errorf("failed to read .env.build file: %w", err)
 	}
@@ -59,14 +62,20 @@ func parseBuildEnv(content string) (map[string]string, error) {
 
 		eqIdx := strings.Index(line, "=")
 		if eqIdx < 0 {
-			return nil, fmt.Errorf(".env.build line %d: invalid format (expected KEY=VALUE): %s", lineNum, line)
+			return nil, MarkExpectedError(
+				fmt.Errorf(".env.build line %d: invalid format (expected KEY=VALUE): %s", lineNum, line),
+				CLIErrorValidation,
+			)
 		}
 
 		key := strings.TrimSpace(line[:eqIdx])
 		value := strings.TrimSpace(line[eqIdx+1:])
 
 		if key == "" {
-			return nil, fmt.Errorf(".env.build line %d: empty key", lineNum)
+			return nil, MarkExpectedError(
+				fmt.Errorf(".env.build line %d: empty key", lineNum),
+				CLIErrorValidation,
+			)
 		}
 
 		args[key] = value

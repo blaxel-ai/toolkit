@@ -29,7 +29,10 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 	// Split resourceType/imageName
 	imageParts := strings.SplitN(imageRef, "/", 2)
 	if len(imageParts) != 2 {
-		return "", "", "", fmt.Errorf("invalid image reference format. Expected 'resourceType/imageName' or 'resourceType/imageName:tag', got '%s'", ref)
+		return "", "", "", core.MarkExpectedError(
+			fmt.Errorf("invalid image reference format. Expected 'resourceType/imageName' or 'resourceType/imageName:tag', got '%s'", ref),
+			core.CLIErrorValidation,
+		)
 	}
 
 	resourceType = imageParts[0]
@@ -133,7 +136,7 @@ func ListAllImages() {
 
 	imageList, err := client.Images.List(ctx)
 	if err != nil {
-		err = fmt.Errorf("error listing images: %v", err)
+		err = fmt.Errorf("error listing images: %w", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -148,7 +151,7 @@ func ListAllImages() {
 	// Convert to JSON for manipulation
 	jsonData, err := json.Marshal(imageList)
 	if err != nil {
-		err = fmt.Errorf("error parsing images: %v", err)
+		err = fmt.Errorf("error parsing images: %w", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -156,7 +159,7 @@ func ListAllImages() {
 	// Parse the response
 	var images []interface{}
 	if err := json.Unmarshal(jsonData, &images); err != nil {
-		err = fmt.Errorf("error parsing response: %v", err)
+		err = fmt.Errorf("error parsing response: %w", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -185,7 +188,7 @@ func getImageLatest(resourceType, imageName string) {
 
 	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
 	if err != nil {
-		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
+		err = fmt.Errorf("error getting image %s/%s: %w", resourceType, imageName, err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -211,7 +214,7 @@ func getImage(resourceType, imageName, tag string) {
 
 	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
 	if err != nil {
-		err = fmt.Errorf("error getting image %s/%s: %v", resourceType, imageName, err)
+		err = fmt.Errorf("error getting image %s/%s: %w", resourceType, imageName, err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -219,7 +222,7 @@ func getImage(resourceType, imageName, tag string) {
 	// Convert to JSON for manipulation
 	jsonData, err := json.Marshal(imageResult)
 	if err != nil {
-		err = fmt.Errorf("error parsing image: %v", err)
+		err = fmt.Errorf("error parsing image: %w", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -227,7 +230,7 @@ func getImage(resourceType, imageName, tag string) {
 	// Parse the response
 	var image map[string]interface{}
 	if err := json.Unmarshal(jsonData, &image); err != nil {
-		err = fmt.Errorf("error parsing response: %v", err)
+		err = fmt.Errorf("error parsing response: %w", err)
 		fmt.Println(err)
 		core.ExitWithError(err)
 	}
@@ -247,7 +250,10 @@ func getImage(resourceType, imageName, tag string) {
 				spec["tags"] = filteredTags
 
 				if len(filteredTags) == 0 {
-					err := fmt.Errorf("tag '%s' not found for image %s/%s", tag, resourceType, imageName)
+					err := core.MarkExpectedError(
+						fmt.Errorf("tag '%s' not found for image %s/%s", tag, resourceType, imageName),
+						core.CLIErrorNotFound,
+					)
 					fmt.Println(err)
 					core.ExitWithError(err)
 				}
@@ -434,28 +440,42 @@ WARNING: Deleting an image without specifying a tag will remove ALL tags.`,
   bl delete image agent/img1:v1 agent/img2:v2`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
-				err := fmt.Errorf("no image reference provided\nUsage: bl delete image resourceType/imageName[:tag]")
+				err := core.MarkExpectedError(
+					fmt.Errorf("no image reference provided\nUsage: bl delete image resourceType/imageName[:tag]"),
+					core.CLIErrorUsage,
+				)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
 
 			hasFailures := false
+			allFailuresExpected := true
 			for _, arg := range args {
 				// Parse the image reference
 				resourceType, imageName, tag, err := parseImageRef(arg)
 				if err != nil {
 					fmt.Printf("Error: %v\n", err)
 					hasFailures = true
+					if !core.IsExpectedCLIError(err) {
+						allFailuresExpected = false
+					}
 					continue
 				}
 
 				if err := deleteImage(resourceType, imageName, tag); err != nil {
 					hasFailures = true
+					if !core.IsExpectedCLIError(err) {
+						allFailuresExpected = false
+					}
 				}
 			}
 
 			if hasFailures {
-				core.ExitWithError(fmt.Errorf("one or more image deletions failed"))
+				err := fmt.Errorf("one or more image deletions failed")
+				if allFailuresExpected {
+					err = core.MarkExpectedError(err, core.CLIErrorOperational)
+				}
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -511,7 +531,10 @@ The image reference format is: resourceType/imageName
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if workspace == "" {
-				err := fmt.Errorf("--workspace flag is required")
+				err := core.MarkExpectedError(
+					fmt.Errorf("--workspace flag is required"),
+					core.CLIErrorValidation,
+				)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -523,7 +546,10 @@ The image reference format is: resourceType/imageName
 			}
 
 			if tag != "" {
-				err := fmt.Errorf("sharing a specific tag is not supported, remove ':%s' from the reference", tag)
+				err := core.MarkExpectedError(
+					fmt.Errorf("sharing a specific tag is not supported, remove ':%s' from the reference", tag),
+					core.CLIErrorValidation,
+				)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -535,7 +561,7 @@ The image reference format is: resourceType/imageName
 			path := fmt.Sprintf("images/%s/%s/share", resourceType, imageName)
 			err = client.Post(ctx, path, body, nil)
 			if err != nil {
-				err = fmt.Errorf("error sharing image %s/%s: %v", resourceType, imageName, err)
+				err = fmt.Errorf("error sharing image %s/%s: %w", resourceType, imageName, err)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -567,7 +593,10 @@ The image reference format is: resourceType/imageName
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			if workspace == "" {
-				err := fmt.Errorf("--workspace flag is required")
+				err := core.MarkExpectedError(
+					fmt.Errorf("--workspace flag is required"),
+					core.CLIErrorValidation,
+				)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -579,7 +608,10 @@ The image reference format is: resourceType/imageName
 			}
 
 			if tag != "" {
-				err := fmt.Errorf("unsharing a specific tag is not supported, remove ':%s' from the reference", tag)
+				err := core.MarkExpectedError(
+					fmt.Errorf("unsharing a specific tag is not supported, remove ':%s' from the reference", tag),
+					core.CLIErrorValidation,
+				)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}
@@ -590,7 +622,7 @@ The image reference format is: resourceType/imageName
 			path := fmt.Sprintf("images/%s/%s/share/%s", resourceType, imageName, workspace)
 			err = client.Delete(ctx, path, nil, nil)
 			if err != nil {
-				err = fmt.Errorf("error unsharing image %s/%s: %v", resourceType, imageName, err)
+				err = fmt.Errorf("error unsharing image %s/%s: %w", resourceType, imageName, err)
 				fmt.Println(err)
 				core.ExitWithError(err)
 			}

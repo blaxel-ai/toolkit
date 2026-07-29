@@ -1,10 +1,20 @@
 package cli
 
 import (
+	"errors"
+	"fmt"
+	"net/http"
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestIsAPIStatusUsesTypedErrorIdentity(t *testing.T) {
+	assert.True(t, isAPIStatus(fmt.Errorf("image lookup: %w", &blaxel.Error{StatusCode: http.StatusNotFound}), http.StatusNotFound))
+	assert.False(t, isAPIStatus(errors.New("internal cache entry not found (404)"), http.StatusNotFound))
+	assert.False(t, isAPIStatus(&blaxel.Error{StatusCode: http.StatusInternalServerError}, http.StatusNotFound))
+}
 
 func TestImageRefToName(t *testing.T) {
 	tests := []struct {

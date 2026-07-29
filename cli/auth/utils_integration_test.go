@@ -7,6 +7,7 @@ import (
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -134,6 +135,16 @@ func TestValidateWorkspaceError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
 	assert.NotContains(t, err.Error(), "API error")
+	assert.False(t, core.IsExpectedCLIError(err), "an untyped client failure must remain reportable")
+}
+
+func TestValidateWorkspaceTypedAuthenticationErrorIsExpected(t *testing.T) {
+	factory := mockClientFactory(nil, &blaxel.Error{StatusCode: 403})
+
+	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
+	require.Error(t, err)
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.True(t, core.IsExpectedCLIError(err))
 }
 
 // TestValidateWorkspaceMissingWorkspace tests explicit workspace validation failure wording.
