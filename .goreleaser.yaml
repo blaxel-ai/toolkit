@@ -72,4 +72,4 @@ brews:
       owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
       name: homebrew-blaxel
       pull_request:
-        enabled: true
+        enabled: false
