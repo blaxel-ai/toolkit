@@ -15,7 +15,10 @@ func LoginClientCredentials(workspace string, clientCredentials string) {
 
 	err := validateWorkspace(workspace, creds)
 	if err != nil {
-		err = fmt.Errorf("failed to access workspace '%s': %w", workspace, err)
+		err = core.MarkExpectedError(
+			fmt.Errorf("failed to access workspace '%s': %w", workspace, err),
+			core.CLIErrorAuthentication,
+		)
 		core.PrintError("Login", err)
 		core.ExitWithError(err)
 	}
