@@ -1,7 +1,6 @@
 package core
 
 import (
-	"strings"
 	"testing"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -299,12 +298,10 @@ func TestPrintJobCreationSuccess(t *testing.T) {
 		assert.Empty(t, stderr)
 		assert.Contains(t, stdout, "Your blaxel job has been created successfully")
 		assert.Contains(t, stdout, "cd my-runner")
-		assert.Contains(t, stdout, "owner/repo")
-		assert.Contains(t, stdout, "2. Run bl deploy\n")
-		assert.Contains(t, stdout, "3. Install the Blaxel GitHub App")
-		assert.Contains(t, stdout, "4. Run bl deploy --skip-build")
-		assert.Less(t, strings.Index(stdout, "2. Run bl deploy"), strings.Index(stdout, "3. Install"))
-		assert.Less(t, strings.Index(stdout, "3. Install"), strings.Index(stdout, "4. Run bl deploy --skip-build"))
+		assert.Contains(t, stdout, "1. Run bl deploy\n")
+		assert.Contains(t, stdout, "2. Add your repository from the GitHub Runner settings")
+		assert.NotContains(t, stdout, "owner/repo")
+		assert.NotContains(t, stdout, "bl deploy --skip-build")
 		assert.NotContains(t, stdout, "sample-batch.json")
 	})
 }

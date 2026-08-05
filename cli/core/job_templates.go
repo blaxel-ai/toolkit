@@ -217,10 +217,8 @@ func printJobCreationSuccess(opts TemplateOptions) {
 	if canonicalTemplateName(opts.TemplateName) == jobGithubRunnerTemplate {
 		fmt.Printf(`Configure your GitHub Runner:
 %s
-  1. Set the allowed owner/repo values in [githubRunner] in blaxel.toml
-  2. Run bl deploy
-  3. Install the Blaxel GitHub App from the job settings in the Blaxel console
-  4. Run bl deploy --skip-build
+  1. Run bl deploy
+  2. Add your repository from the GitHub Runner settings in the Blaxel console
 `, changeDirectory)
 		return
 	}
