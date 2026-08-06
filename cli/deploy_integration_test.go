@@ -417,6 +417,9 @@ func TestGenerateDeploymentJobIntegration(t *testing.T) {
 	tomlContent := `name = "my-job"
 type = "job"
 workspace = "test-workspace"
+
+[githubRunner]
+repositories = ["owner/repo"]
 `
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
 	require.NoError(t, os.Chdir(tempDir))
@@ -433,6 +436,9 @@ workspace = "test-workspace"
 
 	result := d.GenerateDeployment(false)
 	assert.Equal(t, "Job", result.Kind)
+	spec := result.Spec.(map[string]interface{})
+	githubRunner := spec["githubRunner"].(map[string]interface{})
+	assert.Equal(t, []interface{}{"owner/repo"}, githubRunner["repositories"])
 }
 
 // TestGenerateDeploymentSandboxIntegration tests GenerateDeployment for sandbox type

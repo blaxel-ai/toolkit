@@ -74,6 +74,25 @@ func TestRunCmd(t *testing.T) {
 	assert.Equal(t, "0", timeoutFlag.DefValue)
 }
 
+func TestRunCmdParsesGeneratedJobCommand(t *testing.T) {
+	cmd := RunCmd()
+	require.NoError(t, cmd.ParseFlags([]string{
+		"job",
+		"my-job",
+		"--local",
+		"--file",
+		"batches/sample-batch.json",
+	}))
+
+	assert.Equal(t, []string{"job", "my-job"}, cmd.Flags().Args())
+	local, err := cmd.Flags().GetBool("local")
+	require.NoError(t, err)
+	assert.True(t, local)
+	file, err := cmd.Flags().GetString("file")
+	require.NoError(t, err)
+	assert.Equal(t, "batches/sample-batch.json", file)
+}
+
 func TestBatchStruct(t *testing.T) {
 	batch := Batch{
 		Tasks: []map[string]interface{}{
