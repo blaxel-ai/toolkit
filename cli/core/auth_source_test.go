@@ -119,6 +119,14 @@ func TestIsAuthError_BlaxelErrorOther(t *testing.T) {
 	assert.False(t, IsAuthError(err))
 }
 
+func TestIsAuthError_RefreshTokenStatus(t *testing.T) {
+	assert.True(t, IsAuthError(fmt.Errorf(`failed to get workspace 'main': requestconfig: refresh token request returned status 400: {"code":400,"error":"invalid or missing refresh_token parameter"}`)))
+}
+
+func TestIsAuthError_RefreshTokenExpired(t *testing.T) {
+	assert.True(t, IsAuthError(fmt.Errorf("no refresh token available")))
+}
+
 func TestPrintAuthSourceHint_NoSource(t *testing.T) {
 	original := GetAuthSource()
 	defer SetAuthSource(original)

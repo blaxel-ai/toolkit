@@ -209,6 +209,13 @@ func classifyCLIError(err error) errorClassification {
 		return errorClassification{category: CLIErrorUsage, expected: true}
 	}
 
+	// SDK-level OAuth2 refresh failures are authentication errors, not internal bugs.
+	if strings.Contains(message, "refresh token request returned status") ||
+		strings.Contains(message, "invalid or missing refresh_token") ||
+		strings.Contains(message, "no refresh token available") {
+		return errorClassification{category: CLIErrorAuthentication, expected: true}
+	}
+
 	return errorClassification{category: CLIErrorInternal, expected: false}
 }
 
