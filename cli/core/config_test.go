@@ -254,6 +254,7 @@ func TestGetBlaxelTomlSample(t *testing.T) {
 	assert.Contains(t, sample, "[env]")
 	assert.Contains(t, sample, "[runtime]")
 	assert.Contains(t, sample, "memory = 4096")
+	assert.Contains(t, sample, "storageMb = 102400")
 }
 
 func TestBuildBlaxelTomlWarning(t *testing.T) {
