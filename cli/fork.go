@@ -42,6 +42,9 @@ func buildForkRequest(targetName, targetType string, traffic, port, memory *int)
 func parseForkArg(arg string) (resourceType, name string, err error) {
 	parts := strings.SplitN(arg, "/", 2)
 	if len(parts) == 1 {
+		if parts[0] == "" {
+			return "", "", fmt.Errorf("resource name must not be empty")
+		}
 		return "", parts[0], nil
 	}
 	name = parts[1]
