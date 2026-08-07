@@ -84,7 +84,8 @@ func IsAuthError(err error) bool {
 	return strings.Contains(msg, "401 ") ||
 		strings.Contains(msg, "403 ") ||
 		strings.Contains(msg, "unauthorized") ||
-		strings.Contains(msg, "permission denied")
+		strings.Contains(msg, "permission denied") ||
+		strings.Contains(msg, "refresh token")
 }
 
 // PrintAuthSourceHint prints a coloured hint about the authentication source

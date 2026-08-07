@@ -124,6 +124,9 @@ func TestExpectedErrorClassification(t *testing.T) {
 		{name: "non-interactive command", err: MarkExpectedError(errors.New("this command requires an interactive terminal"), CLIErrorUsage), category: CLIErrorUsage},
 		{name: "websocket handshake", err: fmt.Errorf("failed to connect to terminal: %w", websocket.ErrBadHandshake), category: CLIErrorOperational},
 		{name: "workspace permission denied", err: MarkExpectedError(fmt.Errorf("failed to access workspace 'workspace-name': %w", errors.New("permission denied for workspace \"workspace-name\"")), CLIErrorAuthentication), category: CLIErrorAuthentication},
+		{name: "refresh token expired", err: fmt.Errorf(`requestconfig: refresh token request returned status 400: {"code":400,"error":"invalid or missing refresh_token parameter"}`), category: CLIErrorAuthentication},
+		{name: "refresh token invalid", err: fmt.Errorf("failed to get workspace: invalid or missing refresh_token"), category: CLIErrorAuthentication},
+		{name: "no refresh token", err: fmt.Errorf("no refresh token available"), category: CLIErrorAuthentication},
 	}
 
 	for _, test := range tests {
