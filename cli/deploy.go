@@ -305,6 +305,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				return
 			}
 
+			if err = deployment.ValidateArchiveSize(); err != nil {
+				err = fmt.Errorf("error validating blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
+			}
+
 			startTime := time.Now()
 
 			if !noTTY {
@@ -370,7 +376,28 @@ type Deployment struct {
 
 const maxArchiveUploadSize = 5 * 1024 * 1024 * 1024
 
-var errArchiveTooLarge = errors.New("archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+var errArchiveTooLarge = errors.New("archive size exceeds the 5 GB upload limit")
+
+func (d *Deployment) ValidateArchiveSize() error {
+	if d.archive == nil {
+		return nil
+	}
+	fileInfo, err := os.Stat(d.archive.Name())
+	if err != nil {
+		return fmt.Errorf("failed to get archive file info: %w", err)
+	}
+	return archiveSizeError(fileInfo.Size(), core.IsVolumeTemplate(core.GetConfig().Type))
+}
+
+func archiveSizeError(size int64, volumeTemplate bool) error {
+	if size <= maxArchiveUploadSize {
+		return nil
+	}
+	if volumeTemplate {
+		return fmt.Errorf("%w; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)", errArchiveTooLarge)
+	}
+	return fmt.Errorf("%w; reduce the archive size by adding files or directories to .blaxelignore", errArchiveTooLarge)
+}
 
 func (d *Deployment) Generate(skipBuild bool) error {
 	if d.name == "" {
@@ -1120,6 +1147,34 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 		}
 	}()
 
+	if core.IsVolumeTemplate(core.GetConfig().Type) {
+		model.UpdateResource(0, deploy.StatusCompressing, "Compressing files", nil)
+		model.AddBuildLog(0, "Starting compression of volume template files...")
+
+		var lastLoggedProgress int
+		d.progressCallback = func(status string, progress int) {
+			model.UpdateResource(0, deploy.StatusCompressing, status, nil)
+			if progress > 0 && progress%10 == 0 && progress != lastLoggedProgress {
+				model.AddBuildLog(0, fmt.Sprintf("Compression progress: %d%%", progress))
+				lastLoggedProgress = progress
+			}
+		}
+
+		if err := d.Tar(); err != nil {
+			model.UpdateResource(0, deploy.StatusFailed, "Compression failed", err)
+			model.AddBuildLog(0, fmt.Sprintf("Failed to compress files: %v", err))
+			model.Complete()
+			return
+		}
+		if err := d.ValidateArchiveSize(); err != nil {
+			model.UpdateResource(0, deploy.StatusFailed, "Archive too large", err)
+			model.AddBuildLog(0, err.Error())
+			model.Complete()
+			return
+		}
+		model.AddBuildLog(0, "Compression completed (100%)")
+	}
+
 	// Determine where main resources end and additional resources begin
 	mainResourceCount := len(resources) - len(additionalResources)
 
@@ -1167,32 +1222,6 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 
 func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model *deploy.InteractiveModel, idx int, deployment core.Result) {
 	config := core.GetConfig()
-
-	// For volume templates, handle compression first
-	if core.IsVolumeTemplate(config.Type) {
-		model.UpdateResource(idx, deploy.StatusCompressing, "Compressing files", nil)
-		model.AddBuildLog(idx, "Starting compression of volume template files...")
-
-		// Set up progress callback for compression
-		var lastLoggedProgress int
-		d.progressCallback = func(status string, progress int) {
-			model.UpdateResource(idx, deploy.StatusCompressing, status, nil)
-			// Log every 10% to avoid log spam
-			if progress > 0 && progress%10 == 0 && progress != lastLoggedProgress {
-				model.AddBuildLog(idx, fmt.Sprintf("Compression progress: %d%%", progress))
-				lastLoggedProgress = progress
-			}
-		}
-
-		// Create the tar archive
-		err := d.Tar()
-		if err != nil {
-			model.UpdateResource(idx, deploy.StatusFailed, "Compression failed", err)
-			model.AddBuildLog(idx, fmt.Sprintf("Failed to compress files: %v", err))
-			return
-		}
-		model.AddBuildLog(idx, "Compression completed (100%)")
-	}
 
 	// Start deployment
 	model.UpdateResource(idx, deploy.StatusDeploying, "Applying resource", nil)
@@ -2000,8 +2029,8 @@ func (d *Deployment) Upload(url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
-	if fileInfo.Size() > maxArchiveUploadSize {
-		return errArchiveTooLarge
+	if err := archiveSizeError(fileInfo.Size(), core.IsVolumeTemplate(core.GetConfig().Type)); err != nil {
+		return err
 	}
 
 	// Wrap the file reader with progress tracking

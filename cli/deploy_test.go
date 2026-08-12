@@ -680,6 +680,30 @@ func TestUploadWithRetryRejectsOversizedArchiveWithoutRetrying(t *testing.T) {
 	assert.Zero(t, refreshes)
 }
 
+func TestValidateArchiveSizeGuidance(t *testing.T) {
+	archive, err := os.CreateTemp(t.TempDir(), "archive-*.tar")
+	require.NoError(t, err)
+	require.NoError(t, archive.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, archive.Close())
+	d := Deployment{archive: archive}
+
+	t.Run("source code", func(t *testing.T) {
+		core.SetConfigType("sandbox")
+		t.Cleanup(core.ResetConfig)
+		err := d.ValidateArchiveSize()
+		require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+		assert.ErrorIs(t, err, errArchiveTooLarge)
+	})
+
+	t.Run("volume template", func(t *testing.T) {
+		core.SetConfigType("volumetemplate")
+		t.Cleanup(core.ResetConfig)
+		err := d.ValidateArchiveSize()
+		require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)")
+		assert.ErrorIs(t, err, errArchiveTooLarge)
+	})
+}
+
 func TestUploadAllowsArchiveAtSizeLimit(t *testing.T) {
 	archive, err := os.CreateTemp(t.TempDir(), "archive-*.zip")
 	require.NoError(t, err)
