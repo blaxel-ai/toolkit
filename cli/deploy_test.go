@@ -3,6 +3,8 @@ package cli
 import (
 	"archive/tar"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -659,6 +661,40 @@ func TestProgressReaderCallback(t *testing.T) {
 	assert.True(t, callbackCalled)
 	assert.Equal(t, int64(50), lastBytesUploaded)
 	assert.Equal(t, int64(100), lastTotalBytes)
+}
+
+func TestUploadWithRetryRejectsOversizedArchiveWithoutRetrying(t *testing.T) {
+	archive, err := os.CreateTemp(t.TempDir(), "archive-*.zip")
+	require.NoError(t, err)
+	require.NoError(t, archive.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, archive.Close())
+
+	d := Deployment{archive: archive}
+	refreshes := 0
+	err = d.UploadWithRetry("http://localhost", func() (string, error) {
+		refreshes++
+		return "http://localhost", nil
+	})
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+	assert.Zero(t, refreshes)
+}
+
+func TestUploadAllowsArchiveAtSizeLimit(t *testing.T) {
+	archive, err := os.CreateTemp(t.TempDir(), "archive-*.zip")
+	require.NoError(t, err)
+	require.NoError(t, archive.Truncate(5*1024*1024*1024))
+	require.NoError(t, archive.Close())
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "stop", http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	d := Deployment{archive: archive}
+	err = d.Upload(server.URL)
+
+	require.EqualError(t, err, "upload failed with status: 400 Bad Request")
 }
 
 func TestDeploymentWithJobConfig(t *testing.T) {

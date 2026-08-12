@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -366,6 +367,10 @@ type Deployment struct {
 	timeoutExplicit        bool
 	skipBuild              bool
 }
+
+const maxArchiveUploadSize = 5 * 1024 * 1024 * 1024
+
+var errArchiveTooLarge = errors.New("archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
 
 func (d *Deployment) Generate(skipBuild bool) error {
 	if d.name == "" {
@@ -1975,6 +1980,9 @@ func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, erro
 		if lastErr == nil {
 			return nil
 		}
+		if errors.Is(lastErr, errArchiveTooLarge) {
+			return lastErr
+		}
 	}
 	return lastErr
 }
@@ -1991,6 +1999,9 @@ func (d *Deployment) Upload(url string) error {
 	fileInfo, err := archiveFile.Stat()
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
+	}
+	if fileInfo.Size() > maxArchiveUploadSize {
+		return errArchiveTooLarge
 	}
 
 	// Wrap the file reader with progress tracking
