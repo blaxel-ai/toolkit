@@ -809,6 +809,12 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
+	// Declared labels first: the CLI's own are set below and must win, but
+	// anything the user asked for has to survive the deploy. Without this the
+	// map is rebuilt from scratch on every deploy and every other label is lost.
+	for name, value := range config.Labels {
+		labels[name] = value
+	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
