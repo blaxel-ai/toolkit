@@ -304,6 +304,11 @@ type Config struct {
 	Port         int                       `toml:"port,omitempty"`
 	Image        string                    `toml:"image,omitempty"`
 	Build        *BuildConfig              `toml:"build,omitempty"`
+	// Labels are applied to the deployed resource's metadata. The CLI adds its
+	// own (x-blaxel-auto-generated, x-blaxel-experimental) on top; a label set
+	// here is otherwise the only way to keep one across a deploy, since the
+	// deploy rewrites metadata.labels wholesale.
+	Labels map[string]string `toml:"labels,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
