@@ -394,9 +394,15 @@ func archiveSizeError(size int64, volumeTemplate bool) error {
 		return nil
 	}
 	if volumeTemplate {
-		return fmt.Errorf("%w; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)", errArchiveTooLarge)
+		return core.MarkExpectedError(
+			fmt.Errorf("%w; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)", errArchiveTooLarge),
+			core.CLIErrorValidation,
+		)
 	}
-	return fmt.Errorf("%w; reduce the archive size by adding files or directories to .blaxelignore", errArchiveTooLarge)
+	return core.MarkExpectedError(
+		fmt.Errorf("%w; reduce the archive size by adding files or directories to .blaxelignore", errArchiveTooLarge),
+		core.CLIErrorValidation,
+	)
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
