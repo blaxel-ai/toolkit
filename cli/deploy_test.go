@@ -562,6 +562,30 @@ directory = "app"
 	assert.Contains(t, archivedFiles, "index.html")
 }
 
+func TestVolumeTemplateTarRejectsOversizedFilesBeforeCreatingArchive(t *testing.T) {
+	tempDir := t.TempDir()
+	archiveDir := t.TempDir()
+	t.Setenv("TMPDIR", archiveDir)
+	file, err := os.Create(filepath.Join(tempDir, "oversized.bin"))
+	require.NoError(t, err)
+	require.NoError(t, file.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, file.Close())
+
+	core.ResetConfig()
+	core.SetConfigType("volumetemplate")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	err = d.Tar()
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)")
+	assert.ErrorIs(t, err, errArchiveTooLarge)
+	assert.Nil(t, d.archive)
+	archives, err := filepath.Glob(filepath.Join(archiveDir, ".blaxel.tar*"))
+	require.NoError(t, err)
+	assert.Empty(t, archives)
+}
+
 func TestDeploymentReadBlaxelToml(t *testing.T) {
 	// Create a temp directory with blaxel.toml
 	tempDir, err := os.MkdirTemp("", "deploy_test")

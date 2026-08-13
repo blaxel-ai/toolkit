@@ -2352,6 +2352,43 @@ func (d *Deployment) Zip() error {
 }
 
 func (d *Deployment) Tar() error {
+	config := core.GetConfig()
+	volumeDir := config.Directory
+	if volumeDir == "" {
+		volumeDir = "."
+	}
+	archiveRoot := filepath.Join(d.cwd, volumeDir)
+	if _, err := os.Stat(archiveRoot); err != nil {
+		if os.IsNotExist(err) {
+			return core.MarkExpectedError(
+				fmt.Errorf("volume template directory does not exist: %s", volumeDir),
+				core.CLIErrorNotFound,
+			)
+		}
+		return fmt.Errorf("failed to inspect volume template directory %q: %w", volumeDir, err)
+	}
+
+	var size int64
+	err := filepath.WalkDir(archiveRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type().IsRegular() && filepath.Base(path) != "blaxel.toml" {
+			info, err := entry.Info()
+			if err != nil {
+				return err
+			}
+			if info.Size() > maxArchiveUploadSize-size {
+				return archiveSizeError(maxArchiveUploadSize+1, true)
+			}
+			size += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	tarFile, err := os.CreateTemp("", ".blaxel.tar")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
