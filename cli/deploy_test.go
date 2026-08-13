@@ -128,6 +128,15 @@ func TestDeploymentIgnoredPathsDefault(t *testing.T) {
 	assert.Contains(t, ignored, ".venv")
 	assert.Contains(t, ignored, "__pycache__")
 	assert.Contains(t, ignored, ".blaxel")
+	assert.Contains(t, ignored, ".env*")
+
+	matcher, err := newIgnoredPathMatcher(tempDir, ignored)
+	require.NoError(t, err)
+	for _, name := range []string{".env", ".env.local", ".env.production"} {
+		matched, err := matcher.matches(filepath.Join(tempDir, name))
+		require.NoError(t, err)
+		assert.True(t, matched, "%s must not be included in deployment archives", name)
+	}
 }
 
 func TestDeploymentIgnoredPathsFromFile(t *testing.T) {
