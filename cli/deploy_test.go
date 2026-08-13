@@ -170,6 +170,15 @@ func TestDeploymentIgnoredPathsDefault(t *testing.T) {
 	assert.Contains(t, ignored, ".venv")
 	assert.Contains(t, ignored, "__pycache__")
 	assert.Contains(t, ignored, ".blaxel")
+	assert.Contains(t, ignored, ".env*")
+
+	matcher, err := newIgnoredPathMatcher(tempDir, ignored)
+	require.NoError(t, err)
+	for _, name := range []string{".env", ".env.local", ".env.production"} {
+		matched, err := matcher.matches(filepath.Join(tempDir, name))
+		require.NoError(t, err)
+		assert.True(t, matched, "%s must not be included in deployment archives", name)
+	}
 }
 
 func TestDeploymentIgnoredPathsFromFile(t *testing.T) {
@@ -201,11 +210,9 @@ build
 
 func TestDeploymentShouldIgnorePath(t *testing.T) {
 	cwd := filepath.FromSlash("/home/user/project")
-	d := Deployment{
-		cwd: cwd,
-	}
-
 	ignoredPaths := []string{".git", "node_modules", "dist"}
+	matcher, err := newIgnoredPathMatcher(cwd, ignoredPaths)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -223,10 +230,73 @@ func TestDeploymentShouldIgnorePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := d.shouldIgnorePath(tt.path, ignoredPaths)
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestDeploymentShouldIgnoreGlobPatterns(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
+	matcher, err := newIgnoredPathMatcher(cwd, []string{
+		"**/*.test.ts",
+		"**/.env.*",
+		"!sandbox/keep.test.ts",
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"root test file", filepath.Join(cwd, "app.test.ts"), true},
+		{"nested test file", filepath.Join(cwd, "sandbox", "src", "app.test.ts"), true},
+		{"nested environment file", filepath.Join(cwd, "sandbox", ".env.local"), true},
+		{"negated test file", filepath.Join(cwd, "sandbox", "keep.test.ts"), false},
+		{"regular source file", filepath.Join(cwd, "sandbox", "src", "app.ts"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDeploymentShouldIgnoreAnchoredLiteralPath(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
+	matcher, err := newIgnoredPathMatcher(cwd, []string{"./infra"})
+	require.NoError(t, err)
+
+	rootInfra, err := matcher.matches(filepath.Join(cwd, "infra", "main.tf"))
+	require.NoError(t, err)
+	assert.True(t, rootInfra)
+
+	nestedInfra, err := matcher.matches(filepath.Join(cwd, "sandbox", "infra", "main.tf"))
+	require.NoError(t, err)
+	assert.False(t, nestedInfra)
+}
+
+func TestNewIgnoredPathMatcherRejectsInvalidPattern(t *testing.T) {
+	_, err := newIgnoredPathMatcher("/home/user/project", []string{"[invalid"})
+	require.ErrorContains(t, err, "invalid .blaxelignore pattern")
+}
+
+func TestIgnoredPathMatcherCanSkipIgnoredDirectory(t *testing.T) {
+	withoutExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{"node_modules"})
+	require.NoError(t, err)
+	assert.True(t, withoutExclusions.canSkipIgnoredDirectory())
+
+	withExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{
+		"node_modules",
+		"!node_modules/keep/package.json",
+	})
+	require.NoError(t, err)
+	assert.False(t, withExclusions.canSkipIgnoredDirectory())
 }
 
 func TestResultKinds(t *testing.T) {
@@ -360,12 +430,9 @@ func TestToArchivePath(t *testing.T) {
 
 func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 	cwd := filepath.FromSlash("/home/user/project")
-	d := Deployment{
-		cwd: cwd,
-	}
-
-	// Note: shouldIgnorePath uses string matching, not glob patterns
 	ignoredPaths := []string{"logs", "build", "tmp"}
+	matcher, err := newIgnoredPathMatcher(cwd, ignoredPaths)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -383,7 +450,8 @@ func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := d.shouldIgnorePath(tt.path, ignoredPaths)
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
