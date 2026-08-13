@@ -235,6 +235,19 @@ func TestNewIgnoredPathMatcherRejectsInvalidPattern(t *testing.T) {
 	require.ErrorContains(t, err, "invalid .blaxelignore pattern")
 }
 
+func TestIgnoredPathMatcherCanSkipIgnoredDirectory(t *testing.T) {
+	withoutExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{"node_modules"})
+	require.NoError(t, err)
+	assert.True(t, withoutExclusions.canSkipIgnoredDirectory())
+
+	withExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{
+		"node_modules",
+		"!node_modules/keep/package.json",
+	})
+	require.NoError(t, err)
+	assert.False(t, withExclusions.canSkipIgnoredDirectory())
+}
+
 func TestResultKinds(t *testing.T) {
 	// Test that core.Result struct works correctly for different kinds
 	tests := []struct {

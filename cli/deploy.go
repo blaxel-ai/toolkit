@@ -2047,6 +2047,12 @@ func (m *ignoredPathMatcher) matches(path string) (bool, error) {
 	return m.matcher.MatchesOrParentMatches(toArchivePath(relativePath))
 }
 
+// Ignored directories can only be pruned when no later exclusion pattern can
+// re-include one of their descendants.
+func (m *ignoredPathMatcher) canSkipIgnoredDirectory() bool {
+	return !m.matcher.Exclusions()
+}
+
 // toArchivePath normalizes a file path for use in zip/tar archives.
 // Archives must always use forward slashes regardless of the host OS.
 func toArchivePath(p string) string {
@@ -2175,6 +2181,9 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 				return err
 			}
 			if ignored {
+				if info.IsDir() && ignoreMatcher.canSkipIgnoredDirectory() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 		}
