@@ -368,6 +368,32 @@ type Deployment struct {
 	skipBuild              bool
 }
 
+// buildSizeLabels turns blaxel.toml's [build] memory and scratch into labels.
+//
+// They travel as labels because the control plane needs them before the build
+// environment exists — too early for anything to have read blaxel.toml. That is
+// what separates them from [build] slim, which is read inside that environment
+// and can stay in the manifest.
+//
+// Nothing is clamped: the platform enforces the workspace's quotas, and its
+// refusal names the plan. A client-side limit would only duplicate the numbers
+// and replace a precise message with a guess.
+func buildSizeLabels(build *core.BuildConfig) map[string]string {
+	out := map[string]string{}
+	if build == nil {
+		return out
+	}
+	if build.Memory > 0 {
+		out["x-blaxel-build-memory"] = strconv.Itoa(build.Memory)
+	}
+	// Explicitly set, 0 included — 0 asks for a build with no disk, in memory.
+	// Treating it as unset would hand back the default scratch instead.
+	if build.Scratch != nil && *build.Scratch >= 0 {
+		out["x-blaxel-build-scratch"] = strconv.Itoa(*build.Scratch)
+	}
+	return out
+}
+
 func (d *Deployment) Generate(skipBuild bool) error {
 	if d.name == "" {
 		d.name = filepath.Base(filepath.Join(d.cwd, d.folder))
@@ -813,6 +839,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	// anything the user asked for has to survive the deploy. Without this the
 	// map is rebuilt from scratch on every deploy and every other label is lost.
 	for name, value := range config.Labels {
+		labels[name] = value
+	}
+	for name, value := range buildSizeLabels(config.Build) {
 		labels[name] = value
 	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
