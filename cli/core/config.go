@@ -274,16 +274,19 @@ type Package struct {
 // BuildConfig represents the [build] section of blaxel.toml
 type BuildConfig struct {
 	Args map[string]string `toml:"args,omitempty"`
-	// Memory is the RAM in MB given to the environment the image is built in,
-	// not to the deployed workload. Unset uses the platform default.
-	Memory int `toml:"memory,omitempty"`
-	// Scratch is the disk in MB given to the build for its intermediate layers.
-	// A build writes roughly three times the final image size there.
+	// Experimental opts this project into the new build system. It is the one
+	// setting here that changes which builder runs, rather than how it is sized.
+	Experimental bool `toml:"experimental,omitempty"`
+	// MemoryMb is the RAM given to the environment the image is built in, not to
+	// the deployed workload. Unset uses the platform default.
+	MemoryMb int `toml:"memoryMb,omitempty"`
+	// VolumeMb attaches a disk of that size to the build for its intermediate
+	// layers. Unset means no disk at all and the build runs in memory, which is
+	// faster and enough for most images.
 	//
-	// 0 is meaningful and different from unset: it asks for no disk at all, so
-	// the build runs in memory. That is faster and fine for most images, but it
-	// then shares Memory above — a large image needs a real scratch.
-	Scratch *int `toml:"scratch,omitempty"`
+	// Set it when the image is large: a build writes roughly three times the
+	// final image size, and without a disk that comes out of MemoryMb.
+	VolumeMb int `toml:"volumeMb,omitempty"`
 }
 
 // readConfigToml reads the config.toml file and upgrade config according to content

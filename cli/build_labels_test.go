@@ -12,9 +12,6 @@ import (
 // that runs early enough, so a value that fails to become one is a value the
 // build never sees.
 func TestBuildSizesBecomeLabels(t *testing.T) {
-	zero := 0
-	big := 40960
-
 	for _, c := range []struct {
 		name  string
 		build *core.BuildConfig
@@ -24,27 +21,31 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 		{"no sizes declared", &core.BuildConfig{}, map[string]string{}},
 		{
 			"memory only",
-			&core.BuildConfig{Memory: 16384},
+			&core.BuildConfig{MemoryMb: 16384},
 			map[string]string{"x-blaxel-build-memory": "16384"},
 		},
 		{
-			// 0 is a request, not an absence: no disk, build in memory. Treating
-			// it as unset would silently give back the default scratch.
-			"scratch zero asks for an in-memory build",
-			&core.BuildConfig{Scratch: &zero},
-			map[string]string{"x-blaxel-build-scratch": "0"},
+			// No volume is the default, so absence carries nothing at all.
+			"no volume declared means an in-memory build",
+			&core.BuildConfig{MemoryMb: 8192},
+			map[string]string{"x-blaxel-build-memory": "8192"},
+		},
+		{
+			"experimental opts into the new builder",
+			&core.BuildConfig{Experimental: true},
+			map[string]string{"x-blaxel-builder": "sandbox"},
 		},
 		{
 			"both",
-			&core.BuildConfig{Memory: 16384, Scratch: &big},
+			&core.BuildConfig{MemoryMb: 16384, VolumeMb: 60000},
 			map[string]string{
-				"x-blaxel-build-memory":  "16384",
-				"x-blaxel-build-scratch": "40960",
+				"x-blaxel-build-memory": "16384",
+				"x-blaxel-build-volume": "60000",
 			},
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			got := buildSizeLabels(c.build)
+			got := buildLabels(c.build)
 			if len(got) != len(c.want) {
 				t.Fatalf("got %v, want %v", got, c.want)
 			}

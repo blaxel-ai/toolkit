@@ -368,7 +368,7 @@ type Deployment struct {
 	skipBuild              bool
 }
 
-// buildSizeLabels turns blaxel.toml's [build] memory and scratch into labels.
+// buildLabels turns blaxel.toml's [build] section into resource labels.
 //
 // They travel as labels because the control plane needs them before the build
 // environment exists — too early for anything to have read blaxel.toml. That is
@@ -378,18 +378,25 @@ type Deployment struct {
 // Nothing is clamped: the platform enforces the workspace's quotas, and its
 // refusal names the plan. A client-side limit would only duplicate the numbers
 // and replace a precise message with a guess.
-func buildSizeLabels(build *core.BuildConfig) map[string]string {
+func buildLabels(build *core.BuildConfig) map[string]string {
 	out := map[string]string{}
 	if build == nil {
 		return out
 	}
-	if build.Memory > 0 {
-		out["x-blaxel-build-memory"] = strconv.Itoa(build.Memory)
+	// Distinct from the CLI's --experimental, which marks the deployed resource.
+	// This one selects the builder, and only opts in: a project that does not ask
+	// keeps whatever the platform rolls out, so removing the line never pins it
+	// back to the old one.
+	if build.Experimental {
+		out["x-blaxel-builder"] = "sandbox"
 	}
-	// Explicitly set, 0 included — 0 asks for a build with no disk, in memory.
-	// Treating it as unset would hand back the default scratch instead.
-	if build.Scratch != nil && *build.Scratch >= 0 {
-		out["x-blaxel-build-scratch"] = strconv.Itoa(*build.Scratch)
+	if build.MemoryMb > 0 {
+		out["x-blaxel-build-memory"] = strconv.Itoa(build.MemoryMb)
+	}
+	// Absent means no disk, which is the default, so only a positive size needs
+	// carrying. That is what lets both stay plain ints rather than pointers.
+	if build.VolumeMb > 0 {
+		out["x-blaxel-build-volume"] = strconv.Itoa(build.VolumeMb)
 	}
 	return out
 }
@@ -841,7 +848,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	for name, value := range config.Labels {
 		labels[name] = value
 	}
-	for name, value := range buildSizeLabels(config.Build) {
+	for name, value := range buildLabels(config.Build) {
 		labels[name] = value
 	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
