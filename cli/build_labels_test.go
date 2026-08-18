@@ -57,3 +57,36 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 		})
 	}
 }
+
+// `bl push` builds an image without creating a deployment, so there is no
+// resource record for a label to live on. The choices travel on the uploaded
+// object instead: the platform signs them into the presigned URL and the upload
+// repeats them as x-amz-meta-* headers. The two must agree exactly — a header
+// the signature did not cover is rejected as a mismatch, which is what makes
+// this a security boundary rather than a convenience.
+func TestBuildLabelsAreTheSameOnBothSidesOfTheUpload(t *testing.T) {
+	build := &core.BuildConfig{Experimental: true, MemoryMb: 16384, VolumeMb: 60000}
+
+	// What POST /images asks the platform to sign.
+	signed := buildLabels(build)
+	// What Upload puts on the wire, derived from the same source.
+	sent := map[string]string{}
+	for name, value := range buildLabels(build) {
+		sent["x-amz-meta-"+name] = value
+	}
+
+	if len(signed) != len(sent) {
+		t.Fatalf("signed %d labels but sent %d headers", len(signed), len(sent))
+	}
+	for name, value := range signed {
+		if got := sent["x-amz-meta-"+name]; got != value {
+			t.Errorf("header for %s = %q, signed %q", name, got, value)
+		}
+	}
+
+	// A project that declares nothing must sign nothing and send nothing, so an
+	// ordinary push is unchanged.
+	if got := buildLabels(nil); len(got) != 0 {
+		t.Errorf("a project with no [build] section produced %v", got)
+	}
+}

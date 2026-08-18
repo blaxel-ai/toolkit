@@ -37,6 +37,11 @@ type createImageRequest struct {
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
 	DockerConfig string `json:"dockerConfig,omitempty"`
+	// Labels carries blaxel.toml's [build] choices. The platform signs them into
+	// the upload URL, and Upload sends matching headers — that round trip is what
+	// gets them to a build started by `bl push`, which creates no resource
+	// record a label could otherwise ride on.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // createImageResponse is the response body from POST /images.
@@ -344,6 +349,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					Name:         name,
 					ResourceType: resourceType,
 					Generation:   generation,
+					Labels:       buildLabels(core.GetConfig().Build),
 				}
 
 				var httpResponse *http.Response

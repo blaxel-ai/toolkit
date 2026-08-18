@@ -2063,6 +2063,15 @@ func (d *Deployment) Upload(url string) error {
 		req.Header.Set("Content-Type", "application/zip")
 	}
 
+	// The build choices from [build] are part of the URL's signature, so these
+	// headers must match exactly what the platform signed — sending none when it
+	// signed some, or the wrong value, is rejected as a signature mismatch. This
+	// is the only channel that reaches a `bl push` build: that command creates no
+	// resource record for a label to live on.
+	for name, value := range buildLabels(config.Build) {
+		req.Header.Set("x-amz-meta-"+name, value)
+	}
+
 	// Perform the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
