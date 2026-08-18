@@ -363,9 +363,14 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
-	timeout                time.Duration
-	timeoutExplicit        bool
-	skipBuild              bool
+	// uploadMetadata is the object metadata the presigned URL was signed for.
+	// Empty on the deploy path, whose URL comes from the resource endpoint and
+	// carries no metadata; set by push, whose URL is signed with the [build]
+	// choices because that command creates no resource record to hold them.
+	uploadMetadata  map[string]string
+	timeout         time.Duration
+	timeoutExplicit bool
+	skipBuild       bool
 }
 
 // buildLabels turns blaxel.toml's [build] section into resource labels.
@@ -2022,6 +2027,12 @@ func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, erro
 	return lastErr
 }
 
+// WithUploadMetadata declares the object metadata the presigned URL was signed
+// for. It must match exactly: extra, missing or altered values fail the upload.
+func (d *Deployment) WithUploadMetadata(metadata map[string]string) {
+	d.uploadMetadata = metadata
+}
+
 func (d *Deployment) Upload(url string) error {
 	// Open the archive file
 	archiveFile, err := os.Open(d.archive.Name())
@@ -2063,12 +2074,12 @@ func (d *Deployment) Upload(url string) error {
 		req.Header.Set("Content-Type", "application/zip")
 	}
 
-	// The build choices from [build] are part of the URL's signature, so these
-	// headers must match exactly what the platform signed — sending none when it
-	// signed some, or the wrong value, is rejected as a signature mismatch. This
-	// is the only channel that reaches a `bl push` build: that command creates no
-	// resource record for a label to live on.
-	for name, value := range buildLabels(config.Build) {
+	// Only what the caller says was signed. These headers are part of the URL's
+	// signature, so sending one the platform did not sign is rejected outright —
+	// reading them from the global config instead would have broken every
+	// `bl deploy` of a project with a [build] section, because that path gets its
+	// URL from the resource endpoint, which signs nothing.
+	for name, value := range d.uploadMetadata {
 		req.Header.Set("x-amz-meta-"+name, value)
 	}
 

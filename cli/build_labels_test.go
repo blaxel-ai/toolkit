@@ -90,3 +90,27 @@ func TestBuildLabelsAreTheSameOnBothSidesOfTheUpload(t *testing.T) {
 		t.Errorf("a project with no [build] section produced %v", got)
 	}
 }
+
+// The two upload paths are signed differently, and sending a header the URL was
+// not signed for fails the upload outright. push gets a URL signed with the
+// [build] choices; deploy gets its URL from the resource endpoint, which signs
+// none — so reading the metadata from global config, as a first version did,
+// broke every deploy of a project that declared a [build] section.
+func TestUploadOnlySendsMetadataItWasGiven(t *testing.T) {
+	deploy := &Deployment{}
+	if len(deploy.uploadMetadata) != 0 {
+		t.Errorf("a deploy must send no metadata, got %v", deploy.uploadMetadata)
+	}
+
+	push := &Deployment{}
+	signed := buildLabels(&core.BuildConfig{Experimental: true, MemoryMb: 8192})
+	push.WithUploadMetadata(signed)
+	if len(push.uploadMetadata) != len(signed) {
+		t.Fatalf("push carries %v, signed %v", push.uploadMetadata, signed)
+	}
+	for k, v := range signed {
+		if push.uploadMetadata[k] != v {
+			t.Errorf("%s = %q, signed %q", k, push.uploadMetadata[k], v)
+		}
+	}
+}

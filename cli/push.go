@@ -375,6 +375,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 				// Upload the archive to the presigned URL
 				fmt.Println("Uploading source code...")
+				// The platform signed exactly these into the URL above.
+				deployment.WithUploadMetadata(reqBody.Labels)
 				err = deployment.UploadWithRetry(uploadURL, func() (string, error) {
 					var retryResp *http.Response
 					var retryBody createImageResponse
