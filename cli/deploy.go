@@ -1035,6 +1035,11 @@ func (d *Deployment) Apply() error {
 				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
 
+			// The platform signs the [build] labels it received on the resource into
+			// this URL, so the upload has to repeat them. They stay labels on the
+			// wire — build settings do not belong in the resource's public schema —
+			// but they are signed, so a client cannot alter what the build sees.
+			d.WithUploadMetadata(buildLabels(core.GetConfig().Build))
 			err := d.UploadWithRetry(result.Result.UploadURL, func() (string, error) {
 				newResults, err := ApplyResources(d.blaxelDeployments)
 				if err != nil {
@@ -1398,6 +1403,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 			model.AddBuildLog(idx, "Uploading code to registry...")
 		}
 
+		d.WithUploadMetadata(buildLabels(core.GetConfig().Build))
 		err := d.UploadWithRetry(applyResults[0].Result.UploadURL, func() (string, error) {
 			newResults, applyErr := ApplyResources([]core.Result{deployment})
 			if applyErr != nil {
