@@ -622,6 +622,173 @@ func TestVolumeTemplateTarRejectsDeepOversizedTreeBeforeCreatingArchive(t *testi
 	assert.Empty(t, archives)
 }
 
+func TestZipRejectsOversizedFilesBeforeCreatingArchive(t *testing.T) {
+	for _, deploymentType := range []string{"agent", "function", "job", "sandbox", "application"} {
+		t.Run(deploymentType, func(t *testing.T) {
+			tempDir := t.TempDir()
+			archiveDir := t.TempDir()
+			t.Setenv("TMPDIR", archiveDir)
+			t.Setenv("TMP", archiveDir)
+			t.Setenv("TEMP", archiveDir)
+			file, err := os.Create(filepath.Join(tempDir, "oversized.bin"))
+			require.NoError(t, err)
+			require.NoError(t, file.Truncate(5*1024*1024*1024+1))
+			require.NoError(t, file.Close())
+
+			core.ResetConfig()
+			core.SetConfigType(deploymentType)
+			t.Cleanup(core.ResetConfig)
+			d := Deployment{cwd: tempDir}
+
+			err = d.Zip()
+
+			require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+			assert.ErrorIs(t, err, errArchiveTooLarge)
+			assert.Nil(t, d.archive)
+			archives, err := filepath.Glob(filepath.Join(archiveDir, ".blaxel.zip*"))
+			require.NoError(t, err)
+			assert.Empty(t, archives)
+		})
+	}
+}
+
+func TestZipPrevalidationExcludesIgnoredFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".blaxelignore"), []byte("ignored-assets\n"), 0644))
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "ignored-assets"), 0755))
+	file, err := os.Create(filepath.Join(tempDir, "ignored-assets", "oversized.bin"))
+	require.NoError(t, err)
+	require.NoError(t, file.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, file.Close())
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "main.py"), []byte("print('hello')"), 0644))
+
+	core.ResetConfig()
+	core.SetConfigType("agent")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	require.NoError(t, d.Zip())
+	require.NotNil(t, d.archive)
+	t.Cleanup(func() { _ = os.Remove(d.archive.Name()) })
+}
+
+func TestZipPrevalidationFollowsFileSymlinks(t *testing.T) {
+	tempDir := t.TempDir()
+	target, err := os.Create(filepath.Join(t.TempDir(), "oversized.bin"))
+	require.NoError(t, err)
+	require.NoError(t, target.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, target.Close())
+	if err := os.Symlink(target.Name(), filepath.Join(tempDir, "oversized.bin")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+
+	core.ResetConfig()
+	core.SetConfigType("agent")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	err = d.Zip()
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+	assert.ErrorIs(t, err, errArchiveTooLarge)
+	assert.Nil(t, d.archive)
+}
+
+func TestZipPrevalidationSkipsBrokenSymlinks(t *testing.T) {
+	tempDir := t.TempDir()
+	if err := os.Symlink(filepath.Join(tempDir, "missing.bin"), filepath.Join(tempDir, "broken.bin")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+
+	core.ResetConfig()
+	core.SetConfigType("agent")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	require.NoError(t, d.Zip())
+	require.NotNil(t, d.archive)
+	t.Cleanup(func() { _ = os.Remove(d.archive.Name()) })
+}
+
+func TestZipPrevalidationCountsFilesReinjectedFromFolder(t *testing.T) {
+	tempDir := t.TempDir()
+	archiveDir := t.TempDir()
+	t.Setenv("TMPDIR", archiveDir)
+	t.Setenv("TMP", archiveDir)
+	t.Setenv("TEMP", archiveDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".blaxelignore"), []byte("app\n"), 0644))
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "app"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "app", "blaxel.toml"), []byte("name = \"test\""), 0644))
+	dockerfile, err := os.Create(filepath.Join(tempDir, "app", "Dockerfile"))
+	require.NoError(t, err)
+	require.NoError(t, dockerfile.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, dockerfile.Close())
+
+	core.ResetConfig()
+	core.SetConfigType("agent")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir, folder: "app"}
+
+	err = d.Zip()
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+	assert.ErrorIs(t, err, errArchiveTooLarge)
+	assert.Nil(t, d.archive)
+	archives, err := filepath.Glob(filepath.Join(archiveDir, ".blaxel.zip*"))
+	require.NoError(t, err)
+	assert.Empty(t, archives)
+}
+
+func TestVolumeTemplateTarPrevalidationDoesNotFollowFileSymlinks(t *testing.T) {
+	tempDir := t.TempDir()
+	target, err := os.Create(filepath.Join(t.TempDir(), "oversized.bin"))
+	require.NoError(t, err)
+	require.NoError(t, target.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, target.Close())
+	linkPath := filepath.Join(tempDir, "oversized.bin")
+	if err := os.Symlink(target.Name(), linkPath); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+
+	core.ResetConfig()
+	core.SetConfigType("volumetemplate")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	require.NoError(t, d.Tar())
+	require.NotNil(t, d.archive)
+	t.Cleanup(func() { _ = os.Remove(d.archive.Name()) })
+
+	archive, err := os.Open(d.archive.Name())
+	require.NoError(t, err)
+	defer func() { require.NoError(t, archive.Close()) }()
+	header, err := tar.NewReader(archive).Next()
+	require.NoError(t, err)
+	assert.Equal(t, byte(tar.TypeSymlink), header.Typeflag)
+	assert.Equal(t, target.Name(), header.Linkname)
+}
+
+func TestVolumeTemplateTarPrevalidationDoesNotFollowFolderDockerfileSymlink(t *testing.T) {
+	tempDir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "app"), 0755))
+	target, err := os.Create(filepath.Join(t.TempDir(), "oversized.Dockerfile"))
+	require.NoError(t, err)
+	require.NoError(t, target.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, target.Close())
+	if err := os.Symlink(target.Name(), filepath.Join(tempDir, "app", "Dockerfile")); err != nil {
+		t.Skipf("symlinks are unavailable: %v", err)
+	}
+
+	core.ResetConfig()
+	core.SetConfigType("volumetemplate")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir, folder: "app"}
+
+	require.NoError(t, d.Tar())
+	require.NotNil(t, d.archive)
+	t.Cleanup(func() { _ = os.Remove(d.archive.Name()) })
+}
+
 func TestDeploymentReadBlaxelToml(t *testing.T) {
 	// Create a temp directory with blaxel.toml
 	tempDir, err := os.MkdirTemp("", "deploy_test")

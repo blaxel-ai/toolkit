@@ -2338,7 +2338,87 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	return nil
 }
 
+func (d *Deployment) validateArchiveSourceSize(archiveRoot string, ignoredPaths []string, volumeTemplate bool) error {
+	var size int64
+	addSize := func(fileSize int64) error {
+		if fileSize > maxArchiveUploadSize-size {
+			return archiveSizeError(maxArchiveUploadSize+1, volumeTemplate)
+		}
+		size += fileSize
+		return nil
+	}
+
+	err := filepath.WalkDir(archiveRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == archiveRoot {
+			return nil
+		}
+		if !volumeTemplate && d.shouldIgnorePath(path, ignoredPaths) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if volumeTemplate && filepath.Base(path) == "blaxel.toml" {
+			return nil
+		}
+		if !entry.Type().IsRegular() && (volumeTemplate || entry.Type()&os.ModeSymlink == 0) {
+			return nil
+		}
+
+		info, err := os.Stat(path)
+		if err != nil {
+			if !volumeTemplate {
+				return nil
+			}
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		return addSize(info.Size())
+	})
+	if err != nil {
+		return err
+	}
+
+	if d.folder != "" {
+		fileNames := []string{"Dockerfile"}
+		if !volumeTemplate {
+			fileNames = append(fileNames, "blaxel.toml")
+		}
+		for _, fileName := range fileNames {
+			filePath := filepath.Join(d.cwd, d.folder, fileName)
+			var info os.FileInfo
+			var err error
+			if volumeTemplate {
+				info, err = os.Lstat(filePath)
+			} else {
+				info, err = os.Stat(filePath)
+			}
+			if err == nil && info.Mode().IsRegular() {
+				if err := addSize(info.Size()); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err := addSize(int64(len(d.dockerConfigJSON))); err != nil {
+		return err
+	}
+	if !volumeTemplate {
+		return addSize(int64(len(d.buildEnvContent)))
+	}
+	return nil
+}
+
 func (d *Deployment) Zip() error {
+	if err := d.validateArchiveSourceSize(d.cwd, d.IgnoredPaths(), false); err != nil {
+		return err
+	}
+
 	zipFile, err := os.CreateTemp("", ".blaxel.zip")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
@@ -2374,24 +2454,7 @@ func (d *Deployment) Tar() error {
 		return fmt.Errorf("failed to inspect volume template directory %q: %w", volumeDir, err)
 	}
 
-	var size int64
-	err := filepath.WalkDir(archiveRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.Type().IsRegular() && filepath.Base(path) != "blaxel.toml" {
-			info, err := entry.Info()
-			if err != nil {
-				return err
-			}
-			if info.Size() > maxArchiveUploadSize-size {
-				return archiveSizeError(maxArchiveUploadSize+1, true)
-			}
-			size += info.Size()
-		}
-		return nil
-	})
-	if err != nil {
+	if err := d.validateArchiveSourceSize(archiveRoot, nil, true); err != nil {
 		return err
 	}
 
