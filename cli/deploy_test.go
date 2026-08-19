@@ -3,6 +3,7 @@ package cli
 import (
 	"archive/tar"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -566,6 +567,8 @@ func TestVolumeTemplateTarRejectsOversizedFilesBeforeCreatingArchive(t *testing.
 	tempDir := t.TempDir()
 	archiveDir := t.TempDir()
 	t.Setenv("TMPDIR", archiveDir)
+	t.Setenv("TMP", archiveDir)
+	t.Setenv("TEMP", archiveDir)
 	file, err := os.Create(filepath.Join(tempDir, "oversized.bin"))
 	require.NoError(t, err)
 	require.NoError(t, file.Truncate(5*1024*1024*1024+1))
@@ -577,6 +580,39 @@ func TestVolumeTemplateTarRejectsOversizedFilesBeforeCreatingArchive(t *testing.
 	d := Deployment{cwd: tempDir}
 
 	err = d.Tar()
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)")
+	assert.ErrorIs(t, err, errArchiveTooLarge)
+	assert.Nil(t, d.archive)
+	archives, err := filepath.Glob(filepath.Join(archiveDir, ".blaxel.tar*"))
+	require.NoError(t, err)
+	assert.Empty(t, archives)
+}
+
+func TestVolumeTemplateTarRejectsDeepOversizedTreeBeforeCreatingArchive(t *testing.T) {
+	tempDir := t.TempDir()
+	archiveDir := t.TempDir()
+	t.Setenv("TMPDIR", archiveDir)
+	t.Setenv("TMP", archiveDir)
+	t.Setenv("TEMP", archiveDir)
+
+	deepDir := filepath.Join(tempDir, "a", "b", "c", "d", "e", "f", "g", "h", "i", "j")
+	require.NoError(t, os.MkdirAll(deepDir, 0755))
+	for i := range 10_000 {
+		file, err := os.Create(filepath.Join(deepDir, fmt.Sprintf("file-%05d.bin", i)))
+		require.NoError(t, err)
+		if i == 9_999 {
+			require.NoError(t, file.Truncate(5*1024*1024*1024+1))
+		}
+		require.NoError(t, file.Close())
+	}
+
+	core.ResetConfig()
+	core.SetConfigType("volumetemplate")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	err := d.Tar()
 
 	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)")
 	assert.ErrorIs(t, err, errArchiveTooLarge)
