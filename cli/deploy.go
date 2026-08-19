@@ -2396,6 +2396,15 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 }
 
 func (d *Deployment) validateArchiveSourceSize(archiveRoot string, ignoredPaths []string, volumeTemplate bool) error {
+	var ignoreMatcher *ignoredPathMatcher
+	if !volumeTemplate {
+		var err error
+		ignoreMatcher, err = newIgnoredPathMatcher(d.cwd, ignoredPaths)
+		if err != nil {
+			return err
+		}
+	}
+
 	var size int64
 	addSize := func(fileSize int64) error {
 		if fileSize > maxArchiveUploadSize-size {
@@ -2412,11 +2421,17 @@ func (d *Deployment) validateArchiveSourceSize(archiveRoot string, ignoredPaths 
 		if path == archiveRoot {
 			return nil
 		}
-		if !volumeTemplate && d.shouldIgnorePath(path, ignoredPaths) {
-			if entry.IsDir() {
-				return filepath.SkipDir
+		if ignoreMatcher != nil {
+			ignored, err := ignoreMatcher.matches(path)
+			if err != nil {
+				return err
 			}
-			return nil
+			if ignored {
+				if entry.IsDir() && ignoreMatcher.canSkipIgnoredDirectory() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 		}
 		if volumeTemplate && filepath.Base(path) == "blaxel.toml" {
 			return nil

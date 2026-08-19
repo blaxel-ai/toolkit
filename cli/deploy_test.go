@@ -740,6 +740,34 @@ func TestZipPrevalidationExcludesIgnoredFiles(t *testing.T) {
 	t.Cleanup(func() { _ = os.Remove(d.archive.Name()) })
 }
 
+func TestZipPrevalidationHonorsNegatedIgnorePatterns(t *testing.T) {
+	tempDir := t.TempDir()
+	archiveDir := t.TempDir()
+	t.Setenv("TMPDIR", archiveDir)
+	t.Setenv("TMP", archiveDir)
+	t.Setenv("TEMP", archiveDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".blaxelignore"), []byte("assets\n!assets/keep.bin\n"), 0644))
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, "assets"), 0755))
+	file, err := os.Create(filepath.Join(tempDir, "assets", "keep.bin"))
+	require.NoError(t, err)
+	require.NoError(t, file.Truncate(5*1024*1024*1024+1))
+	require.NoError(t, file.Close())
+
+	core.ResetConfig()
+	core.SetConfigType("agent")
+	t.Cleanup(core.ResetConfig)
+	d := Deployment{cwd: tempDir}
+
+	err = d.Zip()
+
+	require.EqualError(t, err, "archive size exceeds the 5 GB upload limit; reduce the archive size by adding files or directories to .blaxelignore")
+	assert.ErrorIs(t, err, errArchiveTooLarge)
+	assert.Nil(t, d.archive)
+	archives, err := filepath.Glob(filepath.Join(archiveDir, ".blaxel.zip*"))
+	require.NoError(t, err)
+	assert.Empty(t, archives)
+}
+
 func TestZipPrevalidationFollowsFileSymlinks(t *testing.T) {
 	tempDir := t.TempDir()
 	target, err := os.Create(filepath.Join(t.TempDir(), "oversized.bin"))
