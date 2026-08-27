@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
-// [build] memory and scratch cannot reach the builder the way [build] slim
+// [build] memoryMb and volumeMb cannot reach the builder the way [build] slim
 // does: slim is read inside the build environment, while these two size that
 // environment and must be known before it exists. Labels are the only channel
 // that runs early enough, so a value that fails to become one is a value the
@@ -91,26 +95,275 @@ func TestBuildLabelsAreTheSameOnBothSidesOfTheUpload(t *testing.T) {
 	}
 }
 
-// The two upload paths are signed differently, and sending a header the URL was
-// not signed for fails the upload outright. push gets a URL signed with the
-// [build] choices; deploy gets its URL from the resource endpoint, which signs
-// none — so reading the metadata from global config, as a first version did,
-// broke every deploy of a project that declared a [build] section.
+// Push and source-building deploys sign the selected labels into their upload
+// URLs, then repeat them as x-amz-meta-* headers. Metadata is set explicitly
+// through WithUploadMetadata so Upload never reads global config: a zero-value
+// Deployment carries nothing until its caller opts in.
 func TestUploadOnlySendsMetadataItWasGiven(t *testing.T) {
-	deploy := &Deployment{}
-	if len(deploy.uploadMetadata) != 0 {
-		t.Errorf("a deploy must send no metadata, got %v", deploy.uploadMetadata)
+	bare := &Deployment{}
+	if len(bare.uploadMetadata) != 0 {
+		t.Errorf("a bare Deployment must carry no metadata until WithUploadMetadata is called, got %v", bare.uploadMetadata)
 	}
 
-	push := &Deployment{}
+	configured := &Deployment{}
 	signed := buildLabels(&core.BuildConfig{Experimental: true, MemoryMb: 8192})
-	push.WithUploadMetadata(signed)
-	if len(push.uploadMetadata) != len(signed) {
-		t.Fatalf("push carries %v, signed %v", push.uploadMetadata, signed)
+	configured.WithUploadMetadata(signed)
+	if len(configured.uploadMetadata) != len(signed) {
+		t.Fatalf("configured deployment carries %v, signed %v", configured.uploadMetadata, signed)
 	}
 	for k, v := range signed {
-		if push.uploadMetadata[k] != v {
-			t.Errorf("%s = %q, signed %q", k, push.uploadMetadata[k], v)
+		if configured.uploadMetadata[k] != v {
+			t.Errorf("%s = %q, signed %q", k, configured.uploadMetadata[k], v)
 		}
 	}
+}
+
+func TestGenerateDeploymentBuildLabelsOnlyWhenBuildRuns(t *testing.T) {
+	server := mockServer(t, map[string]interface{}{
+		"GET /agents/": map[string]interface{}{
+			"metadata": map[string]interface{}{"name": "build-label-test"},
+			"spec": map[string]interface{}{
+				"runtime": map[string]interface{}{"image": "registry.blaxel.ai/test-workspace/build-label-test:existing"},
+			},
+		},
+	})
+	defer server.Close()
+	setupMockClient(t, server.URL)
+
+	for _, test := range []struct {
+		name       string
+		resource   string
+		image      string
+		skipBuild  bool
+		wantLabels bool
+	}{
+		{name: "source build", resource: "agent", wantLabels: true},
+		{name: "skip build", resource: "agent", skipBuild: true, wantLabels: false},
+		{name: "prebuilt image", resource: "agent", image: "docker.io/example/prebuilt:latest", wantLabels: false},
+		{name: "volume template upload", resource: "volume-template", wantLabels: false},
+		{name: "volume template upload with skip build", resource: "volume-template", skipBuild: true, wantLabels: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			config := "name = \"build-label-test\"\n" +
+				"type = \"" + test.resource + "\"\n"
+			if test.image != "" {
+				config += "image = \"" + test.image + "\"\n"
+			}
+			config += `
+[build]
+experimental = true
+memoryMb = 8192
+volumeMb = 30000
+`
+			if err := os.WriteFile(filepath.Join(dir, "blaxel.toml"), []byte(config), 0o600); err != nil {
+				t.Fatal(err)
+			}
+
+			cwd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chdir(dir); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				_ = os.Chdir(cwd)
+				core.ResetConfig()
+			})
+
+			core.ResetConfig()
+			core.ReadConfigToml(".", true)
+			result := (&Deployment{name: "build-label-test"}).GenerateDeployment(test.skipBuild)
+			metadata := result.Metadata.(map[string]interface{})
+			labels := metadata["labels"].(map[string]interface{})
+
+			want := map[string]string{
+				"x-blaxel-builder":      "sandbox",
+				"x-blaxel-build-memory": "8192",
+				"x-blaxel-build-volume": "30000",
+			}
+			for name, value := range want {
+				got, ok := labels[name]
+				if test.wantLabels && (!ok || got != value) {
+					t.Errorf("%s = %q, want %q", name, got, value)
+				}
+				if !test.wantLabels && ok {
+					t.Errorf("%s = %q, want label omitted when no build runs", name, got)
+				}
+			}
+		})
+	}
+}
+
+func TestDeployUploadMetadataUsesFinalGeneratedLabels(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		config       string
+		experimental bool
+		wantFinal    map[string]string
+		wantUpload   map[string]string
+	}{
+		{
+			name: "legacy manual builder label is retained",
+			config: `
+[labels]
+"x-blaxel-builder" = "legacy"
+`,
+			wantFinal:  map[string]string{"x-blaxel-builder": "legacy"},
+			wantUpload: map[string]string{"x-blaxel-builder": "legacy"},
+		},
+		{
+			name:         "deploy experimental label is sent",
+			experimental: true,
+			wantFinal:    map[string]string{"x-blaxel-experimental": "true"},
+			wantUpload:   map[string]string{"x-blaxel-experimental": "true"},
+		},
+		{
+			name: "ordinary resource label is excluded",
+			config: `
+[labels]
+team = "platform"
+`,
+			wantFinal:  map[string]string{"team": "platform"},
+			wantUpload: nil,
+		},
+		{
+			name: "generated build label overrides manual value",
+			config: `
+[labels]
+"x-blaxel-build-memory" = "manual"
+
+[build]
+memoryMb = 8192
+`,
+			wantFinal:  map[string]string{"x-blaxel-build-memory": "8192"},
+			wantUpload: map[string]string{"x-blaxel-build-memory": "8192"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result, config := generateBuildLabelDeployment(t, test.config, test.experimental, false)
+			labels := buildLabelTestResultLabels(t, result)
+			for name, value := range test.wantFinal {
+				if got := labels[name]; got != value {
+					t.Errorf("final label %s = %q, want %q", name, got, value)
+				}
+			}
+
+			got := deployUploadMetadata(result, config, false)
+			if !reflect.DeepEqual(got, test.wantUpload) {
+				t.Errorf("upload metadata = %v, want %v", got, test.wantUpload)
+			}
+		})
+	}
+}
+
+func TestDeployUploadMetadataFiltersLabelValues(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		labels map[string]interface{}
+		want   map[string]string
+	}{
+		{
+			name:   "ordinary label",
+			labels: map[string]interface{}{"team": "platform"},
+			want:   nil,
+		},
+		{
+			name:   "empty allowed label",
+			labels: map[string]interface{}{"x-blaxel-builder": ""},
+			want:   nil,
+		},
+		{
+			name:   "65 byte allowed label",
+			labels: map[string]interface{}{"x-blaxel-builder": strings.Repeat("a", 65)},
+			want:   nil,
+		},
+		{
+			name:   "64 byte allowed label",
+			labels: map[string]interface{}{"x-blaxel-builder": strings.Repeat("a", 64)},
+			want:   map[string]string{"x-blaxel-builder": strings.Repeat("a", 64)},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := core.Result{Metadata: map[string]interface{}{"labels": test.labels}}
+			got := deployUploadMetadata(result, core.Config{Type: "agent"}, false)
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("upload metadata = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestDeployUploadMetadataReturnsNilWithoutSourceBuild(t *testing.T) {
+	result := core.Result{Metadata: map[string]interface{}{
+		"labels": map[string]interface{}{"x-blaxel-builder": "sandbox"},
+	}}
+	for _, test := range []struct {
+		name      string
+		config    core.Config
+		skipBuild bool
+	}{
+		{
+			name:   "prebuilt image",
+			config: core.Config{Type: "agent", Image: "docker.io/example/prebuilt:latest"},
+		},
+		{
+			name:      "skip build",
+			config:    core.Config{Type: "agent"},
+			skipBuild: true,
+		},
+		{
+			name:   "volume template",
+			config: core.Config{Type: "volume-template"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := deployUploadMetadata(result, test.config, test.skipBuild); got != nil {
+				t.Errorf("upload metadata = %v, want nil", got)
+			}
+		})
+	}
+}
+
+func generateBuildLabelDeployment(t *testing.T, extraConfig string, experimental, skipBuild bool) (core.Result, core.Config) {
+	t.Helper()
+	dir := t.TempDir()
+	config := `name = "build-label-test"
+type = "agent"
+` + extraConfig
+	if err := os.WriteFile(filepath.Join(dir, "blaxel.toml"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(cwd)
+		core.ResetConfig()
+	})
+
+	core.ResetConfig()
+	core.ReadConfigToml(".", true)
+	configValue := core.GetConfig()
+	result := (&Deployment{name: "build-label-test", experimental: experimental}).GenerateDeployment(skipBuild)
+	return result, configValue
+}
+
+func buildLabelTestResultLabels(t *testing.T, result core.Result) map[string]interface{} {
+	t.Helper()
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if !ok {
+		t.Fatalf("metadata has type %T, want map", result.Metadata)
+	}
+	labels, ok := metadata["labels"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("metadata.labels has type %T, want map", metadata["labels"])
+	}
+	return labels
 }

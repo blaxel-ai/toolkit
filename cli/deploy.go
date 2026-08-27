@@ -364,9 +364,8 @@ type Deployment struct {
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
 	// uploadMetadata is the object metadata the presigned URL was signed for.
-	// Empty on the deploy path, whose URL comes from the resource endpoint and
-	// carries no metadata; set by push, whose URL is signed with the [build]
-	// choices because that command creates no resource record to hold them.
+	// Push and source-building deploys set it explicitly; uploads that do not
+	// start a build, such as volume templates, leave it empty.
 	uploadMetadata  map[string]string
 	timeout         time.Duration
 	timeoutExplicit bool
@@ -406,7 +405,60 @@ func buildLabels(build *core.BuildConfig) map[string]string {
 	return out
 }
 
+func deployBuildsSource(config core.Config, skipBuild bool) bool {
+	return config.Image == "" && !skipBuild && !core.IsVolumeTemplate(config.Type)
+}
+
+// deployBuildLabels returns build settings only when deploy will build source.
+// A pre-built image, --skip-build, and volume-template uploads do not start a
+// build, so persisting build-only labels on those resources would be misleading.
+func deployBuildLabels(config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	return buildLabels(config.Build)
+}
+
+const maxBuildUploadLabelValue = 64
+
+// deployUploadMetadata mirrors the control plane's build-label filter over the
+// final generated resource labels. Reading the final labels keeps legacy manual
+// labels, CLI-owned labels, and [build] settings identical on both sides of the
+// signed upload.
+func deployUploadMetadata(result core.Result, config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	labels, ok := metadata["labels"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	out := map[string]string{}
+	for _, name := range [...]string{
+		"x-blaxel-builder",
+		"x-blaxel-experimental",
+		"x-blaxel-build-memory",
+		"x-blaxel-build-volume",
+	} {
+		value, ok := labels[name].(string)
+		if !ok || value == "" || len(value) > maxBuildUploadLabelValue {
+			continue
+		}
+		out[name] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func (d *Deployment) Generate(skipBuild bool) error {
+	d.skipBuild = skipBuild
 	if d.name == "" {
 		d.name = filepath.Base(filepath.Join(d.cwd, d.folder))
 	}
@@ -419,11 +471,14 @@ func (d *Deployment) Generate(skipBuild bool) error {
 		return fmt.Errorf("failed to seed cache: %w", err)
 	}
 
-	// Generate the blaxel deployment yaml
-	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
+	config := core.GetConfig()
+	// Generate the blaxel deployment yaml and retain the exact metadata the
+	// control plane will sign for a source build.
+	deployment := d.GenerateDeployment(skipBuild)
+	d.blaxelDeployments = []core.Result{deployment}
+	d.WithUploadMetadata(deployUploadMetadata(deployment, config, skipBuild))
 
 	// Volume-template needs archive even without build (for file upload)
-	config := core.GetConfig()
 	// Skip archive creation when a pre-built image is specified in blaxel.toml
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		// Create archive (tar for volume-template, zip for others)
@@ -853,7 +908,7 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	for name, value := range config.Labels {
 		labels[name] = value
 	}
-	for name, value := range buildLabels(config.Build) {
+	for name, value := range deployBuildLabels(config, skipBuild) {
 		labels[name] = value
 	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
@@ -1035,11 +1090,6 @@ func (d *Deployment) Apply() error {
 				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
 
-			// The platform signs the [build] labels it received on the resource into
-			// this URL, so the upload has to repeat them. They stay labels on the
-			// wire — build settings do not belong in the resource's public schema —
-			// but they are signed, so a client cannot alter what the build sees.
-			d.WithUploadMetadata(buildLabels(core.GetConfig().Build))
 			err := d.UploadWithRetry(result.Result.UploadURL, func() (string, error) {
 				newResults, err := ApplyResources(d.blaxelDeployments)
 				if err != nil {
@@ -1403,7 +1453,6 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 			model.AddBuildLog(idx, "Uploading code to registry...")
 		}
 
-		d.WithUploadMetadata(buildLabels(core.GetConfig().Build))
 		err := d.UploadWithRetry(applyResults[0].Result.UploadURL, func() (string, error) {
 			newResults, applyErr := ApplyResources([]core.Result{deployment})
 			if applyErr != nil {
@@ -2081,10 +2130,9 @@ func (d *Deployment) Upload(url string) error {
 	}
 
 	// Only what the caller says was signed. These headers are part of the URL's
-	// signature, so sending one the platform did not sign is rejected outright —
-	// reading them from the global config instead would have broken every
-	// `bl deploy` of a project with a [build] section, because that path gets its
-	// URL from the resource endpoint, which signs nothing.
+	// signature, so sending one the platform did not sign is rejected outright.
+	// Keeping this explicit also prevents non-build uploads from inheriting
+	// unrelated global build configuration.
 	for name, value := range d.uploadMetadata {
 		req.Header.Set("x-amz-meta-"+name, value)
 	}
