@@ -363,12 +363,102 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
-	timeout                time.Duration
-	timeoutExplicit        bool
-	skipBuild              bool
+	// uploadMetadata is the object metadata the presigned URL was signed for.
+	// Push and source-building deploys set it explicitly; uploads that do not
+	// start a build, such as volume templates, leave it empty.
+	uploadMetadata  map[string]string
+	timeout         time.Duration
+	timeoutExplicit bool
+	skipBuild       bool
+}
+
+// buildLabels turns blaxel.toml's [build] section into resource labels.
+//
+// They travel as labels because the control plane needs them before the build
+// environment exists — too early for anything to have read blaxel.toml. That is
+// what separates them from [build] slim, which is read inside that environment
+// and can stay in the manifest.
+//
+// Nothing is clamped: the platform enforces the workspace's quotas, and its
+// refusal names the plan. A client-side limit would only duplicate the numbers
+// and replace a precise message with a guess.
+func buildLabels(build *core.BuildConfig) map[string]string {
+	out := map[string]string{}
+	if build == nil {
+		return out
+	}
+	// Distinct from the CLI's --experimental, which marks the deployed resource.
+	// This one selects the builder, and only opts in: a project that does not ask
+	// keeps whatever the platform rolls out, so removing the line never pins it
+	// back to the old one.
+	if build.Experimental {
+		out["x-blaxel-builder"] = "sandbox"
+	}
+	if build.MemoryMb > 0 {
+		out["x-blaxel-build-memory"] = strconv.Itoa(build.MemoryMb)
+	}
+	// Absent means no disk, which is the default, so only a positive size needs
+	// carrying. That is what lets both stay plain ints rather than pointers.
+	if build.VolumeMb > 0 {
+		out["x-blaxel-build-volume"] = strconv.Itoa(build.VolumeMb)
+	}
+	return out
+}
+
+func deployBuildsSource(config core.Config, skipBuild bool) bool {
+	return config.Image == "" && !skipBuild && !core.IsVolumeTemplate(config.Type)
+}
+
+// deployBuildLabels returns build settings only when deploy will build source.
+// A pre-built image, --skip-build, and volume-template uploads do not start a
+// build, so persisting build-only labels on those resources would be misleading.
+func deployBuildLabels(config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	return buildLabels(config.Build)
+}
+
+const maxBuildUploadLabelValue = 64
+
+// deployUploadMetadata mirrors the control plane's build-label filter over the
+// final generated resource labels. Reading the final labels keeps legacy manual
+// labels, CLI-owned labels, and [build] settings identical on both sides of the
+// signed upload.
+func deployUploadMetadata(result core.Result, config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	labels, ok := metadata["labels"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	out := map[string]string{}
+	for _, name := range [...]string{
+		"x-blaxel-builder",
+		"x-blaxel-experimental",
+		"x-blaxel-build-memory",
+		"x-blaxel-build-volume",
+	} {
+		value, ok := labels[name].(string)
+		if !ok || value == "" || len(value) > maxBuildUploadLabelValue {
+			continue
+		}
+		out[name] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
+	d.skipBuild = skipBuild
 	if d.name == "" {
 		d.name = filepath.Base(filepath.Join(d.cwd, d.folder))
 	}
@@ -381,11 +471,14 @@ func (d *Deployment) Generate(skipBuild bool) error {
 		return fmt.Errorf("failed to seed cache: %w", err)
 	}
 
-	// Generate the blaxel deployment yaml
-	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
+	config := core.GetConfig()
+	// Generate the blaxel deployment yaml and retain the exact metadata the
+	// control plane will sign for a source build.
+	deployment := d.GenerateDeployment(skipBuild)
+	d.blaxelDeployments = []core.Result{deployment}
+	d.WithUploadMetadata(deployUploadMetadata(deployment, config, skipBuild))
 
 	// Volume-template needs archive even without build (for file upload)
-	config := core.GetConfig()
 	// Skip archive creation when a pre-built image is specified in blaxel.toml
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		// Create archive (tar for volume-template, zip for others)
@@ -813,6 +906,9 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 	// anything the user asked for has to survive the deploy. Without this the
 	// map is rebuilt from scratch on every deploy and every other label is lost.
 	for name, value := range config.Labels {
+		labels[name] = value
+	}
+	for name, value := range deployBuildLabels(config, skipBuild) {
 		labels[name] = value
 	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
@@ -1986,6 +2082,12 @@ func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, erro
 	return lastErr
 }
 
+// WithUploadMetadata declares the object metadata the presigned URL was signed
+// for. It must match exactly: extra, missing or altered values fail the upload.
+func (d *Deployment) WithUploadMetadata(metadata map[string]string) {
+	d.uploadMetadata = metadata
+}
+
 func (d *Deployment) Upload(url string) error {
 	// Open the archive file
 	archiveFile, err := os.Open(d.archive.Name())
@@ -2025,6 +2127,14 @@ func (d *Deployment) Upload(url string) error {
 		req.Header.Set("Content-Type", "application/x-tar")
 	} else {
 		req.Header.Set("Content-Type", "application/zip")
+	}
+
+	// Only what the caller says was signed. These headers are part of the URL's
+	// signature, so sending one the platform did not sign is rejected outright.
+	// Keeping this explicit also prevents non-build uploads from inheriting
+	// unrelated global build configuration.
+	for name, value := range d.uploadMetadata {
+		req.Header.Set("x-amz-meta-"+name, value)
 	}
 
 	// Perform the request
