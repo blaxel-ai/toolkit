@@ -137,13 +137,40 @@ github_api() {
   http_download "$local_file" "$source_url" "$header"
 }
 
-github_last_release() {
+# Resolve the latest release tag from the github.com redirect, which is not
+# subject to the unauthenticated api.github.com rate limit (60 req/h per IP).
+github_last_release_redirect() {
+  owner_repo=$1
+  url="https://github.com/${owner_repo}/releases/latest"
+  if is_command curl; then
+    location=$(curl -sSI "$url" 2>/dev/null | tr -d '\r' | grep -i '^location:' | head -n 1 | awk '{print $2}')
+  elif is_command wget; then
+    location=$(wget -q --max-redirect=0 -S -O /dev/null "$url" 2>&1 | tr -d '\r' | grep -i 'location:' | head -n 1 | awk '{print $2}')
+  else
+    return 1
+  fi
+  version=${location##*/releases/tag/}
+  test -z "$version" && return 1
+  test "$version" = "$location" && return 1
+  echo "$version"
+}
+github_last_release_api() {
   owner_repo=$1
   giturl="https://api.github.com/repos/${owner_repo}/releases"
-  html=$(github_api - "$giturl")
+  html=$(github_api - "$giturl") || return 1
   # Extract all tag names, filter out preview versions, and get the first (latest) one
   version=$(echo "$html" | grep "\"tag_name\":" | cut -f4 -d'"' | grep -v -E "(preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable)" | head -n 1)
   test -z "$version" && return 1
+  echo "$version"
+}
+github_last_release() {
+  owner_repo=$1
+  version=$(github_last_release_redirect "$owner_repo") || version=$(github_last_release_api "$owner_repo")
+  if [ -z "$version" ]; then
+    echo "$0: unable to determine the latest release of ${owner_repo}." >&2
+    echo "$0: GitHub may be rate limiting this IP; retry later or pin a version: VERSION=vX.Y.Z $0" >&2
+    return 1
+  fi
   echo "$version"
 }
 hash_sha256() {

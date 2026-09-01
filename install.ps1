@@ -51,13 +51,27 @@ function Get-BlaxelArch {
 
 # ── Resolve version ──────────────────────────────────────────────────
 function Get-LatestVersion {
+    # Prefer the github.com redirect: it is not subject to the unauthenticated
+    # api.github.com rate limit (60 req/h per IP), which surfaces as HTTP 403.
+    $redirectUrl = "https://github.com/$Owner/$Repo/releases/latest"
+    try {
+        $response = Invoke-WebRequest -Uri $redirectUrl -Method Head -MaximumRedirection 0 -UseBasicParsing -ErrorAction Stop
+        $location = $response.Headers["Location"]
+    }
+    catch {
+        $location = $_.Exception.Response.Headers["Location"]
+    }
+    if ($location -and $location -match '/releases/tag/([^/]+)$') {
+        return $Matches[1]
+    }
+
     $url = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
     try {
         $release = Invoke-RestMethod -Uri $url -UseBasicParsing
         return $release.tag_name
     }
     catch {
-        Write-Error "Failed to fetch the latest release from GitHub: $_"
+        Write-Error "Failed to fetch the latest release from GitHub (it may be rate limiting this IP; retry later or pass -Version vX.Y.Z): $_"
         exit 1
     }
 }
