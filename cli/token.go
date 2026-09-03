@@ -76,21 +76,9 @@ export TOKEN=$(bl token)
 				core.ExitWithError(err)
 			}
 
-			// Get workspace to check if access is allowed + it refreshes the token if needed.
-			client, err := blaxel.NewClientFromConfig(workspace)
-			if err != nil {
-				err := fmt.Errorf("failed to create client for workspace '%s': %w", workspace, err)
-				core.PrintError("token", err)
-				core.ExitWithError(err)
-			}
-			_, err = client.Workspaces.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{})
-			if err != nil {
-				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
-				core.PrintError("token", err)
-				core.ExitWithError(err)
-			}
-
-			// Load credentials for the workspace
+			// Load credentials before validating workspace access so local credential
+			// problems can return actionable login guidance without first failing on
+			// a workspace API call.
 			credentials, err := blaxel.LoadCredentials(workspace)
 			if err != nil {
 				err := fmt.Errorf("failed to load credentials for workspace '%s': %w", workspace, err)
@@ -113,6 +101,22 @@ export TOKEN=$(bl token)
 				core.ExitWithError(err)
 			}
 
+			// Get workspace to check if access is allowed. Keep this after token
+			// retrieval so expired non-refreshable tokens fail before any API call,
+			// but before printing so inaccessible workspaces never leak a token.
+			client, err := blaxel.NewClientFromConfig(workspace)
+			if err != nil {
+				err := fmt.Errorf("failed to create client for workspace '%s': %w", workspace, err)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
+			}
+			_, err = client.Workspaces.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{})
+			if err != nil {
+				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
+				core.PrintError("token", err)
+				core.ExitWithError(err)
+			}
+
 			// Output the token
 			fmt.Println(token)
 		},
@@ -124,6 +128,9 @@ export TOKEN=$(bl token)
 func tokenForCredentials(ctx context.Context, workspace string, credentials blaxel.Credentials) (string, error) {
 	headers, err := authHeadersForCredentials(ctx, credentials, workspace)
 	if err != nil {
+		if credentials.AccessToken != "" && credentials.RefreshToken != "" {
+			return "", fmt.Errorf("%w. Please run 'bl login %s'", err, workspace)
+		}
 		return "", err
 	}
 
