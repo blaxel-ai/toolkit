@@ -402,6 +402,12 @@ func buildLabels(build *core.BuildConfig) map[string]string {
 	if build.VolumeMb > 0 {
 		out["x-blaxel-build-volume"] = strconv.Itoa(build.VolumeMb)
 	}
+	if build.Region != "" {
+		out["x-blaxel-build-region"] = build.Region
+	}
+	if build.CacheDrive != "" {
+		out["x-blaxel-build-cache"] = build.CacheDrive
+	}
 	return out
 }
 
@@ -444,6 +450,8 @@ func deployUploadMetadata(result core.Result, config core.Config, skipBuild bool
 		"x-blaxel-experimental",
 		"x-blaxel-build-memory",
 		"x-blaxel-build-volume",
+		"x-blaxel-build-region",
+		"x-blaxel-build-cache",
 	} {
 		value, ok := labels[name].(string)
 		if !ok || value == "" || len(value) > maxBuildUploadLabelValue {

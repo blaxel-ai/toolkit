@@ -287,6 +287,13 @@ type BuildConfig struct {
 	// Set it when the image is large: a build writes roughly three times the
 	// final image size, and without a disk that comes out of MemoryMb.
 	VolumeMb int `toml:"volumeMb,omitempty"`
+	// Region is where the image is built, e.g. us-pdx-1. Unset uses the
+	// platform's configured build region.
+	Region string `toml:"region,omitempty"`
+	// CacheDrive names an Agent Drive in the same workspace and in the build
+	// region. The builder mounts it and keeps its layer cache there across
+	// builds. Unset means no cache and every build starts from scratch.
+	CacheDrive string `toml:"cacheDrive,omitempty"`
 }
 
 // readConfigToml reads the config.toml file and upgrade config according to content
