@@ -47,6 +47,33 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 				"x-blaxel-build-volume": "60000",
 			},
 		},
+		{
+			"region only",
+			&core.BuildConfig{Region: "us-pdx-1"},
+			map[string]string{"x-blaxel-build-region": "us-pdx-1"},
+		},
+		{
+			"cacheDrive only",
+			&core.BuildConfig{CacheDrive: "build-cache"},
+			map[string]string{"x-blaxel-build-cache": "build-cache"},
+		},
+		{
+			"everything together",
+			&core.BuildConfig{
+				Experimental: true,
+				MemoryMb:     16384,
+				VolumeMb:     60000,
+				Region:       "us-pdx-1",
+				CacheDrive:   "build-cache",
+			},
+			map[string]string{
+				"x-blaxel-builder":      "sandbox",
+				"x-blaxel-build-memory": "16384",
+				"x-blaxel-build-volume": "60000",
+				"x-blaxel-build-region": "us-pdx-1",
+				"x-blaxel-build-cache":  "build-cache",
+			},
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			got := buildLabels(c.build)
@@ -239,6 +266,22 @@ memoryMb = 8192
 `,
 			wantFinal:  map[string]string{"x-blaxel-build-memory": "8192"},
 			wantUpload: map[string]string{"x-blaxel-build-memory": "8192"},
+		},
+		{
+			name: "build region and cache drive are sent",
+			config: `
+[build]
+region = "us-pdx-1"
+cacheDrive = "build-cache"
+`,
+			wantFinal: map[string]string{
+				"x-blaxel-build-region": "us-pdx-1",
+				"x-blaxel-build-cache":  "build-cache",
+			},
+			wantUpload: map[string]string{
+				"x-blaxel-build-region": "us-pdx-1",
+				"x-blaxel-build-cache":  "build-cache",
+			},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
