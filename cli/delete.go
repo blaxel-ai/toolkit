@@ -56,6 +56,9 @@ separately if needed.`,
   bl delete volume vol1 vol2 vol3
   bl delete agent agent1 agent2
 
+  # Delete a snapshot (removed from the workspace, source sandbox untouched)
+  bl delete snapshot my-snapshot
+
   # Delete a sandbox preview
   bl delete sandbox my-sandbox preview my-preview
 

@@ -48,6 +48,9 @@ bl delete [flags]
   bl delete volume vol1 vol2 vol3
   bl delete agent agent1 agent2
 
+  # Delete a snapshot (removed from the workspace, source sandbox untouched)
+  bl delete snapshot my-snapshot
+
   # Delete a sandbox preview
   bl delete sandbox my-sandbox preview my-preview
 
@@ -116,6 +119,7 @@ bl delete [flags]
 * [bl delete preview](bl_delete_preview.md)	 - Delete one or more previews
 * [bl delete previewtoken](bl_delete_previewtoken.md)	 - Delete one or more previewtokens
 * [bl delete sandbox](bl_delete_sandbox.md)	 - Delete one or more sandboxes
+* [bl delete snapshot](bl_delete_snapshot.md)	 - Delete one or more snapshots
 * [bl delete volume](bl_delete_volume.md)	 - Delete one or more volumes
 * [bl delete volumetemplate](bl_delete_volumetemplate.md)	 - Delete one or more volumetemplates
 
