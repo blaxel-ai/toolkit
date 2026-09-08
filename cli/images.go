@@ -193,11 +193,21 @@ func getImageLatest(resourceType, imageName string) {
 		core.ExitWithError(err)
 	}
 
-	tags := imageResult.Spec.Tags
-	if len(tags) == 0 {
-		err := fmt.Errorf("no tags found for image %s/%s", resourceType, imageName)
+	latestTag, err := latestImageTag(resourceType, imageName, imageResult.Spec.Tags)
+	if err != nil {
 		fmt.Println(err)
 		core.ExitWithError(err)
+	}
+
+	fmt.Printf("%s/%s:%s\n", resourceType, imageName, latestTag)
+}
+
+func latestImageTag(resourceType, imageName string, tags []blaxel.ImageSpecTag) (string, error) {
+	if len(tags) == 0 {
+		return "", core.MarkExpectedError(
+			fmt.Errorf("no tags found for image %s/%s", resourceType, imageName),
+			core.CLIErrorNotFound,
+		)
 	}
 
 	// Sort tags by createdAt descending to find the most recent
@@ -205,7 +215,7 @@ func getImageLatest(resourceType, imageName string) {
 		return tags[i].CreatedAt > tags[j].CreatedAt
 	})
 
-	fmt.Printf("%s/%s:%s\n", resourceType, imageName, tags[0].Name)
+	return tags[0].Name, nil
 }
 
 func getImage(resourceType, imageName, tag string) {
