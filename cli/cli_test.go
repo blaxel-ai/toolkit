@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -389,6 +393,92 @@ func TestSetBodyFieldsFromJSONApplicationParams(t *testing.T) {
 	assert.Equal(t, "registry.example.com/my-app:latest", revision["image"])
 	assert.Equal(t, float64(2048), revision["memory"])
 	assert.Len(t, revision["envs"], 1)
+}
+
+func TestSetBodyFieldsFromJSONDriveParams(t *testing.T) {
+	bodyJSON := []byte(`{
+		"metadata": {"name": "build-cache", "labels": {"team": "eng"}},
+		"spec": {"region": "us-was-1", "size": 100}
+	}`)
+
+	for _, tt := range []struct {
+		name   string
+		params any
+	}{
+		{name: "create", params: &blaxel.DriveNewParams{}},
+		{name: "update", params: &blaxel.DriveUpdateParams{}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			setBodyFieldsFromJSON(reflect.ValueOf(tt.params).Elem(), bodyJSON)
+
+			payload, err := json.Marshal(tt.params)
+			require.NoError(t, err)
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(payload, &body))
+			metadata := body["metadata"].(map[string]any)
+			spec := body["spec"].(map[string]any)
+
+			assert.Equal(t, "build-cache", metadata["name"])
+			assert.Equal(t, map[string]any{"team": "eng"}, metadata["labels"])
+			assert.NotContains(t, metadata, "displayName")
+			assert.Equal(t, "us-was-1", spec["region"])
+			assert.Equal(t, float64(100), spec["size"])
+		})
+	}
+}
+
+func TestHandleResourceOperationDriveRequestsPreserveManifestBody(t *testing.T) {
+	type requestRecord struct {
+		method string
+		path   string
+		body   map[string]any
+	}
+
+	var records []requestRecord
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() { _ = r.Body.Close() }()
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		records = append(records, requestRecord{method: r.Method, path: r.URL.Path, body: body})
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := blaxel.NewClient(
+		option.WithBaseURL(server.URL),
+		option.WithAPIKey("test-api-key"),
+	)
+	resource := &core.Resource{
+		Kind: "Drive",
+		Post: client.Drives.New,
+		Put:  client.Drives.Update,
+	}
+	manifest := map[string]any{
+		"metadata": map[string]any{"name": "build-cache"},
+		"spec":     map[string]any{"region": "us-was-1"},
+	}
+
+	_, err := handleResourceOperation(resource, "build-cache", manifest, "post", "", nil)
+	require.NoError(t, err)
+	_, err = handleResourceOperation(resource, "build-cache", manifest, "put", "", nil)
+	require.NoError(t, err)
+
+	require.Len(t, records, 2)
+	assert.Equal(t, http.MethodPost, records[0].method)
+	assert.True(t, strings.HasSuffix(records[0].path, "/drives"), records[0].path)
+	assert.Equal(t, http.MethodPut, records[1].method)
+	assert.True(t, strings.HasSuffix(records[1].path, "/drives/build-cache"), records[1].path)
+
+	for _, record := range records {
+		metadata := record.body["metadata"].(map[string]any)
+		spec := record.body["spec"].(map[string]any)
+		assert.Equal(t, "build-cache", metadata["name"])
+		assert.Equal(t, "us-was-1", spec["region"])
+	}
 }
 
 func TestHandleResourceOperationNilFunction(t *testing.T) {

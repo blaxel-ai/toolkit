@@ -477,27 +477,63 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 // This ensures we only send fields that were actually present in the YAML,
 // not Go's default values for missing fields
 func setBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
-	// For Param types, we need to set the inner type field
-	// e.g., AgentNewParams has an Agent field of type AgentParam
+	if !dst.IsValid() || dst.Kind() != reflect.Struct || !dst.CanAddr() {
+		return
+	}
+
+	if hasDirectBodyJSONFields(dst.Type()) {
+		if err := json.Unmarshal(srcJSON, dst.Addr().Interface()); err != nil && core.GetVerbose() {
+			core.PrintWarning(fmt.Sprintf("Failed to unmarshal body params %s: %v", dst.Type().Name(), err))
+		}
+		return
+	}
+
+	setWrappedBodyFieldsFromJSON(dst, srcJSON)
+}
+
+func hasDirectBodyJSONFields(dstType reflect.Type) bool {
+	for i := 0; i < dstType.NumField(); i++ {
+		field := dstType.Field(i)
+		if field.PkgPath != "" || !isBodyJSONField(field) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func isBodyJSONField(field reflect.StructField) bool {
+	jsonTag, ok := field.Tag.Lookup("json")
+	if !ok {
+		return false
+	}
+
+	jsonName := strings.Split(jsonTag, ",")[0]
+	return jsonName != "" && jsonName != "-"
+}
+
+func setWrappedBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
+	// Some SDK params wrap the real body in an untagged struct field.
+	// e.g., AgentNewParams has an Agent field of type AgentParam.
 	for i := 0; i < dst.NumField(); i++ {
 		field := dst.Type().Field(i)
-		if field.Type.Kind() == reflect.Struct {
-			// Try to set nested struct fields
-			dstField := dst.Field(i)
-			if dstField.CanSet() {
-				// Unmarshal directly from the original YAML JSON into the Param type
-				// This preserves only the fields that were in the YAML
-				newVal := reflect.New(field.Type).Interface()
-				if err := json.Unmarshal(srcJSON, newVal); err != nil {
-					// Log unmarshal errors in verbose mode to help debug YAML field issues
-					if core.GetVerbose() {
-						core.PrintWarning(fmt.Sprintf("Failed to unmarshal field %s: %v", field.Name, err))
-					}
-					continue
-				}
-				dstField.Set(reflect.ValueOf(newVal).Elem())
-			}
+		if field.PkgPath != "" || field.Type.Kind() != reflect.Struct || isBodyJSONField(field) {
+			continue
 		}
+
+		dstField := dst.Field(i)
+		if !dstField.CanSet() {
+			continue
+		}
+
+		newVal := reflect.New(field.Type).Interface()
+		if err := json.Unmarshal(srcJSON, newVal); err != nil {
+			if core.GetVerbose() {
+				core.PrintWarning(fmt.Sprintf("Failed to unmarshal field %s: %v", field.Name, err))
+			}
+			continue
+		}
+		dstField.Set(reflect.ValueOf(newVal).Elem())
 	}
 }
 
