@@ -229,6 +229,9 @@ func FinalizeSandboxTemplate(opts TemplateOptions) error {
 		return nil
 	}
 
+	if err := writeSandboxNextConfig(opts.Directory); err != nil {
+		return err
+	}
 	if err := writeSandboxDockerfile(opts.Directory, variant); err != nil {
 		return err
 	}
@@ -263,6 +266,8 @@ COPY --from=ghcr.io/blaxel-ai/sandbox:latest /sandbox-api /usr/local/bin/sandbox
 
 RUN mkdir -p /app \
   && npx create-next-app@latest /app --use-npm --typescript --eslint --tailwind --src-dir --app --import-alias "@/*" --no-git --yes --no-turbopack%s
+
+COPY next.config.ts /app/next.config.ts
 
 EXPOSE 3000
 
@@ -451,10 +456,28 @@ make run
 - `+"`Dockerfile`"+` builds the sandbox image.
 - `+"`entrypoint.sh`"+` starts the Blaxel sandbox API and the Next.js dev server.
 - `+"`blaxel.toml`"+` configures the Blaxel sandbox runtime.
+- `+"`next.config.ts`"+` configures trusted Next.js preview origins.
+
+## Preview development
+
+After creating a preview, set `+"`NEXT_ALLOWED_DEV_ORIGINS`"+` in the sandbox runtime environment to its exact hostname. Use comma-separated hostnames without a scheme, port, path, or token. Only add previews you control; do not use a wildcard covering other workspaces. Restart the sandbox after updating its runtime environment so the dev server receives the new value. An empty value retains Next.js local-origin protection. Preview authentication remains separate.
+
+See https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins.
 `, variant.title, variant.description, variant.flagName, commandCheck)
 
 	if err := writeSandboxFile(dir, "README.md", []byte(content), 0644); err != nil {
 		return err
 	}
 	return nil
+}
+
+func writeSandboxNextConfig(dir string) error {
+	return writeSandboxFile(dir, "next.config.ts", []byte(`// Set exact preview hostnames before starting the development server.
+const allowedDevOrigins = (process.env.NEXT_ALLOWED_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((hostname) => hostname.trim())
+  .filter(Boolean);
+
+export default { allowedDevOrigins };
+`), 0644)
 }

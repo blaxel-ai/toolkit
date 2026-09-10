@@ -763,7 +763,7 @@ func TestFinalizeSandboxTemplateWritesScratchRuntimeFiles(t *testing.T) {
 }
 
 func TestFinalizeSandboxTemplateRejectsSymlinkRuntimeFiles(t *testing.T) {
-	for _, name := range []string{"Dockerfile", "Makefile", "entrypoint.sh", "README.md"} {
+	for _, name := range []string{"Dockerfile", "Makefile", "entrypoint.sh", "README.md", "next.config.ts"} {
 		t.Run(name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			outsideDir := t.TempDir()
@@ -830,4 +830,21 @@ func TestFinalizeSandboxTemplateRemovesDuplicateLowercaseDockerfile(t *testing.T
 	dockerfile, err := os.ReadFile(filepath.Join(tempDir, "Dockerfile"))
 	require.NoError(t, err)
 	assert.Contains(t, string(dockerfile), "npm install -g @anthropic-ai/claude-code@latest")
+}
+
+func TestFinalizeSandboxTemplateIncludesPreviewConfig(t *testing.T) {
+	for _, variant := range []string{sandboxScratchTemplate, sandboxClaudeCodeTemplate, sandboxCodexTemplate} {
+		t.Run(variant, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, FinalizeSandboxTemplate(TemplateOptions{Directory: dir, TemplateName: variant}))
+			config, err := os.ReadFile(filepath.Join(dir, "next.config.ts"))
+			require.NoError(t, err)
+			assert.Contains(t, string(config), "NEXT_ALLOWED_DEV_ORIGINS")
+			assert.Contains(t, string(config), "export default { allowedDevOrigins }")
+			dockerfile, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+			require.NoError(t, err)
+			assert.Contains(t, string(dockerfile), "COPY next.config.ts /app/next.config.ts")
+			assert.Greater(t, strings.Index(string(dockerfile), "COPY next.config.ts"), strings.Index(string(dockerfile), "create-next-app"))
+		})
+	}
 }

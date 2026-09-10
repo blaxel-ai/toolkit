@@ -401,6 +401,11 @@ func resolveConfigVars() {
 		&config.Directory,
 		&config.Image,
 	}
+	// [build] region and cacheDrive name a region and a drive, so they deserve
+	// the same ${VAR} interpolation as the top-level region.
+	if config.Build != nil {
+		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive)
+	}
 	for _, f := range fields {
 		if *f != "" {
 			resolved, warning := ResolveVarValue(*f)
