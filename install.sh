@@ -140,7 +140,7 @@ github_api() {
 github_last_release() {
   owner_repo=$1
   giturl="https://api.github.com/repos/${owner_repo}/releases"
-  html=$(github_api - "$giturl")
+  html=$(github_api - "$giturl") || return 1
   # Extract all tag names, filter out preview versions, and get the first (latest) one
   version=$(echo "$html" | grep "\"tag_name\":" | cut -f4 -d'"' | grep -v -E "(preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable)" | head -n 1)
   test -z "$version" && return 1
@@ -213,7 +213,19 @@ esac
 
 if [ -z "${VERSION}" ]; then
   echo "$PREFIX: checking GitHub for latest version"
-  VERSION=$(github_last_release "$OWNER/$REPO")
+  if ! VERSION=$(github_last_release "$OWNER/$REPO"); then
+    cat >&2 <<EOF
+$PREFIX: unable to determine the latest stable version from GitHub.
+The GitHub API may be rate limited or unavailable, or no stable release was found.
+Choose a release tag at https://github.com/$OWNER/$REPO/releases and retry
+with VERSION set to that tag to skip the GitHub API lookup:
+
+  curl -fsSL https://raw.githubusercontent.com/$OWNER/$REPO/main/install.sh | VERSION="<release-tag>" BINDIR="\$HOME/.local/bin" sh
+
+Replace <release-tag> with the chosen tag, and adjust BINDIR if needed.
+EOF
+    exit 1
+  fi
 fi
 NAME=${BINARY}_${OS_TITLE}_${ARCH}.tar.gz
 if [ "$OS" = "windows" ]; then

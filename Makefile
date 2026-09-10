@@ -65,11 +65,14 @@ clean:
 %:
 	@:
 
-test-install:
+test-install: test-install-release-lookup
 	@echo "🧪 Running install.sh tests in Docker..."
 	./test/install/run_tests.sh
 
 test-zsh-blaxel-prompt:
 	./contrib/zsh-blaxel-prompt/test.sh
 
-.PHONY: test test-integration test-install test-zsh-blaxel-prompt
+test-install-release-lookup:
+	sh test/install/test_release_lookup.sh
+
+.PHONY: test test-integration test-install test-install-release-lookup test-zsh-blaxel-prompt
