@@ -42,18 +42,48 @@ func TestParseForkArg(t *testing.T) {
 func TestBuildForkRequestUsesFlatApplicationFields(t *testing.T) {
 	traffic := 20
 	port := 8080
-	memory := 2048
-	request := buildForkRequest("target", "application", &traffic, &port, &memory)
+	request := buildForkRequest("target", "application", &traffic, &port, "")
 
 	payload, err := json.Marshal(request)
 	require.NoError(t, err)
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(payload, &body))
-	assert.Equal(t, "target", body["target_name"])
-	assert.Equal(t, "application", body["type"])
+	// The API's SandboxForkRequest is camelCase; snake_case keys never reach
+	// its fields, so the server would read an empty target and reject the call.
+	assert.Equal(t, "target", body["targetName"])
+	assert.Equal(t, "application", body["targetType"])
 	assert.Equal(t, float64(20), body["traffic"])
 	assert.Equal(t, float64(8080), body["port"])
-	assert.Equal(t, float64(2048), body["memory"])
+	assert.NotContains(t, body, "target_name")
+	assert.NotContains(t, body, "type")
+	assert.NotContains(t, body, "memory")
 	assert.NotContains(t, body, "spec")
+}
+
+func TestBuildForkRequestOmitsUnsetOptionalFields(t *testing.T) {
+	request := buildForkRequest("target", "sandbox", nil, nil, "")
+
+	payload, err := json.Marshal(request)
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(payload, &body))
+	assert.Equal(t, "target", body["targetName"])
+	assert.Equal(t, "sandbox", body["targetType"])
+	// A direct fork carries no snapshot: the source's live state is copied.
+	assert.NotContains(t, body, "snapshotId")
+	assert.NotContains(t, body, "traffic")
+	assert.NotContains(t, body, "port")
+}
+
+func TestBuildForkRequestCarriesSnapshotID(t *testing.T) {
+	request := buildForkRequest("target", "sandbox", nil, nil, "snap_abc123")
+
+	payload, err := json.Marshal(request)
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(payload, &body))
+	assert.Equal(t, "snap_abc123", body["snapshotId"])
 }
