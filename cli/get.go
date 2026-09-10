@@ -39,6 +39,7 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - functions/mcp: Model Context Protocol servers (tool providers)
 - jobs: Batch processing tasks
 - sandboxes: Isolated execution environments
+- snapshots: Point-in-time captures a sandbox or application can be created from
 - applications: Application deployments with revision-based traffic management
 - models: AI model configurations
 - policies: Access control policies
@@ -100,6 +101,12 @@ The command can list all resources of a type or get details for a specific one.`
   # List pre-built MCP servers from the Hub
   bl get mcp-hub
   bl get mcp-hub -o json
+
+  # List snapshots in the workspace
+  bl get snapshots
+
+  # Get a specific snapshot
+  bl get snapshot my-snapshot
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch

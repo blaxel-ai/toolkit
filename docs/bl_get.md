@@ -15,6 +15,7 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - functions/mcp: Model Context Protocol servers (tool providers)
 - jobs: Batch processing tasks
 - sandboxes: Isolated execution environments
+- snapshots: Point-in-time captures a sandbox or application can be created from
 - applications: Application deployments with revision-based traffic management
 - models: AI model configurations
 - policies: Access control policies
@@ -80,6 +81,12 @@ The command can list all resources of a type or get details for a specific one.
   # List pre-built MCP servers from the Hub
   bl get mcp-hub
   bl get mcp-hub -o json
+
+  # List snapshots in the workspace
+  bl get snapshots
+
+  # Get a specific snapshot
+  bl get snapshot my-snapshot
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
@@ -158,6 +165,7 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get previewtokens](bl_get_previewtokens.md)	 - List all previewtokens or get details of a specific one
 * [bl get sandbox-hub](bl_get_sandbox-hub.md)	 - List pre-built sandbox images available in the Blaxel Hub
 * [bl get sandboxes](bl_get_sandboxes.md)	 - List all sandboxes or get details of a specific one
+* [bl get snapshots](bl_get_snapshots.md)	 - List all snapshots or get details of a specific one
 * [bl get templates](bl_get_templates.md)	 - List available project templates
 * [bl get volumes](bl_get_volumes.md)	 - List all volumes or get details of a specific one
 * [bl get volumetemplates](bl_get_volumetemplates.md)	 - List all volumetemplates or get details of a specific one

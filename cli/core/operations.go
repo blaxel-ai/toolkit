@@ -2,7 +2,36 @@ package core
 
 import (
 	"context"
+	"net/url"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
+
+// snapshotPath builds the workspace-level snapshot path for a snapshot name.
+func snapshotPath(name string) string {
+	return "snapshots/" + url.PathEscape(name)
+}
+
+// snapshotOperations wires the workspace-level snapshot endpoints. The Go SDK
+// does not expose them yet, so they go through the generic client, the same way
+// `bl get mcp-hub` does.
+func snapshotOperations(resource *Resource, c *blaxel.Client) {
+	resource.Get = func(ctx context.Context, name string) (any, error) {
+		var snapshot map[string]any
+		if err := c.Get(ctx, snapshotPath(name), nil, &snapshot); err != nil {
+			return nil, err
+		}
+		return snapshot, nil
+	}
+	// Deleting a snapshot removes it from the workspace, whichever path it was
+	// captured from.
+	resource.Delete = func(ctx context.Context, name string) (any, error) {
+		if err := c.Delete(ctx, snapshotPath(name), nil, nil); err != nil {
+			return nil, err
+		}
+		return map[string]any{"name": name}, nil
+	}
+}
 
 // RegisterResourceOperations registers the SDK client methods for each resource
 // This replaces the old client.RegisterCliCommands pattern
@@ -90,6 +119,9 @@ func RegisterResourceOperations(ctx context.Context) {
 			// Only Post is registered; Get/Delete require parent params
 			// that the generic CLI commands cannot provide.
 			resource.Post = c.Sandboxes.Previews.Tokens.New
+		case "Snapshot":
+			// Listing goes through the paginated APIPath.
+			snapshotOperations(resource, c)
 		case "Application":
 			resource.List = c.Applications.List
 			resource.Get = c.Applications.Get
