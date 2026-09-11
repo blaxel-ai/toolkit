@@ -7,9 +7,11 @@ import (
 	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
-// snapshotPath builds the workspace-level snapshot path for a snapshot name.
-func snapshotPath(name string) string {
-	return "snapshots/" + url.PathEscape(name)
+// snapshotPath builds the workspace-level snapshot path. Snapshot names are
+// only unique within their source sandbox, so these routes take the snapshot
+// id (`bl get snapshots` lists it).
+func snapshotPath(id string) string {
+	return "snapshots/" + url.PathEscape(id)
 }
 
 // snapshotOperations wires the workspace-level snapshot endpoints. The Go SDK
