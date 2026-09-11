@@ -19,9 +19,6 @@ bl drive create [flags]
 ```
   # Create a drive in a specific region
   bl drive create --name my-drive --region us-pdx-1
-
-  # Create a drive with a size limit (in GB)
-  bl drive create --name my-drive --region us-pdx-1 --size 10
 ```
 
 ### Options
@@ -30,7 +27,6 @@ bl drive create [flags]
   -h, --help            help for create
       --name string     Name of the drive
       --region string   Deployment region (e.g., us-pdx-1, eu-lon-1)
-      --size int        Size limit in GB (optional, 0 for unlimited)
 ```
 
 ### Options inherited from parent commands
