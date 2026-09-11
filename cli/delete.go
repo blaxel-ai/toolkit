@@ -57,7 +57,7 @@ separately if needed.`,
   bl delete agent agent1 agent2
 
   # Delete a snapshot (removed from the workspace, source sandbox untouched)
-  bl delete snapshot my-snapshot
+  bl delete snapshot 6f1c2e3a-8b4d-4c2e-9f0a-1d2e3f4a5b6c
 
   # Delete a sandbox preview
   bl delete sandbox my-sandbox preview my-preview

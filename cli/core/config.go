@@ -236,6 +236,7 @@ var resources = []*Resource{
 		Paginated: true,
 		Fields: []Field{
 			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "ID", Value: "id"},
 			{Key: "NAME", Value: "name"},
 			{Key: "SOURCE", Value: "source.name"},
 			{Key: "IMAGE", Value: "spec.image", Special: "image"},

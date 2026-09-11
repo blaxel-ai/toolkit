@@ -2,36 +2,23 @@ package core
 
 import (
 	"context"
-	"net/url"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
-// snapshotPath builds the workspace-level snapshot path. Snapshot names are
-// only unique within their source sandbox, so these routes take the snapshot
-// id (`bl get snapshots` lists it).
-func snapshotPath(id string) string {
-	return "snapshots/" + url.PathEscape(id)
-}
-
-// snapshotOperations wires the workspace-level snapshot endpoints. The Go SDK
-// does not expose them yet, so they go through the generic client, the same way
-// `bl get mcp-hub` does.
+// snapshotOperations wires the workspace-level snapshot endpoints. Snapshot
+// names are only unique within their source sandbox, so these routes take the
+// snapshot id (`bl get snapshots` lists it).
 func snapshotOperations(resource *Resource, c *blaxel.Client) {
-	resource.Get = func(ctx context.Context, name string) (any, error) {
-		var snapshot map[string]any
-		if err := c.Get(ctx, snapshotPath(name), nil, &snapshot); err != nil {
-			return nil, err
-		}
-		return snapshot, nil
-	}
+	resource.Get = c.Snapshots.Get
 	// Deleting a snapshot removes it from the workspace, whichever path it was
-	// captured from.
-	resource.Delete = func(ctx context.Context, name string) (any, error) {
-		if err := c.Delete(ctx, snapshotPath(name), nil, nil); err != nil {
+	// captured from. The SDK method only returns an error; the command layer
+	// expects a (result, error) pair to report failures.
+	resource.Delete = func(ctx context.Context, id string) (any, error) {
+		if err := c.Snapshots.Delete(ctx, id); err != nil {
 			return nil, err
 		}
-		return map[string]any{"name": name}, nil
+		return map[string]any{"id": id}, nil
 	}
 }
 
@@ -71,7 +58,11 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Put = c.Functions.Update
 			resource.Post = c.Functions.New
 		case "IntegrationConnection":
-			resource.List = c.Integrations.Connections.List
+			// The SDK list takes filter params the reflective caller does not know
+			// about; list everything.
+			resource.List = func(ctx context.Context) (*[]blaxel.IntegrationConnection, error) {
+				return c.Integrations.Connections.List(ctx, blaxel.IntegrationConnectionListParams{})
+			}
 			resource.Get = c.Integrations.Connections.Get
 			resource.Delete = c.Integrations.Connections.Delete
 			resource.Put = c.Integrations.Connections.Update

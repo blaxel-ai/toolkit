@@ -35,17 +35,12 @@ func TestSnapshotResource(t *testing.T) {
 	for _, f := range snapshot.Fields {
 		keys = append(keys, f.Key)
 	}
-	assert.Equal(t, []string{"WORKSPACE", "NAME", "SOURCE", "IMAGE", "REGION", "STATUS", "CREATED_AT"}, keys)
-}
-
-func TestSnapshotPath(t *testing.T) {
-	assert.Equal(t, "snapshots/my-snapshot", snapshotPath("my-snapshot"))
-	assert.Equal(t, "snapshots/my%20snapshot", snapshotPath("my snapshot"))
+	assert.Equal(t, []string{"WORKSPACE", "ID", "NAME", "SOURCE", "IMAGE", "REGION", "STATUS", "CREATED_AT"}, keys)
 }
 
 func TestSnapshotOperationsAreRegistered(t *testing.T) {
 	resource := &Resource{Kind: "Snapshot"}
-	snapshotOperations(resource, nil)
+	snapshotOperations(resource, &blaxel.Client{})
 
 	assert.NotNil(t, resource.Get)
 	assert.NotNil(t, resource.Delete)
@@ -83,19 +78,18 @@ func TestSnapshotOperationsHitWorkspaceEndpoints(t *testing.T) {
 	resource := &Resource{Kind: "Snapshot"}
 	snapshotOperations(resource, &client)
 	ctx := context.Background()
-	get := resource.Get.(func(context.Context, string) (any, error))
+	get := resource.Get.(func(context.Context, string, ...option.RequestOption) (*blaxel.SandboxSnapshot, error))
 	del := resource.Delete.(func(context.Context, string) (any, error))
 
-	got, err := get(ctx, "my snapshot")
+	snapshot, err := get(ctx, "my snapshot")
 	require.NoError(t, err)
-	snapshot := got.(map[string]any)
-	assert.Equal(t, "my snapshot", snapshot["name"])
-	assert.Equal(t, "ws", snapshot["workspace"])
-	assert.Equal(t, "my-sandbox", snapshot["source"].(map[string]any)["name"])
+	assert.Equal(t, "my snapshot", snapshot.Name)
+	assert.Equal(t, "ws", snapshot.Workspace)
+	assert.Equal(t, "my-sandbox", snapshot.Source.Name)
 
 	deleted, err := del(ctx, "my snapshot")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"name": "my snapshot"}, deleted)
+	assert.Equal(t, map[string]any{"id": "my snapshot"}, deleted)
 
 	_, err = get(ctx, "missing")
 	require.Error(t, err)

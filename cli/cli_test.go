@@ -423,7 +423,8 @@ func TestSetBodyFieldsFromJSONDriveParams(t *testing.T) {
 			assert.Equal(t, map[string]any{"team": "eng"}, metadata["labels"])
 			assert.NotContains(t, metadata, "displayName")
 			assert.Equal(t, "us-was-1", spec["region"])
-			assert.Equal(t, float64(100), spec["size"])
+			// spec.size is no longer part of the request API; it must not be forwarded.
+			assert.NotContains(t, spec, "size")
 		})
 	}
 }

@@ -105,8 +105,8 @@ The command can list all resources of a type or get details for a specific one.`
   # List snapshots in the workspace
   bl get snapshots
 
-  # Get a specific snapshot
-  bl get snapshot my-snapshot
+  # Get a specific snapshot by id (from bl get snapshots)
+  bl get snapshot 6f1c2e3a-8b4d-4c2e-9f0a-1d2e3f4a5b6c
 
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
