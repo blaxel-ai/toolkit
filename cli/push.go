@@ -339,6 +339,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					core.PrintError("Push", fmt.Errorf("failed to package source code: %w", err))
 					core.ExitWithError(err)
 				}
+				if err = deployment.ValidateArchiveSize(); err != nil {
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
 
 				// Call POST /images to get the presigned URL
 				fmt.Println("Requesting image build...")

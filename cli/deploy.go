@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -305,6 +306,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				return
 			}
 
+			if err = deployment.ValidateArchiveSize(); err != nil {
+				err = fmt.Errorf("error validating blaxel deployment: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
+			}
+
 			startTime := time.Now()
 
 			if !noTTY {
@@ -463,6 +470,37 @@ func deployUploadMetadata(result core.Result, config core.Config, skipBuild bool
 		return nil
 	}
 	return out
+}
+
+const maxArchiveUploadSize = 5 * 1024 * 1024 * 1024
+
+var errArchiveTooLarge = errors.New("archive size exceeds the 5 GB upload limit")
+
+func (d *Deployment) ValidateArchiveSize() error {
+	if d.archive == nil {
+		return nil
+	}
+	fileInfo, err := os.Stat(d.archive.Name())
+	if err != nil {
+		return fmt.Errorf("failed to get archive file info: %w", err)
+	}
+	return archiveSizeError(fileInfo.Size(), core.IsVolumeTemplate(core.GetConfig().Type))
+}
+
+func archiveSizeError(size int64, volumeTemplate bool) error {
+	if size <= maxArchiveUploadSize {
+		return nil
+	}
+	if volumeTemplate {
+		return core.MarkExpectedError(
+			fmt.Errorf("%w; reduce the files in the volume template directory (.blaxelignore is not used for volume templates)", errArchiveTooLarge),
+			core.CLIErrorValidation,
+		)
+	}
+	return core.MarkExpectedError(
+		fmt.Errorf("%w; reduce the archive size by adding files or directories to .blaxelignore", errArchiveTooLarge),
+		core.CLIErrorValidation,
+	)
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
@@ -1226,6 +1264,34 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 		}
 	}()
 
+	if core.IsVolumeTemplate(core.GetConfig().Type) {
+		model.UpdateResource(0, deploy.StatusCompressing, "Compressing files", nil)
+		model.AddBuildLog(0, "Starting compression of volume template files...")
+
+		var lastLoggedProgress int
+		d.progressCallback = func(status string, progress int) {
+			model.UpdateResource(0, deploy.StatusCompressing, status, nil)
+			if progress > 0 && progress%10 == 0 && progress != lastLoggedProgress {
+				model.AddBuildLog(0, fmt.Sprintf("Compression progress: %d%%", progress))
+				lastLoggedProgress = progress
+			}
+		}
+
+		if err := d.Tar(); err != nil {
+			model.UpdateResource(0, deploy.StatusFailed, "Compression failed", err)
+			model.AddBuildLog(0, fmt.Sprintf("Failed to compress files: %v", err))
+			model.Complete()
+			return
+		}
+		if err := d.ValidateArchiveSize(); err != nil {
+			model.UpdateResource(0, deploy.StatusFailed, "Archive too large", err)
+			model.AddBuildLog(0, err.Error())
+			model.Complete()
+			return
+		}
+		model.AddBuildLog(0, "Compression completed (100%)")
+	}
+
 	// Determine where main resources end and additional resources begin
 	mainResourceCount := len(resources) - len(additionalResources)
 
@@ -1273,32 +1339,6 @@ func (d *Deployment) runInteractiveDeployment(resources []*deploy.Resource, addi
 
 func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model *deploy.InteractiveModel, idx int, deployment core.Result) {
 	config := core.GetConfig()
-
-	// For volume templates, handle compression first
-	if core.IsVolumeTemplate(config.Type) {
-		model.UpdateResource(idx, deploy.StatusCompressing, "Compressing files", nil)
-		model.AddBuildLog(idx, "Starting compression of volume template files...")
-
-		// Set up progress callback for compression
-		var lastLoggedProgress int
-		d.progressCallback = func(status string, progress int) {
-			model.UpdateResource(idx, deploy.StatusCompressing, status, nil)
-			// Log every 10% to avoid log spam
-			if progress > 0 && progress%10 == 0 && progress != lastLoggedProgress {
-				model.AddBuildLog(idx, fmt.Sprintf("Compression progress: %d%%", progress))
-				lastLoggedProgress = progress
-			}
-		}
-
-		// Create the tar archive
-		err := d.Tar()
-		if err != nil {
-			model.UpdateResource(idx, deploy.StatusFailed, "Compression failed", err)
-			model.AddBuildLog(idx, fmt.Sprintf("Failed to compress files: %v", err))
-			return
-		}
-		model.AddBuildLog(idx, "Compression completed (100%)")
-	}
 
 	// Start deployment
 	model.UpdateResource(idx, deploy.StatusDeploying, "Applying resource", nil)
@@ -2086,6 +2126,9 @@ func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, erro
 		if lastErr == nil {
 			return nil
 		}
+		if errors.Is(lastErr, errArchiveTooLarge) {
+			return lastErr
+		}
 	}
 	return lastErr
 }
@@ -2108,6 +2151,9 @@ func (d *Deployment) Upload(url string) error {
 	fileInfo, err := archiveFile.Stat()
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
+	}
+	if err := archiveSizeError(fileInfo.Size(), core.IsVolumeTemplate(core.GetConfig().Type)); err != nil {
+		return err
 	}
 
 	// Wrap the file reader with progress tracking
@@ -2467,7 +2513,102 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	return nil
 }
 
+func (d *Deployment) validateArchiveSourceSize(archiveRoot string, ignoredPaths []string, volumeTemplate bool) error {
+	var ignoreMatcher *ignoredPathMatcher
+	if !volumeTemplate {
+		var err error
+		ignoreMatcher, err = newIgnoredPathMatcher(d.cwd, ignoredPaths)
+		if err != nil {
+			return err
+		}
+	}
+
+	var size int64
+	addSize := func(fileSize int64) error {
+		if fileSize > maxArchiveUploadSize-size {
+			return archiveSizeError(maxArchiveUploadSize+1, volumeTemplate)
+		}
+		size += fileSize
+		return nil
+	}
+
+	err := filepath.WalkDir(archiveRoot, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == archiveRoot {
+			return nil
+		}
+		if ignoreMatcher != nil {
+			ignored, err := ignoreMatcher.matches(path)
+			if err != nil {
+				return err
+			}
+			if ignored {
+				if entry.IsDir() && ignoreMatcher.canSkipIgnoredDirectory() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+		if volumeTemplate && filepath.Base(path) == "blaxel.toml" {
+			return nil
+		}
+		if !entry.Type().IsRegular() && (volumeTemplate || entry.Type()&os.ModeSymlink == 0) {
+			return nil
+		}
+
+		info, err := os.Stat(path)
+		if err != nil {
+			if !volumeTemplate {
+				return nil
+			}
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		return addSize(info.Size())
+	})
+	if err != nil {
+		return err
+	}
+
+	if d.folder != "" {
+		fileNames := []string{"Dockerfile"}
+		if !volumeTemplate {
+			fileNames = append(fileNames, "blaxel.toml")
+		}
+		for _, fileName := range fileNames {
+			filePath := filepath.Join(d.cwd, d.folder, fileName)
+			var info os.FileInfo
+			var err error
+			if volumeTemplate {
+				info, err = os.Lstat(filePath)
+			} else {
+				info, err = os.Stat(filePath)
+			}
+			if err == nil && info.Mode().IsRegular() {
+				if err := addSize(info.Size()); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if err := addSize(int64(len(d.dockerConfigJSON))); err != nil {
+		return err
+	}
+	if !volumeTemplate {
+		return addSize(int64(len(d.buildEnvContent)))
+	}
+	return nil
+}
+
 func (d *Deployment) Zip() error {
+	if err := d.validateArchiveSourceSize(d.cwd, d.IgnoredPaths(), false); err != nil {
+		return err
+	}
+
 	zipFile, err := os.CreateTemp("", ".blaxel.zip")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
@@ -2487,6 +2628,26 @@ func (d *Deployment) Zip() error {
 }
 
 func (d *Deployment) Tar() error {
+	config := core.GetConfig()
+	volumeDir := config.Directory
+	if volumeDir == "" {
+		volumeDir = "."
+	}
+	archiveRoot := filepath.Join(d.cwd, volumeDir)
+	if _, err := os.Stat(archiveRoot); err != nil {
+		if os.IsNotExist(err) {
+			return core.MarkExpectedError(
+				fmt.Errorf("volume template directory does not exist: %s", volumeDir),
+				core.CLIErrorNotFound,
+			)
+		}
+		return fmt.Errorf("failed to inspect volume template directory %q: %w", volumeDir, err)
+	}
+
+	if err := d.validateArchiveSourceSize(archiveRoot, nil, true); err != nil {
+		return err
+	}
+
 	tarFile, err := os.CreateTemp("", ".blaxel.tar")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
