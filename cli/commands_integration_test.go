@@ -510,7 +510,7 @@ func TestIntegrationConnectionsListIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	connections, err := client.Integrations.Connections.List(ctx)
+	connections, err := client.Integrations.Connections.List(ctx, blaxel.IntegrationConnectionListParams{})
 	require.NoError(t, err)
 	assert.Len(t, *connections, 1)
 }

@@ -447,10 +447,7 @@ func DriveCreateCmd() *cobra.Command {
 		Short: "Create a new drive",
 		Long:  `Create a new drive in the current workspace.`,
 		Example: `  # Create a drive in a specific region
-  bl drive create --name my-drive --region us-pdx-1
-
-  # Create a drive with a size limit (in GB)
-  bl drive create --name my-drive --region us-pdx-1 --size 10`,
+  bl drive create --name my-drive --region us-pdx-1`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ctx := context.Background()
 			client := core.GetClient()
@@ -462,9 +459,6 @@ func DriveCreateCmd() *cobra.Command {
 				Spec: blaxel.DriveSpecParam{
 					Region: blaxel.String(region),
 				},
-			}
-			if size > 0 {
-				params.Spec.Size = blaxel.Int(size)
 			}
 
 			resp, err := client.Drives.New(ctx, params)
@@ -485,7 +479,8 @@ func DriveCreateCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Name of the drive")
 	cmd.Flags().StringVar(&region, "region", "", "Deployment region (e.g., us-pdx-1, eu-lon-1)")
-	cmd.Flags().Int64Var(&size, "size", 0, "Size limit in GB (optional, 0 for unlimited)")
+	cmd.Flags().Int64Var(&size, "size", 0, "")
+	_ = cmd.Flags().MarkDeprecated("size", "drives no longer take a size limit; the flag is ignored")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("region")
 

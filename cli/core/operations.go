@@ -2,7 +2,25 @@ package core
 
 import (
 	"context"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
+
+// snapshotOperations wires the workspace-level snapshot endpoints. Snapshot
+// names are only unique within their source sandbox, so these routes take the
+// snapshot id (`bl get snapshots` lists it).
+func snapshotOperations(resource *Resource, c *blaxel.Client) {
+	resource.Get = c.Snapshots.Get
+	// Deleting a snapshot removes it from the workspace, whichever path it was
+	// captured from. The SDK method only returns an error; the command layer
+	// expects a (result, error) pair to report failures.
+	resource.Delete = func(ctx context.Context, id string) (any, error) {
+		if err := c.Snapshots.Delete(ctx, id); err != nil {
+			return nil, err
+		}
+		return map[string]any{"id": id}, nil
+	}
+}
 
 // RegisterResourceOperations registers the SDK client methods for each resource
 // This replaces the old client.RegisterCliCommands pattern
@@ -40,7 +58,11 @@ func RegisterResourceOperations(ctx context.Context) {
 			resource.Put = c.Functions.Update
 			resource.Post = c.Functions.New
 		case "IntegrationConnection":
-			resource.List = c.Integrations.Connections.List
+			// The SDK list takes filter params the reflective caller does not know
+			// about; list everything.
+			resource.List = func(ctx context.Context) (*[]blaxel.IntegrationConnection, error) {
+				return c.Integrations.Connections.List(ctx, blaxel.IntegrationConnectionListParams{})
+			}
 			resource.Get = c.Integrations.Connections.Get
 			resource.Delete = c.Integrations.Connections.Delete
 			resource.Put = c.Integrations.Connections.Update
@@ -90,6 +112,9 @@ func RegisterResourceOperations(ctx context.Context) {
 			// Only Post is registered; Get/Delete require parent params
 			// that the generic CLI commands cannot provide.
 			resource.Post = c.Sandboxes.Previews.Tokens.New
+		case "Snapshot":
+			// Listing goes through the paginated APIPath.
+			snapshotOperations(resource, c)
 		case "Application":
 			resource.List = c.Applications.List
 			resource.Get = c.Applications.Get
