@@ -3,7 +3,10 @@ package cli
 import (
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseImageRef(t *testing.T) {
@@ -126,6 +129,26 @@ func TestGetImagesCmd(t *testing.T) {
 	assert.NotNil(t, latestFlag)
 	assert.Equal(t, "false", latestFlag.DefValue)
 	assert.Contains(t, latestFlag.Usage, "most recent tag")
+}
+
+func TestLatestImageTag(t *testing.T) {
+	tags := []blaxel.ImageSpecTag{
+		{Name: "older", CreatedAt: "2026-01-02T00:00:00Z"},
+		{Name: "newer", CreatedAt: "2026-01-03T00:00:00Z"},
+	}
+
+	latest, err := latestImageTag("sandbox", "my-image", tags)
+	require.NoError(t, err)
+	assert.Equal(t, "newer", latest)
+}
+
+func TestLatestImageTagWithoutTagsIsExpectedNotFound(t *testing.T) {
+	latest, err := latestImageTag("sandbox", "my-image", nil)
+
+	require.Error(t, err)
+	assert.Empty(t, latest)
+	assert.Equal(t, "no tags found for image sandbox/my-image", err.Error())
+	assert.True(t, core.IsExpectedCLIError(err))
 }
 
 func TestDeleteImagesCmd(t *testing.T) {
