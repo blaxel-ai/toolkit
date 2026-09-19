@@ -54,12 +54,15 @@ func latestFailureMessage(raw json.RawMessage, typePrefix string) string {
 	if !strings.EqualFold(event.Status, "failed") && !strings.HasSuffix(event.Type, ".failed") {
 		return ""
 	}
-	message := strings.TrimSpace(event.Message)
+	message := strings.TrimSpace(strings.ReplaceAll(event.Message, "\r\n", "\n"))
 	if privateFailureDetail.MatchString(message) {
 		return ""
 	}
-	// Event messages are plain text, not terminal control sequences.
-	if strings.ContainsFunc(message, unicode.IsControl) {
+	// Preserve multiline diagnostics from the control plane while rejecting
+	// terminal control sequences and standalone carriage returns.
+	if strings.ContainsFunc(message, func(r rune) bool {
+		return unicode.IsControl(r) && r != '\n' && r != '\t'
+	}) {
 		return ""
 	}
 	return message
