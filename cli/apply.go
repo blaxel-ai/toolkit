@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -224,6 +225,12 @@ func prepareApplyMetadata(result *core.Result) (map[string]interface{}, string, 
 		displayName, _ := metadata["displayName"].(string)
 		if strings.TrimSpace(displayName) != "" {
 			name = core.Slugify(displayName)
+			// Slugify falls back to "resource" when no ASCII letters or digits
+			// remain. Keep these display names stable without sharing one identity.
+			if !strings.ContainsAny(strings.ToLower(displayName), "abcdefghijklmnopqrstuvwxyz0123456789") {
+				digest := sha256.Sum256([]byte(strings.TrimSpace(displayName)))
+				name = fmt.Sprintf("%s-%x", name, digest[:8])
+			}
 		} else {
 			var id [16]byte
 			if _, err := rand.Read(id[:]); err != nil {

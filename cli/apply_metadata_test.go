@@ -24,6 +24,9 @@ func TestPrepareApplyMetadata(t *testing.T) {
 	}{
 		{"explicit name", map[string]interface{}{"name": "existing", "displayName": "Node"}, "existing", ""},
 		{"display name", map[string]interface{}{"displayName": "My Node_123!"}, "my-node-123", ""},
+		{"literal resource", map[string]interface{}{"displayName": "Resource"}, "resource", ""},
+		{"mixed unicode", map[string]interface{}{"displayName": "Node 東京"}, "node", ""},
+		{"explicit name with unicode display name", map[string]interface{}{"name": "existing", "displayName": "東京"}, "existing", ""},
 		{"empty name", map[string]interface{}{"name": "", "displayName": "Node"}, "node", ""},
 		{"missing metadata", nil, "", ""},
 		{"empty metadata", map[string]interface{}{}, "", ""},
@@ -51,6 +54,27 @@ func TestPrepareApplyMetadata(t *testing.T) {
 			}
 			require.Equal(t, name, metadata["name"])
 			require.Equal(t, metadata, result.Metadata)
+		})
+	}
+}
+
+func TestPrepareApplyMetadataDistinctFallbackNames(t *testing.T) {
+	names := map[string]bool{"resource": true}
+	for _, displayName := range []string{"東京", "大阪", "🚀", "!!!", "---"} {
+		t.Run(displayName, func(t *testing.T) {
+			result := core.Result{Metadata: map[string]interface{}{"displayName": displayName}}
+			metadata, name, err := prepareApplyMetadata(&result)
+			require.NoError(t, err)
+			require.Regexp(t, `^resource-[0-9a-f]{16}$`, name)
+			require.False(t, names[name], "different display names must not share the fallback identity")
+			names[name] = true
+			require.Equal(t, name, metadata["name"])
+
+			// Reapplying a fresh manifest must address the same resource.
+			repeated := core.Result{Metadata: map[string]interface{}{"displayName": displayName}}
+			_, repeatedName, err := prepareApplyMetadata(&repeated)
+			require.NoError(t, err)
+			require.Equal(t, name, repeatedName)
 		})
 	}
 }
