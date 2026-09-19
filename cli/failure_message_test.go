@@ -89,10 +89,22 @@ func TestResourcePollingRetainsFailureMessage(t *testing.T) {
 }
 
 func TestFailureMessageHidesInternalDetails(t *testing.T) {
-	for _, message := range []string{"AWS unavailable", "https://internal.example/path", "arn:aws:lambda:x", "gateway 10.0.0.1 unavailable", "failed\x1b[2J", "RequestID: secret"} {
+	for _, message := range []string{"AWS unavailable", "https://internal.example/path", "arn:aws:lambda:x", "gateway 10.0.0.1 unavailable", "failed\x1b[2J", "RequestID: secret", "S3 upload denied", "SQS unavailable", "KMS access denied", "SecretsManager failure", "CloudFront unavailable", "StepFunctions execution failed", "bld-private-workspace.us-was-1.bl.run unreachable", "bucket.s3.us-west-2.amazonaws.com denied"} {
 		t.Run(message, func(t *testing.T) {
 			require.Empty(t, latestFailureMessage(json.RawMessage("["+buildEvent("failed", "2026-09-18T02:00:00Z", message)+"]"), ""))
 		})
 	}
 	require.EqualError(t, failureError("image build failed", ""), "image build failed")
+}
+
+func TestFailureMessagePreservesCustomerDetail(t *testing.T) {
+	for _, message := range []string{
+		"The build environment could not be scheduled in the selected region. Try another region.",
+		"The build command failed with exit code 1.",
+		"Cannot find module s3-client.",
+	} {
+		t.Run(message, func(t *testing.T) {
+			require.Equal(t, message, latestFailureMessage(json.RawMessage("["+buildEvent("failed", "2026-09-18T02:00:00Z", message)+"]"), ""))
+		})
+	}
 }

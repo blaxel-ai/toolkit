@@ -11,7 +11,7 @@ import (
 
 // Older event records can contain raw infrastructure errors. Never promote
 // those details into a terminal error when reading an existing build history.
-var privateFailureDetail = regexp.MustCompile(`(?i)\b(aws|amazon|dynamodb|eventbridge|lambda|stripe|cloudflare|workos|authkit|depot|smithy|grpc|requestid|request-id|stacktrace)\b|step functions|arn:|https?://|\.internal\b|\.amazonaws\.com|operation error|api error|\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+var privateFailureDetail = regexp.MustCompile(`(?i)\b(aws|amazon|dynamodb|eventbridge|lambda|stripe|cloudflare|workos|authkit|depot|smithy|grpc|requestid|request-id|stacktrace|secretsmanager|cloudfront)\b|(?:^|[\s:])(s3|sqs|kms|ses|sfn)(?:[\s:]|$)|step[ -]?functions|arn:|https?://|\.internal\b|\.(?:amazonaws\.com|bl\.run)\b|operation error|api error|\b(?:\d{1,3}\.){3}\d{1,3}\b`)
 
 func failureError(summary, message string) error {
 	if message == "" {
