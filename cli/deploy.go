@@ -990,6 +990,11 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 }
 
 func getResourceStatus(resourceType, name string) (string, error) {
+	status, _, err := getResourceStatusDetails(resourceType, name)
+	return status, err
+}
+
+func getResourceStatusDetails(resourceType, name string) (string, string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
@@ -1010,30 +1015,35 @@ func getResourceStatus(resourceType, name string) (string, error) {
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
-		return "", fmt.Errorf("unknown resource type: %s", resourceType)
+		return "", "", fmt.Errorf("unknown resource type: %s", resourceType)
 	}
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Convert result to map
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	var resource map[string]interface{}
+	var resource struct {
+		Status string          `json:"status"`
+		Events json.RawMessage `json:"events"`
+	}
 	if err := json.Unmarshal(jsonData, &resource); err != nil {
-		return "", err
+		return "", "", err
+	}
+	if resource.Status != "" {
+		message := ""
+		if resource.Status == "FAILED" {
+			message = latestFailureMessage(resource.Events, "")
+		}
+		return resource.Status, message, nil
 	}
 
-	// Extract status from the resource
-	if status, ok := resource["status"].(string); ok {
-		return status, nil
-	}
-
-	return "UNKNOWN", nil
+	return "UNKNOWN", "", nil
 }
 
 func (d *Deployment) Apply() error {
@@ -1535,7 +1545,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				// Grace period expired - if status is still FAILED, accept it as real
 				staleGracePeriodExpired = true
 			case <-statusTicker.C:
-				status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+				status, message, err := getResourceStatusDetails(strings.ToLower(resource.Kind), resource.Name)
 				if err != nil {
 					// Continue polling on temporary errors
 					continue
@@ -1612,7 +1622,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 							logWatcher.Stop()
 						}
 						model.UpdateResource(idx, deploy.StatusFailed, "Deployment failed", core.MarkExpectedError(
-							fmt.Errorf("resource deployment failed"),
+							failureError("resource deployment failed", message),
 							core.CLIErrorOperational,
 						))
 						model.AddBuildLog(idx, "Status changed to: FAILED - Deployment failed")
@@ -1724,7 +1734,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 								ticker.Stop()
 								return
 							case <-ticker.C:
-								status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+								status, message, err := getResourceStatusDetails(strings.ToLower(resource.Kind), resource.Name)
 								if err != nil {
 									continue
 								}
@@ -1784,7 +1794,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 											logWatcher.Stop()
 										}
 										model.UpdateResource(idx, deploy.StatusFailed, "Failed", core.MarkExpectedError(
-											fmt.Errorf("deployment failed"),
+											failureError("deployment failed", message),
 											core.CLIErrorOperational,
 										))
 										ticker.Stop()

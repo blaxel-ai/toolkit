@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -477,7 +478,7 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 			)
 		case <-ticker.C:
 			// Check if the image exists in the registry (build completed)
-			status, err := getImageBuildStatus(resourceType, name)
+			status, message, err := getImageBuildStatus(resourceType, name)
 			if err != nil {
 				// Image not found yet, continue waiting
 				continue
@@ -492,7 +493,7 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second)
 				return core.MarkExpectedError(
-					fmt.Errorf("image build failed"),
+					failureError("image build failed", message),
 					core.CLIErrorOperational,
 				)
 			}
@@ -503,16 +504,17 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 // imageAPIResponse represents the API response for GET /images/{resourceType}/{imageName}.
 type imageAPIResponse struct {
 	Metadata struct {
-		Name         string `json:"name"`
-		ResourceType string `json:"resourceType"`
-		Status       string `json:"status"`
+		Name         string          `json:"name"`
+		ResourceType string          `json:"resourceType"`
+		Status       string          `json:"status"`
+		Events       json.RawMessage `json:"events"`
 	} `json:"metadata"`
 }
 
 // getImageBuildStatus checks the build status by querying the image API.
 // Returns "succeeded" if the image is built, "failed" if the build failed,
-// or empty string if the build is still in progress.
-func getImageBuildStatus(resourceType, name string) (string, error) {
+// or empty string if the build is still in progress, plus a safe failure message.
+func getImageBuildStatus(resourceType, name string) (string, string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
@@ -524,18 +526,18 @@ func getImageBuildStatus(resourceType, name string) (string, error) {
 	err := client.Get(ctx, path, nil, &result)
 	if err != nil {
 		if isAPIStatus(err, http.StatusNotFound) {
-			return "", nil // Not found yet, build may still be in progress
+			return "", "", nil // Not found yet, build may still be in progress
 		}
-		return "", err
+		return "", "", err
 	}
 
 	switch result.Metadata.Status {
 	case "BUILT":
-		return "succeeded", nil
+		return "succeeded", "", nil
 	case "FAILED":
-		return "failed", nil
+		return "failed", latestFailureMessage(result.Metadata.Events, "ai.blaxel.controlplane.buildimage."), nil
 	default:
-		return "", nil // Still building (UPLOADING, BUILDING, or no status)
+		return "", "", nil // Still building (UPLOADING, BUILDING, or no status)
 	}
 }
 
