@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -53,8 +54,8 @@ func TestImageBuildFailurePolling(t *testing.T) {
 	}
 }
 
-func TestPushWatcherReportsSchedulingFailure(t *testing.T) {
-	const reason = "The build environment could not be scheduled in the selected region. Try another region."
+func TestPushWatcherReportsMultilineFailureWithoutLogs(t *testing.T) {
+	const reason = "Build failed at Dockerfile:3\nCOPY missing-file /app\nmissing-file: not found"
 	var polls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -106,5 +107,17 @@ func TestFailureMessagePreservesCustomerDetail(t *testing.T) {
 		t.Run(message, func(t *testing.T) {
 			require.Equal(t, message, latestFailureMessage(json.RawMessage("["+buildEvent("failed", "2026-09-18T02:00:00Z", message)+"]"), ""))
 		})
+	}
+}
+
+func TestFailureMessagePreservesMultilineControlplaneDetail(t *testing.T) {
+	const detail = "Dockerfile:3\n\tCOPY missing-file /app\nerror: missing-file: not found"
+	for _, message := range []string{detail, strings.ReplaceAll(detail, "\n", "\r\n")} {
+		raw := json.RawMessage("[" + buildEvent("failed", "2026-09-19T02:00:00Z", message) + "]")
+		require.Equal(t, detail, latestFailureMessage(raw, ""))
+	}
+	for _, message := range []string{"error\roverwrite", "error\n\x1b[2J", "error\nAWS unavailable", "error\n\x00hidden"} {
+		raw := json.RawMessage("[" + buildEvent("failed", "2026-09-19T02:00:00Z", message) + "]")
+		require.Empty(t, latestFailureMessage(raw, ""))
 	}
 }
