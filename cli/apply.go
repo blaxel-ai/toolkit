@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -202,6 +204,48 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 	return cmd
 }
 
+// prepareApplyMetadata resolves the identity once for both the request body and
+// the operation path. Display names produce stable names for repeated applies.
+func prepareApplyMetadata(result *core.Result) (map[string]interface{}, string, error) {
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if result.Metadata == nil || (ok && metadata == nil) {
+		metadata = map[string]interface{}{}
+	} else if !ok {
+		return nil, "", fmt.Errorf("metadata must be an object")
+	}
+	for _, field := range []string{"name", "displayName"} {
+		if value := metadata[field]; value != nil {
+			if _, ok := value.(string); !ok {
+				return nil, "", fmt.Errorf("metadata.%s must be a string", field)
+			}
+		}
+	}
+	name, _ := metadata["name"].(string)
+	if strings.TrimSpace(name) == "" {
+		displayName, _ := metadata["displayName"].(string)
+		if strings.TrimSpace(displayName) != "" {
+			name = core.Slugify(displayName)
+			// Slugify falls back to "resource" when no ASCII letters or digits
+			// remain. Keep these display names stable without sharing one identity.
+			if !strings.ContainsAny(strings.ToLower(displayName), "abcdefghijklmnopqrstuvwxyz0123456789") {
+				digest := sha256.Sum256([]byte(strings.TrimSpace(displayName)))
+				name = fmt.Sprintf("%s-%x", name, digest[:8])
+			}
+		} else {
+			var id [16]byte
+			if _, err := rand.Read(id[:]); err != nil {
+				return nil, "", fmt.Errorf("could not generate a resource name: %w", err)
+			}
+			id[6] = (id[6] & 0x0f) | 0x40
+			id[8] = (id[8] & 0x3f) | 0x80
+			name = fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
+		}
+	}
+	metadata["name"] = name
+	result.Metadata = metadata
+	return metadata, name, nil
+}
+
 func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	applyResults := []ApplyResult{}
 	resources := core.GetResources()
@@ -210,8 +254,19 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
-				metadata := result.Metadata.(map[string]interface{})
-				name := metadata["name"].(string)
+				metadata, name, err := prepareApplyMetadata(&result)
+				if err != nil {
+					core.Print(fmt.Sprintf("Resource %s error: %s\n", resource.Kind, err))
+					applyResults = append(applyResults, ApplyResult{
+						Kind: resource.Kind,
+						Result: ResourceOperationResult{
+							Status:   "failed",
+							ErrorMsg: err.Error(),
+							cause:    core.MarkExpectedError(err, core.CLIErrorValidation),
+						},
+					})
+					continue
+				}
 
 				// Extract parent name for nested resources (e.g., Preview under Sandbox)
 				var parentName string
