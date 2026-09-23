@@ -113,7 +113,6 @@ var sandboxPreviewKeywords = []string{"previews", "preview", "pv"}
 // previewTokenKeywords are the keywords that indicate token nested resources for previews
 var previewTokenKeywords = []string{"tokens", "token", "pvt"}
 
-
 // CompleteSandboxNames returns a list of sandbox names for shell completion
 func CompleteSandboxNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	ctx, cancel := completionContext()
@@ -1047,27 +1046,27 @@ func CompleteImageNames(cmd *cobra.Command, args []string, toComplete string) ([
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	images, err := client.Images.List(ctx)
-	if err != nil || images == nil {
+	prefix := ""
+	if _, suffix, ok := strings.Cut(toComplete, "/"); ok {
+		prefix = suffix
+	}
+	page, err := fetchImagePage(ctx, client, "images", imageQuery(imageListOptions{limit: imagePageLimit, query: prefix}))
+	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-
 	var names []string
-	for _, img := range *images {
-		// Build the full image reference: resourceType/imageName
-		resourceType := ""
-		imageName := ""
-		if img.Metadata.ResourceType != "" {
-			resourceType = img.Metadata.ResourceType
+	for _, item := range page.Data {
+		image, ok := item.(map[string]any)
+		if !ok {
+			continue
 		}
-		if img.Metadata.Name != "" {
-			imageName = img.Metadata.Name
-		}
-
-		if resourceType != "" && imageName != "" {
-			fullRef := resourceType + "/" + imageName
-			if toComplete == "" || strings.HasPrefix(fullRef, toComplete) {
-				names = append(names, fullRef)
+		metadata, _ := image["metadata"].(map[string]any)
+		kind, _ := metadata["resourceType"].(string)
+		name, _ := metadata["name"].(string)
+		if kind != "" && name != "" {
+			ref := kind + "/" + name
+			if strings.HasPrefix(ref, toComplete) {
+				names = append(names, ref)
 			}
 		}
 	}
@@ -1085,21 +1084,19 @@ func CompleteImageTags(resourceType, imageName, tagPrefix string) ([]string, cob
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	// Get the image to retrieve its tags
-	image, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
-	if err != nil || image == nil {
+	page, err := fetchImagePage(ctx, client, imagePath(resourceType, imageName)+"/tags", imageQuery(imageListOptions{limit: imagePageLimit, query: tagPrefix}))
+	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
-
 	var tags []string
-	if image.Spec.Tags != nil {
-		for _, tag := range image.Spec.Tags {
-			if tag.Name != "" {
-				fullRef := resourceType + "/" + imageName + ":" + tag.Name
-				if tagPrefix == "" || strings.HasPrefix(tag.Name, tagPrefix) {
-					tags = append(tags, fullRef)
-				}
-			}
+	for _, item := range page.Data {
+		tag, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := tag["name"].(string)
+		if name != "" && strings.HasPrefix(name, tagPrefix) {
+			tags = append(tags, resourceType+"/"+imageName+":"+name)
 		}
 	}
 

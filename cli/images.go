@@ -2,9 +2,7 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -42,233 +40,111 @@ func parseImageRef(ref string) (resourceType, imageName, tag string, err error) 
 }
 
 func GetImagesCmd() *cobra.Command {
-	var latest bool
+	opts := imageListOptions{}
 	cmd := &cobra.Command{
-		Use:               "image [resourceType/imageName[:tag]]",
-		Aliases:           []string{"images", "img"},
-		Short:             "Get image information",
-		ValidArgsFunction: GetImageValidArgsFunction(),
-		Long: `Get information about container images.
+		Use: "image [resourceType/imageName[:tag]]", Aliases: []string{"images", "img"},
+		Short:             "List image summaries or image tags with cursor pagination",
+		ValidArgsFunction: GetImageValidArgsFunction(), Args: cobra.MaximumNArgs(1),
+		Long: `List one page of image repository summaries, or one page of tags for a named image.
+Use --cursor to continue a listing and --all to fetch every page. Empty pages
+may still have a next cursor. Repository summaries retain total size, tag count,
+status and last deployment time without downloading their tags.
 
-Usage patterns:
-  bl get images                          List all images (without tags)
-  bl get image agent/my-image            Get image details for a specific resource type
-  bl get image agent/my-image:v1.0       Get specific tag information
-  bl get image sandbox/my-image --latest Get the latest tag reference for an image
+Search uses a case-sensitive name prefix. Search results are ordered by name
+ascending. Tag pages support name:asc and name:desc only.
 
-The image reference format is: resourceType/imageName[:tag]
-- resourceType: Type of resource (e.g., agent, function, job, sandbox)
-- imageName: The name of the image
-- tag: Optional tag to filter for a specific version
-
-The --latest flag returns the image reference with the most recent tag,
-formatted as resourceType/imageName:tag. This is useful for scripting
-and for retrieving the IMAGE_ID to use when creating sandboxes from templates.`,
-		Example: `  # List all images
-  bl get images
-
-  # Get all tags for a specific image
-  bl get image agent/my-agent
-
-  # Get a specific tag
-  bl get image agent/my-agent:latest
-
-  # Get the latest tag reference (useful for sandbox templates)
-  bl get image sandbox/mytemplate --latest
-
-  # Use different output formats
-  bl get images -o json
-  bl get image agent/my-agent -o pretty`,
-		Run: func(cmd *cobra.Command, args []string) {
-			if latest {
-				if len(args) != 1 {
-					err := fmt.Errorf("--latest requires exactly one image argument\nUsage: bl get image resourceType/imageName --latest")
-					fmt.Println(err)
-					core.ExitWithError(err)
-				}
-
-				resourceType, imageName, tag, err := parseImageRef(args[0])
-				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					core.ExitWithError(err)
-				}
-
-				if tag != "" {
-					err := fmt.Errorf("--latest cannot be used with an explicit tag\nUsage: bl get image resourceType/imageName --latest")
-					fmt.Println(err)
-					core.ExitWithError(err)
-				}
-
-				getImageLatest(resourceType, imageName)
-				return
-			}
-
-			if len(args) == 0 {
-				// List all images
-				ListAllImages()
-				return
-			}
-
-			if len(args) != 1 {
-				err := fmt.Errorf("expected zero or one argument\nUsage: bl get image resourceType/imageName[:tag]")
-				fmt.Println(err)
-				core.ExitWithError(err)
-			}
-
-			// Parse the image reference
-			resourceType, imageName, tag, err := parseImageRef(args[0])
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				core.ExitWithError(err)
-			}
-
-			getImage(resourceType, imageName, tag)
-		},
+--latest inspects every tag page and prints the most recently created tag reference.`,
+		Example: `  bl get images --limit 100
+  bl get images --q base --sort name:asc
+  bl get image sandbox/base --limit 20
+  bl get image sandbox/base --cursor CURSOR
+  bl get image sandbox/base:v1
+  bl get image sandbox/base --all
+  bl get image sandbox/base --latest`,
+		RunE: func(cmd *cobra.Command, args []string) error { return runGetImages(cmd, args, opts) },
 	}
-	cmd.Flags().BoolVar(&latest, "latest", false, "Return only the most recent tag reference (e.g., sandbox/mytemplate:tag)")
+	cmd.Flags().IntVar(&opts.limit, "limit", imagePageLimit, "Maximum items per page (1-100)")
+	cmd.Flags().StringVar(&opts.cursor, "cursor", "", "Cursor from the previous page; keep the same search and sort")
+	cmd.Flags().BoolVar(&opts.all, "all", false, "Fetch all pages instead of a single page")
+	cmd.Flags().StringVar(&opts.sort, "sort", "", "Sort: name:asc, name:desc, createdAt:asc or createdAt:desc (tags: name only)")
+	cmd.Flags().StringVar(&opts.query, "q", "", "Filter by a case-sensitive image or tag name prefix")
+	cmd.Flags().StringVar(&opts.source, "source-workspace", "", "Owner workspace of a shared image (named images only)")
+	cmd.Flags().BoolVar(&opts.latest, "latest", false, "Return the most recent tag by creation time (reads all tag pages)")
 	return cmd
 }
 
-// ListAllImages lists all images without their tags
-func ListAllImages() {
-	ctx := context.Background()
+func runGetImages(cmd *cobra.Command, args []string, opts imageListOptions) error {
+	if opts.limit < 1 || opts.limit > imagePageLimit {
+		return fmt.Errorf("--limit must be between 1 and 100")
+	}
+	if opts.latest && (len(args) != 1 || opts.cursor != "" || opts.query != "" || opts.sort != "" || opts.all) {
+		return fmt.Errorf("--latest requires one image and cannot be combined with --cursor, --q, --sort or --all")
+	}
+	if len(args) == 0 && opts.source != "" {
+		return fmt.Errorf("--source-workspace requires a named image")
+	}
+	ctx := cmd.Context()
 	client := core.GetClient()
-
-	imageList, err := client.Images.List(ctx)
-	if err != nil {
-		err = fmt.Errorf("error listing images: %w", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	if imageList == nil || len(*imageList) == 0 {
-		// No images found - return empty list
-		resource := getImageResource()
-		core.Output(*resource, []interface{}{}, core.GetOutputFormat())
-		return
-	}
-
-	// Convert to JSON for manipulation
-	jsonData, err := json.Marshal(imageList)
-	if err != nil {
-		err = fmt.Errorf("error parsing images: %w", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	// Parse the response
-	var images []interface{}
-	if err := json.Unmarshal(jsonData, &images); err != nil {
-		err = fmt.Errorf("error parsing response: %w", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	// Remove tags from each image for the list view
-	for i, img := range images {
-		if imgMap, ok := img.(map[string]interface{}); ok {
-			if spec, ok := imgMap["spec"].(map[string]interface{}); ok {
-				// Remove the tags field from spec
-				delete(spec, "tags")
-			}
-			images[i] = imgMap
+	query := imageQuery(opts)
+	if len(args) == 0 {
+		page, err := collectImagePages(ctx, client, "images", query, opts.all)
+		if err != nil {
+			return err
 		}
+		core.Output(*getImageResource(), page.Data, core.GetOutputFormat())
+		printImageCursor(cmd, page.Meta)
+		return nil
 	}
-
-	// Get the image resource for output formatting
-	resource := getImageResource()
-	core.Output(*resource, images, core.GetOutputFormat())
-}
-
-// getImageLatest fetches an image and prints the reference with the most recent tag.
-// Output format: resourceType/imageName:latestTagName
-func getImageLatest(resourceType, imageName string) {
-	ctx := context.Background()
-	client := core.GetClient()
-
-	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
+	kind, name, tag, err := parseImageRef(args[0])
 	if err != nil {
-		err = fmt.Errorf("error getting image %s/%s: %w", resourceType, imageName, err)
-		fmt.Println(err)
-		core.ExitWithError(err)
+		return err
 	}
-
-	tags := imageResult.Spec.Tags
-	if len(tags) == 0 {
-		err := fmt.Errorf("no tags found for image %s/%s", resourceType, imageName)
-		fmt.Println(err)
-		core.ExitWithError(err)
+	if opts.latest {
+		if tag != "" {
+			return fmt.Errorf("--latest cannot be combined with an explicit tag")
+		}
+		latest, err := latestImageTag(ctx, client, kind, name, opts.source)
+		if err != nil {
+			return err
+		}
+		cmd.Printf("%s/%s:%s\n", kind, name, latest)
+		return nil
 	}
-
-	// Sort tags by createdAt descending to find the most recent
-	sort.Slice(tags, func(i, j int) bool {
-		return tags[i].CreatedAt > tags[j].CreatedAt
-	})
-
-	fmt.Printf("%s/%s:%s\n", resourceType, imageName, tags[0].Name)
-}
-
-func getImage(resourceType, imageName, tag string) {
-	ctx := context.Background()
-	client := core.GetClient()
-
-	imageResult, err := client.Images.Get(ctx, imageName, blaxel.ImageGetParams{ResourceType: resourceType})
-	if err != nil {
-		err = fmt.Errorf("error getting image %s/%s: %w", resourceType, imageName, err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	// Convert to JSON for manipulation
-	jsonData, err := json.Marshal(imageResult)
-	if err != nil {
-		err = fmt.Errorf("error parsing image: %w", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	// Parse the response
-	var image map[string]interface{}
-	if err := json.Unmarshal(jsonData, &image); err != nil {
-		err = fmt.Errorf("error parsing response: %w", err)
-		fmt.Println(err)
-		core.ExitWithError(err)
-	}
-
-	// If a specific tag is requested, filter the tags
 	if tag != "" {
-		if spec, ok := image["spec"].(map[string]interface{}); ok {
-			if tags, ok := spec["tags"].([]interface{}); ok {
-				var filteredTags []interface{}
-				for _, t := range tags {
-					if tagMap, ok := t.(map[string]interface{}); ok {
-						if tagName, ok := tagMap["name"].(string); ok && tagName == tag {
-							filteredTags = append(filteredTags, t)
-						}
-					}
-				}
-				spec["tags"] = filteredTags
-
-				if len(filteredTags) == 0 {
-					err := core.MarkExpectedError(
-						fmt.Errorf("tag '%s' not found for image %s/%s", tag, resourceType, imageName),
-						core.CLIErrorNotFound,
-					)
-					fmt.Println(err)
-					core.ExitWithError(err)
-				}
-			}
+		if opts.query != "" || opts.cursor != "" {
+			return fmt.Errorf("an explicit tag cannot be combined with --q or --cursor")
 		}
+		query.Set("name", tag)
 	}
-
-	// Check output format - if table, display tags in a table
-	outputFormat := core.GetOutputFormat()
-	if outputFormat == "table" || outputFormat == "" {
-		displayImageWithTags(image, resourceType, imageName)
+	summary, err := fetchImageSummary(ctx, client, kind, name, opts.source)
+	if err != nil {
+		return err
+	}
+	page, err := collectImagePages(ctx, client, imagePath(kind, name)+"/tags", query, opts.all || tag != "")
+	if err != nil {
+		return err
+	}
+	if tag != "" && len(page.Data) == 0 {
+		return core.MarkExpectedError(fmt.Errorf("tag %q not found for image %s/%s", tag, kind, name), core.CLIErrorNotFound)
+	}
+	spec, ok := summary["spec"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("image summary is missing spec")
+	}
+	spec["tags"] = page.Data
+	format := core.GetOutputFormat()
+	if format == "table" || format == "" {
+		displayImageWithTags(summary, kind, name)
 	} else {
-		// For other formats (json, yaml, pretty), use standard output
-		resource := getImageResource()
-		core.Output(*resource, []interface{}{image}, outputFormat)
+		core.Output(*getImageResource(), []any{summary}, format)
+	}
+	printImageCursor(cmd, page.Meta)
+	return nil
+}
+
+func printImageCursor(cmd *cobra.Command, meta core.PaginationMeta) {
+	if meta.HasMore {
+		cmd.PrintErrf("More results available. Continue with --cursor %q and the same filters.\n", meta.NextCursor)
 	}
 }
 
