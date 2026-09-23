@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -91,7 +92,7 @@ func runGetImages(cmd *cobra.Command, args []string, opts imageListOptions) erro
 		if err != nil {
 			return err
 		}
-		core.Output(*getImageResource(), page.Data, core.GetOutputFormat())
+		core.OutputPreservingOrder(*getImageResource(), page.Data, core.GetOutputFormat())
 		printImageCursor(cmd, page.Meta)
 		return nil
 	}
@@ -134,7 +135,7 @@ func runGetImages(cmd *cobra.Command, args []string, opts imageListOptions) erro
 	spec["tags"] = page.Data
 	format := core.GetOutputFormat()
 	if format == "table" || format == "" {
-		displayImageWithTags(summary, kind, name)
+		displayImageWithTags(cmd.OutOrStdout(), summary, kind, name)
 	} else {
 		core.Output(*getImageResource(), []any{summary}, format)
 	}
@@ -149,7 +150,7 @@ func printImageCursor(cmd *cobra.Command, meta core.PaginationMeta) {
 }
 
 // displayImageWithTags shows an image and its tags in a table format
-func displayImageWithTags(image map[string]interface{}, resourceType, imageName string) {
+func displayImageWithTags(out io.Writer, image map[string]interface{}, resourceType, imageName string) {
 	// Extract image metadata
 	workspace := "-"
 	lastDeployedAt := "-"
@@ -177,8 +178,8 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 		}
 	}
 
-	fmt.Printf("Image: %s/%s\n", resourceType, imageName)
-	fmt.Printf("Workspace: %s | Total Size: %s | Last Deployed: %s\n\n", workspace, totalSize, lastDeployedAt)
+	_, _ = fmt.Fprintf(out, "Image: %s/%s\n", resourceType, imageName)
+	_, _ = fmt.Fprintf(out, "Workspace: %s | Total Size: %s | Last Deployed: %s\n\n", workspace, totalSize, lastDeployedAt)
 
 	// Extract tags from the image
 	var tags []interface{}
@@ -189,7 +190,7 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 	}
 
 	if len(tags) == 0 {
-		fmt.Println("No tags found for this image.")
+		_, _ = fmt.Fprintln(out, "No tags found for this image.")
 		return
 	}
 
@@ -250,19 +251,19 @@ func displayImageWithTags(image map[string]interface{}, resourceType, imageName 
 	}
 
 	// Create dynamic table format
-	fmt.Println("Tags:")
+	_, _ = fmt.Fprintln(out, "Tags:")
 	separatorFormat := fmt.Sprintf("+-%s-+------------+------------+", strings.Repeat("-", nameWidth))
 	headerFormat := fmt.Sprintf("| %-*s | SIZE       | CREATED_AT |", nameWidth, "NAME")
 	rowFormat := fmt.Sprintf("| %%-%ds | %%-10s | %%-10s |", nameWidth)
 
-	fmt.Println(separatorFormat)
-	fmt.Println(headerFormat)
-	fmt.Println(separatorFormat)
+	_, _ = fmt.Fprintln(out, separatorFormat)
+	_, _ = fmt.Fprintln(out, headerFormat)
+	_, _ = fmt.Fprintln(out, separatorFormat)
 
 	for _, row := range rows {
-		fmt.Printf(rowFormat+"\n", row.fullName, row.size, row.createdAt)
+		_, _ = fmt.Fprintf(out, rowFormat+"\n", row.fullName, row.size, row.createdAt)
 	}
-	fmt.Println(separatorFormat)
+	_, _ = fmt.Fprintln(out, separatorFormat)
 }
 
 // formatBytes formats bytes to human-readable format

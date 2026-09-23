@@ -127,3 +127,22 @@ func TestImageLatestCommand(t *testing.T) {
 		require.Error(t, cmd.Execute())
 	}
 }
+
+func TestNamedImageTableUsesCommandOutput(t *testing.T) {
+	original := core.GetClient()
+	t.Cleanup(func() { core.SetClient(original) })
+	core.SetClient(imageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/images/sandbox/base" {
+			_, _ = fmt.Fprint(w, `{ "metadata":{"name":"base"},"spec":{"size":12,"tagCount":1}}`)
+		} else {
+			_, _ = fmt.Fprint(w, `{"data":[{"name":"v1","size":12}],"meta":{"hasMore":false}}`)
+		}
+	}))
+	cmd := GetImagesCmd()
+	buf := new(bytes.Buffer)
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"sandbox/base"})
+	require.NoError(t, cmd.Execute())
+	require.Contains(t, buf.String(), "Image: sandbox/base")
+	require.Contains(t, buf.String(), "sandbox/base:v1")
+}
