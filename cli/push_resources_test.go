@@ -28,6 +28,8 @@ func TestPushExistingImageResourceRequest(t *testing.T) {
 		{name: "explicit zero", config: "[build]\nvolumeMb=0", volume: buildSize(0)},
 		{name: "invalid values reach validation", config: "[build]\nmemoryMb=0\nvolumeMb=-1", memory: buildSize(0), volume: buildSize(-1)},
 		{name: "plain registration", image: "sandbox/existing:latest", config: "[build]\nmemoryMb=16384\nvolumeMb=32768"},
+		{name: "dotted registry with port", image: "registry.example.com:5000/app:latest", config: "[build]\nmemoryMb=16384\nvolumeMb=32768", memory: buildSize(16384), volume: buildSize(32768)},
+		{name: "dotless registry follows API registration", image: "localhost:5000/app:latest", config: "[build]\nmemoryMb=16384\nvolumeMb=32768"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var cfg core.Config

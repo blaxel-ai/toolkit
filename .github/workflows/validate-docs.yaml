@@ -50,7 +50,9 @@ jobs:
       # outside code fences) before they reach the docs site.
       - name: Mintlify validate
         run: |
-          npm install -g mint
+          # Pin the validator: newer releases can introduce unavailable dependencies.
+          npm install -g mint@4.2.928
+          mint --version
           workdir="$(mktemp -d)"
           mkdir -p "$workdir/cli-reference/commands"
           cp docs/*.md "$workdir/cli-reference/commands/"
