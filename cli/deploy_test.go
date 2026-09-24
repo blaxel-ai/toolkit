@@ -871,7 +871,11 @@ COPY --from=somewhere-else /thing /thing
 }
 
 func TestDeployedStatusIsFinal(t *testing.T) {
-	known := func(rev string) rolloutBaseline { return rolloutBaseline{revision: rev, known: true} }
+	known := func(rev string) rolloutBaseline {
+		return rolloutBaseline{revision: rev, deployedRevision: rev, known: true}
+	}
+	// r0 deployed, r1 still rolling out when the apply happened.
+	inFlight := rolloutBaseline{revision: "r1", deployedRevision: "r0", known: true}
 	unknown := rolloutBaseline{}
 	tests := []struct {
 		name             string
@@ -886,6 +890,9 @@ func TestDeployedStatusIsFinal(t *testing.T) {
 		{"build: DEPLOYED of the previous revision is ignored even after a rollout status", true, true, known("r0"), "r0", false},
 		{"build: DEPLOYED of a new revision is final without a rollout status", true, false, known("r0"), "r1", true},
 		{"build: first deployment of a new resource is final", true, false, known(""), "r1", true},
+		{"build: in-flight baseline still reports the old deployed revision", true, false, inFlight, "r0", false},
+		{"build: in-flight rollout finishing is not this apply", true, true, inFlight, "r1", false},
+		{"build: in-flight baseline accepts the revision created by this apply", true, false, inFlight, "r2", true},
 		{"build: no revision on events falls back to the rollout status (ignored)", true, false, known("r0"), "", false},
 		{"build: no revision on events falls back to the rollout status (final)", true, true, known("r0"), "", true},
 		{"build: unreadable baseline falls back to the rollout status", true, false, unknown, "r1", false},
