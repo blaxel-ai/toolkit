@@ -298,14 +298,14 @@ type BuildConfig struct {
 	Experimental bool `toml:"experimental,omitempty"`
 	// MemoryMb is the RAM given to the environment the image is built in, not to
 	// the deployed workload. Unset uses the platform default.
-	MemoryMb int `toml:"memoryMb,omitempty"`
+	MemoryMb *int `toml:"memoryMb,omitempty"`
 	// VolumeMb attaches a disk of that size to the build for its intermediate
-	// layers. Unset means no disk at all and the build runs in memory, which is
-	// faster and enough for most images.
+	// layers. Unset uses the platform default; an explicit zero requests
+	// memory-backed scratch without a disk.
 	//
-	// Set it when the image is large: a build writes roughly three times the
-	// final image size, and without a disk that comes out of MemoryMb.
-	VolumeMb int `toml:"volumeMb,omitempty"`
+	// Temporary storage holds downloaded layers, extracted files and generated
+	// output. Peak usage depends on the image; without a disk it uses MemoryMb.
+	VolumeMb *int `toml:"volumeMb,omitempty"`
 	// Region is where the image is built, e.g. us-pdx-1. Unset uses the
 	// platform's configured build region.
 	Region string `toml:"region,omitempty"`

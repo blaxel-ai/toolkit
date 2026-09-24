@@ -27,6 +27,11 @@ transform it for the target runtime via metamorph. If the same image was
 already built, the build is triggered again by default. Use --skip-build to
 skip the build if the image was already built.
 
+Use --memory and --volume (MiB) to size the temporary build or import worker.
+These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
+Omitting both uses project settings or platform defaults; --volume 0 requests
+memory-backed scratch. These settings do not change runtime resources.
+
 For private registries, supply credentials via --registry-cred or --docker-config.
 
 ```
@@ -54,6 +59,9 @@ bl push [flags]
   # Skip rebuild if image was already built
   bl push --skip-build
 
+  # Import a registry image with 16 GiB memory and 32 GiB scratch disk
+  bl push --image docker.io/myorg/myapp:latest --type sandbox --memory 16384 --volume 32768
+
   # Push with a longer timeout for large images
   bl push --timeout 30m
 ```
@@ -65,11 +73,14 @@ bl push [flags]
   -d, --directory string            Source directory path
       --docker-config string        Path to a Docker config.json file with registry credentials
   -h, --help                        help for push
+      --image string                Existing registry image to import; overrides blaxel.toml image
+      --memory int                  Build or import worker memory in MiB (1-32768); overrides [build].memoryMb
   -n, --name string                 Name for the image (defaults to directory name)
   -c, --registry-cred stringArray   Registry credentials (format: registry=username:password, repeatable)
       --skip-build                  Skip the image build step (use existing built image if available)
       --timeout string              Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h
   -t, --type string                 Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set
+      --volume int                  Build or import scratch disk in MiB (0-131072); 0 uses memory-backed scratch; overrides [build].volumeMb
   -y, --yes                         Skip interactive mode
 ```
 

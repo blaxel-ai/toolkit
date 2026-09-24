@@ -394,13 +394,13 @@ func buildLabels(build *core.BuildConfig) map[string]string {
 	if build.Experimental {
 		out["x-blaxel-builder"] = "sandbox"
 	}
-	if build.MemoryMb > 0 {
-		out["x-blaxel-build-memory"] = strconv.Itoa(build.MemoryMb)
+	if build.MemoryMb != nil {
+		out["x-blaxel-build-memory"] = strconv.Itoa(*build.MemoryMb)
 	}
-	// Absent means no disk, which is the default, so only a positive size needs
-	// carrying. That is what lets both stay plain ints rather than pointers.
-	if build.VolumeMb > 0 {
-		out["x-blaxel-build-volume"] = strconv.Itoa(build.VolumeMb)
+	// Preserve zero: it explicitly requests memory-backed scratch instead of
+	// inheriting the platform default.
+	if build.VolumeMb != nil {
+		out["x-blaxel-build-volume"] = strconv.Itoa(*build.VolumeMb)
 	}
 	if build.Region != "" {
 		out["x-blaxel-build-region"] = build.Region
