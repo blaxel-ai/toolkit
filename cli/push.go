@@ -38,11 +38,59 @@ type createImageRequest struct {
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
 	DockerConfig string `json:"dockerConfig,omitempty"`
+	MemoryMb     *int   `json:"memoryMb,omitempty"`
+	VolumeMb     *int   `json:"volumeMb,omitempty"`
 	// Labels carries blaxel.toml's [build] choices. The platform signs them into
 	// the upload URL, and Upload sends matching headers — that round trip is what
 	// gets them to a build started by `bl push`, which creates no resource
 	// record a label could otherwise ride on.
 	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// pushExistingImage sends worker resources only for registry imports. Plain
+// image registration does not start a worker and rejects these API fields.
+func pushExistingImage(ctx context.Context, client *blaxel.Client, request createImageRequest, build *core.BuildConfig, opts ...option.RequestOption) (createImageResponse, error) {
+	registry, _, hasPath := strings.Cut(request.Image, "/")
+	if hasPath && strings.Contains(registry, ".") && build != nil {
+		request.MemoryMb = build.MemoryMb
+		request.VolumeMb = build.VolumeMb
+	}
+	var response createImageResponse
+	err := client.Post(ctx, "images", request, &response, opts...)
+	return response, err
+}
+
+// pushBuildConfig overlays explicit flags without changing the loaded project
+// config. Changed distinguishes --volume 0 from an omitted flag.
+func pushBuildConfig(cmd *cobra.Command, build *core.BuildConfig) (*core.BuildConfig, error) {
+	if !cmd.Flags().Changed("memory") && !cmd.Flags().Changed("volume") {
+		return build, nil
+	}
+	resolved := core.BuildConfig{}
+	if build != nil {
+		resolved = *build
+	}
+	for _, setting := range []struct {
+		flag     string
+		min, max int
+		target   **int
+	}{
+		{"memory", 1, 32768, &resolved.MemoryMb},
+		{"volume", 0, 131072, &resolved.VolumeMb},
+	} {
+		if !cmd.Flags().Changed(setting.flag) {
+			continue
+		}
+		value, err := cmd.Flags().GetInt(setting.flag)
+		if err != nil {
+			return nil, err
+		}
+		if value < setting.min || value > setting.max {
+			return nil, fmt.Errorf("--%s must be between %d and %d MiB", setting.flag, setting.min, setting.max)
+		}
+		*setting.target = &value
+	}
+	return &resolved, nil
 }
 
 // createImageResponse is the response body from POST /images.
@@ -77,6 +125,7 @@ func imageRefToName(ref string) string {
 
 func PushCmd() *cobra.Command {
 	var name string
+	var imageRefFlag string
 	var folder string
 	var resourceType string
 	var noTTY bool
@@ -109,6 +158,11 @@ transform it for the target runtime via metamorph. If the same image was
 already built, the build is triggered again by default. Use --skip-build to
 skip the build if the image was already built.
 
+Use --memory and --volume (MiB) to size the temporary build or import worker.
+These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
+Omitting both uses project settings or platform defaults; --volume 0 requests
+memory-backed scratch. These settings do not change runtime resources.
+
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
@@ -127,6 +181,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
   # Skip rebuild if image was already built
   bl push --skip-build
+
+  # Import a registry image with 16 GiB memory and 32 GiB scratch disk
+  bl push --image docker.io/myorg/myapp:latest --type sandbox --memory 16384 --volume 32768
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -150,6 +207,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			}
 
 			config := core.GetConfig()
+			if cmd.Flags().Changed("image") {
+				config.Image = imageRefFlag
+			}
+			buildConfig, buildErr := pushBuildConfig(cmd, config.Build)
+			if buildErr != nil {
+				core.PrintError("Push", buildErr)
+				core.ExitWithError(core.MarkExpectedError(buildErr, core.CLIErrorValidation))
+				return
+			}
+			config.Build = buildConfig
 
 			// Determine resource type
 			if resourceType == "" {
@@ -276,8 +343,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					opts = append(opts, option.WithQuery("skip-build", "true"))
 				}
 
-				var respBody createImageResponse
-				err = client.Post(ctx, "images", reqBody, &respBody, opts...)
+				respBody, pushErr := pushExistingImage(ctx, client, reqBody, config.Build, opts...)
+				err = pushErr
 				if err != nil {
 					core.PrintError("Push", fmt.Errorf("failed to push image: %w", err))
 					core.ExitWithError(err)
@@ -350,7 +417,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					Name:         name,
 					ResourceType: resourceType,
 					Generation:   generation,
-					Labels:       buildLabels(core.GetConfig().Build),
+					Labels:       buildLabels(config.Build),
 				}
 
 				var httpResponse *http.Response
@@ -411,6 +478,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 		},
 	}
 
+	cmd.Flags().StringVar(&imageRefFlag, "image", "", "Existing registry image to import; overrides blaxel.toml image")
+	cmd.Flags().Int("memory", 0, "Build or import worker memory in MiB (1-32768); overrides [build].memoryMb")
+	cmd.Flags().Int("volume", 0, "Build or import scratch disk in MiB (0-131072); 0 uses memory-backed scratch; overrides [build].volumeMb")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Name for the image (defaults to directory name)")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Source directory path")
 	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set")

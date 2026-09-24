@@ -3,10 +3,13 @@ package monitor
 import (
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -277,4 +280,47 @@ func TestBufferedLogEntry(t *testing.T) {
 	assert.Equal(t, now, entry.timestamp)
 	assert.Equal(t, "test message", entry.message)
 	assert.Equal(t, now, entry.fetchedAt)
+}
+
+// Stopping after build completion cancels any log fetch in flight. That is
+// normal shutdown, not a failed build or a log service outage.
+func TestBuildLogWatcherStopCancelsFetchWithoutWarning(t *testing.T) {
+	started := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	client := blaxel.NewClient(option.WithBaseURL(server.URL+"/"), option.WithAPIKey("test"), option.WithMaxRetries(0))
+	var received []string
+	watcher := NewBuildLogWatcher(&client, "test", "sandbox", "test", func(line string) { received = append(received, line) }, 0)
+	now := time.Now()
+	watcher.pendingLogs = []bufferedLogEntry{{timestamp: now, message: "final build log", fetchedAt: now}}
+	watcher.Start()
+	defer watcher.Stop()
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("log request never reached the server")
+	}
+	watcher.Stop()
+	assert.Equal(t, []string{"final build log"}, received)
+}
+
+func TestBuildLogWatcherStillWarnsOnFetchFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "logs unavailable", http.StatusBadRequest)
+	}))
+	defer server.Close()
+	client := blaxel.NewClient(option.WithBaseURL(server.URL+"/"), option.WithAPIKey("test"), option.WithMaxRetries(0))
+	messages := make(chan string, 10)
+	watcher := NewBuildLogWatcher(&client, "test", "sandbox", "test", func(line string) { messages <- line }, 0)
+	watcher.Start()
+	defer watcher.Stop()
+	select {
+	case line := <-messages:
+		assert.Contains(t, line, "Warning: Error fetching logs:")
+	case <-time.After(10 * time.Second):
+		t.Fatal("fetch failure was not reported")
+	}
 }

@@ -25,13 +25,13 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 		{"no sizes declared", &core.BuildConfig{}, map[string]string{}},
 		{
 			"memory only",
-			&core.BuildConfig{MemoryMb: 16384},
+			&core.BuildConfig{MemoryMb: buildSize(16384)},
 			map[string]string{"x-blaxel-build-memory": "16384"},
 		},
 		{
-			// No volume is the default, so absence carries nothing at all.
-			"no volume declared means an in-memory build",
-			&core.BuildConfig{MemoryMb: 8192},
+			// Absence carries no override and leaves the platform default intact.
+			"no volume declared preserves the platform default",
+			&core.BuildConfig{MemoryMb: buildSize(8192)},
 			map[string]string{"x-blaxel-build-memory": "8192"},
 		},
 		{
@@ -41,7 +41,7 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 		},
 		{
 			"both",
-			&core.BuildConfig{MemoryMb: 16384, VolumeMb: 60000},
+			&core.BuildConfig{MemoryMb: buildSize(16384), VolumeMb: buildSize(60000)},
 			map[string]string{
 				"x-blaxel-build-memory": "16384",
 				"x-blaxel-build-volume": "60000",
@@ -61,8 +61,8 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 			"everything together",
 			&core.BuildConfig{
 				Experimental: true,
-				MemoryMb:     16384,
-				VolumeMb:     60000,
+				MemoryMb:     buildSize(16384),
+				VolumeMb:     buildSize(60000),
 				Region:       "us-pdx-1",
 				CacheDrive:   "build-cache",
 			},
@@ -96,7 +96,7 @@ func TestBuildSizesBecomeLabels(t *testing.T) {
 // the signature did not cover is rejected as a mismatch, which is what makes
 // this a security boundary rather than a convenience.
 func TestBuildLabelsAreTheSameOnBothSidesOfTheUpload(t *testing.T) {
-	build := &core.BuildConfig{Experimental: true, MemoryMb: 16384, VolumeMb: 60000}
+	build := &core.BuildConfig{Experimental: true, MemoryMb: buildSize(16384), VolumeMb: buildSize(60000)}
 
 	// What POST /images asks the platform to sign.
 	signed := buildLabels(build)
@@ -133,7 +133,7 @@ func TestUploadOnlySendsMetadataItWasGiven(t *testing.T) {
 	}
 
 	configured := &Deployment{}
-	signed := buildLabels(&core.BuildConfig{Experimental: true, MemoryMb: 8192})
+	signed := buildLabels(&core.BuildConfig{Experimental: true, MemoryMb: buildSize(8192)})
 	configured.WithUploadMetadata(signed)
 	if len(configured.uploadMetadata) != len(signed) {
 		t.Fatalf("configured deployment carries %v, signed %v", configured.uploadMetadata, signed)
@@ -410,3 +410,5 @@ func buildLabelTestResultLabels(t *testing.T, result core.Result) map[string]int
 	}
 	return labels
 }
+
+func buildSize(value int) *int { return &value }
