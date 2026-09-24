@@ -30,8 +30,8 @@ func imagePath(kind, name string) string {
 	return "images/" + url.PathEscape(kind) + "/" + url.PathEscape(name)
 }
 
-// Use the released SDK's HTTP client, like core pagination, until its generated
-// image service is released. This keeps authentication, retries and connection reuse.
+// Use the SDK HTTP client, like core pagination, to retain the CLI's generic
+// rendering data while reusing authentication, retries and connections.
 func fetchImagePage(ctx context.Context, client *blaxel.Client, path string, query url.Values) (imagePage, error) {
 	page := imagePage{Data: []any{}}
 	if client == nil {
