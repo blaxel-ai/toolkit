@@ -155,6 +155,7 @@ func displayImageWithTags(out io.Writer, image map[string]interface{}, resourceT
 	workspace := "-"
 	lastDeployedAt := "-"
 	totalSize := "-"
+	tagCount := "-"
 
 	if metadata, ok := image["metadata"].(map[string]interface{}); ok {
 		if ws, ok := metadata["workspace"].(string); ok {
@@ -166,6 +167,9 @@ func displayImageWithTags(out io.Writer, image map[string]interface{}, resourceT
 	}
 
 	if spec, ok := image["spec"].(map[string]interface{}); ok {
+		if count, ok := spec["tagCount"]; ok && count != nil {
+			tagCount = fmt.Sprint(count)
+		}
 		if size, ok := spec["size"]; ok {
 			switch v := size.(type) {
 			case float64:
@@ -179,7 +183,7 @@ func displayImageWithTags(out io.Writer, image map[string]interface{}, resourceT
 	}
 
 	_, _ = fmt.Fprintf(out, "Image: %s/%s\n", resourceType, imageName)
-	_, _ = fmt.Fprintf(out, "Workspace: %s | Total Size: %s | Last Deployed: %s\n\n", workspace, totalSize, lastDeployedAt)
+	_, _ = fmt.Fprintf(out, "Workspace: %s | Total Size: %s | Tags: %s | Last Deployed: %s\n\n", workspace, totalSize, tagCount, lastDeployedAt)
 
 	// Extract tags from the image
 	var tags []interface{}

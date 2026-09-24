@@ -206,6 +206,7 @@ var resources = []*Resource{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
 			{Key: "SIZE", Value: "spec.size", Special: "imagesize"},
+			{Key: "TAGS", Value: "spec.tagCount"},
 			{Key: "LAST_DEPLOYED_AT", Value: "metadata.lastDeployedAt", Special: "date"},
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},

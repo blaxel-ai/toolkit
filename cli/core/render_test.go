@@ -434,3 +434,39 @@ func TestOutputPreservingOrder(t *testing.T) {
 	assert.Contains(t, text, "alpha")
 	assert.Less(t, strings.Index(text, "alpha"), strings.Index(text, "beta"))
 }
+
+func TestImageTableTotalTagCount(t *testing.T) {
+	var resource *Resource
+	for _, r := range GetResources() {
+		if r.Kind == "Image" {
+			resource = r
+			break
+		}
+	}
+	if resource == nil {
+		t.Fatal("image resource not registered")
+	}
+	index := -1
+	for i, field := range resource.Fields {
+		if field.Key == "TAGS" {
+			index = i
+		}
+	}
+	if index < 0 {
+		t.Fatal("missing TAGS column")
+	}
+	for _, tc := range []struct {
+		name string
+		spec map[string]any
+		want string
+	}{
+		{"total not page size", map[string]any{"tagCount": float64(10000), "tags": []any{map[string]any{"name": "v1"}}}, "10000"},
+		{"zero", map[string]any{"tagCount": float64(0)}, "0"},
+		{"missing", map[string]any{}, "-"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			row := buildTableRow(*resource, map[string]any{"spec": tc.spec}, 100)
+			assert.Equal(t, tc.want, row[index])
+		})
+	}
+}

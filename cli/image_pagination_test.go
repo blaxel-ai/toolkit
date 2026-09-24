@@ -133,7 +133,7 @@ func TestNamedImageTableUsesCommandOutput(t *testing.T) {
 	t.Cleanup(func() { core.SetClient(original) })
 	core.SetClient(imageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/images/sandbox/base" {
-			_, _ = fmt.Fprint(w, `{ "metadata":{"name":"base"},"spec":{"size":12,"tagCount":1}}`)
+			_, _ = fmt.Fprint(w, `{ "metadata":{"name":"base"},"spec":{"size":12,"tagCount":10000}}`)
 		} else {
 			_, _ = fmt.Fprint(w, `{"data":[{"name":"v1","size":12}],"meta":{"hasMore":false}}`)
 		}
@@ -144,5 +144,6 @@ func TestNamedImageTableUsesCommandOutput(t *testing.T) {
 	cmd.SetArgs([]string{"sandbox/base"})
 	require.NoError(t, cmd.Execute())
 	require.Contains(t, buf.String(), "Image: sandbox/base")
+	require.Contains(t, buf.String(), "Tags: 10000")
 	require.Contains(t, buf.String(), "sandbox/base:v1")
 }
