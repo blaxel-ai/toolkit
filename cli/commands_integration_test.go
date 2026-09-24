@@ -519,6 +519,8 @@ func TestIntegrationConnectionsListIntegration(t *testing.T) {
 func TestImagesListIntegration(t *testing.T) {
 	handlers := map[string]http.HandlerFunc{
 		"GET /images": func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "2026-09-22", r.Header.Get("Blaxel-Version"))
+			assert.Equal(t, "1", r.URL.Query().Get("limit"))
 			images := []map[string]interface{}{
 				{
 					"metadata": map[string]interface{}{
@@ -528,7 +530,7 @@ func TestImagesListIntegration(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(images)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": images, "meta": map[string]interface{}{"hasMore": false}})
 		},
 	}
 
@@ -538,9 +540,9 @@ func TestImagesListIntegration(t *testing.T) {
 
 	ctx := context.Background()
 	client := core.GetClient()
-	images, err := client.Images.List(ctx)
+	images, err := client.Images.List(ctx, blaxel.ImageListParams{Limit: blaxel.Int(1)})
 	require.NoError(t, err)
-	assert.Len(t, *images, 1)
+	assert.Len(t, images.Data, 1)
 }
 
 // TestAPIErrorHandlingIntegration tests handling various API errors

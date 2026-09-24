@@ -155,7 +155,7 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get applications](bl_get_applications.md)	 - List all applications or get details of a specific one
 * [bl get drives](bl_get_drives.md)	 - List all drives or get details of a specific one
 * [bl get functions](bl_get_functions.md)	 - List all functions or get details of a specific one
-* [bl get image](bl_get_image.md)	 - Get image information
+* [bl get image](bl_get_image.md)	 - List image summaries or image tags with cursor pagination
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - List all integrationconnections or get details of a specific one
 * [bl get jobs](bl_get_jobs.md)	 - List all jobs or get details of a specific one
 * [bl get mcp-hub](bl_get_mcp-hub.md)	 - List pre-built MCP servers available in the Blaxel Hub

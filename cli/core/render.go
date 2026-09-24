@@ -47,22 +47,25 @@ func getImageColumnWidth() int {
 }
 
 func Output(resource Resource, slices []interface{}, outputFormat string) {
-	// Sort slices by creation date before rendering
-	sortedSlices := sortByCreationDate(slices)
+	OutputPreservingOrder(resource, sortByCreationDate(slices), outputFormat)
+}
+
+// OutputPreservingOrder renders server-ordered pages without changing cursor order.
+func OutputPreservingOrder(resource Resource, slices []interface{}, outputFormat string) {
 
 	if outputFormat == "pretty" {
-		printYaml(resource, sortedSlices, true)
+		printYaml(resource, slices, true)
 		return
 	}
 	if outputFormat == "yaml" {
-		printYaml(resource, sortedSlices, false)
+		printYaml(resource, slices, false)
 		return
 	}
 	if outputFormat == "json" {
-		printJson(resource, sortedSlices)
+		printJson(resource, slices)
 		return
 	}
-	printTable(resource, sortedSlices)
+	printTable(resource, slices)
 }
 
 func retrieveKey(itemMap map[string]interface{}, key string) string {
