@@ -20,6 +20,17 @@ var PosthogAPIKey = ""
 // PostHog API endpoint
 var PosthogHost = "https://us.i.posthog.com"
 
+// posthogFlushBudget caps how long telemetry may delay process exit.
+//
+// A successful capture against us.i.posthog.com takes ~250-350ms end to end
+// (DNS + TLS handshake + POST), so a one second budget comfortably covers the
+// happy path. It matters because a version is only marked as reported after a
+// successful delivery: when the endpoint is unreachable, every subsequent
+// command re-sends and pays this budget again. Networks that silently drop
+// traffic rather than refusing it — corporate firewalls, captive portals — hit
+// that path on every invocation, so the bound has to stay imperceptible.
+const posthogFlushBudget = 1 * time.Second
+
 // telemetryState stores the last reported versions to deduplicate events
 type telemetryState struct {
 	DistinctID string            `json:"distinct_id"`
@@ -70,7 +81,14 @@ func loadTelemetryState() *telemetryState {
 	return telemetryCache
 }
 
-// saveTelemetryState writes the telemetry state to disk, preserving unknown fields
+// saveTelemetryState writes the telemetry state to disk, preserving unknown
+// fields and any values written by another process since this one loaded.
+//
+// The CLI and both SDKs share this file and each caches it in memory for the
+// lifetime of its process, so the snapshot held here can be arbitrarily stale.
+// Writing it back wholesale would roll back the other process's record and make
+// it re-send its "Installed" event on every later run, so re-read first and
+// merge only the fields this process actually owns.
 func saveTelemetryState(state *telemetryState) {
 	path := getTelemetryPath()
 	if path == "" {
@@ -79,16 +97,39 @@ func saveTelemetryState(state *telemetryState) {
 	dir := filepath.Dir(path)
 	_ = os.MkdirAll(dir, 0755)
 
-	// Merge known fields into raw map to preserve unknown fields from disk
+	// Start from the fields seen at load time, then layer on whatever is on
+	// disk right now, which is strictly fresher.
 	merged := make(map[string]interface{})
 	for k, v := range telemetryRaw {
 		merged[k] = v
 	}
-	merged["distinct_id"] = state.DistinctID
+	if onDiskData, err := os.ReadFile(path); err == nil {
+		onDisk := make(map[string]interface{})
+		if json.Unmarshal(onDiskData, &onDisk) == nil {
+			for k, v := range onDisk {
+				merged[k] = v
+			}
+		}
+	}
+
+	if state.DistinctID != "" {
+		merged["distinct_id"] = state.DistinctID
+	}
 	if state.CLI != "" {
 		merged["cli"] = state.CLI
 	}
-	merged["sdks"] = state.SDKs
+	// Merge this process's SDK entries over the ones already recorded rather
+	// than replacing the whole map, so languages do not evict each other.
+	sdks := make(map[string]interface{})
+	if existing, ok := merged["sdks"].(map[string]interface{}); ok {
+		for k, v := range existing {
+			sdks[k] = v
+		}
+	}
+	for k, v := range state.SDKs {
+		sdks[k] = v
+	}
+	merged["sdks"] = sdks
 
 	data, err := json.MarshalIndent(merged, "", "  ")
 	if err != nil {
@@ -254,8 +295,10 @@ func generateUUID() string {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
 
-// FlushPosthog waits for all in-flight PostHog requests to complete,
-// with a maximum timeout of 5 seconds to avoid blocking indefinitely.
+// FlushPosthog waits for all in-flight PostHog requests to complete, giving up
+// after posthogFlushBudget so telemetry can never make the CLI feel hung.
+// Abandoned requests are simply not marked as delivered, so they are retried by
+// a later invocation.
 func FlushPosthog() {
 	if PosthogAPIKey == "" {
 		return
@@ -267,6 +310,6 @@ func FlushPosthog() {
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(posthogFlushBudget):
 	}
 }
