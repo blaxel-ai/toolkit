@@ -439,6 +439,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	SetSentryTag("commit", commit)
 	SetSentryTag("command.class", "bl command-resolution")
 
+	// Track CLI installation (fires once per new version)
+	TrackCLIInstalled(version)
+
 	return rootCmd.Execute()
 }
 

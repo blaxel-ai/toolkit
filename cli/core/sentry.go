@@ -407,11 +407,15 @@ func ExitWithError(err error) {
 	if captureUnexpectedError(err) {
 		sentry.Flush(2 * time.Second)
 	}
+	FlushPosthog()
 	os.Exit(1)
 }
 
 // ExitWithMessage is a user-facing expected exit and is never error telemetry.
+// Install/upgrade events are unrelated to error reporting and still need to be
+// flushed before the process goes away.
 func ExitWithMessage(_ string) {
+	FlushPosthog()
 	os.Exit(1)
 }
 
@@ -420,5 +424,6 @@ func Exit(code int) {
 	if code != 0 && SentryDSN != "" {
 		sentry.Flush(2 * time.Second)
 	}
+	FlushPosthog()
 	os.Exit(code)
 }
