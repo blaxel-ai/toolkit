@@ -682,7 +682,15 @@ setup_skills() {
     esac
   fi
 
-  if ! is_command npx; then
+  # If running as root (e.g. via sudo), install the skills for the real user.
+  # A login shell (-i) is used so the user's own Node setup (nvm, fnm, Homebrew, ...)
+  # is on PATH and the skills land in the user's home.
+  skills_runner=""
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
+    skills_runner="sudo -u ${SUDO_USER} -H -i"
+  fi
+
+  if ! $skills_runner sh -c 'command -v npx >/dev/null 2>&1'; then
     echo "⚠ Could not install the Blaxel skills: npx (Node.js) was not found."
     echo "  Install Node.js (https://nodejs.org) and then run:"
     echo "    ${SKILLS_INSTALL_CMD}"
@@ -690,14 +698,8 @@ setup_skills() {
   fi
 
   echo "Installing Blaxel skills..."
-  # If running as root (e.g. via sudo), install the skills for the real user
-  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
-    skills_ok=0
-    sudo -u "$SUDO_USER" -H sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
-  else
-    skills_ok=0
-    sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
-  fi
+  skills_ok=0
+  $skills_runner sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
 
   if [ "$skills_ok" = "1" ]; then
     echo "✓ Blaxel skills installed. Restart your coding agent to load them."
