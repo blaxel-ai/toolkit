@@ -26,9 +26,23 @@ func skillsInstallCommand() string {
 	return strings.Join(skillsInstallArgs(), " ")
 }
 
-// skillsInstallDisabled reports whether skills installation was disabled via BL_INSTALL_SKILLS=false.
+// skillsInstallDisabled reports whether skills installation should be skipped:
+// BL_INSTALL_SKILLS=false always disables it, and CI environments are skipped
+// unless BL_INSTALL_SKILLS=true (mirrors install.sh / install.ps1).
 func skillsInstallDisabled(env func(string) string) bool {
-	return strings.EqualFold(strings.TrimSpace(env(skillsInstallEnv)), "false")
+	switch strings.ToLower(strings.TrimSpace(env(skillsInstallEnv))) {
+	case "false":
+		return true
+	case "true":
+		return false
+	}
+
+	for _, ciEnv := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"} {
+		if env(ciEnv) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // installSkills installs the Blaxel agent skills after a CLI install/upgrade.

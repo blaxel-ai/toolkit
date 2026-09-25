@@ -13,22 +13,22 @@ func TestSkillsInstallCommand(t *testing.T) {
 func TestSkillsInstallDisabled(t *testing.T) {
 	tests := []struct {
 		name     string
-		value    string
+		env      map[string]string
 		disabled bool
 	}{
-		{name: "unset", value: "", disabled: false},
-		{name: "true", value: "true", disabled: false},
-		{name: "false", value: "false", disabled: true},
-		{name: "false with case and spaces", value: " FALSE ", disabled: true},
-		{name: "other value", value: "no", disabled: false},
+		{name: "unset", env: map[string]string{}, disabled: false},
+		{name: "true", env: map[string]string{skillsInstallEnv: "true"}, disabled: false},
+		{name: "false", env: map[string]string{skillsInstallEnv: "false"}, disabled: true},
+		{name: "false with case and spaces", env: map[string]string{skillsInstallEnv: " FALSE "}, disabled: true},
+		{name: "other value", env: map[string]string{skillsInstallEnv: "no"}, disabled: false},
+		{name: "ci skipped by default", env: map[string]string{"CI": "true"}, disabled: true},
+		{name: "github actions skipped by default", env: map[string]string{"GITHUB_ACTIONS": "true"}, disabled: true},
+		{name: "ci forced with true", env: map[string]string{"CI": "true", skillsInstallEnv: "true"}, disabled: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := func(key string) string {
-				assert.Equal(t, skillsInstallEnv, key)
-				return tt.value
-			}
+			env := func(key string) string { return tt.env[key] }
 			assert.Equal(t, tt.disabled, skillsInstallDisabled(env))
 		})
 	}

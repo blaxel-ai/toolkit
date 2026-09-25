@@ -331,12 +331,12 @@ prompt_user() {
     # Running interactively - ask user via stdin
     printf "%s" "$message"
     read -r PROMPT_RESPONSE
-  elif [ -e /dev/tty ]; then
+  elif [ -e /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then
     # Running non-interactively (piped from curl) - ask user via /dev/tty
     printf "%s" "$message" > /dev/tty
     read -r PROMPT_RESPONSE < /dev/tty
   else
-    # No TTY available
+    # No usable TTY available (e.g. no controlling terminal)
     return 1
   fi
   return 0
