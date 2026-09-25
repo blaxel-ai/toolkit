@@ -109,7 +109,43 @@ func TestSaveTelemetryStateMergesWritesFromOtherProcesses(t *testing.T) {
 	sdks, ok := got["sdks"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "2.0.0", sdks["typescript"], "another SDK's version must survive")
-	assert.Equal(t, "1.0.0", sdks["python"], "this process's own version must be written")
+}
+
+// Each writer owns exactly one field: the CLI owns "cli", and each SDK owns its
+// own language entry. Re-asserting anything else on save would roll back a
+// newer value written by whoever actually owns it, and that owner would then
+// treat its version as unreported and send "Installed" all over again.
+func TestSaveTelemetryStateNeverRollsBackEntriesItDoesNotOwn(t *testing.T) {
+	resetPosthogTestState(t, "http://127.0.0.1:1")
+
+	// This process starts up and caches whatever the SDKs had recorded so far.
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"distinct_id":"shared-id","sdks":{"python":"1.0.0"}}`,
+	), 0o600))
+	state := loadTelemetryState()
+	require.Equal(t, "1.0.0", state.SDKs["python"], "precondition: the stale value is cached")
+
+	// The Python SDK upgrades and records a newer version on disk.
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"distinct_id":"shared-id","sdks":{"python":"2.0.0"}}`,
+	), 0o600))
+
+	// The CLI now persists its own install. It must not resurrect python 1.0.0.
+	state.CLI = "3.0.0"
+	saveTelemetryState(state)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var got map[string]interface{}
+	require.NoError(t, json.Unmarshal(data, &got))
+
+	assert.Equal(t, "3.0.0", got["cli"], "the CLI must record the field it owns")
+	sdks, ok := got["sdks"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "2.0.0", sdks["python"],
+		"the CLI owns no language entries and must not roll back the SDK's newer version")
 }
 
 func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {

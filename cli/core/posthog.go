@@ -118,18 +118,13 @@ func saveTelemetryState(state *telemetryState) {
 	if state.CLI != "" {
 		merged["cli"] = state.CLI
 	}
-	// Merge this process's SDK entries over the ones already recorded rather
-	// than replacing the whole map, so languages do not evict each other.
-	sdks := make(map[string]interface{})
-	if existing, ok := merged["sdks"].(map[string]interface{}); ok {
-		for k, v := range existing {
-			sdks[k] = v
-		}
+	// Per-language entries belong to the SDKs; the CLI only ever owns "cli".
+	// Writing back this process's load-time copy of them would roll back a
+	// newer version an SDK recorded after this process started, and that SDK
+	// would then re-send its "Installed" event.
+	if _, ok := merged["sdks"].(map[string]interface{}); !ok {
+		merged["sdks"] = map[string]interface{}{}
 	}
-	for k, v := range state.SDKs {
-		sdks[k] = v
-	}
-	merged["sdks"] = sdks
 
 	data, err := json.MarshalIndent(merged, "", "  ")
 	if err != nil {
