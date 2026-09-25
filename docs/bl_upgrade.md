@@ -18,6 +18,10 @@ Supported installation methods:
   - Manual installation (install.sh)
   - Direct binary download
 
+After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
+are installed or refreshed globally via npx so coding agents (Claude Code,
+Codex, Cursor, ...) stay up to date. Set BL_INSTALL_SKILLS=false to skip this.
+
 Examples:
   # Upgrade to the latest version
   bl upgrade

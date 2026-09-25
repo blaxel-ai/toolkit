@@ -62,7 +62,12 @@ release:
 
 brews:
   - name: blaxel
-    caveats: Blaxel is a tool to ship AI agents that never slack.
+    caveats: |
+      Blaxel is a tool to ship AI agents that never slack.
+
+      Install the Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...):
+        npx -y skills add blaxel-ai/agent-skills -g --all
+      They are also installed automatically when running `bl upgrade`.
     homepage: "https://www.blaxel.ai"
     skip_upload: auto
     install: |

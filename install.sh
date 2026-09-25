@@ -196,6 +196,7 @@ BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-~/.local/bin}
 PREFIX="$OWNER/$REPO"
+SKILLS_INSTALL_CMD="npx -y skills add blaxel-ai/agent-skills -g --all"
 
 ARCH=$(uname_arch)
 OS=$(uname_os)
@@ -653,6 +654,59 @@ setup_tracking() {
   fi
 }
 
+# Function to install the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
+# Uses the `skills` npm CLI to install them globally so coding agents
+# (Claude Code, Codex, Cursor, ...) can use them. Best-effort: never fails the install.
+setup_skills() {
+  # BL_INSTALL_SKILLS=true/false bypasses CI check and prompt
+  if [ "${BL_INSTALL_SKILLS:-}" = "false" ]; then
+    return
+  fi
+
+  if [ "${BL_INSTALL_SKILLS:-}" != "true" ]; then
+    if is_ci; then
+      return
+    fi
+  fi
+
+  if [ "${BL_INSTALL_SKILLS:-}" != "true" ]; then
+    echo ""
+    if ! prompt_user "Do you want to install the Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)? [Y/n] "; then
+      return
+    fi
+
+    case "$PROMPT_RESPONSE" in
+      [nN]|[nN][oO])
+        return
+        ;;
+    esac
+  fi
+
+  if ! is_command npx; then
+    echo "⚠ Could not install the Blaxel skills: npx (Node.js) was not found."
+    echo "  Install Node.js (https://nodejs.org) and then run:"
+    echo "    ${SKILLS_INSTALL_CMD}"
+    return
+  fi
+
+  echo "Installing Blaxel skills..."
+  # If running as root (e.g. via sudo), install the skills for the real user
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
+    skills_ok=0
+    sudo -u "$SUDO_USER" -H sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
+  else
+    skills_ok=0
+    sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
+  fi
+
+  if [ "$skills_ok" = "1" ]; then
+    echo "✓ Blaxel skills installed. Restart your coding agent to load them."
+  else
+    echo "⚠ Could not install the Blaxel skills. You can retry later with:"
+    echo "    ${SKILLS_INSTALL_CMD}"
+  fi
+}
+
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
@@ -676,6 +730,7 @@ execute() {
   setup_path_interactive "$ABSOLUTE_BINDIR"
   setup_completion "$ABSOLUTE_BINDIR"
   setup_tracking
+  setup_skills
 }
 
 uname_os_check

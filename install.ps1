@@ -10,6 +10,10 @@
 .PARAMETER Version
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
 
+.PARAMETER SkipSkills
+    Skip installing the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills).
+    Can also be disabled with the BL_INSTALL_SKILLS=false environment variable.
+
 .EXAMPLE
     # Install the latest version:
     powershell -Command "irm https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.ps1 | iex"
@@ -19,7 +23,8 @@
 #>
 
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [switch]$SkipSkills
 )
 
 $ErrorActionPreference = "Stop"
@@ -163,6 +168,37 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Note: Git was not found on your PATH." -ForegroundColor Yellow
     Write-Host "Some 'bl' commands (like 'bl new') require Git to be installed." -ForegroundColor Yellow
     Write-Host "Install it from: https://git-scm.com/download/win" -ForegroundColor Yellow
+}
+
+# ── Install Blaxel agent skills ──────────────────────────────────────
+$SkillsInstallCmd = "npx -y skills add blaxel-ai/agent-skills -g --all"
+# BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
+$IsCI = -not [string]::IsNullOrEmpty($env:CI) -or -not [string]::IsNullOrEmpty($env:GITHUB_ACTIONS)
+$InstallSkills = -not $SkipSkills -and $env:BL_INSTALL_SKILLS -ne "false" -and ($env:BL_INSTALL_SKILLS -eq "true" -or -not $IsCI)
+if ($InstallSkills) {
+    Write-Host ""
+    if (Get-Command npx -ErrorAction SilentlyContinue) {
+        Write-Host "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)..."
+        try {
+            & cmd /c $SkillsInstallCmd
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Blaxel skills installed. Restart your coding agent to load them." -ForegroundColor Green
+            }
+            else {
+                Write-Host "Could not install the Blaxel skills (exit code $LASTEXITCODE). You can retry later with:" -ForegroundColor Yellow
+                Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
+            }
+        }
+        catch {
+            Write-Host "Could not install the Blaxel skills: $_" -ForegroundColor Yellow
+            Write-Host "You can retry later with: $SkillsInstallCmd" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "Note: npx (Node.js) was not found, skipping Blaxel skills installation." -ForegroundColor Yellow
+        Write-Host "Install Node.js (https://nodejs.org) and then run:" -ForegroundColor Yellow
+        Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
+    }
 }
 
 # ── Done ─────────────────────────────────────────────────────────────
