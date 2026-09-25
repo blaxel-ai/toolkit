@@ -54,7 +54,7 @@ func TestJobExecutions(t *testing.T) {
 			t.Errorf("Failed to list executions: %v", err)
 			return
 		}
-		t.Logf("Found %d executions", len(*executions))
+		t.Logf("Found %d executions", len(executions.Data))
 	})
 
 	// Test creating an execution

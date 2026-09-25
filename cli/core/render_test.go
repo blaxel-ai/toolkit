@@ -1,6 +1,9 @@
 package core
 
 import (
+	"io"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -226,15 +229,15 @@ func TestFormatDate(t *testing.T) {
 func TestSortByCreationDate(t *testing.T) {
 	slices := []interface{}{
 		map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "oldest"},
+			"metadata":  map[string]interface{}{"name": "oldest"},
 			"createdAt": "2024-01-01T00:00:00Z",
 		},
 		map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "newest"},
+			"metadata":  map[string]interface{}{"name": "newest"},
 			"createdAt": "2024-01-03T00:00:00Z",
 		},
 		map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "middle"},
+			"metadata":  map[string]interface{}{"name": "middle"},
 			"createdAt": "2024-01-02T00:00:00Z",
 		},
 	}
@@ -250,11 +253,11 @@ func TestSortByCreationDate(t *testing.T) {
 func TestSortByCreationDateWithInvalidDates(t *testing.T) {
 	slices := []interface{}{
 		map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "valid"},
+			"metadata":  map[string]interface{}{"name": "valid"},
 			"createdAt": "2024-01-01T00:00:00Z",
 		},
 		map[string]interface{}{
-			"metadata": map[string]interface{}{"name": "invalid"},
+			"metadata":  map[string]interface{}{"name": "invalid"},
 			"createdAt": "invalid-date",
 		},
 	}
@@ -295,7 +298,7 @@ func TestRetrieveFieldValue(t *testing.T) {
 			"size": float64(1024),
 		},
 		"createdAt": "2024-01-15T10:30:00Z",
-		"items": []interface{}{"a", "b", "c"},
+		"items":     []interface{}{"a", "b", "c"},
 	}
 
 	tests := []struct {
@@ -407,4 +410,63 @@ func TestRetrieveFieldValueImageTruncation(t *testing.T) {
 	field := Field{Key: "IMAGE", Value: "image", Special: "image"}
 	result := retrieveFieldValue(itemMap, field, 20)
 	assert.LessOrEqual(t, len(result), 20)
+}
+
+func TestOutputPreservingOrder(t *testing.T) {
+	original := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Stdout = original; _ = r.Close(); _ = w.Close() })
+	os.Stdout = w
+	OutputPreservingOrder(Resource{}, []any{
+		map[string]any{"metadata": map[string]any{"name": "alpha", "createdAt": "2026-01-01T00:00:00Z"}},
+		map[string]any{"metadata": map[string]any{"name": "beta", "createdAt": "2026-02-01T00:00:00Z"}},
+	}, "json")
+	_ = w.Close()
+	os.Stdout = original
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	assert.Contains(t, text, "alpha")
+	assert.Less(t, strings.Index(text, "alpha"), strings.Index(text, "beta"))
+}
+
+func TestImageTableTotalTagCount(t *testing.T) {
+	var resource *Resource
+	for _, r := range GetResources() {
+		if r.Kind == "Image" {
+			resource = r
+			break
+		}
+	}
+	if resource == nil {
+		t.Fatal("image resource not registered")
+	}
+	index := -1
+	for i, field := range resource.Fields {
+		if field.Key == "TAGS" {
+			index = i
+		}
+	}
+	if index < 0 {
+		t.Fatal("missing TAGS column")
+	}
+	for _, tc := range []struct {
+		name string
+		spec map[string]any
+		want string
+	}{
+		{"total not page size", map[string]any{"tagCount": float64(10000), "tags": []any{map[string]any{"name": "v1"}}}, "10000"},
+		{"zero", map[string]any{"tagCount": float64(0)}, "0"},
+		{"missing", map[string]any{}, "-"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			row := buildTableRow(*resource, map[string]any{"spec": tc.spec}, 100)
+			assert.Equal(t, tc.want, row[index])
+		})
+	}
 }

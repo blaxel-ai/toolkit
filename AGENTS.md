@@ -22,7 +22,11 @@ Entry point: `main.go` → `cli.Execute` (`cli/root.go`) → `core.Execute`
 | Integration tests (needs `BL_API_KEY`, `BL_WORKSPACE`) | `make test-integration` |
 | Lint | `make lint` (`golangci-lint run`) |
 | Regenerate CLI docs | `make doc` |
-| Regenerate SDK from controlplane | `make sdk-controlplane [branch=<x>]` |
+| Update the Go SDK | `go get github.com/blaxel-ai/sdk-go@vX.Y.Z && go mod tidy` |
+
+The SDK is not generated from this repo: `blaxel-ai/sdk-go` is generated in
+`blaxel-ai/controlplane` (`.stainless/`) and released with release-please. Here
+you only ever bump the dependency to a released tag.
 
 Always run `make lint` and `go build ./...` before committing. Integration
 tests hit the real platform — never run them against prod data; use a dev

@@ -133,6 +133,22 @@ var resources = []*Resource{
 		},
 	},
 	{
+		Kind:      "Application",
+		Short:     "app",
+		Plural:    "applications",
+		Singular:  "application",
+		Aliases:   []string{"apps"},
+		APIPath:   "applications",
+		Paginated: true,
+		SpecType:  reflect.TypeOf(blaxel.Application{}),
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "NAME", Value: "name"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+		},
+	},
+	{
 		Kind:      "Job",
 		Short:     "jb",
 		Plural:    "jobs",
@@ -190,6 +206,7 @@ var resources = []*Resource{
 			{Key: "WORKSPACE", Value: "workspace"},
 			{Key: "NAME", Value: "name"},
 			{Key: "SIZE", Value: "spec.size", Special: "imagesize"},
+			{Key: "TAGS", Value: "spec.tagCount"},
 			{Key: "LAST_DEPLOYED_AT", Value: "metadata.lastDeployedAt", Special: "date"},
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
@@ -209,6 +226,24 @@ var resources = []*Resource{
 			{Key: "REGION", Value: "spec.region"},
 			{Key: "STATUS", Value: "status"},
 			{Key: "CREATED_AT", Value: "metadata.createdAt", Special: "date"},
+		},
+	},
+	{
+		Kind:      "Snapshot",
+		Short:     "snap",
+		Plural:    "snapshots",
+		Singular:  "snapshot",
+		APIPath:   "snapshots",
+		Paginated: true,
+		Fields: []Field{
+			{Key: "WORKSPACE", Value: "workspace"},
+			{Key: "ID", Value: "id"},
+			{Key: "NAME", Value: "name"},
+			{Key: "SOURCE", Value: "source.name"},
+			{Key: "IMAGE", Value: "spec.image", Special: "image"},
+			{Key: "REGION", Value: "spec.region"},
+			{Key: "STATUS", Value: "status"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
 		},
 	},
 	{
@@ -258,6 +293,26 @@ type Package struct {
 // BuildConfig represents the [build] section of blaxel.toml
 type BuildConfig struct {
 	Args map[string]string `toml:"args,omitempty"`
+	// Experimental opts this project into the new build system. It is the one
+	// setting here that changes which builder runs, rather than how it is sized.
+	Experimental bool `toml:"experimental,omitempty"`
+	// MemoryMb is the RAM given to the environment the image is built in, not to
+	// the deployed workload. Unset uses the platform default.
+	MemoryMb *int `toml:"memoryMb,omitempty"`
+	// VolumeMb attaches a disk of that size to the build for its intermediate
+	// layers. Unset uses the platform default; an explicit zero requests
+	// memory-backed scratch without a disk.
+	//
+	// Temporary storage holds downloaded layers, extracted files and generated
+	// output. Peak usage depends on the image; without a disk it uses MemoryMb.
+	VolumeMb *int `toml:"volumeMb,omitempty"`
+	// Region is where the image is built, e.g. us-pdx-1. Unset uses the
+	// platform's configured build region.
+	Region string `toml:"region,omitempty"`
+	// CacheDrive names an Agent Drive in the same workspace and in the build
+	// region. The builder mounts it and keeps its layer cache there across
+	// builds. Unset means no cache and every build starts from scratch.
+	CacheDrive string `toml:"cacheDrive,omitempty"`
 }
 
 // readConfigToml reads the config.toml file and upgrade config according to content
@@ -284,8 +339,15 @@ type Config struct {
 	Region       string                    `toml:"region,omitempty"`
 	Public       *bool                     `toml:"public,omitempty"`
 	GithubRunner *map[string]interface{}   `toml:"githubRunner,omitempty"`
+	Memory       int                       `toml:"memory,omitempty"`
+	Port         int                       `toml:"port,omitempty"`
 	Image        string                    `toml:"image,omitempty"`
 	Build        *BuildConfig              `toml:"build,omitempty"`
+	// Labels are applied to the deployed resource's metadata. The CLI adds its
+	// own (x-blaxel-auto-generated, x-blaxel-experimental) on top; a label set
+	// here is otherwise the only way to keep one across a deploy, since the
+	// deploy rewrites metadata.labels wholesale.
+	Labels map[string]string `toml:"labels,omitempty"`
 }
 
 // blaxelTomlWarning stores any warning from parsing blaxel.toml
@@ -340,6 +402,11 @@ func resolveConfigVars() {
 		&config.Region,
 		&config.Directory,
 		&config.Image,
+	}
+	// [build] region and cacheDrive name a region and a drive, so they deserve
+	// the same ${VAR} interpolation as the top-level region.
+	if config.Build != nil {
+		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive)
 	}
 	for _, f := range fields {
 		if *f != "" {
@@ -502,6 +569,7 @@ func PromptForDeploymentType() string {
 				Title("What are you trying to deploy ?").
 				Options(
 					huh.NewOption("Sandbox", "sandbox"),
+					huh.NewOption("Application", "application"),
 					huh.NewOption("Agent", "agent"),
 					huh.NewOption("Job", "job"),
 					huh.NewOption("MCP (Function)", "function"),

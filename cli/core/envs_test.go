@@ -536,6 +536,30 @@ func TestResolveConfigVars(t *testing.T) {
 		assert.Equal(t, "prod-agent", config.Name)
 		assert.Equal(t, "us-pdx-1", config.Region)
 	})
+
+	t.Run("resolves build region and cache drive", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("BUILD_REGION", "us-was-1")
+		_ = os.Unsetenv("BUILD_CACHE")
+		config = Config{
+			Build: &BuildConfig{
+				Region:     "${BUILD_REGION}",
+				CacheDrive: "${BUILD_CACHE:layer-cache}",
+			},
+		}
+		resolveConfigVars()
+		assert.Equal(t, "us-was-1", config.Build.Region)
+		assert.Equal(t, "layer-cache", config.Build.CacheDrive)
+	})
+
+	t.Run("tolerates a missing build section", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("AGENT_NAME", "prod-agent")
+		config = Config{Name: "${AGENT_NAME}"}
+		resolveConfigVars()
+		assert.Equal(t, "prod-agent", config.Name)
+		assert.Nil(t, config.Build)
+	})
 }
 
 func TestGetUniqueEnvs(t *testing.T) {

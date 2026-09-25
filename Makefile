@@ -25,15 +25,6 @@ build-dev:
 	rm -r ./bin;
 	@echo "✅ Binary built: ./bin/blaxel"
 
-sdk-controlplane:
-	@if [ -n "$(branch)" ]; then \
-		echo "📦 Generating SDK from controlplane branch: $(branch)"; \
-		go run github.com/nicholasgasior/goproc/cmd/goproc@latest go.mod github.com/blaxel-ai/sdk-go "github.com/blaxel-ai/controlplane/.stainless/openapi.yml@$(branch)"; \
-	else \
-		echo "📦 Generating SDK from controlplane main branch"; \
-		go run github.com/nicholasgasior/goproc/cmd/goproc@latest go.mod github.com/blaxel-ai/sdk-go; \
-	fi
-
 doc:
 	rm -rf docs
 	go run main.go docs --format=markdown --output=docs
@@ -74,11 +65,14 @@ clean:
 %:
 	@:
 
-test-install:
+test-install: test-install-release-lookup
 	@echo "🧪 Running install.sh tests in Docker..."
 	./test/install/run_tests.sh
 
 test-zsh-blaxel-prompt:
 	./contrib/zsh-blaxel-prompt/test.sh
 
-.PHONY: test test-integration test-install test-zsh-blaxel-prompt
+test-install-release-lookup:
+	sh test/install/test_release_lookup.sh
+
+.PHONY: test test-integration test-install test-install-release-lookup test-zsh-blaxel-prompt

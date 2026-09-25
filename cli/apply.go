@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,12 +29,27 @@ type ResourceOperationResult struct {
 	ErrorMsg       string
 	CallbackSecret string
 	MetadataURL    string
+	cause          error
 }
 
 type ApplyResult struct {
 	Kind   string
 	Name   string
 	Result ResourceOperationResult
+}
+
+func summarizeApplyFailures(results []ApplyResult) (hasFailures, allFailuresExpected bool) {
+	allFailuresExpected = true
+	for _, result := range results {
+		if result.Result.Status != "failed" {
+			continue
+		}
+		hasFailures = true
+		if !core.IsExpectedCLIError(result.Result.cause) {
+			allFailuresExpected = false
+		}
+	}
+	return hasFailures, allFailuresExpected
 }
 
 // ApplyOption defines a function type for apply options
@@ -155,14 +172,9 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 				core.ExitWithError(err)
 			}
 
-			// Check if any resources failed
-			hasFailures := false
-			for _, result := range applyResults {
-				if result.Result.Status == "failed" {
-					hasFailures = true
-					break
-				}
-			}
+			// Check if any resources failed without allowing one unexpected
+			// failure to be hidden by expected failures in the same manifest.
+			hasFailures, allFailuresExpected := summarizeApplyFailures(applyResults)
 
 			outputFmt := core.GetOutputFormat()
 			if outputFmt == "json" || outputFmt == "yaml" {
@@ -170,7 +182,11 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 			}
 
 			if hasFailures {
-				core.ExitWithError(fmt.Errorf("one or more resources failed to apply"))
+				err := fmt.Errorf("one or more resources failed to apply")
+				if allFailuresExpected {
+					err = core.MarkExpectedError(err, core.CLIErrorOperational)
+				}
+				core.ExitWithError(err)
 			}
 		},
 	}
@@ -188,6 +204,48 @@ via -e flag for .env files or -s flag for command-line secrets.`,
 	return cmd
 }
 
+// prepareApplyMetadata resolves the identity once for both the request body and
+// the operation path. Display names produce stable names for repeated applies.
+func prepareApplyMetadata(result *core.Result) (map[string]interface{}, string, error) {
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if result.Metadata == nil || (ok && metadata == nil) {
+		metadata = map[string]interface{}{}
+	} else if !ok {
+		return nil, "", fmt.Errorf("metadata must be an object")
+	}
+	for _, field := range []string{"name", "displayName"} {
+		if value := metadata[field]; value != nil {
+			if _, ok := value.(string); !ok {
+				return nil, "", fmt.Errorf("metadata.%s must be a string", field)
+			}
+		}
+	}
+	name, _ := metadata["name"].(string)
+	if strings.TrimSpace(name) == "" {
+		displayName, _ := metadata["displayName"].(string)
+		if strings.TrimSpace(displayName) != "" {
+			name = core.Slugify(displayName)
+			// Slugify falls back to "resource" when no ASCII letters or digits
+			// remain. Keep these display names stable without sharing one identity.
+			if !strings.ContainsAny(strings.ToLower(displayName), "abcdefghijklmnopqrstuvwxyz0123456789") {
+				digest := sha256.Sum256([]byte(strings.TrimSpace(displayName)))
+				name = fmt.Sprintf("%s-%x", name, digest[:8])
+			}
+		} else {
+			var id [16]byte
+			if _, err := rand.Read(id[:]); err != nil {
+				return nil, "", fmt.Errorf("could not generate a resource name: %w", err)
+			}
+			id[6] = (id[6] & 0x0f) | 0x40
+			id[8] = (id[8] & 0x3f) | 0x80
+			name = fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
+		}
+	}
+	metadata["name"] = name
+	result.Metadata = metadata
+	return metadata, name, nil
+}
+
 func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	applyResults := []ApplyResult{}
 	resources := core.GetResources()
@@ -196,8 +254,19 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 	for _, result := range results {
 		for _, resource := range resources {
 			if resource.Kind == result.Kind {
-				metadata := result.Metadata.(map[string]interface{})
-				name := metadata["name"].(string)
+				metadata, name, err := prepareApplyMetadata(&result)
+				if err != nil {
+					core.Print(fmt.Sprintf("Resource %s error: %s\n", resource.Kind, err))
+					applyResults = append(applyResults, ApplyResult{
+						Kind: resource.Kind,
+						Result: ResourceOperationResult{
+							Status:   "failed",
+							ErrorMsg: err.Error(),
+							cause:    core.MarkExpectedError(err, core.CLIErrorValidation),
+						},
+					})
+					continue
+				}
 
 				// Extract parent name for nested resources (e.g., Preview under Sandbox)
 				var parentName string
@@ -212,6 +281,10 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 							Result: ResourceOperationResult{
 								Status:   "failed",
 								ErrorMsg: fmt.Sprintf("metadata.%s is required", resource.ParentField),
+								cause: core.MarkExpectedError(
+									fmt.Errorf("metadata.%s is required", resource.ParentField),
+									core.CLIErrorValidation,
+								),
 							},
 						})
 						continue
@@ -219,7 +292,7 @@ func ApplyResources(results []core.Result) ([]ApplyResult, error) {
 				}
 
 				var resultOp *ResourceOperationResult
-				if resource.Kind == "Sandbox" {
+				if resource.Kind == "Sandbox" || resource.Kind == "Application" {
 					resultOp = PostThenPutFn(resource, result.Kind, name, result, parentName, metadata)
 				} else {
 					resultOp = PutFn(resource, result.Kind, name, result, parentName, metadata)
@@ -459,27 +532,63 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 // This ensures we only send fields that were actually present in the YAML,
 // not Go's default values for missing fields
 func setBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
-	// For Param types, we need to set the inner type field
-	// e.g., AgentNewParams has an Agent field of type AgentParam
+	if !dst.IsValid() || dst.Kind() != reflect.Struct || !dst.CanAddr() {
+		return
+	}
+
+	if hasDirectBodyJSONFields(dst.Type()) {
+		if err := json.Unmarshal(srcJSON, dst.Addr().Interface()); err != nil && core.GetVerbose() {
+			core.PrintWarning(fmt.Sprintf("Failed to unmarshal body params %s: %v", dst.Type().Name(), err))
+		}
+		return
+	}
+
+	setWrappedBodyFieldsFromJSON(dst, srcJSON)
+}
+
+func hasDirectBodyJSONFields(dstType reflect.Type) bool {
+	for i := 0; i < dstType.NumField(); i++ {
+		field := dstType.Field(i)
+		if field.PkgPath != "" || !isBodyJSONField(field) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func isBodyJSONField(field reflect.StructField) bool {
+	jsonTag, ok := field.Tag.Lookup("json")
+	if !ok {
+		return false
+	}
+
+	jsonName := strings.Split(jsonTag, ",")[0]
+	return jsonName != "" && jsonName != "-"
+}
+
+func setWrappedBodyFieldsFromJSON(dst reflect.Value, srcJSON []byte) {
+	// Some SDK params wrap the real body in an untagged struct field.
+	// e.g., AgentNewParams has an Agent field of type AgentParam.
 	for i := 0; i < dst.NumField(); i++ {
 		field := dst.Type().Field(i)
-		if field.Type.Kind() == reflect.Struct {
-			// Try to set nested struct fields
-			dstField := dst.Field(i)
-			if dstField.CanSet() {
-				// Unmarshal directly from the original YAML JSON into the Param type
-				// This preserves only the fields that were in the YAML
-				newVal := reflect.New(field.Type).Interface()
-				if err := json.Unmarshal(srcJSON, newVal); err != nil {
-					// Log unmarshal errors in verbose mode to help debug YAML field issues
-					if core.GetVerbose() {
-						core.PrintWarning(fmt.Sprintf("Failed to unmarshal field %s: %v", field.Name, err))
-					}
-					continue
-				}
-				dstField.Set(reflect.ValueOf(newVal).Elem())
-			}
+		if field.PkgPath != "" || field.Type.Kind() != reflect.Struct || isBodyJSONField(field) {
+			continue
 		}
+
+		dstField := dst.Field(i)
+		if !dstField.CanSet() {
+			continue
+		}
+
+		newVal := reflect.New(field.Type).Interface()
+		if err := json.Unmarshal(srcJSON, newVal); err != nil {
+			if core.GetVerbose() {
+				core.PrintWarning(fmt.Sprintf("Failed to unmarshal field %s: %v", field.Name, err))
+			}
+			continue
+		}
+		dstField.Set(reflect.ValueOf(newVal).Elem())
 	}
 }
 
@@ -697,12 +806,14 @@ func PostThenPutFn(resource *core.Resource, resourceName string, name string, re
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
 		}
 	}
 
@@ -756,10 +867,15 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
-		return nil
+		return &ResourceOperationResult{
+			Status:   "failed",
+			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
+		}
 	}
 
 	result := ResourceOperationResult{
@@ -773,15 +889,16 @@ func PutFn(resource *core.Resource, resourceName string, name string, resourceOb
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	if resourceName == "Preview" {
+	switch resourceName {
+	case "Preview":
 		printPreviewURL(opResult.Response, resourceName, name, "configured")
-	} else if resourceName == "PreviewToken" {
+	case "PreviewToken":
 		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
 			core.Print(fmt.Sprintf("Resource %s:%s configured url=%s\n", resourceName, name, tokenURL))
 		} else {
 			core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 		}
-	} else {
+	default:
 		core.Print(fmt.Sprintf("Resource %s:%s configured\n", resourceName, name))
 	}
 
@@ -797,12 +914,14 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: errorMsg,
+			cause:    err,
 		}
 	}
 	if opResult == nil {
 		return &ResourceOperationResult{
 			Status:   "failed",
 			ErrorMsg: "operation returned no result",
+			cause:    fmt.Errorf("operation returned no result"),
 		}
 	}
 
@@ -817,15 +936,16 @@ func PostFn(resource *core.Resource, resourceName string, name string, resourceO
 		result.CallbackSecret = extractCallbackSecret(opResult.Response)
 	}
 
-	if resourceName == "Preview" {
+	switch resourceName {
+	case "Preview":
 		printPreviewURL(opResult.Response, resourceName, name, "created")
-	} else if resourceName == "PreviewToken" {
+	case "PreviewToken":
 		if tokenURL := buildPreviewTokenURL(opResult.Response, parentName, metadata); tokenURL != "" {
 			core.Print(fmt.Sprintf("Resource %s:%s created url=%s\n", resourceName, name, tokenURL))
 		} else {
 			core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 		}
-	} else {
+	default:
 		core.Print(fmt.Sprintf("Resource %s:%s created\n", resourceName, name))
 	}
 

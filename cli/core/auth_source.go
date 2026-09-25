@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -73,7 +74,8 @@ func IsAuthError(err error) bool {
 		return false
 	}
 	// Try the SDK concrete type first.
-	if e, ok := err.(*blaxel.Error); ok {
+	var e *blaxel.Error
+	if errors.As(err, &e) {
 		return e.StatusCode == 401 || e.StatusCode == 403
 	}
 	msg := strings.ToLower(err.Error())

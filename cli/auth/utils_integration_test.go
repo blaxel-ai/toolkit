@@ -7,6 +7,7 @@ import (
 
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ type mockWorkspaceClient struct {
 	err        error
 }
 
-func (m *mockWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+func (m *mockWorkspaceClient) Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -52,7 +53,7 @@ type countingWorkspaceClient struct {
 	err              error
 }
 
-func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error) {
+func (c *countingWorkspaceClient) Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error) {
 	c.getCalls++
 	c.getWorkspaceName = workspaceName
 	if c.err != nil {
@@ -134,6 +135,16 @@ func TestValidateWorkspaceError(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
 	assert.NotContains(t, err.Error(), "API error")
+	assert.False(t, core.IsExpectedCLIError(err), "an untyped client failure must remain reportable")
+}
+
+func TestValidateWorkspaceTypedAuthenticationErrorIsExpected(t *testing.T) {
+	factory := mockClientFactory(nil, &blaxel.Error{StatusCode: 403})
+
+	err := validateWorkspaceWithFactory("test-workspace", blaxel.Credentials{APIKey: "key"}, factory)
+	require.Error(t, err)
+	assert.Equal(t, "permission denied for workspace \"test-workspace\"", err.Error())
+	assert.True(t, core.IsExpectedCLIError(err))
 }
 
 // TestValidateWorkspaceMissingWorkspace tests explicit workspace validation failure wording.

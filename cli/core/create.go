@@ -119,6 +119,12 @@ func runCreateFlowWithDeps(
 ) error {
 	deps = fillCreateFlowDeps(deps)
 
+	if cfg.NoTTY && cfg.TemplateType == "job" && templateNameFlag == "" {
+		createErr := fmt.Errorf("--template is required when using --yes for job creation; run 'bl new job --list' to see available templates")
+		PrintError(cfg.ErrorPrefix, createErr)
+		return createErr
+	}
+
 	if templateNameFlag != "" {
 		templateNameFlag = normalizeTemplateNameFlag(templateNameFlag, cfg.TemplateType)
 	}
@@ -126,12 +132,11 @@ func runCreateFlowWithDeps(
 		dirArg = generateRandomDirectoryName(cfg.TemplateType)
 	}
 
-	// If directory arg provided, ensure it doesn't already exist
+	// If directory arg provided, ensure it doesn't already exist.
 	if dirArg != "" {
-		if _, err := os.Stat(dirArg); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", dirArg)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(dirArg); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 	}
 
@@ -150,14 +155,16 @@ func runCreateFlowWithDeps(
 		if selectedDir == "" {
 			selectedDir = templateNameFlag
 		}
-		if _, err := os.Stat(selectedDir); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", selectedDir)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(selectedDir); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 		opts = CreateDefaultTemplateOptions(selectedDir, templateNameFlag, templates)
 		if opts.TemplateName == "" {
-			createErr := fmt.Errorf("template '%s' not found", templateNameFlag)
+			createErr := MarkExpectedError(
+				fmt.Errorf("template '%s' not found", templateNameFlag),
+				CLIErrorNotFound,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			printAvailableTemplates(templates, cfg.TemplateType)
 			return createErr
@@ -165,7 +172,10 @@ func runCreateFlowWithDeps(
 	case cfg.NoTTY && cfg.TemplateType == "mcp":
 		// Special-case retained behavior: for MCP with --yes but no template we require directory and pick default
 		if dirArg == "" {
-			createErr := fmt.Errorf("directory name is required")
+			createErr := MarkExpectedError(
+				fmt.Errorf("directory name is required"),
+				CLIErrorUsage,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			return createErr
 		}
@@ -175,14 +185,23 @@ func runCreateFlowWithDeps(
 		opts = promptFunc(dirArg, templates)
 		// Safety checks
 		if opts.Directory == "" {
-			createErr := fmt.Errorf("directory name is required")
+			createErr := MarkExpectedError(
+				fmt.Errorf("directory name is required"),
+				CLIErrorUsage,
+			)
 			PrintError(cfg.ErrorPrefix, createErr)
 			return createErr
 		}
-		if _, err := os.Stat(opts.Directory); !os.IsNotExist(err) {
-			createErr := fmt.Errorf("directory '%s' already exists", opts.Directory)
-			PrintError(cfg.ErrorPrefix, createErr)
-			return createErr
+		if err := ensureCreateDirectoryAvailable(opts.Directory); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
+		}
+	}
+
+	if cfg.TemplateType == "job" {
+		if err := validateJobTemplateOptions(opts); err != nil {
+			PrintError(cfg.ErrorPrefix, err)
+			return err
 		}
 	}
 
@@ -233,6 +252,20 @@ func runCreateFlowWithDeps(
 	return nil
 }
 
+func ensureCreateDirectoryAvailable(directory string) error {
+	_, err := os.Stat(directory)
+	if err == nil {
+		return MarkExpectedError(
+			fmt.Errorf("directory '%s' already exists", directory),
+			CLIErrorConflict,
+		)
+	}
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return fmt.Errorf("failed to inspect directory %q: %w", directory, err)
+}
+
 func normalizeTemplateNameFlag(templateNameFlag string, templateType string) string {
 	if templateType == "sandbox" {
 		if templateName, ok := sandboxTemplateAlias(templateNameFlag); ok {
@@ -246,7 +279,11 @@ func normalizeTemplateNameFlag(templateNameFlag string, templateType string) str
 }
 
 func templateDisplayName(t Template) string {
-	return regexp.MustCompile(`^\d+-`).ReplaceAllString(t.Name, "")
+	return canonicalTemplateName(t.Name)
+}
+
+func canonicalTemplateName(name string) string {
+	return regexp.MustCompile(`^\d+-`).ReplaceAllString(name, "")
 }
 
 func printAvailableTemplates(templates Templates, templateType string) {
@@ -254,6 +291,12 @@ func printAvailableTemplates(templates Templates, templateType string) {
 	if templateType == "sandbox" {
 		for _, t := range sandboxTemplatesForDisplay(templates) {
 			printSandboxTemplateLine(t)
+		}
+		return
+	}
+	if templateType == "job" {
+		for _, t := range jobTemplatesForDisplay(templates) {
+			printJobTemplateLine(t)
 		}
 		return
 	}
@@ -295,6 +338,22 @@ func printTemplateLine(t Template) {
 // directory is empty.
 // resource is used in messages, e.g. "agent app", "job", "mcp server".
 func PromptTemplateOptions(directory string, templates Templates, resource string, includeLanguage bool, templateHeight int) TemplateOptions {
+	return promptTemplateOptions(directory, templates, resource, includeLanguage, templateHeight, templateOptionLabel)
+}
+
+func templateOptionLabel(t Template) string {
+	key := canonicalTemplateName(t.Name)
+	return strings.TrimPrefix(key, "template-")
+}
+
+func promptTemplateOptions(
+	directory string,
+	templates Templates,
+	resource string,
+	includeLanguage bool,
+	templateHeight int,
+	optionLabel func(Template) string,
+) TemplateOptions {
 	options := TemplateOptions{
 		ProjectName:  directory,
 		Directory:    directory,
@@ -308,9 +367,8 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 		options.Author = "blaxel"
 	}
 
-	stripRe := regexp.MustCompile(`^\d+-`)
 	isBlank := func(t Template) bool {
-		name := strings.ToLower(stripRe.ReplaceAllString(t.Name, ""))
+		name := strings.ToLower(canonicalTemplateName(t.Name))
 		return strings.Contains(name, "template-blank") || strings.HasPrefix(name, "blank-") || name == "blank"
 	}
 
@@ -428,9 +486,7 @@ func PromptTemplateOptions(directory string, templates Templates, resource strin
 				if isBlank(t) {
 					continue
 				}
-				key := stripRe.ReplaceAllString(t.Name, "")
-				key = strings.TrimPrefix(key, "template-")
-				templateOptions = append(templateOptions, huh.NewOption(key, t.Name))
+				templateOptions = append(templateOptions, huh.NewOption(optionLabel(t), t.Name))
 			}
 		}).
 		Run()
@@ -503,6 +559,31 @@ func RunAgentAppCreation(dirArg string, templateName string, noTTY bool) {
 	)
 }
 
+// RunAppCreation is a reusable wrapper that executes the application creation flow.
+func RunAppCreation(dirArg string, templateName string, noTTY bool) {
+	runCreateFlow(
+		dirArg,
+		templateName,
+		CreateFlowConfig{
+			TemplateType:           "application",
+			NoTTY:                  noTTY,
+			ErrorPrefix:            "Application creation",
+			SpinnerTitle:           "Creating your blaxel application...",
+			BlaxelTomlResourceType: "application",
+		},
+		func(directory string, templates Templates) TemplateOptions {
+			return PromptTemplateOptions(directory, templates, "application", true, 5)
+		},
+		func(opts TemplateOptions) {
+			PrintSuccess("Your blaxel application has been created successfully!")
+			fmt.Printf(`Start working on it:
+  cd %s
+  bl deploy
+`, opts.Directory)
+		},
+	)
+}
+
 // RunJobCreation is a reusable wrapper that executes the job creation flow.
 func RunJobCreation(dirArg string, templateName string, noTTY bool) {
 	runCreateFlow(
@@ -515,14 +596,10 @@ func RunJobCreation(dirArg string, templateName string, noTTY bool) {
 			SpinnerTitle: "Creating your blaxel job...",
 		},
 		func(directory string, templates Templates) TemplateOptions {
-			return PromptTemplateOptions(directory, templates, "job", true, 5)
+			return PromptJobTemplateOptions(directory, templates)
 		},
 		func(opts TemplateOptions) {
-			PrintSuccess("Your blaxel job has been created successfully!")
-			fmt.Printf(`Start working on it:
-  cd %s
-  bl run job %s --local --file batches/sample-batch.json
-`, opts.Directory, opts.Directory)
+			printJobCreationSuccess(opts)
 		},
 	)
 }

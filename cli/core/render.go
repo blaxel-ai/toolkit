@@ -47,22 +47,25 @@ func getImageColumnWidth() int {
 }
 
 func Output(resource Resource, slices []interface{}, outputFormat string) {
-	// Sort slices by creation date before rendering
-	sortedSlices := sortByCreationDate(slices)
+	OutputPreservingOrder(resource, sortByCreationDate(slices), outputFormat)
+}
+
+// OutputPreservingOrder renders server-ordered pages without changing cursor order.
+func OutputPreservingOrder(resource Resource, slices []interface{}, outputFormat string) {
 
 	if outputFormat == "pretty" {
-		printYaml(resource, sortedSlices, true)
+		printYaml(resource, slices, true)
 		return
 	}
 	if outputFormat == "yaml" {
-		printYaml(resource, sortedSlices, false)
+		printYaml(resource, slices, false)
 		return
 	}
 	if outputFormat == "json" {
-		printJson(resource, sortedSlices)
+		printJson(resource, slices)
 		return
 	}
-	printTable(resource, sortedSlices)
+	printTable(resource, slices)
 }
 
 func retrieveKey(itemMap map[string]interface{}, key string) string {
@@ -352,21 +355,40 @@ func formatDate(timestamp string, format string) string {
 	return localTime.Format(format)
 }
 
+// toResult shapes an API object into the apiVersion/kind/metadata/spec/status
+// document rendered by `-o json` and `-o yaml`. Objects without a `metadata`
+// block (snapshots carry their identity at the top level) get one synthesized
+// from their top-level fields, so name, workspace and the like are not lost.
+func toResult(resource Resource, item map[string]interface{}) Result {
+	status := "-"
+	if statusVal, ok := item["status"].(string); ok {
+		status = statusVal
+	}
+	metadata, hasMetadata := item["metadata"]
+	if !hasMetadata {
+		flat := map[string]interface{}{}
+		for key, value := range item {
+			if key == "spec" || key == "status" {
+				continue
+			}
+			flat[key] = value
+		}
+		metadata = flat
+	}
+	return Result{
+		ApiVersion: "blaxel.ai/v1alpha1",
+		Kind:       resource.Kind,
+		Metadata:   metadata,
+		Spec:       item["spec"],
+		Status:     status,
+	}
+}
+
 func printJson(resource Resource, slices []interface{}) {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
-			status := "-"
-			if statusVal, ok := sliceMap["status"]; ok {
-				status = statusVal.(string)
-			}
-			formatted = append(formatted, Result{
-				ApiVersion: "blaxel.ai/v1alpha1",
-				Kind:       resource.Kind,
-				Metadata:   sliceMap["metadata"],
-				Spec:       sliceMap["spec"],
-				Status:     status,
-			})
+			formatted = append(formatted, toResult(resource, sliceMap))
 		}
 	}
 
@@ -392,17 +414,7 @@ func renderYaml(resource Resource, slices []interface{}, _ bool) []byte {
 	formatted := []Result{}
 	for _, slice := range slices {
 		if sliceMap, ok := slice.(map[string]interface{}); ok {
-			status := "-"
-			if statusVal, ok := sliceMap["status"]; ok {
-				status = statusVal.(string)
-			}
-			formatted = append(formatted, Result{
-				ApiVersion: "blaxel.ai/v1alpha1",
-				Kind:       resource.Kind,
-				Metadata:   sliceMap["metadata"],
-				Spec:       sliceMap["spec"],
-				Status:     status,
-			})
+			formatted = append(formatted, toResult(resource, sliceMap))
 		}
 	}
 	// Convert each object to YAML and add separators

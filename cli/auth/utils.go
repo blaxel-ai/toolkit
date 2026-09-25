@@ -8,9 +8,20 @@ import (
 	"github.com/blaxel-ai/sdk-go/option"
 )
 
+type workspaceValidationError struct {
+	workspace string
+	cause     error
+}
+
+func (e *workspaceValidationError) Error() string {
+	return fmt.Sprintf("permission denied for workspace %q", e.workspace)
+}
+
+func (e *workspaceValidationError) Unwrap() error { return e.cause }
+
 // WorkspaceClient interface for workspace lookups (allows mocking)
 type WorkspaceClient interface {
-	Get(ctx context.Context, workspaceName string, opts ...option.RequestOption) (*blaxel.Workspace, error)
+	Get(ctx context.Context, workspaceName string, query blaxel.WorkspaceGetParams, opts ...option.RequestOption) (*blaxel.Workspace, error)
 	List(ctx context.Context, opts ...option.RequestOption) (*[]blaxel.Workspace, error)
 }
 
@@ -71,9 +82,10 @@ func validateWorkspaceWithFactory(workspace string, credentials blaxel.Credentia
 	// validating the credentials. This catches typos during `bl login <workspace>`
 	// before the workspace is persisted as the current context.
 	if workspace != "" {
-		if _, err := client.Get(context.Background(), workspace); err != nil {
-			// Use one message for every explicit workspace validation failure.
-			return fmt.Errorf("permission denied for workspace %q", workspace)
+		if _, err := client.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{}); err != nil {
+			// Keep the stable, non-sensitive user message while preserving the
+			// concrete cause for typed telemetry classification.
+			return &workspaceValidationError{workspace: workspace, cause: err}
 		}
 		return nil
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/blaxel-ai/toolkit/cli/server"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
+	"github.com/moby/patternmatcher"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -203,7 +204,10 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				}
 				if parsed <= 0 {
 					core.PrintError("Deploy", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-					core.ExitWithError(fmt.Errorf("invalid timeout"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("invalid timeout"),
+						core.CLIErrorValidation,
+					))
 				}
 				deployTimeout = parsed
 			}
@@ -260,7 +264,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			config = core.GetConfig()
 
 			// Check if agent/function code uses HOST/PORT environment variables
-			if (config.Type == "agent" || config.Type == "function") && !skipBuild && config.Image == "" {
+			if (config.Type == "agent" || config.Type == "function" || config.Type == "application") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
 				if !core.CheckServerEnvUsage(folder, language) {
@@ -335,7 +339,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "e", []string{".env"}, "Environment file to load")
 	cmd.Flags().StringSliceVarP(&commandSecrets, "secrets", "s", []string{}, "Secrets to deploy")
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
-	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job). Defaults to blaxel.toml type or 'sandbox'")
+	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
@@ -359,12 +363,110 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
-	timeout                time.Duration
-	timeoutExplicit        bool
-	skipBuild              bool
+	// uploadMetadata is the object metadata the presigned URL was signed for.
+	// Push and source-building deploys set it explicitly; uploads that do not
+	// start a build, such as volume templates, leave it empty.
+	uploadMetadata  map[string]string
+	timeout         time.Duration
+	timeoutExplicit bool
+	skipBuild       bool
+}
+
+// buildLabels turns blaxel.toml's [build] section into resource labels.
+//
+// They travel as labels because the control plane needs them before the build
+// environment exists — too early for anything to have read blaxel.toml. That is
+// what separates them from [build] slim, which is read inside that environment
+// and can stay in the manifest.
+//
+// Nothing is clamped: the platform enforces the workspace's quotas, and its
+// refusal names the plan. A client-side limit would only duplicate the numbers
+// and replace a precise message with a guess.
+func buildLabels(build *core.BuildConfig) map[string]string {
+	out := map[string]string{}
+	if build == nil {
+		return out
+	}
+	// Distinct from the CLI's --experimental, which marks the deployed resource.
+	// This one selects the builder, and only opts in: a project that does not ask
+	// keeps whatever the platform rolls out, so removing the line never pins it
+	// back to the old one.
+	if build.Experimental {
+		out["x-blaxel-builder"] = "sandbox"
+	}
+	if build.MemoryMb != nil {
+		out["x-blaxel-build-memory"] = strconv.Itoa(*build.MemoryMb)
+	}
+	// Preserve zero: it explicitly requests memory-backed scratch instead of
+	// inheriting the platform default.
+	if build.VolumeMb != nil {
+		out["x-blaxel-build-volume"] = strconv.Itoa(*build.VolumeMb)
+	}
+	if build.Region != "" {
+		out["x-blaxel-build-region"] = build.Region
+	}
+	if build.CacheDrive != "" {
+		out["x-blaxel-build-cache"] = build.CacheDrive
+	}
+	return out
+}
+
+func deployBuildsSource(config core.Config, skipBuild bool) bool {
+	return config.Image == "" && !skipBuild && !core.IsVolumeTemplate(config.Type)
+}
+
+// deployBuildLabels returns build settings only when deploy will build source.
+// A pre-built image, --skip-build, and volume-template uploads do not start a
+// build, so persisting build-only labels on those resources would be misleading.
+func deployBuildLabels(config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	return buildLabels(config.Build)
+}
+
+const maxBuildUploadLabelValue = 64
+
+// deployUploadMetadata mirrors the control plane's build-label filter over the
+// final generated resource labels. Reading the final labels keeps legacy manual
+// labels, CLI-owned labels, and [build] settings identical on both sides of the
+// signed upload.
+func deployUploadMetadata(result core.Result, config core.Config, skipBuild bool) map[string]string {
+	if !deployBuildsSource(config, skipBuild) {
+		return nil
+	}
+	metadata, ok := result.Metadata.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	labels, ok := metadata["labels"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	out := map[string]string{}
+	for _, name := range [...]string{
+		"x-blaxel-builder",
+		"x-blaxel-experimental",
+		"x-blaxel-build-memory",
+		"x-blaxel-build-volume",
+		"x-blaxel-build-region",
+		"x-blaxel-build-cache",
+	} {
+		value, ok := labels[name].(string)
+		if !ok || value == "" || len(value) > maxBuildUploadLabelValue {
+			continue
+		}
+		out[name] = value
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (d *Deployment) Generate(skipBuild bool) error {
+	d.skipBuild = skipBuild
 	if d.name == "" {
 		d.name = filepath.Base(filepath.Join(d.cwd, d.folder))
 	}
@@ -377,11 +479,14 @@ func (d *Deployment) Generate(skipBuild bool) error {
 		return fmt.Errorf("failed to seed cache: %w", err)
 	}
 
-	// Generate the blaxel deployment yaml
-	d.blaxelDeployments = []core.Result{d.GenerateDeployment(skipBuild)}
+	config := core.GetConfig()
+	// Generate the blaxel deployment yaml and retain the exact metadata the
+	// control plane will sign for a source build.
+	deployment := d.GenerateDeployment(skipBuild)
+	d.blaxelDeployments = []core.Result{deployment}
+	d.WithUploadMetadata(deployUploadMetadata(deployment, config, skipBuild))
 
 	// Volume-template needs archive even without build (for file upload)
-	config := core.GetConfig()
 	// Skip archive creation when a pre-built image is specified in blaxel.toml
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		// Create archive (tar for volume-template, zip for others)
@@ -694,14 +799,26 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		}
 
 		if spec, ok := resource["spec"].(map[string]interface{}); ok {
-			if rt, ok := spec["runtime"].(map[string]interface{}); ok {
+			imageFound := false
+			if config.Type == "application" {
+				if revisions, ok := spec["revisions"].([]interface{}); ok && len(revisions) > 0 {
+					if revision, ok := revisions[0].(map[string]interface{}); ok {
+						if image, ok := revision["image"].(string); ok && image != "" {
+							runtime["image"] = image
+							imageFound = true
+						}
+					}
+				}
+			} else if rt, ok := spec["runtime"].(map[string]interface{}); ok {
 				if image, ok := rt["image"].(string); ok && image != "" {
 					runtime["image"] = image
-				} else {
-					err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
-					core.PrintError("Deployment", err)
-					core.ExitWithError(err)
+					imageFound = true
 				}
+			}
+			if !imageFound {
+				err := fmt.Errorf("no image found for %s. please deploy with a build first", d.name)
+				core.PrintError("Deployment", err)
+				core.ExitWithError(err)
 			}
 		}
 	}
@@ -755,6 +872,30 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		if config.Volumes != nil {
 			Spec["volumes"] = *config.Volumes
 		}
+	case "application":
+		Kind = "Application"
+		revision := map[string]interface{}{}
+		if envs, ok := runtime["envs"]; ok {
+			revision["envs"] = envs
+		}
+		if image, ok := runtime["image"]; ok {
+			revision["image"] = image
+		}
+		if config.Memory > 0 {
+			revision["memory"] = config.Memory
+		} else {
+			revision["memory"] = 2048
+		}
+		Spec = map[string]interface{}{
+			"enabled":   true,
+			"revisions": []interface{}{revision},
+		}
+		if config.Region != "" {
+			Spec["region"] = config.Region
+		}
+		if config.Port > 0 {
+			Spec["port"] = config.Port
+		}
 	case "volume-template", "volumetemplate", "vt":
 		Kind = "VolumeTemplate"
 		Spec = map[string]interface{}{}
@@ -769,6 +910,15 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		Spec["public"] = *config.Public
 	}
 	labels := map[string]interface{}{}
+	// Declared labels first: the CLI's own are set below and must win, but
+	// anything the user asked for has to survive the deploy. Without this the
+	// map is rebuilt from scratch on every deploy and every other label is lost.
+	for name, value := range config.Labels {
+		labels[name] = value
+	}
+	for name, value := range deployBuildLabels(config, skipBuild) {
+		labels[name] = value
+	}
 	if config.Image == "" && (!skipBuild || core.IsVolumeTemplate(config.Type)) {
 		labels["x-blaxel-auto-generated"] = "true"
 	}
@@ -784,6 +934,25 @@ func (d *Deployment) GenerateDeployment(skipBuild bool) core.Result {
 		},
 		Spec: Spec,
 	}
+}
+
+// deployedStatusIsFinal reports whether a DEPLOYED status ends the wait. When
+// the CLI triggered a build, the resource is only done once the rollout that
+// reached DEPLOYED is a revision that did not exist before the apply: the
+// previous deployment's DEPLOYED, or a previous rollout still in flight when
+// the apply happened, must not end the wait. When revisions are not
+// available (baseline unreadable or events without revision), the wait falls
+// back to having observed the rollout (BUILDING or DEPLOYING) since the apply;
+// either counts because a build served from the cache leaves BUILDING within
+// seconds, so a 3s poll may only see DEPLOYING.
+func deployedStatusIsFinal(autoGenerated bool, sawRolloutStatus bool, baseline rolloutBaseline, deployedRevision string) bool {
+	if !autoGenerated {
+		return true
+	}
+	if baseline.known && deployedRevision != "" {
+		return !baseline.includes(deployedRevision)
+	}
+	return sawRolloutStatus
 }
 
 func getResource(resourceType, name string) (map[string]interface{}, error) {
@@ -802,17 +971,25 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		result, err = client.Applications.Get(ctx, name)
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
-		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("unknown resource type: %s", resourceType),
+			core.CLIErrorValidation,
+		)
 	}
 
 	if err != nil {
 		// Check if it's a not found error
 		var apiErr *blaxel.Error
 		if isBlaxelErrorDeploy(err, &apiErr) && apiErr.StatusCode == 404 {
-			return nil, fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name)
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("%s %s not found. please deploy with a build first", resourceType, name),
+				core.CLIErrorNotFound,
+			)
 		}
 		return nil, err
 	}
@@ -832,6 +1009,84 @@ func getResource(resourceType, name string) (map[string]interface{}, error) {
 }
 
 func getResourceStatus(resourceType, name string) (string, error) {
+	status, _, err := getResourceStatusDetails(resourceType, name)
+	return status, err
+}
+
+func getResourceStatusDetails(resourceType, name string) (string, string, error) {
+	rollout, err := getResourceRollout(resourceType, name)
+	return rollout.Status, rollout.Message, err
+}
+
+// resourceRollout is the deployment state of a resource as seen by the API.
+type resourceRollout struct {
+	Status  string
+	Message string
+	// LatestRevision is the revision of the most recent event that carries one,
+	// i.e. the rollout the resource is currently on, finished or not.
+	LatestRevision string
+	// DeployedRevision is the revision of the most recent DEPLOYED event.
+	DeployedRevision string
+}
+
+// rolloutBaseline is the state a resource was in before this deploy was
+// applied: the revision it was rolling out or last rolled out, and the
+// revision last reported DEPLOYED (they differ while a rollout is in flight).
+// known is false when the resource could not be read at that point.
+type rolloutBaseline struct {
+	revision         string
+	deployedRevision string
+	known            bool
+}
+
+// includes reports whether revision already existed before the apply.
+func (b rolloutBaseline) includes(revision string) bool {
+	return revision == b.revision || revision == b.deployedRevision
+}
+
+func readRolloutBaseline(resourceType, name string) rolloutBaseline {
+	rollout, err := getResourceRollout(resourceType, name)
+	if err != nil {
+		return rolloutBaseline{}
+	}
+	return rolloutBaseline{
+		revision:         rollout.LatestRevision,
+		deployedRevision: rollout.DeployedRevision,
+		known:            true,
+	}
+}
+
+// eventRevisions returns the revision of the newest event carrying one and the
+// revision of the newest DEPLOYED event, ordered by event time.
+func eventRevisions(raw json.RawMessage) (latest, deployed string) {
+	var events []struct {
+		Status   string `json:"status"`
+		Time     string `json:"time"`
+		Revision string `json:"revision"`
+	}
+	if json.Unmarshal(raw, &events) != nil {
+		return "", ""
+	}
+	var latestTime, deployedTime time.Time
+	for _, event := range events {
+		if event.Revision == "" {
+			continue
+		}
+		timestamp, err := time.Parse(time.RFC3339Nano, event.Time)
+		if err != nil {
+			return "", ""
+		}
+		if latest == "" || !timestamp.Before(latestTime) {
+			latest, latestTime = event.Revision, timestamp
+		}
+		if strings.EqualFold(event.Status, "DEPLOYED") && (deployed == "" || !timestamp.Before(deployedTime)) {
+			deployed, deployedTime = event.Revision, timestamp
+		}
+	}
+	return latest, deployed
+}
+
+func getResourceRollout(resourceType, name string) (resourceRollout, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
@@ -847,33 +1102,40 @@ func getResourceStatus(resourceType, name string) (string, error) {
 		result, err = client.Jobs.Get(ctx, name, blaxel.JobGetParams{})
 	case "sandbox":
 		result, err = client.Sandboxes.Get(ctx, name, blaxel.SandboxGetParams{})
+	case "application":
+		result, err = client.Applications.Get(ctx, name)
 	case "volume-template", "volumetemplate", "vt":
 		result, err = client.VolumeTemplates.Get(ctx, name)
 	default:
-		return "", fmt.Errorf("unknown resource type: %s", resourceType)
+		return resourceRollout{}, fmt.Errorf("unknown resource type: %s", resourceType)
 	}
 
 	if err != nil {
-		return "", err
+		return resourceRollout{}, err
 	}
 
 	// Convert result to map
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		return "", err
+		return resourceRollout{}, err
 	}
 
-	var resource map[string]interface{}
+	var resource struct {
+		Status string          `json:"status"`
+		Events json.RawMessage `json:"events"`
+	}
 	if err := json.Unmarshal(jsonData, &resource); err != nil {
-		return "", err
+		return resourceRollout{}, err
 	}
-
-	// Extract status from the resource
-	if status, ok := resource["status"].(string); ok {
-		return status, nil
+	rollout := resourceRollout{Status: "UNKNOWN"}
+	rollout.LatestRevision, rollout.DeployedRevision = eventRevisions(resource.Events)
+	if resource.Status != "" {
+		rollout.Status = resource.Status
+		if resource.Status == "FAILED" {
+			rollout.Message = latestFailureMessage(resource.Events, "")
+		}
 	}
-
-	return "UNKNOWN", nil
+	return rollout, nil
 }
 
 func (d *Deployment) Apply() error {
@@ -932,6 +1194,8 @@ func (d *Deployment) Apply() error {
 					resourceLabel = "job code"
 				case "sandbox":
 					resourceLabel = "sandbox code"
+				case "application":
+					resourceLabel = "application code"
 				}
 				fmt.Printf("Uploading %s...\n", resourceLabel)
 			}
@@ -1041,7 +1305,10 @@ func (d *Deployment) ApplyInteractive() error {
 	// Check if any resources failed
 	for _, r := range resources {
 		if r.Status == deploy.StatusFailed {
-			return fmt.Errorf("deployment failed for %s/%s: %v", r.Kind, r.Name, r.Error)
+			if r.Error == nil {
+				return fmt.Errorf("deployment failed for %s/%s without error detail", r.Kind, r.Name)
+			}
+			return fmt.Errorf("deployment failed for %s/%s: %w", r.Kind, r.Name, r.Error)
 		}
 	}
 
@@ -1141,6 +1408,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 
 	// Real deployment
 	model.AddBuildLog(idx, "Applying resource to platform...")
+	baseline := readRolloutBaseline(strings.ToLower(resource.Kind), resource.Name)
 	applyResults, err := ApplyResources([]core.Result{deployment})
 	if err != nil {
 		model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", err)
@@ -1199,6 +1467,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 		case "sandbox":
 			needsUploadProgress = true
 			uploadLabel = "sandbox code"
+		case "application":
+			needsUploadProgress = true
+			uploadLabel = "application code"
 		}
 
 		// Set up upload progress callback for supported resources
@@ -1314,7 +1585,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 	// For resources that need status monitoring (agent, function, job, sandbox)
 	needsStatusMonitoring := false
 	switch strings.ToLower(resource.Kind) {
-	case "agent", "function", "job", "sandbox":
+	case "agent", "function", "job", "sandbox", "application":
 		needsStatusMonitoring = true
 	case "volumetemplate":
 		needsStatusMonitoring = false
@@ -1348,9 +1619,9 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 
 		var logWatcher interface{ Stop() }
 		buildLogStarted := false
-		lastStatus := ""           // Track last status to avoid duplicate logs
-		sawBuildingStatus := false // Track if we've seen BUILDING status
-		sawStatusChange := false   // Track if status has changed from initial (new build started)
+		lastStatus := ""          // Track last status to avoid duplicate logs
+		sawRolloutStatus := false // Track if we've seen the new rollout (BUILDING or DEPLOYING)
+		sawStatusChange := false  // Track if status has changed from initial (new build started)
 
 		for {
 			select {
@@ -1358,17 +1629,21 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 				if logWatcher != nil {
 					logWatcher.Stop()
 				}
-				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", fmt.Errorf("deployment timed out after %s", d.timeout))
+				model.UpdateResource(idx, deploy.StatusFailed, "Deployment timeout", core.MarkExpectedError(
+					fmt.Errorf("deployment timed out after %s", d.timeout),
+					core.CLIErrorOperational,
+				))
 				return
 			case <-staleFailedGracePeriod:
 				// Grace period expired - if status is still FAILED, accept it as real
 				staleGracePeriodExpired = true
 			case <-statusTicker.C:
-				status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+				rollout, err := getResourceRollout(strings.ToLower(resource.Kind), resource.Name)
 				if err != nil {
 					// Continue polling on temporary errors
 					continue
 				}
+				status, message := rollout.Status, rollout.Message
 
 				// Track if we've seen the status change from initial (indicates new build has started)
 				if status != initialStatus {
@@ -1385,7 +1660,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 						model.AddBuildLog(idx, "Status changed to: UPLOADING")
 					case "BUILDING":
-						sawBuildingStatus = true
+						sawRolloutStatus = true
 						model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
 						model.AddBuildLog(idx, "Status changed to: BUILDING")
 
@@ -1410,6 +1685,7 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 							logWatcher = lw
 						}
 					case "DEPLOYING":
+						sawRolloutStatus = true
 						if logWatcher != nil {
 							logWatcher.Stop()
 							logWatcher = nil
@@ -1417,9 +1693,8 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						model.UpdateResource(idx, deploy.StatusDeploying, "Deploying to cluster", nil)
 						model.AddBuildLog(idx, "Status changed to: DEPLOYING")
 					case "DEPLOYED":
-						// If skipBuild is false (AutoGenerated=true), we MUST have seen BUILDING status
-						if resource.AutoGenerated && !sawBuildingStatus {
-							// This is a mistake - continue monitoring
+						if !deployedStatusIsFinal(resource.AutoGenerated, sawRolloutStatus, baseline, rollout.DeployedRevision) {
+							lastStatus = ""
 							continue
 						}
 						if logWatcher != nil {
@@ -1440,14 +1715,20 @@ func (d *Deployment) deployResourceInteractive(resource *deploy.Resource, model 
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
-						model.UpdateResource(idx, deploy.StatusFailed, "Deployment failed", fmt.Errorf("resource deployment failed"))
+						model.UpdateResource(idx, deploy.StatusFailed, "Deployment failed", core.MarkExpectedError(
+							failureError("resource deployment failed", message),
+							core.CLIErrorOperational,
+						))
 						model.AddBuildLog(idx, "Status changed to: FAILED - Deployment failed")
 						return
 					case "DEACTIVATED", "DEACTIVATING", "DELETING":
 						if logWatcher != nil {
 							logWatcher.Stop()
 						}
-						model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+						model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), core.MarkExpectedError(
+							fmt.Errorf("resource is being deactivated or deleted"),
+							core.CLIErrorOperational,
+						))
 						model.AddBuildLog(idx, fmt.Sprintf("Unexpected status: %s", status))
 						return
 					default:
@@ -1478,6 +1759,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 			if metadata, ok := result.Metadata.(map[string]interface{}); ok {
 				if name, exists := metadata["name"]; exists && fmt.Sprintf("%v", name) == resource.Name {
 					// Apply this specific resource
+					baseline := readRolloutBaseline(strings.ToLower(resource.Kind), resource.Name)
 					results, err := ApplyResources([]core.Result{result})
 					if err != nil {
 						model.UpdateResource(idx, deploy.StatusFailed, "Failed to apply", err)
@@ -1509,7 +1791,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 					// For resources that need monitoring, start status polling
 					needsMonitoring := false
 					switch strings.ToLower(resource.Kind) {
-					case "agent", "function", "job", "sandbox":
+					case "agent", "function", "job", "sandbox", "application":
 						needsMonitoring = true
 					case "volumetemplate":
 						needsMonitoring = false
@@ -1532,7 +1814,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 						lastStatus := "" // Track last status to avoid duplicate logs
 						var logWatcher interface{ Stop() }
 						buildLogStarted := false
-						sawBuildingStatus := false // Track if we've seen BUILDING status
+						sawRolloutStatus := false // Track if we've seen the new rollout (BUILDING or DEPLOYING)
 
 						for {
 							select {
@@ -1540,14 +1822,18 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 								if logWatcher != nil {
 									logWatcher.Stop()
 								}
-								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", fmt.Errorf("deployment timed out after %s", additionalTimeout))
+								model.UpdateResource(idx, deploy.StatusFailed, "Timeout", core.MarkExpectedError(
+									fmt.Errorf("deployment timed out after %s", additionalTimeout),
+									core.CLIErrorOperational,
+								))
 								ticker.Stop()
 								return
 							case <-ticker.C:
-								status, err := getResourceStatus(strings.ToLower(resource.Kind), resource.Name)
+								rollout, err := getResourceRollout(strings.ToLower(resource.Kind), resource.Name)
 								if err != nil {
 									continue
 								}
+								status, message := rollout.Status, rollout.Message
 
 								// Logs handling
 								if status != lastStatus {
@@ -1558,7 +1844,7 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 									case "UPLOADING":
 										model.UpdateResource(idx, deploy.StatusUploading, "Uploading code", nil)
 									case "BUILDING":
-										sawBuildingStatus = true
+										sawRolloutStatus = true
 										model.UpdateResource(idx, deploy.StatusBuilding, "Building image", nil)
 
 										// Start build log watcher if not already started
@@ -1581,15 +1867,15 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 											logWatcher = lw
 										}
 									case "DEPLOYING":
+										sawRolloutStatus = true
 										if logWatcher != nil {
 											logWatcher.Stop()
 											logWatcher = nil
 										}
 										model.UpdateResource(idx, deploy.StatusDeploying, "Deploying to cluster", nil)
 									case "DEPLOYED":
-										// If skipBuild is false (AutoGenerated=true), we MUST have seen BUILDING status
-										if resource.AutoGenerated && !sawBuildingStatus {
-											// This is a mistake - continue monitoring
+										if !deployedStatusIsFinal(resource.AutoGenerated, sawRolloutStatus, baseline, rollout.DeployedRevision) {
+											lastStatus = ""
 											continue
 										}
 										if logWatcher != nil {
@@ -1603,14 +1889,20 @@ func (d *Deployment) deployAdditionalResource(resource *deploy.Resource, model *
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										model.UpdateResource(idx, deploy.StatusFailed, "Failed", fmt.Errorf("deployment failed"))
+										model.UpdateResource(idx, deploy.StatusFailed, "Failed", core.MarkExpectedError(
+											failureError("deployment failed", message),
+											core.CLIErrorOperational,
+										))
 										ticker.Stop()
 										return
 									case "DEACTIVATED", "DEACTIVATING", "DELETING":
 										if logWatcher != nil {
 											logWatcher.Stop()
 										}
-										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), fmt.Errorf("resource is being deactivated or deleted"))
+										model.UpdateResource(idx, deploy.StatusFailed, fmt.Sprintf("Unexpected status: %s", status), core.MarkExpectedError(
+											fmt.Errorf("resource is being deactivated or deleted"),
+											core.CLIErrorOperational,
+										))
 										ticker.Stop()
 										return
 									default:
@@ -1739,7 +2031,10 @@ func (d *Deployment) renderDryRunStructuredOutput(outputFmt string, skipBuild bo
 	case "yaml":
 		return yaml.Marshal(result)
 	default:
-		return nil, fmt.Errorf("unsupported dry-run output format %q", outputFmt)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("unsupported dry-run output format %q", outputFmt),
+			core.CLIErrorValidation,
+		)
 	}
 }
 
@@ -1901,6 +2196,12 @@ func (d *Deployment) UploadWithRetry(url string, refreshURL func() (string, erro
 	return lastErr
 }
 
+// WithUploadMetadata declares the object metadata the presigned URL was signed
+// for. It must match exactly: extra, missing or altered values fail the upload.
+func (d *Deployment) WithUploadMetadata(metadata map[string]string) {
+	d.uploadMetadata = metadata
+}
+
 func (d *Deployment) Upload(url string) error {
 	// Open the archive file
 	archiveFile, err := os.Open(d.archive.Name())
@@ -1942,6 +2243,14 @@ func (d *Deployment) Upload(url string) error {
 		req.Header.Set("Content-Type", "application/zip")
 	}
 
+	// Only what the caller says was signed. These headers are part of the URL's
+	// signature, so sending one the platform did not sign is rejected outright.
+	// Keeping this explicit also prevents non-build uploads from inheriting
+	// unrelated global build configuration.
+	for name, value := range d.uploadMetadata {
+		req.Header.Set("x-amz-meta-"+name, value)
+	}
+
 	// Perform the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -1971,6 +2280,7 @@ func (d *Deployment) IgnoredPaths() []string {
 			"venv",
 			"node_modules",
 			".env",
+			".env*",
 			".next",
 			"__pycache__",
 		}
@@ -1978,8 +2288,7 @@ func (d *Deployment) IgnoredPaths() []string {
 
 	// Parse the .blaxelignore file, filtering out comments and empty lines
 	lines := strings.Split(string(content), "\n")
-	// Always exclude .env.build regardless of .blaxelignore content
-	ignoredPaths := []string{".env.build"}
+	ignoredPaths := []string{}
 	for _, line := range lines {
 		// Trim whitespace
 		line = strings.TrimSpace(line)
@@ -1997,23 +2306,60 @@ func (d *Deployment) IgnoredPaths() []string {
 		}
 		ignoredPaths = append(ignoredPaths, line)
 	}
-	return ignoredPaths
+	// Keep .env.build excluded even if an earlier pattern re-includes it.
+	return append(ignoredPaths, ".env.build")
 }
 
-func (d *Deployment) shouldIgnorePath(path string, ignoredPaths []string) bool {
-	sep := string(filepath.Separator)
-	for _, ignoredPath := range ignoredPaths {
-		if strings.HasPrefix(path, filepath.Join(d.cwd, ignoredPath)) {
-			return true
-		}
-		if strings.Contains(path, sep+ignoredPath+sep) {
-			return true
-		}
-		if strings.HasSuffix(path, sep+ignoredPath) {
-			return true
-		}
+type ignoredPathMatcher struct {
+	root    string
+	matcher *patternmatcher.PatternMatcher
+}
+
+func newIgnoredPathMatcher(root string, patterns []string) (*ignoredPathMatcher, error) {
+	normalizedPatterns := make([]string, 0, len(patterns))
+	for _, pattern := range patterns {
+		normalizedPatterns = append(normalizedPatterns, normalizeIgnorePattern(pattern))
 	}
-	return false
+
+	matcher, err := patternmatcher.New(normalizedPatterns)
+	if err != nil {
+		return nil, fmt.Errorf("invalid .blaxelignore pattern: %w", err)
+	}
+	return &ignoredPathMatcher{root: root, matcher: matcher}, nil
+}
+
+// normalizeIgnorePattern preserves the previous behavior where literal paths
+// matched at any depth. Glob patterns retain Docker ignore-file semantics.
+func normalizeIgnorePattern(pattern string) string {
+	negated := strings.HasPrefix(pattern, "!")
+	if negated {
+		pattern = pattern[1:]
+	}
+
+	anchored := strings.HasPrefix(pattern, "/") || strings.HasPrefix(pattern, "./")
+	pattern = strings.TrimPrefix(strings.TrimPrefix(pattern, "./"), "/")
+	if !anchored && !strings.ContainsAny(pattern, "*?[") {
+		pattern = "**/" + pattern
+	}
+
+	if negated {
+		return "!" + pattern
+	}
+	return pattern
+}
+
+func (m *ignoredPathMatcher) matches(path string) (bool, error) {
+	relativePath, err := filepath.Rel(m.root, path)
+	if err != nil {
+		return false, fmt.Errorf("resolve ignored path %q: %w", path, err)
+	}
+	return m.matcher.MatchesOrParentMatches(toArchivePath(relativePath))
+}
+
+// Ignored directories can only be pruned when no later exclusion pattern can
+// re-include one of their descendants.
+func (m *ignoredPathMatcher) canSkipIgnoredDirectory() bool {
+	return !m.matcher.Exclusions()
 }
 
 // toArchivePath normalizes a file path for use in zip/tar archives.
@@ -2090,9 +2436,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	config := core.GetConfig()
 
 	// For volume-template, don't apply ignore logic
-	var ignoredPaths []string
+	var ignoreMatcher *ignoredPathMatcher
 	if !core.IsVolumeTemplate(config.Type) {
-		ignoredPaths = d.IgnoredPaths()
+		var err error
+		ignoreMatcher, err = newIgnoredPathMatcher(d.cwd, d.IgnoredPaths())
+		if err != nil {
+			return err
+		}
 	}
 
 	// Determine the root directory to archive
@@ -2107,7 +2457,13 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 
 		// Validate that the directory exists
 		if _, err := os.Stat(archiveRoot); err != nil {
-			return fmt.Errorf("volume template directory does not exist: %s", volumeDir)
+			if os.IsNotExist(err) {
+				return core.MarkExpectedError(
+					fmt.Errorf("volume template directory does not exist: %s", volumeDir),
+					core.CLIErrorNotFound,
+				)
+			}
+			return fmt.Errorf("failed to inspect volume template directory %q: %w", volumeDir, err)
 		}
 	}
 
@@ -2134,8 +2490,17 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 
 		// Only apply ignore logic for non-volume-template types
-		if !core.IsVolumeTemplate(config.Type) && d.shouldIgnorePath(path, ignoredPaths) {
-			return nil
+		if ignoreMatcher != nil {
+			ignored, err := ignoreMatcher.matches(path)
+			if err != nil {
+				return err
+			}
+			if ignored {
+				if info.IsDir() && ignoreMatcher.canSkipIgnoredDirectory() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
 		}
 
 		// For volume-templates, exclude blaxel.toml from the archive
@@ -2464,7 +2829,7 @@ func deployPackage(dryRun bool, name string) bool {
 func getDeployCommands(dryRun bool, defaultName string) ([]server.PackageCommand, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("error getting current directory: %v", err)
+		return nil, fmt.Errorf("error getting current directory: %w", err)
 	}
 	command := server.PackageCommand{
 		Name:    "root",

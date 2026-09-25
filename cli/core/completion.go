@@ -11,7 +11,8 @@ import (
 // bashCompletionShim provides a fallback implementation of _get_comp_words_by_ref
 // for systems (like macOS with bash 3.2) that don't have bash-completion installed.
 // Without this, cobra's generated bash completion fails with:
-//   _get_comp_words_by_ref: command not found
+//
+//	_get_comp_words_by_ref: command not found
 const bashCompletionShim = `# Shim: provide _get_comp_words_by_ref if bash-completion is not installed.
 # This allows completions to work on macOS default bash (3.2) without
 # requiring 'brew install bash-completion'.
@@ -98,7 +99,10 @@ PowerShell:
 			case "powershell":
 				return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 			default:
-				return fmt.Errorf("unsupported shell: %s", args[0])
+				return MarkExpectedError(
+					fmt.Errorf("unsupported shell: %s", args[0]),
+					CLIErrorValidation,
+				)
 			}
 		},
 	}

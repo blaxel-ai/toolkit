@@ -146,7 +146,7 @@ func getServeCommands(port int, host string, hotreload bool, config core.Config,
 	usedPorts := make(map[int]bool)
 	pwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("error getting current directory: %v", err)
+		return nil, fmt.Errorf("error getting current directory: %w", err)
 	}
 	colors := []string{"red", "green", "blue", "yellow", "purple", "cyan", "white"}
 	command := PackageCommand{

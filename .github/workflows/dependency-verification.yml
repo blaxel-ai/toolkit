@@ -1,0 +1,53 @@
+name: Dependency Verification
+
+on:
+  pull_request:
+    # `edited` matters: the job re-evaluates when a title is fixed after opening.
+    types: [opened, synchronize, reopened, edited, labeled]
+    paths:
+      - "go.mod"
+      - "go.sum"
+      - "**.go"
+      - ".github/workflows/dependency-verification.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    # Dependency PRs only: this remediation, Dependabot's own PRs, or an explicit label.
+    if: >-
+      contains(github.event.pull_request.title, 'Dependabot') ||
+      startsWith(github.event.pull_request.title, 'chore(deps)') ||
+      startsWith(github.head_ref, 'cploujoux/dependabot') ||
+      startsWith(github.head_ref, 'cploujoux/devin/dependabot-') ||
+      startsWith(github.head_ref, 'dependabot/') ||
+      contains(github.event.pull_request.labels.*.name, 'dependencies') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test -count=1 ./...
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
+
+      - name: Lint
+        run: golangci-lint run ./...

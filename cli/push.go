@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,6 +38,59 @@ type createImageRequest struct {
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
 	DockerConfig string `json:"dockerConfig,omitempty"`
+	MemoryMb     *int   `json:"memoryMb,omitempty"`
+	VolumeMb     *int   `json:"volumeMb,omitempty"`
+	// Labels carries blaxel.toml's [build] choices. The platform signs them into
+	// the upload URL, and Upload sends matching headers — that round trip is what
+	// gets them to a build started by `bl push`, which creates no resource
+	// record a label could otherwise ride on.
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// pushExistingImage sends worker resources only for registry imports. Plain
+// image registration does not start a worker and rejects these API fields.
+func pushExistingImage(ctx context.Context, client *blaxel.Client, request createImageRequest, build *core.BuildConfig, opts ...option.RequestOption) (createImageResponse, error) {
+	registry, _, hasPath := strings.Cut(request.Image, "/")
+	if hasPath && strings.Contains(registry, ".") && build != nil {
+		request.MemoryMb = build.MemoryMb
+		request.VolumeMb = build.VolumeMb
+	}
+	var response createImageResponse
+	err := client.Post(ctx, "images", request, &response, opts...)
+	return response, err
+}
+
+// pushBuildConfig overlays explicit flags without changing the loaded project
+// config. Changed distinguishes --volume 0 from an omitted flag.
+func pushBuildConfig(cmd *cobra.Command, build *core.BuildConfig) (*core.BuildConfig, error) {
+	if !cmd.Flags().Changed("memory") && !cmd.Flags().Changed("volume") {
+		return build, nil
+	}
+	resolved := core.BuildConfig{}
+	if build != nil {
+		resolved = *build
+	}
+	for _, setting := range []struct {
+		flag     string
+		min, max int
+		target   **int
+	}{
+		{"memory", 1, 32768, &resolved.MemoryMb},
+		{"volume", 0, 131072, &resolved.VolumeMb},
+	} {
+		if !cmd.Flags().Changed(setting.flag) {
+			continue
+		}
+		value, err := cmd.Flags().GetInt(setting.flag)
+		if err != nil {
+			return nil, err
+		}
+		if value < setting.min || value > setting.max {
+			return nil, fmt.Errorf("--%s must be between %d and %d MiB", setting.flag, setting.min, setting.max)
+		}
+		*setting.target = &value
+	}
+	return &resolved, nil
 }
 
 // createImageResponse is the response body from POST /images.
@@ -70,6 +125,7 @@ func imageRefToName(ref string) string {
 
 func PushCmd() *cobra.Command {
 	var name string
+	var imageRefFlag string
 	var folder string
 	var resourceType string
 	var noTTY bool
@@ -102,6 +158,11 @@ transform it for the target runtime via metamorph. If the same image was
 already built, the build is triggered again by default. Use --skip-build to
 skip the build if the image was already built.
 
+Use --memory and --volume (MiB) to size the temporary build or import worker.
+These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
+Omitting both uses project settings or platform defaults; --volume 0 requests
+memory-backed scratch. These settings do not change runtime resources.
+
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
@@ -120,6 +181,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
   # Skip rebuild if image was already built
   bl push --skip-build
+
+  # Import a registry image with 16 GiB memory and 32 GiB scratch disk
+  bl push --image docker.io/myorg/myapp:latest --type sandbox --memory 16384 --volume 32768
 
   # Push with a longer timeout for large images
   bl push --timeout 30m`,
@@ -143,6 +207,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			}
 
 			config := core.GetConfig()
+			if cmd.Flags().Changed("image") {
+				config.Image = imageRefFlag
+			}
+			buildConfig, buildErr := pushBuildConfig(cmd, config.Build)
+			if buildErr != nil {
+				core.PrintError("Push", buildErr)
+				core.ExitWithError(core.MarkExpectedError(buildErr, core.CLIErrorValidation))
+				return
+			}
+			config.Build = buildConfig
 
 			// Determine resource type
 			if resourceType == "" {
@@ -151,7 +225,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			if resourceType == "" {
 				if noTTY {
 					core.PrintError("Push", fmt.Errorf("resource type is required. Specify it with --type (-t) flag or set 'type' in blaxel.toml"))
-					core.ExitWithError(fmt.Errorf("resource type is required"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("resource type is required"),
+						core.CLIErrorValidation,
+					))
 				}
 				// Interactive prompt for resource type
 				var selected string
@@ -179,7 +256,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			validTypes := map[string]bool{"agent": true, "function": true, "sandbox": true, "job": true}
 			if !validTypes[resourceType] {
 				core.PrintError("Push", fmt.Errorf("invalid resource type %q: must be one of sandbox, agent, job, function", resourceType))
-				core.ExitWithError(fmt.Errorf("invalid resource type"))
+				core.ExitWithError(core.MarkExpectedError(
+					fmt.Errorf("invalid resource type"),
+					core.CLIErrorValidation,
+				))
 			}
 
 			// Parse timeout early to fail fast before expensive upload
@@ -192,7 +272,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 				if parsed <= 0 {
 					core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-					core.ExitWithError(fmt.Errorf("invalid timeout"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("invalid timeout"),
+						core.CLIErrorValidation,
+					))
 				}
 				buildTimeout = parsed
 			}
@@ -260,8 +343,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					opts = append(opts, option.WithQuery("skip-build", "true"))
 				}
 
-				var respBody createImageResponse
-				err = client.Post(ctx, "images", reqBody, &respBody, opts...)
+				respBody, pushErr := pushExistingImage(ctx, client, reqBody, config.Build, opts...)
+				err = pushErr
 				if err != nil {
 					core.PrintError("Push", fmt.Errorf("failed to push image: %w", err))
 					core.ExitWithError(err)
@@ -334,6 +417,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					Name:         name,
 					ResourceType: resourceType,
 					Generation:   generation,
+					Labels:       buildLabels(config.Build),
 				}
 
 				var httpResponse *http.Response
@@ -359,6 +443,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 				// Upload the archive to the presigned URL
 				fmt.Println("Uploading source code...")
+				// The platform signed exactly these into the URL above.
+				deployment.WithUploadMetadata(reqBody.Labels)
 				err = deployment.UploadWithRetry(uploadURL, func() (string, error) {
 					var retryResp *http.Response
 					var retryBody createImageResponse
@@ -392,6 +478,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 		},
 	}
 
+	cmd.Flags().StringVar(&imageRefFlag, "image", "", "Existing registry image to import; overrides blaxel.toml image")
+	cmd.Flags().Int("memory", 0, "Build or import worker memory in MiB (1-32768); overrides [build].memoryMb")
+	cmd.Flags().Int("volume", 0, "Build or import scratch disk in MiB (0-131072); 0 uses memory-backed scratch; overrides [build].volumeMb")
 	cmd.Flags().StringVarP(&name, "name", "n", "", "Name for the image (defaults to directory name)")
 	cmd.Flags().StringVarP(&folder, "directory", "d", "", "Source directory path")
 	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set")
@@ -448,12 +537,18 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("build monitoring cancelled")
+			return core.MarkExpectedError(
+				fmt.Errorf("build monitoring cancelled"),
+				core.CLIErrorOperational,
+			)
 		case <-timeout:
-			return fmt.Errorf("build timed out after %s", buildTimeout)
+			return core.MarkExpectedError(
+				fmt.Errorf("build timed out after %s", buildTimeout),
+				core.CLIErrorOperational,
+			)
 		case <-ticker.C:
 			// Check if the image exists in the registry (build completed)
-			status, err := getImageBuildStatus(resourceType, name)
+			status, message, err := getImageBuildStatus(resourceType, name)
 			if err != nil {
 				// Image not found yet, continue waiting
 				continue
@@ -467,7 +562,10 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 			if status == "failed" {
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second)
-				return fmt.Errorf("image build failed")
+				return core.MarkExpectedError(
+					failureError("image build failed", message),
+					core.CLIErrorOperational,
+				)
 			}
 		}
 	}
@@ -476,16 +574,17 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 // imageAPIResponse represents the API response for GET /images/{resourceType}/{imageName}.
 type imageAPIResponse struct {
 	Metadata struct {
-		Name         string `json:"name"`
-		ResourceType string `json:"resourceType"`
-		Status       string `json:"status"`
+		Name         string          `json:"name"`
+		ResourceType string          `json:"resourceType"`
+		Status       string          `json:"status"`
+		Events       json.RawMessage `json:"events"`
 	} `json:"metadata"`
 }
 
 // getImageBuildStatus checks the build status by querying the image API.
 // Returns "succeeded" if the image is built, "failed" if the build failed,
-// or empty string if the build is still in progress.
-func getImageBuildStatus(resourceType, name string) (string, error) {
+// or empty string if the build is still in progress, plus a safe failure message.
+func getImageBuildStatus(resourceType, name string) (string, string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
 
@@ -496,21 +595,25 @@ func getImageBuildStatus(resourceType, name string) (string, error) {
 	}
 	err := client.Get(ctx, path, nil, &result)
 	if err != nil {
-		errStr := err.Error()
-		if strings.Contains(errStr, "404") || strings.Contains(errStr, "not found") {
-			return "", nil // Not found yet, build may still be in progress
+		if isAPIStatus(err, http.StatusNotFound) {
+			return "", "", nil // Not found yet, build may still be in progress
 		}
-		return "", err
+		return "", "", err
 	}
 
 	switch result.Metadata.Status {
 	case "BUILT":
-		return "succeeded", nil
+		return "succeeded", "", nil
 	case "FAILED":
-		return "failed", nil
+		return "failed", latestFailureMessage(result.Metadata.Events, "ai.blaxel.controlplane.buildimage."), nil
 	default:
-		return "", nil // Still building (UPLOADING, BUILDING, or no status)
+		return "", "", nil // Still building (UPLOADING, BUILDING, or no status)
 	}
+}
+
+func isAPIStatus(err error, statusCode int) bool {
+	var apiErr *blaxel.Error
+	return errors.As(err, &apiErr) && apiErr.StatusCode == statusCode
 }
 
 func imageRef(resourceType, name string) string {
@@ -751,7 +854,7 @@ func renderCodeBlock(code string) string {
 	var b strings.Builder
 	b.WriteString(border.Sprint("  ┌─────────────────────────────────────────────────────────") + "\n")
 	for _, line := range strings.Split(code, "\n") {
-		b.WriteString(fmt.Sprintf("  %s %s\n", border.Sprint("│"), codeColor.Sprint(line)))
+		fmt.Fprintf(&b, "  %s %s\n", border.Sprint("│"), codeColor.Sprint(line))
 	}
 	b.WriteString(border.Sprint("  └─────────────────────────────────────────────────────────"))
 	return b.String()

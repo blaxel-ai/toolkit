@@ -123,7 +123,7 @@ func CheckWorkspaceAccess(workspaceName string, credentials blaxel.Credentials) 
 	}
 
 	c := blaxel.NewClient(opts...)
-	workspace, err := c.Workspaces.Get(context.Background(), workspaceName)
+	workspace, err := c.Workspaces.Get(context.Background(), workspaceName, blaxel.WorkspaceGetParams{})
 	if err != nil {
 		return blaxel.Workspace{}, err
 	}

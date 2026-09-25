@@ -4,26 +4,19 @@ slug: bl_get_image
 ---
 ## bl get image
 
-Get image information
+List image summaries or image tags with cursor pagination
 
 ### Synopsis
 
-Get information about container images.
+List one page of image repository summaries, or one page of tags for a named image.
+Use --cursor to continue a listing and --all to fetch every page. Empty pages
+may still have a next cursor. Repository summaries retain total size, tag count,
+status and last deployment time without downloading their tags.
 
-Usage patterns:
-  bl get images                          List all images (without tags)
-  bl get image agent/my-image            Get image details for a specific resource type
-  bl get image agent/my-image:v1.0       Get specific tag information
-  bl get image sandbox/my-image --latest Get the latest tag reference for an image
+Search uses a case-sensitive name prefix. Search results are ordered by name
+ascending. Tag pages support name:asc and name:desc only.
 
-The image reference format is: resourceType/imageName[:tag]
-- resourceType: Type of resource (e.g., agent, function, job, sandbox)
-- imageName: The name of the image
-- tag: Optional tag to filter for a specific version
-
-The --latest flag returns the image reference with the most recent tag,
-formatted as resourceType/imageName:tag. This is useful for scripting
-and for retrieving the IMAGE_ID to use when creating sandboxes from templates.
+--latest inspects every tag page and prints the most recently created tag reference.
 
 ```
 bl get image [resourceType/imageName[:tag]] [flags]
@@ -32,28 +25,26 @@ bl get image [resourceType/imageName[:tag]] [flags]
 ### Examples
 
 ```
-  # List all images
-  bl get images
-
-  # Get all tags for a specific image
-  bl get image agent/my-agent
-
-  # Get a specific tag
-  bl get image agent/my-agent:latest
-
-  # Get the latest tag reference (useful for sandbox templates)
-  bl get image sandbox/mytemplate --latest
-
-  # Use different output formats
-  bl get images -o json
-  bl get image agent/my-agent -o pretty
+  bl get images --limit 100
+  bl get images --q base --sort name:asc
+  bl get image sandbox/base --limit 20
+  bl get image sandbox/base --cursor CURSOR
+  bl get image sandbox/base:v1
+  bl get image sandbox/base --all
+  bl get image sandbox/base --latest
 ```
 
 ### Options
 
 ```
-  -h, --help     help for image
-      --latest   Return only the most recent tag reference (e.g., sandbox/mytemplate:tag)
+      --all                       Fetch all pages instead of a single page
+      --cursor string             Cursor from the previous page; keep the same search and sort
+  -h, --help                      help for image
+      --latest                    Return the most recent tag by creation time (reads all tag pages)
+      --limit int                 Maximum items per page (1-100) (default 100)
+      --q string                  Filter by a case-sensitive image or tag name prefix
+      --sort string               Sort: name:asc, name:desc, createdAt:asc or createdAt:desc (tags: name only)
+      --source-workspace string   Owner workspace of a shared image (named images only)
 ```
 
 ### Options inherited from parent commands

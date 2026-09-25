@@ -120,6 +120,11 @@ func (w *BuildLogWatcher) watchLogs() {
 			// Fetch all logs each time - we'll deduplicate locally
 			newEntries, err := w.fetchBuildLogs(0)
 			if err != nil {
+				// Stop cancels an in-flight fetch after build completion. Normal
+				// shutdown must not appear as a log service failure.
+				if w.ctx.Err() != nil {
+					return
+				}
 				failureCount++
 				if failureCount >= maxFailures {
 					w.onLog(fmt.Sprintf("Error: Failed to fetch logs after %d attempts: %v", maxFailures, err))
@@ -223,7 +228,10 @@ func (w *BuildLogWatcher) fetchBuildLogs(offset int) ([]bufferedLogEntry, error)
 
 	_, ok := response[w.resourceName]
 	if !ok {
-		return nil, fmt.Errorf("resource %s not found", w.resourceName)
+		return nil, core.MarkExpectedError(
+			fmt.Errorf("resource %s not found", w.resourceName),
+			core.CLIErrorNotFound,
+		)
 	}
 
 	// Extract log entries with parsed timestamps for proper ordering

@@ -68,7 +68,10 @@ export TOKEN=$(bl token)
 
 			// Validate workspace
 			if workspace == "" {
-				err := fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate")
+				err := core.MarkExpectedError(
+					fmt.Errorf("no workspace specified. Use 'bl login <workspace>' to authenticate"),
+					core.CLIErrorAuthentication,
+				)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
@@ -80,7 +83,7 @@ export TOKEN=$(bl token)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}
-			_, err = client.Workspaces.Get(context.Background(), workspace)
+			_, err = client.Workspaces.Get(context.Background(), workspace, blaxel.WorkspaceGetParams{})
 			if err != nil {
 				err := fmt.Errorf("failed to get workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
@@ -95,7 +98,10 @@ export TOKEN=$(bl token)
 				core.ExitWithError(err)
 			}
 			if !credentials.IsValid() {
-				err := fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace)
+				err := core.MarkExpectedError(
+					fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace),
+					core.CLIErrorAuthentication,
+				)
 				core.PrintError("token", err)
 				core.ExitWithError(err)
 			}

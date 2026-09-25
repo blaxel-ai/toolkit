@@ -45,5 +45,5 @@ func ErrorHandler(request *http.Request, kind string, name string, body string) 
 		}
 		err = fmt.Errorf("%s", errMsg)
 	}
-	return err
+	return MarkExpectedHTTPError(err, errorModel.Code)
 }

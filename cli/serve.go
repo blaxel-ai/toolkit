@@ -213,7 +213,10 @@ Workflow:
 							core.Print("echo '[entrypoint]\\nprod = \"your-command\"' > blaxel.toml")
 						}
 					}
-					core.ExitWithError(fmt.Errorf("cannot start server: no entrypoint configured and no language detected"))
+					core.ExitWithError(core.MarkExpectedError(
+						fmt.Errorf("cannot start server: no entrypoint configured and no language detected"),
+						core.CLIErrorValidation,
+					))
 				}
 			}
 

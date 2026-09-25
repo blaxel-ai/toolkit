@@ -15,6 +15,8 @@ A "resource" in Blaxel refers to any deployable or manageable entity:
 - functions/mcp: Model Context Protocol servers (tool providers)
 - jobs: Batch processing tasks
 - sandboxes: Isolated execution environments
+- snapshots: Point-in-time captures a sandbox or application can be created from
+- applications: Application deployments with revision-based traffic management
 - models: AI model configurations
 - policies: Access control policies
 - volumes: Persistent storage
@@ -80,6 +82,12 @@ The command can list all resources of a type or get details for a specific one.
   bl get mcp-hub
   bl get mcp-hub -o json
 
+  # List snapshots in the workspace
+  bl get snapshots
+
+  # Get a specific snapshot by id (from bl get snapshots)
+  bl get snapshot 6f1c2e3a-8b4d-4c2e-9f0a-1d2e3f4a5b6c
+
   # Monitor sandbox status
   bl get sandbox my-sandbox --watch
 
@@ -144,9 +152,10 @@ The command can list all resources of a type or get details for a specific one.
 
 * [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl get agents](bl_get_agents.md)	 - List all agents or get details of a specific one
+* [bl get applications](bl_get_applications.md)	 - List all applications or get details of a specific one
 * [bl get drives](bl_get_drives.md)	 - List all drives or get details of a specific one
 * [bl get functions](bl_get_functions.md)	 - List all functions or get details of a specific one
-* [bl get image](bl_get_image.md)	 - Get image information
+* [bl get image](bl_get_image.md)	 - List image summaries or image tags with cursor pagination
 * [bl get integrationconnections](bl_get_integrationconnections.md)	 - List all integrationconnections or get details of a specific one
 * [bl get jobs](bl_get_jobs.md)	 - List all jobs or get details of a specific one
 * [bl get mcp-hub](bl_get_mcp-hub.md)	 - List pre-built MCP servers available in the Blaxel Hub
@@ -156,6 +165,7 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get previewtokens](bl_get_previewtokens.md)	 - List all previewtokens or get details of a specific one
 * [bl get sandbox-hub](bl_get_sandbox-hub.md)	 - List pre-built sandbox images available in the Blaxel Hub
 * [bl get sandboxes](bl_get_sandboxes.md)	 - List all sandboxes or get details of a specific one
+* [bl get snapshots](bl_get_snapshots.md)	 - List all snapshots or get details of a specific one
 * [bl get templates](bl_get_templates.md)	 - List available project templates
 * [bl get volumes](bl_get_volumes.md)	 - List all volumes or get details of a specific one
 * [bl get volumetemplates](bl_get_volumetemplates.md)	 - List all volumetemplates or get details of a specific one

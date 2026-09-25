@@ -96,6 +96,48 @@ func TestDeploymentDryRunStructuredOutputRejectsUnknownFormat(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported dry-run output format")
 }
 
+func TestGenerateApplicationDeploymentUsesRevisionSpec(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { require.NoError(t, os.Chdir(originalDir)) }()
+
+	tomlContent := `name = "my-app"
+type = "application"
+workspace = "test-workspace"
+image = "registry.example.com/my-app:latest"
+memory = 4096
+port = 8080
+region = "us-pdx-1"
+
+[env]
+FOO = "bar"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "blaxel.toml"), []byte(tomlContent), 0644))
+	require.NoError(t, os.Chdir(tempDir))
+	core.ResetConfig()
+	core.ReadConfigToml("", true)
+
+	deployment := Deployment{name: "my-app", cwd: tempDir}
+	result := deployment.GenerateDeployment(false)
+
+	assert.Equal(t, "Application", result.Kind)
+	spec := result.Spec.(map[string]interface{})
+	assert.Equal(t, true, spec["enabled"])
+	assert.Equal(t, "us-pdx-1", spec["region"])
+	assert.Equal(t, 8080, spec["port"])
+	assert.NotContains(t, spec, "image")
+	assert.NotContains(t, spec, "memory")
+	assert.NotContains(t, spec, "envs")
+
+	revisions := spec["revisions"].([]interface{})
+	require.Len(t, revisions, 1)
+	revision := revisions[0].(map[string]interface{})
+	assert.Equal(t, "registry.example.com/my-app:latest", revision["image"])
+	assert.Equal(t, 4096, revision["memory"])
+	assert.Len(t, revision["envs"], 1)
+}
+
 func TestDeploymentStruct(t *testing.T) {
 	d := Deployment{
 		dir:    ".blaxel",
@@ -128,6 +170,15 @@ func TestDeploymentIgnoredPathsDefault(t *testing.T) {
 	assert.Contains(t, ignored, ".venv")
 	assert.Contains(t, ignored, "__pycache__")
 	assert.Contains(t, ignored, ".blaxel")
+	assert.Contains(t, ignored, ".env*")
+
+	matcher, err := newIgnoredPathMatcher(tempDir, ignored)
+	require.NoError(t, err)
+	for _, name := range []string{".env", ".env.local", ".env.production"} {
+		matched, err := matcher.matches(filepath.Join(tempDir, name))
+		require.NoError(t, err)
+		assert.True(t, matched, "%s must not be included in deployment archives", name)
+	}
 }
 
 func TestDeploymentIgnoredPathsFromFile(t *testing.T) {
@@ -159,11 +210,9 @@ build
 
 func TestDeploymentShouldIgnorePath(t *testing.T) {
 	cwd := filepath.FromSlash("/home/user/project")
-	d := Deployment{
-		cwd: cwd,
-	}
-
 	ignoredPaths := []string{".git", "node_modules", "dist"}
+	matcher, err := newIgnoredPathMatcher(cwd, ignoredPaths)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -181,10 +230,73 @@ func TestDeploymentShouldIgnorePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := d.shouldIgnorePath(tt.path, ignoredPaths)
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestDeploymentShouldIgnoreGlobPatterns(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
+	matcher, err := newIgnoredPathMatcher(cwd, []string{
+		"**/*.test.ts",
+		"**/.env.*",
+		"!sandbox/keep.test.ts",
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"root test file", filepath.Join(cwd, "app.test.ts"), true},
+		{"nested test file", filepath.Join(cwd, "sandbox", "src", "app.test.ts"), true},
+		{"nested environment file", filepath.Join(cwd, "sandbox", ".env.local"), true},
+		{"negated test file", filepath.Join(cwd, "sandbox", "keep.test.ts"), false},
+		{"regular source file", filepath.Join(cwd, "sandbox", "src", "app.ts"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestDeploymentShouldIgnoreAnchoredLiteralPath(t *testing.T) {
+	cwd := filepath.FromSlash("/home/user/project")
+	matcher, err := newIgnoredPathMatcher(cwd, []string{"./infra"})
+	require.NoError(t, err)
+
+	rootInfra, err := matcher.matches(filepath.Join(cwd, "infra", "main.tf"))
+	require.NoError(t, err)
+	assert.True(t, rootInfra)
+
+	nestedInfra, err := matcher.matches(filepath.Join(cwd, "sandbox", "infra", "main.tf"))
+	require.NoError(t, err)
+	assert.False(t, nestedInfra)
+}
+
+func TestNewIgnoredPathMatcherRejectsInvalidPattern(t *testing.T) {
+	_, err := newIgnoredPathMatcher("/home/user/project", []string{"[invalid"})
+	require.ErrorContains(t, err, "invalid .blaxelignore pattern")
+}
+
+func TestIgnoredPathMatcherCanSkipIgnoredDirectory(t *testing.T) {
+	withoutExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{"node_modules"})
+	require.NoError(t, err)
+	assert.True(t, withoutExclusions.canSkipIgnoredDirectory())
+
+	withExclusions, err := newIgnoredPathMatcher("/home/user/project", []string{
+		"node_modules",
+		"!node_modules/keep/package.json",
+	})
+	require.NoError(t, err)
+	assert.False(t, withExclusions.canSkipIgnoredDirectory())
 }
 
 func TestResultKinds(t *testing.T) {
@@ -318,12 +430,9 @@ func TestToArchivePath(t *testing.T) {
 
 func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 	cwd := filepath.FromSlash("/home/user/project")
-	d := Deployment{
-		cwd: cwd,
-	}
-
-	// Note: shouldIgnorePath uses string matching, not glob patterns
 	ignoredPaths := []string{"logs", "build", "tmp"}
+	matcher, err := newIgnoredPathMatcher(cwd, ignoredPaths)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
@@ -341,7 +450,8 @@ func TestDeploymentShouldIgnorePathWithDirectories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := d.shouldIgnorePath(tt.path, ignoredPaths)
+			result, err := matcher.matches(tt.path)
+			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -757,5 +867,68 @@ COPY --from=somewhere-else /thing /thing
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, dockerfileProvidesSandboxAPI(tt.dockerfile))
 		})
+	}
+}
+
+func TestDeployedStatusIsFinal(t *testing.T) {
+	known := func(rev string) rolloutBaseline {
+		return rolloutBaseline{revision: rev, deployedRevision: rev, known: true}
+	}
+	// r0 deployed, r1 still rolling out when the apply happened.
+	inFlight := rolloutBaseline{revision: "r1", deployedRevision: "r0", known: true}
+	unknown := rolloutBaseline{}
+	tests := []struct {
+		name             string
+		autoGenerated    bool
+		sawRolloutStatus bool
+		baseline         rolloutBaseline
+		deployedRevision string
+		want             bool
+	}{
+		{"skip-build accepts DEPLOYED immediately", false, false, known("r0"), "r0", true},
+		{"build: DEPLOYED of the previous revision is ignored", true, false, known("r0"), "r0", false},
+		{"build: DEPLOYED of the previous revision is ignored even after a rollout status", true, true, known("r0"), "r0", false},
+		{"build: DEPLOYED of a new revision is final without a rollout status", true, false, known("r0"), "r1", true},
+		{"build: first deployment of a new resource is final", true, false, known(""), "r1", true},
+		{"build: in-flight baseline still reports the old deployed revision", true, false, inFlight, "r0", false},
+		{"build: in-flight rollout finishing is not this apply", true, true, inFlight, "r1", false},
+		{"build: in-flight baseline accepts the revision created by this apply", true, false, inFlight, "r2", true},
+		{"build: no revision on events falls back to the rollout status (ignored)", true, false, known("r0"), "", false},
+		{"build: no revision on events falls back to the rollout status (final)", true, true, known("r0"), "", true},
+		{"build: unreadable baseline falls back to the rollout status", true, false, unknown, "r1", false},
+		{"build: unreadable baseline accepts DEPLOYED after a rollout status", true, true, unknown, "r1", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deployedStatusIsFinal(tt.autoGenerated, tt.sawRolloutStatus, tt.baseline, tt.deployedRevision)
+			if got != tt.want {
+				t.Fatalf("deployedStatusIsFinal(%v, %v, %+v, %q) = %v, want %v", tt.autoGenerated, tt.sawRolloutStatus, tt.baseline, tt.deployedRevision, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEventRevisions(t *testing.T) {
+	events := `[
+		{"type":"ai.blaxel.controlplane.deployment.succeeded","status":"DEPLOYED","time":"2026-09-23T23:00:00Z","revision":"r0"},
+		{"type":"ai.blaxel.controlplane.api.update","status":"UPDATED","time":"2026-09-23T23:05:00Z","revision":""},
+		{"type":"ai.blaxel.controlplane.deployment.created","status":"BUILT","time":"2026-09-23T23:05:10Z","revision":"r1"},
+		{"type":"ai.blaxel.controlplane.deployment.ready","status":"DEPLOYED","time":"2026-09-23T22:59:00Z","revision":"stale"}
+	]`
+	latest, deployed := eventRevisions(json.RawMessage(events))
+	if latest != "r1" {
+		t.Fatalf("latest = %q, want r1", latest)
+	}
+	if deployed != "r0" {
+		t.Fatalf("deployed = %q, want r0", deployed)
+	}
+
+	latest, deployed = eventRevisions(json.RawMessage(`[]`))
+	if latest != "" || deployed != "" {
+		t.Fatalf("empty events: got %q %q", latest, deployed)
+	}
+	latest, deployed = eventRevisions(json.RawMessage(`not json`))
+	if latest != "" || deployed != "" {
+		t.Fatalf("malformed events: got %q %q", latest, deployed)
 	}
 }
