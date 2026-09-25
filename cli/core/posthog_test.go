@@ -148,6 +148,37 @@ func TestSaveTelemetryStateNeverRollsBackEntriesItDoesNotOwn(t *testing.T) {
 		"the CLI owns no language entries and must not roll back the SDK's newer version")
 }
 
+// Shell completion runs on every TAB press, and the version marker is only
+// persisted after a successful delivery, so an unreported version or an
+// unreachable endpoint would otherwise make each keypress pay the flush budget.
+// These are the same commands already exempted from the tracking prompt for
+// being latency-sensitive and side-effect free.
+func TestTrackCLIInstalledSkipsCommandsThatMustStayFast(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+
+	for _, command := range []string{"__complete", "completion", "version", "--version"} {
+		os.Args = []string{"bl", command}
+		TrackCLIInstalled("4.0.0")
+		FlushPosthog()
+		assert.Equal(t, int32(0), requests.Load(), "%q must not send telemetry", command)
+	}
+
+	// An ordinary command still reports the install.
+	os.Args = []string{"bl", "get", "sandboxes"}
+	TrackCLIInstalled("4.0.0")
+	FlushPosthog()
+	assert.Equal(t, int32(1), requests.Load(), "a normal command must still report")
+}
+
 func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {
 	var requests atomic.Int32
 	var payload map[string]interface{}

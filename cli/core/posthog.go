@@ -198,6 +198,14 @@ func TrackCLIInstalled(cliVersion string) {
 	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
 		return
 	}
+	// Shell completion runs on every TAB press. Since the version is only
+	// marked reported after a successful delivery, tracking here would make
+	// each keypress wait out the flush budget until PostHog accepts the event.
+	// These are the same latency-sensitive, side-effect-free commands already
+	// exempted from the tracking consent prompt.
+	if isTrackingPromptCommandExempt(os.Args) {
+		return
+	}
 
 	eventKey := "install:" + cliVersion
 	telemetryMu.Lock()
