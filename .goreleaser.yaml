@@ -65,9 +65,12 @@ brews:
     caveats: |
       Blaxel is a tool to ship AI agents that never slack.
 
-      Install the Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...):
+      Blaxel skills are installed automatically the first time you run any bl command
+      after installation or upgrade, including bl --help and bl --version.
+      Requires Node.js (npx). Set BL_INSTALL_SKILLS=false to skip.
+      To install or retry manually:
         npx -y skills add blaxel-ai/agent-skills -g --all
-      They are also installed automatically when running `bl upgrade`.
+      bl upgrade also refreshes the skills. Installation failures never block the CLI.
     homepage: "https://www.blaxel.ai"
     skip_upload: auto
     install: |

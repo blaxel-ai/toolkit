@@ -153,6 +153,9 @@ func runUpgrade(targetVersion string, force bool) error {
 	}
 
 	installSkills()
+	if method == "brew" {
+		markUpgradedHomebrewSkills()
+	}
 	return nil
 }
 

@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/blaxel-ai/toolkit/cli/core"
+	"sync"
+	"time"
 )
+
+var skillsInstallOnce sync.Once
 
 const (
 	// skillsRepo is the GitHub repository holding the Blaxel agent skills.
@@ -51,26 +55,34 @@ func installSkills() {
 	if skillsInstallDisabled(os.Getenv) {
 		return
 	}
+	// A first invocation of `bl upgrade` also passes through startup setup.
+	// Both paths use the same installer, but only one npm process is needed.
+	skillsInstallOnce.Do(runSkillsInstall)
+}
 
+func runSkillsInstall() {
 	if _, err := exec.LookPath("npx"); err != nil {
-		core.PrintWarning("Skipping Blaxel skills installation: npx (Node.js) was not found")
-		core.PrintInfoWithCommand("Install Node.js (https://nodejs.org) and then run:", skillsInstallCommand())
+		fmt.Fprintln(os.Stderr, "Skipping Blaxel skills installation: npx (Node.js) was not found.")
+		fmt.Fprintln(os.Stderr, "Install Node.js (https://nodejs.org) and then run:", skillsInstallCommand())
 		return
 	}
 
-	core.PrintInfo("Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)...")
+	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)...")
 
+	// A slow registry must not indefinitely delay the user's first command.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	args := skillsInstallArgs()
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdout = os.Stdout
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	cmd.WaitDelay = time.Second
 
 	if err := cmd.Run(); err != nil {
-		core.PrintWarning("Could not install the Blaxel skills: " + err.Error())
-		core.PrintInfoWithCommand("You can retry later with:", skillsInstallCommand())
+		fmt.Fprintln(os.Stderr, "Could not install the Blaxel skills:", err)
+		fmt.Fprintln(os.Stderr, "You can retry later with:", skillsInstallCommand())
 		return
 	}
 
-	core.PrintSuccess("Blaxel skills installed. Restart your coding agent to load them.")
+	fmt.Fprintln(os.Stderr, "Blaxel skills installed. Restart your coding agent to load them.")
 }
