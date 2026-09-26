@@ -38,6 +38,10 @@ Supported installation methods:
   - Manual installation (install.sh)
   - Direct binary download
 
+After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
+are installed or refreshed globally via npx so coding agents (Claude Code,
+Codex, Cursor, ...) stay up to date. Set BL_INSTALL_SKILLS=false to skip this.
+
 Examples:
   # Upgrade to the latest version
   bl upgrade
@@ -138,12 +142,21 @@ func runUpgrade(targetVersion string, force bool) error {
 
 	switch method {
 	case "brew":
-		return upgradeViaBrew(force)
+		err = upgradeViaBrew(force)
 	case "curl":
-		return upgradeViaCurl(targetVersion)
+		err = upgradeViaCurl(targetVersion)
 	default:
 		return fmt.Errorf("unknown installation method: %s", method)
 	}
+	if err != nil {
+		return err
+	}
+
+	installSkills()
+	if method == "brew" {
+		markUpgradedHomebrewSkills()
+	}
+	return nil
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew
@@ -222,23 +235,11 @@ func upgradeViaCurl(targetVersion string) error {
 	// Build the install command
 	installScriptURL := "https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.sh"
 
-	var shellCmd string
+	shellCmd := buildCurlUpgradeCommand(installScriptURL, targetVersion, binDir, needsSudo)
 	if targetVersion != "" {
-		// Upgrade to specific version
 		core.PrintInfo(fmt.Sprintf("Upgrading to version %s...", targetVersion))
-		if needsSudo {
-			shellCmd = fmt.Sprintf("curl -fsSL %s | VERSION=%s BINDIR=%s sudo -E sh", installScriptURL, targetVersion, binDir)
-		} else {
-			shellCmd = fmt.Sprintf("curl -fsSL %s | VERSION=%s BINDIR=%s sh", installScriptURL, targetVersion, binDir)
-		}
 	} else {
-		// Upgrade to latest version
 		core.PrintInfo("Upgrading to latest version...")
-		if needsSudo {
-			shellCmd = fmt.Sprintf("curl -fsSL %s | BINDIR=%s sudo -E sh", installScriptURL, binDir)
-		} else {
-			shellCmd = fmt.Sprintf("curl -fsSL %s | BINDIR=%s sh", installScriptURL, binDir)
-		}
 	}
 
 	if needsSudo {
@@ -258,6 +259,25 @@ func upgradeViaCurl(targetVersion string) error {
 
 	core.PrintSuccess("Blaxel CLI upgraded successfully")
 	return nil
+}
+
+// buildCurlUpgradeCommand builds the shell command that re-runs install.sh.
+// Skills installation is disabled in the script (BL_INSTALL_SKILLS=false) because
+// runUpgrade handles it itself, so it runs as the current user even when the
+// script needs sudo.
+func buildCurlUpgradeCommand(installScriptURL, targetVersion, binDir string, needsSudo bool) string {
+	env := skillsInstallEnv + "=false"
+	if targetVersion != "" {
+		env += " VERSION=" + targetVersion
+	}
+	env += " BINDIR=" + binDir
+
+	shell := "sh"
+	if needsSudo {
+		shell = "sudo -E sh"
+	}
+
+	return fmt.Sprintf("curl -fsSL %s | %s %s", installScriptURL, env, shell)
 }
 
 func normalizeUpgradeVersion(targetVersion string) string {
