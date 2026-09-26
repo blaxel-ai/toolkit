@@ -19,7 +19,7 @@ Supported installation methods:
   - Direct binary download
 
 After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
-are installed or refreshed globally via npx so coding agents (Claude Code,
+are installed or refreshed globally using verified, pinned npm packages so coding agents (Claude Code,
 Codex, Cursor, ...) stay up to date. Set BL_INSTALL_SKILLS=false to skip this.
 
 Examples:

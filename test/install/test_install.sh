@@ -25,16 +25,16 @@ fail() {
 export BL_INSTALL_PATH=true
 export BL_INSTALL_COMPLETION=true
 export BL_INSTALL_TRACKING=true
-# Force the skills step: npx is not available in the test image, so this
-# exercises the "npx missing" path and checks it never aborts the install.
+# Force the skills step: Node.js is not available in the test image, so this
+# exercises the "Node.js missing" path and checks it never aborts the install.
 export BL_INSTALL_SKILLS=true
 
 echo "=== Installing with SHELL=bash ==="
 printf '# Added by blaxel installer\n#export PATH="%s:$PATH"\n' "$HOME/.local/bin" > "$HOME/.bashrc"
 INSTALL_OUTPUT=$(SHELL=/bin/bash sh /home/testuser/install.sh 2>&1)
 echo "$INSTALL_OUTPUT"
-if echo "$INSTALL_OUTPUT" | grep -q "npx -y skills add blaxel-ai/agent-skills -g --all"; then
-  pass "skills step ran and printed the manual install command (npx missing)"
+if echo "$INSTALL_OUTPUT" | grep -q "bl skills install"; then
+  pass "skills step ran and printed the manual install command (Node.js missing)"
 else
   fail "skills step did not print the manual install command"
 fi

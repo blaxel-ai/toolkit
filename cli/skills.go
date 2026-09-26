@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
 )
 
-var skillsInstallOnce sync.Once
+var (
+	skillsInstallOnce  sync.Once
+	skillsInstallError error
+)
 
 const (
 	// skillsRepo is the GitHub repository holding the Blaxel agent skills.
@@ -19,15 +21,9 @@ const (
 	skillsInstallEnv = "BL_INSTALL_SKILLS"
 )
 
-// skillsInstallArgs returns the npx invocation that installs (or refreshes)
-// all Blaxel agent skills globally, so coding agents pick them up.
-func skillsInstallArgs() []string {
-	return []string{"npx", "-y", "skills", "add", skillsRepo, "-g", "--all"}
-}
-
-// skillsInstallCommand returns the install command as a single string for display.
+// skillsInstallCommand is the shared, integrity-checked installation entry point.
 func skillsInstallCommand() string {
-	return strings.Join(skillsInstallArgs(), " ")
+	return "bl skills install"
 }
 
 // skillsInstallDisabled reports whether skills installation should be skipped:
@@ -57,32 +53,24 @@ func installSkills() {
 	}
 	// A first invocation of `bl upgrade` also passes through startup setup.
 	// Both paths use the same installer, but only one npm process is needed.
-	skillsInstallOnce.Do(runSkillsInstall)
-}
-
-func runSkillsInstall() {
-	if _, err := exec.LookPath("npx"); err != nil {
-		fmt.Fprintln(os.Stderr, "Skipping Blaxel skills installation: npx (Node.js) was not found.")
-		fmt.Fprintln(os.Stderr, "Install Node.js (https://nodejs.org) and then run:", skillsInstallCommand())
-		return
-	}
-
-	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)...")
-
-	// A slow registry must not indefinitely delay the user's first command.
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	args := skillsInstallArgs()
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	cmd.WaitDelay = time.Second
-
-	if err := cmd.Run(); err != nil {
+	if err := installSkillsOnce(); err != nil {
 		fmt.Fprintln(os.Stderr, "Could not install the Blaxel skills:", err)
 		fmt.Fprintln(os.Stderr, "You can retry later with:", skillsInstallCommand())
-		return
 	}
+}
 
+func installSkillsOnce() error {
+	skillsInstallOnce.Do(func() { skillsInstallError = runSkillsInstall() })
+	return skillsInstallError
+}
+
+func runSkillsInstall() error {
+	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)...")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if err := installPinnedSkills(ctx, os.Stderr); err != nil {
+		return err
+	}
 	fmt.Fprintln(os.Stderr, "Blaxel skills installed. Restart your coding agent to load them.")
+	return nil
 }

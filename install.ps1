@@ -171,16 +171,16 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 
 # ── Install Blaxel agent skills ──────────────────────────────────────
-$SkillsInstallCmd = "npx -y skills add blaxel-ai/agent-skills -g --all"
+$SkillsInstallCmd = "bl skills install"
 # BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
 $IsCI = -not [string]::IsNullOrEmpty($env:CI) -or -not [string]::IsNullOrEmpty($env:GITHUB_ACTIONS)
 $InstallSkills = -not $SkipSkills -and $env:BL_INSTALL_SKILLS -ne "false" -and ($env:BL_INSTALL_SKILLS -eq "true" -or -not $IsCI)
 if ($InstallSkills) {
     Write-Host ""
-    if (Get-Command npx -ErrorAction SilentlyContinue) {
+    if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
         Write-Host "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)..."
         try {
-            & cmd /c $SkillsInstallCmd
+            & $BlaxelExe skills install
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "Blaxel skills installed. Restart your coding agent to load them." -ForegroundColor Green
             }
@@ -195,7 +195,7 @@ if ($InstallSkills) {
         }
     }
     else {
-        Write-Host "Note: npx (Node.js) was not found, skipping Blaxel skills installation." -ForegroundColor Yellow
+        Write-Host "Note: Node.js (node and npm) was not found, skipping Blaxel skills installation." -ForegroundColor Yellow
         Write-Host "Install Node.js (https://nodejs.org) and then run:" -ForegroundColor Yellow
         Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
     }

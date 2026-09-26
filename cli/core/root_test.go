@@ -590,3 +590,40 @@ func TestIsTerminalInteractive(t *testing.T) {
 	// We just verify it returns a boolean
 	assert.IsType(t, true, result)
 }
+
+func TestIsShellCompletionRequest(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		args       []string
+		completion bool
+	}{
+		{"bare", nil, false},
+		{"help", []string{"--help"}, false},
+		{"version", []string{"--version"}, false},
+		{"completion", []string{"__complete", "get", ""}, true},
+		{"completion without descriptions", []string{"__completeNoDesc", "get", ""}, true},
+		{"leading boolean flag", []string{"--skip-version-warning", "__complete", ""}, true},
+		{"leading flag value", []string{"--workspace", "dev", "__completeNoDesc", ""}, true},
+		{"leading equals value", []string{"--workspace=dev", "__complete", ""}, true},
+		{"short flag group", []string{"-vu", "-wdev", "__complete", ""}, true},
+		{"output flag", []string{"-o", "json", "__complete", ""}, true},
+		{"command argument", []string{"get", "sandbox", "__complete"}, false},
+		{"help argument", []string{"help", "__completeNoDesc"}, false},
+		{"flag value", []string{"--workspace", "__complete", "get", "sandbox"}, false},
+		{"short flag value", []string{"-w", "__completeNoDesc", "version"}, false},
+		{"flag value then completion", []string{"-w", "__complete", "__completeNoDesc", ""}, true},
+		{"terminator", []string{"--", "__complete"}, false},
+		{"completion arguments terminator", []string{"__complete", "get", "--", ""}, true},
+		{"unknown leading flag", []string{"--unknown", "__complete"}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) { assert.Equal(t, tt.completion, IsShellCompletionRequest(tt.args)) })
+	}
+}
+
+func TestShellCompletionResolutionDoesNotChangeFlags(t *testing.T) {
+	previousWorkspace, previousOutput, previousVerbose := workspace, outputFormat, verbose
+	assert.True(t, IsShellCompletionRequest([]string{"-w", "completion-workspace", "-o", "json", "-v", "__complete", ""}))
+	assert.Equal(t, previousWorkspace, workspace)
+	assert.Equal(t, previousOutput, outputFormat)
+	assert.Equal(t, previousVerbose, verbose)
+}

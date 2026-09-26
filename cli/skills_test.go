@@ -7,7 +7,7 @@ import (
 )
 
 func TestSkillsInstallCommand(t *testing.T) {
-	assert.Equal(t, "npx -y skills add blaxel-ai/agent-skills -g --all", skillsInstallCommand())
+	assert.Equal(t, "bl skills install", skillsInstallCommand())
 }
 
 func TestSkillsInstallDisabled(t *testing.T) {

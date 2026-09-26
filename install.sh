@@ -196,7 +196,7 @@ BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-~/.local/bin}
 PREFIX="$OWNER/$REPO"
-SKILLS_INSTALL_CMD="npx -y skills add blaxel-ai/agent-skills -g --all"
+SKILLS_INSTALL_CMD="bl skills install"
 
 ARCH=$(uname_arch)
 OS=$(uname_os)
@@ -655,8 +655,8 @@ setup_tracking() {
 }
 
 # Function to install the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
-# Uses the `skills` npm CLI to install them globally so coding agents
-# (Claude Code, Codex, Cursor, ...) can use them. Best-effort: never fails the install.
+# The installed CLI verifies its locked npm dependencies before running skills.
+# Best-effort: never fails the CLI install.
 setup_skills() {
   # BL_INSTALL_SKILLS=true/false bypasses CI check and prompt
   if [ "${BL_INSTALL_SKILLS:-}" = "false" ]; then
@@ -690,8 +690,8 @@ setup_skills() {
     skills_runner="sudo -u ${SUDO_USER} -H -i"
   fi
 
-  if ! $skills_runner sh -c 'command -v npx >/dev/null 2>&1'; then
-    echo "⚠ Could not install the Blaxel skills: npx (Node.js) was not found."
+  if ! $skills_runner sh -c 'command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1'; then
+    echo "⚠ Could not install the Blaxel skills: Node.js (node and npm) was not found."
     echo "  Install Node.js (https://nodejs.org) and then run:"
     echo "    ${SKILLS_INSTALL_CMD}"
     return
@@ -699,7 +699,7 @@ setup_skills() {
 
   echo "Installing Blaxel skills..."
   skills_ok=0
-  $skills_runner sh -c "${SKILLS_INSTALL_CMD}" && skills_ok=1
+  $skills_runner sh -c '"$1" skills install' sh "${ABSOLUTE_BINDIR}/${BINARY}" && skills_ok=1
 
   if [ "$skills_ok" = "1" ]; then
     echo "✓ Blaxel skills installed. Restart your coding agent to load them."

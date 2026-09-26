@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Exercise a prebuilt CLI in temporary Homebrew kegs without invoking brew.
 
-Usage: python3 test/install/test_homebrew_skills.py /tmp/blaxel [--real-npx]
+Usage: python3 test/install/test_homebrew_skills.py /tmp/blaxel [--real-npm]
 The optional network test installs real skills into a disposable home directory.
 """
 
 import argparse
+import base64
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 
 
-INSTALL_ARGS = ["-y", "skills", "add", "blaxel-ai/agent-skills", "-g", "--all"]
+INSTALL_ARGS = ["add", "blaxel-ai/agent-skills", "-g", "--all"]
+NPM_ARGS = ["ci", "--ignore-scripts", "--no-audit", "--no-fund",
+            "--engine-strict", "--registry=https://registry.npmjs.org"]
+LOCK = json.loads((Path(__file__).resolve().parents[2] / "cli/skillsinstaller/package-lock.json").read_text())
 
 
 class Installation:
@@ -56,22 +61,67 @@ class Installation:
             link.unlink(missing_ok=True)
             link.symlink_to(target)
 
-    def fake_npx(self):
-        script = self.tools / "npx"
-        script.write_text(
+    def fake_npm(self):
+        # Run only Python stubs. No shell expands paths or test fixtures.
+        npm = self.tools / "npm-cli.js"
+        npm.write_text("// fake npm entry point\n")
+        npm.chmod(0o755)
+        (self.tools / "npm").symlink_to(npm)
+        node = self.tools / "node"
+        node.write_text(
             f"#!{sys.executable}\n"
             "import json, os, pathlib, sys\n"
-            "with (pathlib.Path(os.environ['HOME']) / 'calls.jsonl').open('a') as log:\n"
-            "    log.write(json.dumps(sys.argv[1:]) + '\\n')\n"
-            "print('FAKE_NPX_STDOUT')\n"
-            "print('FAKE_NPX_STDERR', file=sys.stderr)\n"
-            "sys.exit(int(os.environ.get('FAKE_NPX_EXIT', '0')))\n"
+            f"expected_lock = {LOCK!r}\n"
+            f"npm_args = {NPM_ARGS!r}\n"
+            f"install_args = {INSTALL_ARGS!r}\n" + textwrap.dedent("""\
+                entry = pathlib.Path(sys.argv[1])
+                assert entry.is_absolute() and entry.is_file(), entry
+                root = pathlib.Path.cwd()
+                assert root.is_relative_to(pathlib.Path(os.environ['TMPDIR'])), root
+                phase = 'npm' if entry.name == 'npm-cli.js' else 'skills'
+                with (pathlib.Path(os.environ['HOME']) / 'calls.jsonl').open('a') as log:
+                    log.write(json.dumps({'tool': phase, 'args': sys.argv[2:]}) + '\\n')
+                if phase == 'npm':
+                    expected_args = npm_args + [
+                        '--userconfig=' + str(root / 'npmrc'),
+                        '--globalconfig=' + str(root / 'global-npmrc'),
+                        '--cache=' + str(root / 'npm-cache'),
+                    ]
+                    assert sys.argv[2:] == expected_args, sys.argv
+                    lock = json.loads((root / 'package-lock.json').read_text())
+                    assert lock == expected_lock, lock
+                    manifest = json.loads((root / 'package.json').read_text())
+                    assert manifest['dependencies'] == {'skills': '1.7.0'}
+                    for name, package in lock['packages'].items():
+                        if name:
+                            assert package['integrity'].startswith('sha512-')
+                            assert package['resolved'].startswith('https://registry.npmjs.org/')
+                    print('FAKE_NPM_STDOUT')
+                    print('FAKE_NPM_STDERR', file=sys.stderr)
+                    if os.environ.get('FAKE_NPM_EXIT'):
+                        sys.exit(int(os.environ['FAKE_NPM_EXIT']))
+                    target = root / 'node_modules/skills/bin/cli.mjs'
+                    target.parent.mkdir(parents=True)
+                    target.write_text('// fake locked skills installer\\n')
+                else:
+                    assert entry == root / 'node_modules/skills/bin/cli.mjs', entry
+                    assert sys.argv[2:] == install_args, sys.argv
+                    print('FAKE_NODE_STDOUT')
+                    print('FAKE_NODE_STDERR', file=sys.stderr)
+            """)
         )
-        script.chmod(0o755)
+        node.chmod(0o755)
 
     def calls(self):
         log = self.home / "calls.jsonl"
         return [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+
+    def assert_installs(self, count):
+        calls = self.calls()
+        assert len(calls) == count * 2, calls
+        for npm, node in zip(calls[::2], calls[1::2]):
+            assert npm["tool"] == "npm" and npm["args"][:len(NPM_ARGS)] == NPM_ARGS, npm
+            assert node == {'tool': 'skills', 'args': INSTALL_ARGS}, node
 
     def marker(self, version="1.0.0"):
         return self.home / ".blaxel/skills/homebrew" / version
@@ -84,37 +134,51 @@ class Installation:
             capture_output=True, text=True, timeout=150,
         )
         assert result.returncode == 0, (args, result.returncode, result.stdout, result.stderr)
-        assert "FAKE_NPX" not in result.stdout, result.stdout
+        assert "FAKE_" not in result.stdout, result.stdout
         assert "Installing Blaxel skills" not in result.stdout, result.stdout
         return result
 
 
 def fake_tests(root, binary):
+    for index, args in enumerate((
+        ("__complete", ""), ("__completeNoDesc", ""),
+        ("--verbose", "__complete", ""), ("--verbose", "__completeNoDesc", ""),
+    )):
+        install = Installation(root / f"completion-{index}", binary)
+        install.fake_npm()
+        result = install.run(args)
+        assert not install.calls() and not install.marker().exists(), result
+        install.run()
+        install.assert_installs(1)
+        assert install.marker().exists()
+        print(f"PASS completion skips setup: bl {' '.join(args)}", flush=True)
+
     for index, args in enumerate((("--help",), ("--version",), ("help",), ("version",), ())):
         install = Installation(root / f"command-{index}", binary)
-        install.fake_npx()
+        install.fake_npm()
         first = install.run(args)
-        assert install.calls() == [INSTALL_ARGS]
+        install.assert_installs(1)
         assert install.marker().exists()
-        assert "FAKE_NPX_STDOUT" in first.stderr and "FAKE_NPX_STDERR" in first.stderr
+        assert all(f"FAKE_{tool}_{stream}" in first.stderr
+                   for tool in ("NPM", "NODE") for stream in ("STDOUT", "STDERR"))
         second = install.run(args)
-        assert install.calls() == [INSTALL_ARGS]
+        install.assert_installs(1)
         assert first.stdout == second.stdout
         assert "Installing Blaxel skills" not in second.stderr
         print(f"PASS first invocation and repeat: bl {' '.join(args)}", flush=True)
 
     install = Installation(root / "upgrade", binary)
-    install.fake_npx()
+    install.fake_npm()
     install.run()
     install.use_keg("1.0.1")
     install.run()
     install.run()
-    assert install.calls() == [INSTALL_ARGS, INSTALL_ARGS]
+    install.assert_installs(2)
     assert install.marker("1.0.1").exists()
     print("PASS new keg refresh", flush=True)
 
     install = Installation(root / "upgrade-command", binary)
-    install.fake_npx()
+    install.fake_npm()
     # Only these disposable scripts can service brew/git calls. The fake brew
     # changes both links while the old CLI process is still running.
     brew = install.tools / "brew"
@@ -143,10 +207,10 @@ def fake_tests(root, binary):
     git.write_text(f"#!{sys.executable}\n")
     git.chmod(0o755)
     install.run(("upgrade",))
-    assert install.calls() == [INSTALL_ARGS]
+    install.assert_installs(1)
     assert install.marker().exists() and install.marker("1.0.1").exists()
     install.run()
-    assert install.calls() == [INSTALL_ARGS]
+    install.assert_installs(1)
     print("PASS first bl upgrade installs once and marks the new keg", flush=True)
 
     for name, skipped, enabled in (
@@ -154,66 +218,146 @@ def fake_tests(root, binary):
         ("ci", {"CI": "true"}, {"CI": "true", "BL_INSTALL_SKILLS": "true"}),
     ):
         install = Installation(root / name, binary)
-        install.fake_npx()
+        install.fake_npm()
         install.run(extra_env=skipped)
         assert not install.calls() and not install.marker().exists()
         install.run(extra_env=enabled)
-        assert install.calls() == [INSTALL_ARGS] and install.marker().exists()
+        install.assert_installs(1)
+        assert install.marker().exists()
         print(f"PASS {name} skip then enable", flush=True)
 
     install = Installation(root / "failure", binary)
-    install.fake_npx()
-    result = install.run(extra_env={"FAKE_NPX_EXIT": "1"})
+    install.fake_npm()
+    result = install.run(extra_env={"FAKE_NPM_EXIT": "1"})
     assert "Could not install" in result.stderr
     install.run()
-    assert install.calls() == [INSTALL_ARGS]
+    assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
+    assert install.marker().exists()
     print("PASS installer failure is nonblocking and not repeated", flush=True)
 
-    install = Installation(root / "no-npx", binary)
+    install = Installation(root / "no-node", binary)
     result = install.run()
-    assert "npx (Node.js) was not found" in result.stderr
-    install.fake_npx()
+    assert "node (22.20.0 or later) and npm are required" in result.stderr
+    install.fake_npm()
     install.run()
     assert not install.calls() and install.marker().exists()
-    print("PASS missing npx is nonblocking and not repeated", flush=True)
+    print("PASS missing Node.js is nonblocking and not repeated", flush=True)
+
+    install = Installation(root / "no-npm", binary)
+    install.fake_npm()
+    (install.tools / "npm").unlink()
+    result = install.run()
+    assert "npm is required" in result.stderr, result.stderr
+    (install.tools / "npm").symlink_to(install.tools / "npm-cli.js")
+    install.run()
+    assert not install.calls() and install.marker().exists()
+    print("PASS missing npm is nonblocking and not repeated", flush=True)
 
     install = Installation(root / "nonbrew", binary)
-    install.fake_npx()
+    install.fake_npm()
     install.run(direct=True)
     assert not install.calls() and not install.marker().exists()
     print("PASS non-Homebrew binary skips installation", flush=True)
+
+    install = Installation(root / "explicit", binary)
+    install.fake_npm()
+    install.run(("skills", "install"), direct=True,
+                extra_env={"CI": "true", "BL_INSTALL_SKILLS": "false"})
+    install.assert_installs(1)
+    assert not install.marker().exists()
+    print("PASS explicit skills install works outside Homebrew without authentication", flush=True)
+
+
+def shell_tests(root, binary):
+    source = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
+    function = "setup_skills() {" + source.split("setup_skills() {", 1)[1].split("\n}", 1)[0] + "\n}\n"
+    for name, extra_env in (("success", {}), ("failure", {"FAKE_NPM_EXIT": "1"})):
+        install = Installation(root / f"shell-{name}", binary)
+        install.fake_npm()
+        (install.tools / "sh").symlink_to("/bin/sh")
+        identity = install.tools / "id"
+        identity.write_text(f"#!{sys.executable}\nprint(1000)\n")
+        identity.chmod(0o755)
+        # Metacharacters stay literal all the way through the shell installer's
+        # argument passing. No environment or binary from the real home is used.
+        directory = install.root / "installed cli ' $(not-a-command)"
+        directory.mkdir()
+        shutil.copy2(binary, directory / "blaxel")
+        script = install.root / "setup-skills.sh"
+        script.write_text("set -eu\n" + function + "\nsetup_skills\n")
+        result = subprocess.run(
+            ["/bin/sh", str(script)], cwd=install.cwd,
+            env={**install.env, **extra_env, "BL_INSTALL_SKILLS": "true",
+                 "ABSOLUTE_BINDIR": str(directory), "BINARY": "blaxel",
+                 "SKILLS_INSTALL_CMD": "bl skills install"},
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        if name == "success":
+            install.assert_installs(1)
+            assert "Blaxel skills installed." in result.stdout, result.stdout
+        else:
+            assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
+            assert "Could not install the Blaxel skills" in result.stdout, result.stdout
+        print(f"PASS shell setup_skills {name} with literal binary path", flush=True)
+
+
+def integrity_test(install):
+    directory = install.root / "integrity"
+    directory.mkdir()
+    source = Path(__file__).resolve().parents[2] / "cli/skillsinstaller"
+    shutil.copy2(source / "package.json", directory / "package.json")
+    lock = json.loads((source / "package-lock.json").read_text())
+    lock["packages"]["node_modules/skills"]["integrity"] = (
+        "sha512-" + base64.b64encode(bytes(64)).decode()
+    )
+    (directory / "package-lock.json").write_text(json.dumps(lock))
+    # Use an empty, independent cache so npm must validate the downloaded bytes.
+    result = subprocess.run(
+        [str(install.tools / "node"), str((install.tools / "npm").resolve()),
+         *NPM_ARGS, "--fetch-retries=0", "--fetch-timeout=15000",
+         "--cache=" + str(directory / "cache")],
+        cwd=directory, env=install.env, stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode != 0 and "EINTEGRITY" in result.stderr, (
+        result.returncode, result.stdout, result.stderr
+    )
+    print("PASS real npm rejects a modified package integrity checksum", flush=True)
 
 
 def real_test(root, binary):
     install = Installation(root / "real", binary)
     # Expose only the tools npm and the skills installer need. No inherited
     # credentials, npm config, agent config, or user PATH reaches the subprocess.
-    for name in ("npx", "node", "git", "sh"):
+    for name in ("npm", "node", "git", "sh"):
         executable = shutil.which(name)
         if not executable:
-            raise RuntimeError(f"--real-npx requires {name} on the invoking PATH")
+            raise RuntimeError(f"--real-npm requires {name} on the invoking PATH")
         (install.tools / name).symlink_to(Path(executable).resolve())
     first = install.run()
     assert "Blaxel skills installed." in first.stderr, first.stderr
     skills = list((install.home / ".agents/skills").glob("*/SKILL.md"))
-    assert skills, f"No installed SKILL.md files under {install.home}"
+    assert {path.parent.name for path in skills} == {"blaxel-cli", "blaxel-sdk"}, skills
     assert install.marker().exists()
     second = install.run()
     assert "Installing Blaxel skills" not in second.stderr, second.stderr
     assert first.stdout == second.stdout
-    print(f"PASS real npx installation: {len(skills)} skills; second invocation skips setup", flush=True)
+    print(f"PASS real locked npm installation: {len(skills)} skills; second invocation skips setup", flush=True)
+    integrity_test(install)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path, help="Prebuilt CLI binary outside a Homebrew keg")
-    parser.add_argument("--real-npx", action="store_true", help="Also install actual skills in an isolated home")
+    parser.add_argument("--real-npm", action="store_true", help="Also install actual skills in an isolated home")
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix="bl-homebrew-skills-") as temporary:
         root = Path(temporary).resolve()
         fake_tests(root, binary)
-        if args.real_npx:
+        shell_tests(root, binary)
+        if args.real_npm:
             real_test(root, binary)
 
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
 // homebrewSkillsLocation recognizes the resolved keg path without invoking brew
@@ -25,7 +27,7 @@ func homebrewSkillsLocation(executable string) (prefix, version string) {
 }
 
 func installHomebrewSkills() {
-	if skillsInstallDisabled(os.Getenv) {
+	if skillsInstallDisabled(os.Getenv) || core.IsShellCompletionRequest(os.Args[1:]) {
 		return
 	}
 	executable, err := os.Executable()
@@ -37,7 +39,7 @@ func installHomebrewSkills() {
 
 // setupHomebrewSkills records an attempt before installing, so concurrent
 // launches and failures cannot repeatedly delay commands. A failed attempt can
-// be retried explicitly with bl upgrade or the printed npx command.
+// be retried explicitly with bl upgrade or bl skills install.
 func setupHomebrewSkills(executable string, install func()) {
 	if skillsInstallDisabled(os.Getenv) {
 		return
