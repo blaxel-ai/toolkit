@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -57,10 +58,15 @@ func TestSkillsInstallerEnvironment(t *testing.T) {
 func TestPinnedSkillsCommands(t *testing.T) {
 	var output bytes.Buffer
 	var commands []*exec.Cmd
-	err := runPinnedSkills(context.Background(), "/trusted/node", "/trusted/npm-cli.js", &output, func(cmd *exec.Cmd) error {
+	npm := filepath.Join(t.TempDir(), "npm")
+	var directory string
+	err := runPinnedSkills(context.Background(), "/trusted/node", npm, &output, func(cmd *exec.Cmd) error {
 		commands = append(commands, cmd)
-		require.NotEmpty(t, cmd.Dir)
-		data, err := os.ReadFile(filepath.Join(cmd.Dir, "package-lock.json"))
+		assert.Empty(t, cmd.Dir, "preserve caller directory for version-manager shims")
+		if directory == "" {
+			directory = skillsTestPrefix(t, cmd.Args)
+		}
+		data, err := os.ReadFile(filepath.Join(directory, "package-lock.json"))
 		require.NoError(t, err)
 		assert.Equal(t, skillsPackageLock, data)
 		assert.Same(t, &output, cmd.Stdout)
@@ -70,10 +76,10 @@ func TestPinnedSkillsCommands(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, commands, 2)
-	assert.Equal(t, []string{"/trusted/node", "/trusted/npm-cli.js", "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org"}, commands[0].Args[:8])
-	assert.Equal(t, []string{"/trusted/node", filepath.Join(commands[0].Dir, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "--all"}, commands[1].Args)
+	assert.Equal(t, []string{npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org"}, commands[0].Args[:7])
+	assert.Equal(t, []string{"/trusted/node", filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "--all"}, commands[1].Args)
 	assert.Equal(t, commands[0].Dir, commands[1].Dir)
-	_, err = os.Stat(commands[0].Dir)
+	_, err = os.Stat(directory)
 	assert.True(t, os.IsNotExist(err), "temporary package tree must be removed")
 }
 
@@ -87,18 +93,18 @@ func TestPinnedSkillsPreparationFailureStopsExecution(t *testing.T) {
 	assert.Equal(t, 1, calls)
 }
 
-func TestSkillsNPMCLIWindowsLayout(t *testing.T) {
+func TestSkillsNPMCommandWindowsLayout(t *testing.T) {
 	directory := t.TempDir()
 	wrapper := filepath.Join(directory, "npm.cmd")
 	cli := filepath.Join(directory, "node_modules", "npm", "bin", "npm-cli.js")
 	require.NoError(t, os.MkdirAll(filepath.Dir(cli), 0700))
 	require.NoError(t, os.WriteFile(wrapper, []byte("@echo off"), 0600))
 	require.NoError(t, os.WriteFile(cli, []byte("// npm"), 0600))
-	actual, err := skillsNPMCLI(wrapper)
+	actual, err := skillsNPMCommand("node", wrapper)
 	require.NoError(t, err)
 	resolved, err := filepath.EvalSymlinks(cli)
 	require.NoError(t, err)
-	assert.Equal(t, resolved, actual)
+	assert.Equal(t, []string{"node", resolved}, actual)
 }
 
 // Exercise npm's actual integrity enforcement using a local tarball server.
@@ -112,8 +118,6 @@ func TestPinnedSkillsRejectsChangedTarball(t *testing.T) {
 	if err != nil {
 		t.Skip("npm is unavailable")
 	}
-	npm, err = skillsNPMCLI(npm)
-	require.NoError(t, err)
 	var archive bytes.Buffer
 	gz := gzip.NewWriter(&archive)
 	tarball := tar.NewWriter(gz)
@@ -141,11 +145,60 @@ func TestPinnedSkillsRejectsChangedTarball(t *testing.T) {
 		}
 		data, marshalErr := json.Marshal(fixture)
 		require.NoError(t, marshalErr)
-		require.NoError(t, os.WriteFile(filepath.Join(cmd.Dir, "package-lock.json"), data, 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(skillsTestPrefix(t, cmd.Args), "package-lock.json"), data, 0600))
 		cmd.Args = append(cmd.Args, "--fetch-retries=0")
 		return cmd.Run()
 	})
 	require.Error(t, err)
 	assert.Equal(t, 1, calls)
 	assert.Contains(t, output.String(), "EINTEGRITY")
+}
+
+func skillsTestPrefix(t *testing.T, args []string) string {
+	t.Helper()
+	for _, arg := range args {
+		if prefix, found := strings.CutPrefix(arg, "--prefix="); found {
+			return prefix
+		}
+	}
+	t.Fatal("npm command is missing its isolated prefix")
+	return ""
+}
+
+func TestSkillsNPMCommandNativeExecutable(t *testing.T) {
+	// The Go test executable stands in for native version-manager launchers.
+	executable, err := os.Executable()
+	require.NoError(t, err)
+	command, err := skillsNPMCommand("unused-node", executable)
+	require.NoError(t, err)
+	require.Equal(t, []string{executable}, command)
+	output, err := exec.Command(command[0], "-test.run=^$").CombinedOutput()
+	require.NoError(t, err, string(output))
+	command, err = skillsNPMCommand("unused-node", filepath.Join(t.TempDir(), "npm.exe"))
+	require.NoError(t, err)
+	require.Len(t, command, 1, "native Windows shims must not be interpreted as JavaScript")
+}
+
+func TestPinnedSkillsExecutesShellShim(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell shim")
+	}
+	directory := t.TempDir()
+	shim := filepath.Join(directory, "npm-shim")
+	require.NoError(t, os.WriteFile(shim, []byte("#!/bin/sh\nprintf 'shim:%s' \"$1\"\n"), 0700))
+	alias := filepath.Join(directory, "npm")
+	require.NoError(t, os.Symlink(shim, alias))
+	var output bytes.Buffer
+	calls := 0
+	err := runPinnedSkills(context.Background(), "unused-node", alias, &output, func(cmd *exec.Cmd) error {
+		calls++
+		if calls == 1 {
+			assert.Equal(t, alias, cmd.Path, "preserve shim symlink invocation")
+			return cmd.Run()
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "shim:ci", output.String())
+	assert.Equal(t, 2, calls)
 }

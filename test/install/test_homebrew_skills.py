@@ -20,6 +20,12 @@ INSTALL_ARGS = ["add", "blaxel-ai/agent-skills", "-g", "--all"]
 NPM_ARGS = ["ci", "--ignore-scripts", "--no-audit", "--no-fund",
             "--engine-strict", "--registry=https://registry.npmjs.org"]
 LOCK = json.loads((Path(__file__).resolve().parents[2] / "cli/skillsinstaller/package-lock.json").read_text())
+PROJECT_CANARIES = {
+    ".npmrc": "registry=https://invalid.example.invalid\nignore-scripts=false\n",
+    "package.json": '{"name":"untouched-user-project","private":true}\n',
+    "package-lock.json": '{"name":"untouched-user-project","lockfileVersion":3}\n',
+    ".tool-versions": "nodejs 22.20.0\n",
+}
 
 
 class Installation:
@@ -63,31 +69,34 @@ class Installation:
 
     def fake_npm(self):
         # Run only Python stubs. No shell expands paths or test fixtures.
-        npm = self.tools / "npm-cli.js"
-        npm.write_text("// fake npm entry point\n")
-        npm.chmod(0o755)
+        npm = self.tools / "npm-runner"
         (self.tools / "npm").symlink_to(npm)
         node = self.tools / "node"
-        node.write_text(
+        script = (
             f"#!{sys.executable}\n"
             "import json, os, pathlib, sys\n"
             f"expected_lock = {LOCK!r}\n"
             f"npm_args = {NPM_ARGS!r}\n"
             f"install_args = {INSTALL_ARGS!r}\n" + textwrap.dedent("""\
-                entry = pathlib.Path(sys.argv[1])
-                assert entry.is_absolute() and entry.is_file(), entry
-                root = pathlib.Path.cwd()
+                phase = 'skills' if pathlib.Path(sys.argv[0]).name == 'node' else 'npm'
+                args = sys.argv[2:] if phase == 'skills' else sys.argv[1:]
+                if phase == 'npm':
+                    prefix = next(arg for arg in args if arg.startswith('--prefix='))
+                    root = pathlib.Path(prefix.split('=', 1)[1])
+                else:
+                    root = pathlib.Path(sys.argv[1]).parents[3]
                 assert root.is_relative_to(pathlib.Path(os.environ['TMPDIR'])), root
-                phase = 'npm' if entry.name == 'npm-cli.js' else 'skills'
+                assert pathlib.Path.cwd() == pathlib.Path(os.environ['TMPDIR']) / 'work'
                 with (pathlib.Path(os.environ['HOME']) / 'calls.jsonl').open('a') as log:
-                    log.write(json.dumps({'tool': phase, 'args': sys.argv[2:]}) + '\\n')
+                    log.write(json.dumps({'tool': phase, 'args': args}) + '\\n')
                 if phase == 'npm':
                     expected_args = npm_args + [
                         '--userconfig=' + str(root / 'npmrc'),
                         '--globalconfig=' + str(root / 'global-npmrc'),
                         '--cache=' + str(root / 'npm-cache'),
+                        '--prefix=' + str(root),
                     ]
-                    assert sys.argv[2:] == expected_args, sys.argv
+                    assert args == expected_args, sys.argv
                     lock = json.loads((root / 'package-lock.json').read_text())
                     assert lock == expected_lock, lock
                     manifest = json.loads((root / 'package.json').read_text())
@@ -104,13 +113,17 @@ class Installation:
                     target.parent.mkdir(parents=True)
                     target.write_text('// fake locked skills installer\\n')
                 else:
+                    entry = pathlib.Path(sys.argv[1])
+                    assert entry.is_absolute() and entry.is_file(), entry
                     assert entry == root / 'node_modules/skills/bin/cli.mjs', entry
                     assert sys.argv[2:] == install_args, sys.argv
                     print('FAKE_NODE_STDOUT')
                     print('FAKE_NODE_STDERR', file=sys.stderr)
             """)
         )
-        node.chmod(0o755)
+        for executable in (node, npm):
+            executable.write_text(script)
+            executable.chmod(0o755)
 
     def calls(self):
         log = self.home / "calls.jsonl"
@@ -126,6 +139,15 @@ class Installation:
     def marker(self, version="1.0.0"):
         return self.home / ".blaxel/skills/homebrew" / version
 
+    def seed_project(self):
+        for name, content in PROJECT_CANARIES.items():
+            (self.cwd / name).write_text(content)
+
+    def assert_project_unchanged(self):
+        for name, content in PROJECT_CANARIES.items():
+            assert (self.cwd / name).read_text() == content, name
+        assert not (self.cwd / "node_modules").exists()
+
     def run(self, args=("--help",), extra_env=None, direct=False):
         binary = self.binary if direct else self.prefix / "bin/bl"
         result = subprocess.run(
@@ -140,6 +162,22 @@ class Installation:
 
 
 def fake_tests(root, binary):
+    install = Installation(root / "npm-shell-shim", binary)
+    install.fake_npm()
+    (install.tools / "npm").unlink()
+    (install.tools / "npm").write_text(
+        '#!/bin/sh\n'
+        'printf "executed\\n" > "$HOME/npm-shim-executed"\n'
+        'exec "$TMPDIR/tools/npm-runner" "$@"\n'
+    )
+    (install.tools / "npm").chmod(0o755)
+    install.seed_project()
+    install.run()
+    install.assert_installs(1)
+    assert (install.home / "npm-shim-executed").read_text() == "executed\n"
+    install.assert_project_unchanged()
+    print("PASS npm shell shim executes with caller cwd and leaves project files untouched", flush=True)
+
     for index, args in enumerate((
         ("__complete", ""), ("__completeNoDesc", ""),
         ("--verbose", "__complete", ""), ("--verbose", "__completeNoDesc", ""),
@@ -248,7 +286,7 @@ def fake_tests(root, binary):
     (install.tools / "npm").unlink()
     result = install.run()
     assert "npm is required" in result.stderr, result.stderr
-    (install.tools / "npm").symlink_to(install.tools / "npm-cli.js")
+    (install.tools / "npm").symlink_to(install.tools / "npm-runner")
     install.run()
     assert not install.calls() and install.marker().exists()
     print("PASS missing npm is nonblocking and not repeated", flush=True)
@@ -314,8 +352,7 @@ def integrity_test(install):
     (directory / "package-lock.json").write_text(json.dumps(lock))
     # Use an empty, independent cache so npm must validate the downloaded bytes.
     result = subprocess.run(
-        [str(install.tools / "node"), str((install.tools / "npm").resolve()),
-         *NPM_ARGS, "--fetch-retries=0", "--fetch-timeout=15000",
+        [str(install.tools / "npm"), *NPM_ARGS, "--fetch-retries=0", "--fetch-timeout=15000",
          "--cache=" + str(directory / "cache")],
         cwd=directory, env=install.env, stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=60,
@@ -328,6 +365,7 @@ def integrity_test(install):
 
 def real_test(root, binary):
     install = Installation(root / "real", binary)
+    install.seed_project()
     # Expose only the tools npm and the skills installer need. No inherited
     # credentials, npm config, agent config, or user PATH reaches the subprocess.
     for name in ("npm", "node", "git", "sh"):
@@ -343,6 +381,7 @@ def real_test(root, binary):
     second = install.run()
     assert "Installing Blaxel skills" not in second.stderr, second.stderr
     assert first.stdout == second.stdout
+    install.assert_project_unchanged()
     print(f"PASS real locked npm installation: {len(skills)} skills; second invocation skips setup", flush=True)
     integrity_test(install)
 

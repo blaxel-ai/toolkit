@@ -51,34 +51,48 @@ func installPinnedSkills(ctx context.Context, output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("npm is required: %w", err)
 	}
-	npm, err = skillsNPMCLI(npm)
-	if err != nil {
-		return err
-	}
 	return runPinnedSkills(ctx, node, npm, output, func(cmd *exec.Cmd) error { return cmd.Run() })
 }
 
-// Run npm through node, avoiding shell and .cmd interpolation on Windows.
-func skillsNPMCLI(npm string) (string, error) {
+// Preserve executable shims and their symlinks on Unix and for native Windows
+// executables. Only Windows batch launchers need npm's JS entry point because
+// they cannot be executed directly without invoking a command shell.
+func skillsNPMCommand(node, npm string) ([]string, error) {
+	npm, err := filepath.Abs(npm)
+	if err != nil {
+		return nil, err
+	}
+	extension := strings.ToLower(filepath.Ext(npm))
+	if extension != ".cmd" && extension != ".bat" {
+		return []string{npm}, nil
+	}
 	resolved, err := filepath.EvalSymlinks(npm)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if extension := strings.ToLower(filepath.Ext(resolved)); extension == ".cmd" || extension == ".bat" || extension == ".exe" {
-		resolved = filepath.Join(filepath.Dir(resolved), "node_modules", "npm", "bin", "npm-cli.js")
+	entry := filepath.Join(filepath.Dir(resolved), "node_modules", "npm", "bin", "npm-cli.js")
+	if _, err := os.Stat(entry); err != nil {
+		return nil, fmt.Errorf("could not locate npm CLI: %w", err)
 	}
-	if _, err := os.Stat(resolved); err != nil {
-		return "", fmt.Errorf("could not locate npm CLI: %w", err)
-	}
-	return filepath.Abs(resolved)
+	return []string{node, entry}, nil
 }
 
 func runPinnedSkills(ctx context.Context, node, npm string, output io.Writer, run func(*exec.Cmd) error) error {
+	npmCommand, err := skillsNPMCommand(node, npm)
+	if err != nil {
+		return err
+	}
 	directory, err := os.MkdirTemp("", "blaxel-skills-")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(directory) }()
+	// npm treats a symlinked prefix (such as macOS /var) as another dependency.
+	resolvedDirectory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		return err
+	}
+	directory = resolvedDirectory
 	for name, data := range map[string][]byte{
 		"package.json": skillsPackageJSON, "package-lock.json": skillsPackageLock, "npmrc": {}, "global-npmrc": {},
 	} {
@@ -88,14 +102,16 @@ func runPinnedSkills(ctx context.Context, node, npm string, output io.Writer, ru
 	}
 	env := skillsInstallerEnvironment(os.Environ())
 	commands := [][]string{
-		{npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org",
-			"--userconfig=" + filepath.Join(directory, "npmrc"), "--globalconfig=" + filepath.Join(directory, "global-npmrc"),
-			"--cache=" + filepath.Join(directory, "npm-cache")},
-		{filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "--all"},
+		append(npmCommand, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org",
+			"--userconfig="+filepath.Join(directory, "npmrc"), "--globalconfig="+filepath.Join(directory, "global-npmrc"),
+			"--cache="+filepath.Join(directory, "npm-cache"), "--prefix="+directory),
+		{node, filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "--all"},
 	}
 	for index, args := range commands {
-		cmd := exec.CommandContext(ctx, node, args...)
-		cmd.Dir, cmd.Env = directory, env
+		cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+		// Retain the caller's directory so version-manager shims can select Node.
+		// --prefix and absolute entry/config paths keep all npm writes isolated.
+		cmd.Env = env
 		cmd.Stdout, cmd.Stderr = output, output
 		cmd.WaitDelay = time.Second
 		if err := run(cmd); err != nil {
