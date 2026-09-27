@@ -32,6 +32,23 @@ $ErrorActionPreference = "Stop"
 $Owner = "blaxel-ai"
 $Repo  = "toolkit"
 
+function Test-SkillsInstallationEnabled {
+    param([switch]$SkipSkills)
+
+    if ($SkipSkills) { return $false }
+
+    $override = ([string]$env:BL_INSTALL_SKILLS).Trim()
+    if ($override -eq "false") { return $false }
+    if ($override -eq "true") { return $true }
+
+    foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
+        if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
+            return $false
+        }
+    }
+    return $true
+}
+
 # ── Detect architecture ──────────────────────────────────────────────
 function Get-BlaxelArch {
     switch ($env:PROCESSOR_ARCHITECTURE) {
@@ -173,8 +190,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # ── Install Blaxel agent skills ──────────────────────────────────────
 $SkillsInstallCmd = "bl skills install"
 # BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
-$IsCI = -not [string]::IsNullOrEmpty($env:CI) -or -not [string]::IsNullOrEmpty($env:GITHUB_ACTIONS)
-$InstallSkills = -not $SkipSkills -and $env:BL_INSTALL_SKILLS -ne "false" -and ($env:BL_INSTALL_SKILLS -eq "true" -or -not $IsCI)
+$InstallSkills = Test-SkillsInstallationEnabled -SkipSkills:$SkipSkills
 if ($InstallSkills) {
     Write-Host ""
     if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
