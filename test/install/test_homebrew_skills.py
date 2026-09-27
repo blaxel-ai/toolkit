@@ -313,6 +313,7 @@ def shell_tests(root, binary):
         install = Installation(root / f"shell-{name}", binary)
         install.fake_npm()
         (install.tools / "sh").symlink_to("/bin/sh")
+        (install.tools / "sed").symlink_to("/usr/bin/sed")
         identity = install.tools / "id"
         identity.write_text(f"#!{sys.executable}\nprint(1000)\n")
         identity.chmod(0o755)
@@ -363,6 +364,84 @@ def integrity_test(install):
     print("PASS real npm rejects a modified package integrity checksum", flush=True)
 
 
+def sudo_shell_tests(root, binary, source=None):
+    if source is None:
+        source = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
+    function = "setup_skills() {" + source.split("setup_skills() {", 1)[1].split("\n}", 1)[0] + "\n}\n"
+    for name, extra_env in (("success", {}), ("failure", {"FAKE_NPM_EXIT": "1"}),
+                            ("missing-tools", {})):
+        install = Installation(root / f"sudo-shell-{name}", binary)
+        if name != "missing-tools":
+            install.fake_npm()
+        (install.tools / "sh").symlink_to("/bin/sh")
+        root_tools = install.root / "root-tools"
+        root_tools.mkdir()
+        root_home = install.root / "root-home"
+        root_home.mkdir()
+        for tool, actual in (("sh", "/bin/sh"), ("sed", "/usr/bin/sed")):
+            (root_tools / tool).symlink_to(actual)
+        identity = root_tools / "id"
+        identity.write_text(f"#!{sys.executable}\nprint(0)\n")
+        identity.chmod(0o755)
+        sudo = root_tools / "sudo"
+        sudo.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, pathlib, subprocess, sys\n"
+            f"target_home = {str(install.home)!r}\n"
+            f"login_path = {str(install.tools)!r}\n" + textwrap.dedent("""\
+                assert sys.argv[1:5] == ['-u', 'fixture-user', '-H', '-i'], sys.argv
+                args = sys.argv[5:]
+                with (pathlib.Path(target_home) / 'sudo-calls.jsonl').open('a') as log:
+                    log.write(json.dumps(args) + '\\n')
+                # sudo -i joins and re-escapes argv for the login shell. It
+                # deliberately leaves dollar signs unescaped, so '$1' is not
+                # preserved by merely passing it as a separately quoted arg.
+                def escape(argument):
+                    return ''.join(c if c.isascii() and (c.isalnum() or c in '_-$')
+                                   else chr(92) + c for c in argument)
+                command = ' '.join(escape(argument) for argument in args)
+                env = dict(os.environ, HOME=target_home, USERPROFILE=target_home,
+                           PATH=login_path)
+                result = subprocess.run(['/bin/sh', '-c', command], env=env)
+                sys.exit(result.returncode)
+            """)
+        )
+        sudo.chmod(0o755)
+        directory = install.root / "installed cli ' $BL_SKILLS_PATH_CANARY $(printf injected > command-substitution-ran)"
+        directory.mkdir()
+        shutil.copy2(binary, directory / "blaxel")
+        script = install.root / "setup-skills.sh"
+        script.write_text(
+            'set -eu\nis_command() { command -v "$1" >/dev/null 2>&1; }\n'
+            + function + "\nsetup_skills\n"
+        )
+        result = subprocess.run(
+            ["/bin/sh", str(script)], cwd=install.cwd,
+            env={**install.env, **extra_env, "HOME": str(root_home), "PATH": str(root_tools),
+                 "BL_INSTALL_SKILLS": "true", "SUDO_USER": "fixture-user",
+                 "BL_SKILLS_PATH_CANARY": "must-not-expand",
+                 "ABSOLUTE_BINDIR": str(directory), "BINARY": "blaxel",
+                 "SKILLS_INSTALL_CMD": "bl skills install"},
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0, (result.stdout, result.stderr)
+        if name == "success":
+            install.assert_installs(1)
+            assert "Blaxel skills installed." in result.stdout, (result.stdout, result.stderr)
+        elif name == "failure":
+            assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
+            assert "Could not install the Blaxel skills" in result.stdout, result.stdout
+        else:
+            assert not install.calls(), install.calls()
+            assert "Node.js" in result.stdout and "was not found" in result.stdout, result.stdout
+        sudo_calls = [json.loads(line) for line in (install.home / "sudo-calls.jsonl").read_text().splitlines()]
+        assert sudo_calls[0] == ["sh", "-c", "command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1"], sudo_calls
+        assert sudo_calls[1:] == ([] if name == "missing-tools" else [["sh", "-s"]]), sudo_calls
+        assert not (root_home / "calls.jsonl").exists()
+        assert not (install.cwd / "command-substitution-ran").exists()
+        print(f"PASS sudo login setup_skills {name}: target user tools and literal binary path", flush=True)
+
+
 def real_test(root, binary):
     install = Installation(root / "real", binary)
     install.seed_project()
@@ -396,6 +475,7 @@ def main():
         root = Path(temporary).resolve()
         fake_tests(root, binary)
         shell_tests(root, binary)
+        sudo_shell_tests(root, binary)
         if args.real_npm:
             real_test(root, binary)
 

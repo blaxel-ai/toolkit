@@ -699,7 +699,11 @@ setup_skills() {
 
   echo "Installing Blaxel skills..."
   skills_ok=0
-  $skills_runner sh -c '"$1" skills install' sh "${ABSOLUTE_BINDIR}/${BINARY}" && skills_ok=1
+  # sudo -i passes command arguments through the user's login shell, which
+  # expands dollar signs again. Send the literal path in a quoted script on
+  # stdin instead, so only the final sh interprets it.
+  skills_binary=$(printf '%s' "${ABSOLUTE_BINDIR}/${BINARY}" | sed "s/'/'\\\\''/g")
+  printf "exec '%s' skills install\n" "$skills_binary" | $skills_runner sh -s && skills_ok=1
 
   if [ "$skills_ok" = "1" ]; then
     echo "✓ Blaxel skills installed. Restart your coding agent to load them."
