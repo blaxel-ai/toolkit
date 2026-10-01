@@ -196,6 +196,7 @@ BINARY=blaxel
 BINARY_SHORT_NAME=bl
 BINDIR=${BINDIR:-~/.local/bin}
 PREFIX="$OWNER/$REPO"
+SKILLS_INSTALL_CMD="bl skills install"
 
 ARCH=$(uname_arch)
 OS=$(uname_os)
@@ -330,12 +331,12 @@ prompt_user() {
     # Running interactively - ask user via stdin
     printf "%s" "$message"
     read -r PROMPT_RESPONSE
-  elif [ -e /dev/tty ]; then
+  elif [ -e /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then
     # Running non-interactively (piped from curl) - ask user via /dev/tty
     printf "%s" "$message" > /dev/tty
     read -r PROMPT_RESPONSE < /dev/tty
   else
-    # No TTY available
+    # No usable TTY available (e.g. no controlling terminal)
     return 1
   fi
   return 0
@@ -653,6 +654,65 @@ setup_tracking() {
   fi
 }
 
+# Function to install the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
+# The installed CLI verifies its locked npm dependencies before running skills.
+# Best-effort: never fails the CLI install.
+setup_skills() {
+  # BL_INSTALL_SKILLS=true/false bypasses CI check and prompt
+  if [ "${BL_INSTALL_SKILLS:-}" = "false" ]; then
+    return
+  fi
+
+  if [ "${BL_INSTALL_SKILLS:-}" != "true" ]; then
+    if is_ci; then
+      return
+    fi
+  fi
+
+  # Releases before `bl skills install` existed (e.g. VERSION=...) skip quietly.
+  if ! "${ABSOLUTE_BINDIR}/${BINARY}" skills install --help >/dev/null 2>&1; then
+    return
+  fi
+
+  # If running as root (e.g. via sudo), install the skills for the real user.
+  # A login shell (-i) is used so the user's own Node setup (nvm, fnm, Homebrew, ...)
+  # is on PATH and the skills land in the user's home.
+  skills_runner=""
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
+    skills_runner="sudo -u ${SUDO_USER} -H -i"
+  fi
+
+  if ! $skills_runner sh -c 'command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1'; then
+    echo ""
+    echo "Tip: install Node.js 22.20+ (https://nodejs.org), then run \`${SKILLS_INSTALL_CMD}\`"
+    echo "     to give your coding agents (Claude Code, Codex, Cursor, ...) the Blaxel skills."
+    return
+  fi
+
+  if [ "${BL_INSTALL_SKILLS:-}" != "true" ]; then
+    echo ""
+    if ! prompt_user "Do you want to install the Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)? [Y/n] "; then
+      return
+    fi
+
+    case "$PROMPT_RESPONSE" in
+      [nN]|[nN][oO])
+        return
+        ;;
+    esac
+  fi
+
+  # sudo -i passes command arguments through the user's login shell, which
+  # expands dollar signs again. Send the literal path in a quoted script on
+  # stdin instead, so only the final sh interprets it. The CLI prints its own
+  # progress and result.
+  skills_binary=$(printf '%s' "${ABSOLUTE_BINDIR}/${BINARY}" | sed "s/'/'\\\\''/g")
+  if ! printf "exec '%s' skills install\n" "$skills_binary" | $skills_runner sh -s; then
+    echo "⚠ Could not install the Blaxel skills. You can retry later with:"
+    echo "    ${SKILLS_INSTALL_CMD}"
+  fi
+}
+
 # wrap all destructive operations into a function
 # to prevent curl|bash network truncation and disaster
 execute() {
@@ -676,6 +736,7 @@ execute() {
   setup_path_interactive "$ABSOLUTE_BINDIR"
   setup_completion "$ABSOLUTE_BINDIR"
   setup_tracking
+  setup_skills
 }
 
 uname_os_check

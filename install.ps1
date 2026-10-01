@@ -10,6 +10,10 @@
 .PARAMETER Version
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
 
+.PARAMETER SkipSkills
+    Skip installing the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills).
+    Can also be disabled with the BL_INSTALL_SKILLS=false environment variable.
+
 .EXAMPLE
     # Install the latest version:
     powershell -Command "irm https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.ps1 | iex"
@@ -19,13 +23,31 @@
 #>
 
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [switch]$SkipSkills
 )
 
 $ErrorActionPreference = "Stop"
 
 $Owner = "blaxel-ai"
 $Repo  = "toolkit"
+
+function Test-SkillsInstallationEnabled {
+    param([switch]$SkipSkills)
+
+    if ($SkipSkills) { return $false }
+
+    $override = ([string]$env:BL_INSTALL_SKILLS).Trim()
+    if ($override -eq "false") { return $false }
+    if ($override -eq "true") { return $true }
+
+    foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
+        if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
+            return $false
+        }
+    }
+    return $true
+}
 
 # ── Detect architecture ──────────────────────────────────────────────
 function Get-BlaxelArch {
@@ -163,6 +185,43 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "Note: Git was not found on your PATH." -ForegroundColor Yellow
     Write-Host "Some 'bl' commands (like 'bl new') require Git to be installed." -ForegroundColor Yellow
     Write-Host "Install it from: https://git-scm.com/download/win" -ForegroundColor Yellow
+}
+
+# ── Install Blaxel agent skills ──────────────────────────────────────
+$SkillsInstallCmd = "bl skills install"
+# BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
+$InstallSkills = Test-SkillsInstallationEnabled -SkipSkills:$SkipSkills
+if ($InstallSkills) {
+    # Releases before `bl skills install` existed (e.g. -Version) skip quietly.
+    # Windows PowerShell turns redirected stderr into errors under "Stop".
+    try {
+        & $BlaxelExe skills install --help *> $null
+        if ($LASTEXITCODE -ne 0) { $InstallSkills = $false }
+    }
+    catch {
+        $InstallSkills = $false
+    }
+}
+if ($InstallSkills) {
+    Write-Host ""
+    if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
+        # The CLI prints its own progress and result.
+        try {
+            & $BlaxelExe skills install
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Could not install the Blaxel skills (exit code $LASTEXITCODE). You can retry later with:" -ForegroundColor Yellow
+                Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
+            }
+        }
+        catch {
+            Write-Host "Could not install the Blaxel skills: $_" -ForegroundColor Yellow
+            Write-Host "You can retry later with: $SkillsInstallCmd" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "Tip: install Node.js 22.20+ (https://nodejs.org), then run '$SkillsInstallCmd'" -ForegroundColor Yellow
+        Write-Host "     to give your coding agents (Claude Code, Codex, Cursor, ...) the Blaxel skills." -ForegroundColor Yellow
+    }
 }
 
 # ── Done ─────────────────────────────────────────────────────────────
