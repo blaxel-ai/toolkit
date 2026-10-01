@@ -193,8 +193,12 @@ $SkillsInstallCmd = "bl skills install"
 $InstallSkills = Test-SkillsInstallationEnabled -SkipSkills:$SkipSkills
 if ($InstallSkills) {
     # Releases before `bl skills install` existed (e.g. -Version) skip quietly.
-    & $BlaxelExe skills install --help *> $null
-    if ($LASTEXITCODE -ne 0) {
+    # Windows PowerShell turns redirected stderr into errors under "Stop".
+    try {
+        & $BlaxelExe skills install --help *> $null
+        if ($LASTEXITCODE -ne 0) { $InstallSkills = $false }
+    }
+    catch {
         $InstallSkills = $false
     }
 }

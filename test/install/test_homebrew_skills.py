@@ -157,13 +157,15 @@ class Installation:
             assert (self.cwd / name).read_text() == content, name
         assert not (self.cwd / "node_modules").exists()
 
-    def run(self, args=("--help",), extra_env=None, direct=False):
+    def run(self, args=("--help",), extra_env=None, direct=False, check=True):
         binary = self.binary if direct else self.prefix / "bin/bl"
         result = subprocess.run(
             [str(binary), *args], cwd=self.cwd,
             env={**self.env, **(extra_env or {})}, stdin=subprocess.DEVNULL,
             capture_output=True, text=True, timeout=150,
         )
+        if not check:
+            return result
         assert result.returncode == 0, (args, result.returncode, result.stdout, result.stderr)
         assert "FAKE_" not in result.stdout, result.stdout
         assert "Installing Blaxel skills" not in result.stdout, result.stdout
@@ -308,6 +310,17 @@ def fake_tests(root, binary):
     assert "requires Node.js 22.20.0 or later (found v20.11.0)" in result.stderr, result.stderr
     assert not install.calls()
     print("PASS old Node.js is reported before running npm", flush=True)
+
+    install = Installation(root / "explicit-first-run", binary)
+    install.fake_npm()
+    result = install.run(("skills", "install"), extra_env={"FAKE_NPM_EXIT": "1"}, check=False)
+    assert result.returncode != 0, result
+    assert len(install.calls()) == 1, install.calls()
+    assert result.stderr.count("FAKE_NPM_STDERR") == 1, result.stderr
+    assert install.marker().exists()
+    install.run()
+    assert len(install.calls()) == 1, install.calls()
+    print("PASS explicit skills install on first Homebrew run installs and reports once", flush=True)
 
     install = Installation(root / "agents", binary)
     install.fake_npm()

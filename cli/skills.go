@@ -12,6 +12,7 @@ import (
 var (
 	skillsInstallOnce  sync.Once
 	skillsInstallError error
+	skillsReportOnce   sync.Once
 )
 
 const (
@@ -54,8 +55,11 @@ func installSkills() {
 	// A first invocation of `bl upgrade` also passes through startup setup.
 	// Both paths use the same installer, but only one npm process is needed.
 	if err := installSkillsOnce(); err != nil {
-		fmt.Fprintln(os.Stderr, "Could not install the Blaxel skills:", err)
-		fmt.Fprintln(os.Stderr, "You can retry later with:", skillsInstallCommand())
+		// Startup setup and bl upgrade can share one failed attempt; report it once.
+		skillsReportOnce.Do(func() {
+			fmt.Fprintln(os.Stderr, "Could not install the Blaxel skills:", err)
+			fmt.Fprintln(os.Stderr, "You can retry later with:", skillsInstallCommand())
+		})
 	}
 }
 

@@ -255,6 +255,10 @@ func TestParseSkillsResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"blaxel-cli", "blaxel-sdk"}, skills)
 
+	skills, err = parseSkillsResult([]byte("Update available: skills 1.8.0\n" + `[{"name":"blaxel-cli","status":"installed"}]`))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"blaxel-cli"}, skills)
+
 	_, err = parseSkillsResult([]byte(`[{"name":"blaxel-cli","status":"failed","error":"boom"}]`))
 	assert.ErrorContains(t, err, "blaxel-cli: boom")
 	_, err = parseSkillsResult([]byte(`[]`))
@@ -285,4 +289,10 @@ func TestSkillsInstalledMessage(t *testing.T) {
 		skillsInstalledMessage(skillsInstallResult{skills: skills, agents: []string{"Claude Code"}}))
 	assert.Equal(t, "Blaxel skills installed for Claude Code, Codex and Cursor (blaxel-cli, blaxel-sdk). Restart your coding agent to load them.",
 		skillsInstalledMessage(skillsInstallResult{skills: skills, agents: []string{"Claude Code", "Codex", "Cursor"}}))
+}
+
+func TestIsSkillsCommand(t *testing.T) {
+	assert.True(t, isSkillsCommand([]string{"skills", "install"}))
+	assert.False(t, isSkillsCommand([]string{"get", "skills"}))
+	assert.False(t, isSkillsCommand(nil))
 }

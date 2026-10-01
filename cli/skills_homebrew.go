@@ -34,7 +34,16 @@ func installHomebrewSkills() {
 	if err != nil {
 		return
 	}
-	setupHomebrewSkills(executable, installSkills)
+	install := installSkills
+	if isSkillsCommand(os.Args[1:]) {
+		// The explicit command installs and reports by itself; only record it.
+		install = func() {}
+	}
+	setupHomebrewSkills(executable, install)
+}
+
+func isSkillsCommand(args []string) bool {
+	return len(args) > 0 && args[0] == "skills"
 }
 
 // setupHomebrewSkills records an attempt before installing, so concurrent

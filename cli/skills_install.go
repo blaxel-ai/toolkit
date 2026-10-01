@@ -138,7 +138,12 @@ func parseSkillsResult(output []byte) ([]string, error) {
 		Status string `json:"status"`
 		Error  string `json:"error"`
 	}
-	if err := json.Unmarshal(bytes.TrimSpace(output), &results); err != nil {
+	// The report is the JSON array on stdout; tolerate any notice printed before it.
+	report := bytes.TrimSpace(output)
+	if start := bytes.IndexByte(report, '['); start > 0 {
+		report = report[start:]
+	}
+	if err := json.Unmarshal(report, &results); err != nil {
 		return nil, fmt.Errorf("unexpected installer output: %w", err)
 	}
 	var skills, failures []string
