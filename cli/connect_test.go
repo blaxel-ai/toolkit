@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"runtime"
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConnectCmd(t *testing.T) {
@@ -68,4 +73,41 @@ func TestConnectCmdHasSandboxSubcommand(t *testing.T) {
 	}
 
 	assert.NotNil(t, sandboxCmd, "Connect command should have sandbox subcommand")
+}
+
+func TestSandboxTerminalAuthenticationUsesSelectedWorkspaceAndRefreshedToken(t *testing.T) {
+	previousWorkspace := core.GetWorkspace()
+	previousLoader := loadTerminalCredentials
+	previousHeaders := authHeadersForCredentials
+	t.Cleanup(func() {
+		core.SetWorkspace(previousWorkspace)
+		loadTerminalCredentials = previousLoader
+		authHeadersForCredentials = previousHeaders
+	})
+	core.SetWorkspace("selected-workspace")
+	loadTerminalCredentials = func(workspace string) (blaxel.Credentials, error) {
+		require.Equal(t, "selected-workspace", workspace)
+		return blaxel.Credentials{AccessToken: "old-token", RefreshToken: "refresh-token"}, nil
+	}
+	authHeadersForCredentials = func(ctx context.Context, credentials blaxel.Credentials, workspace string) (map[string]string, error) {
+		require.Equal(t, "selected-workspace", workspace)
+		require.Equal(t, "old-token", credentials.AccessToken)
+		return map[string]string{"X-Blaxel-Authorization": "Bearer refreshed-token"}, nil
+	}
+	workspace, token, err := sandboxTerminalAuthentication(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "selected-workspace", workspace)
+	assert.Equal(t, "refreshed-token", token)
+
+	loadTerminalCredentials = func(string) (blaxel.Credentials, error) {
+		return blaxel.Credentials{}, fmt.Errorf("unreadable credentials")
+	}
+	_, token, err = sandboxTerminalAuthentication(context.Background())
+	require.ErrorContains(t, err, "unreadable credentials")
+	assert.Empty(t, token)
+
+	core.SetWorkspace("")
+	_, token, err = sandboxTerminalAuthentication(context.Background())
+	require.ErrorContains(t, err, "no workspace selected")
+	assert.Empty(t, token)
 }

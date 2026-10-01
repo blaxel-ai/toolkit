@@ -66,39 +66,9 @@ Examples:
 				core.ExitWithError(err)
 			}
 
-			// Get the current workspace
-			currentContext, _ := blaxel.CurrentContext()
-			workspace := currentContext.Workspace
-			if workspace == "" {
-				err := core.MarkExpectedError(
-					fmt.Errorf("no workspace found in current context. Please run 'bl login' first"),
-					core.CLIErrorAuthentication,
-				)
-				core.PrintError("Connect", err)
-				core.ExitWithError(err)
-			}
-
-			// Load credentials
-			credentials, _ := blaxel.LoadCredentials(workspace)
-			if !credentials.IsValid() {
-				err := core.MarkExpectedError(
-					fmt.Errorf("no valid credentials found. Please run 'bl login' first"),
-					core.CLIErrorAuthentication,
-				)
-				core.PrintError("Connect", err)
-				core.ExitWithError(err)
-			}
-
-			// Get the access token
-			token := credentials.AccessToken
-			if token == "" {
-				token = credentials.APIKey
-			}
-			if token == "" {
-				err := core.MarkExpectedError(
-					fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first"),
-					core.CLIErrorAuthentication,
-				)
+			workspace, token, err := sandboxTerminalAuthentication(ctx)
+			if err != nil {
+				err = core.MarkExpectedError(err, core.CLIErrorAuthentication)
 				core.PrintError("Connect", err)
 				core.ExitWithError(err)
 			}
@@ -168,4 +138,25 @@ Examples:
 	}
 
 	return cmd
+}
+
+var loadTerminalCredentials = blaxel.LoadCredentials
+
+func sandboxTerminalAuthentication(ctx context.Context) (string, string, error) {
+	workspace := core.GetWorkspace()
+	if workspace == "" {
+		return "", "", fmt.Errorf("no workspace selected. Please run 'bl login' first")
+	}
+	credentials, err := loadTerminalCredentials(workspace)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to load credentials for workspace %q: %w", workspace, err)
+	}
+	if !credentials.IsValid() {
+		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s'", workspace)
+	}
+	token, err := tokenForCredentials(ctx, workspace, credentials)
+	if err != nil {
+		return "", "", err
+	}
+	return workspace, token, nil
 }
