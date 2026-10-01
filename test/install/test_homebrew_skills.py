@@ -16,7 +16,8 @@ import tempfile
 import textwrap
 
 
-INSTALL_ARGS = ["add", "blaxel-ai/agent-skills", "-g", "--all"]
+# The fixture home has no agent directories, so only the shared directory is targeted.
+INSTALL_ARGS = ["add", "blaxel-ai/agent-skills", "-g", "-y", "--skill", "*", "--json", "--agent", "universal"]
 NPM_ARGS = ["ci", "--ignore-scripts", "--no-audit", "--no-fund",
             "--engine-strict", "--registry=https://registry.npmjs.org"]
 LOCK = json.loads((Path(__file__).resolve().parents[2] / "cli/skillsinstaller/package-lock.json").read_text())
@@ -79,6 +80,9 @@ class Installation:
             f"npm_args = {NPM_ARGS!r}\n"
             f"install_args = {INSTALL_ARGS!r}\n" + textwrap.dedent("""\
                 phase = 'skills' if pathlib.Path(sys.argv[0]).name == 'node' else 'npm'
+                if phase == 'skills' and sys.argv[1:] == ['--version']:
+                    print(os.environ.get('FAKE_NODE_VERSION', 'v22.20.0'))
+                    sys.exit(0)
                 args = sys.argv[2:] if phase == 'skills' else sys.argv[1:]
                 if phase == 'npm':
                     prefix = next(arg for arg in args if arg.startswith('--prefix='))
@@ -116,14 +120,19 @@ class Installation:
                     entry = pathlib.Path(sys.argv[1])
                     assert entry.is_absolute() and entry.is_file(), entry
                     assert entry == root / 'node_modules/skills/bin/cli.mjs', entry
-                    assert sys.argv[2:] == install_args, sys.argv
-                    print('FAKE_NODE_STDOUT')
+                    expected = install_args + (['claude-code'] if os.environ.get('FAKE_INSTALL_ARGS') == 'claude' else [])
+                    assert sys.argv[2:] == expected, sys.argv
+                    print(json.dumps([{'name': 'blaxel-cli', 'status': 'installed'},
+                                      {'name': 'blaxel-sdk', 'status': 'installed'}]))
                     print('FAKE_NODE_STDERR', file=sys.stderr)
             """)
         )
         for executable in (node, npm):
             executable.write_text(script)
             executable.chmod(0o755)
+        git = self.tools / "git"
+        git.write_text(f"#!{sys.executable}\n")
+        git.chmod(0o755)
 
     def calls(self):
         log = self.home / "calls.jsonl"
@@ -197,8 +206,9 @@ def fake_tests(root, binary):
         first = install.run(args)
         install.assert_installs(1)
         assert install.marker().exists()
-        assert all(f"FAKE_{tool}_{stream}" in first.stderr
-                   for tool in ("NPM", "NODE") for stream in ("STDOUT", "STDERR"))
+        # Installer progress is captured; users see one concise summary.
+        assert "FAKE_" not in first.stderr, first.stderr
+        assert "Blaxel skills installed to ~/.agents/skills (blaxel-cli, blaxel-sdk)" in first.stderr, first.stderr
         second = install.run(args)
         install.assert_installs(1)
         assert first.stdout == second.stdout
@@ -268,6 +278,7 @@ def fake_tests(root, binary):
     install.fake_npm()
     result = install.run(extra_env={"FAKE_NPM_EXIT": "1"})
     assert "Could not install" in result.stderr
+    assert "FAKE_NPM_STDERR" in result.stderr, "failure shows the installer output"
     install.run()
     assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
     assert install.marker().exists()
@@ -275,7 +286,7 @@ def fake_tests(root, binary):
 
     install = Installation(root / "no-node", binary)
     result = install.run()
-    assert "node (22.20.0 or later) and npm are required" in result.stderr
+    assert "requires Node.js 22.20.0 or later and npm" in result.stderr, result.stderr
     install.fake_npm()
     install.run()
     assert not install.calls() and install.marker().exists()
@@ -285,11 +296,26 @@ def fake_tests(root, binary):
     install.fake_npm()
     (install.tools / "npm").unlink()
     result = install.run()
-    assert "npm is required" in result.stderr, result.stderr
+    assert "requires npm" in result.stderr, result.stderr
     (install.tools / "npm").symlink_to(install.tools / "npm-runner")
     install.run()
     assert not install.calls() and install.marker().exists()
     print("PASS missing npm is nonblocking and not repeated", flush=True)
+
+    install = Installation(root / "old-node", binary)
+    install.fake_npm()
+    result = install.run(extra_env={"FAKE_NODE_VERSION": "v20.11.0"})
+    assert "requires Node.js 22.20.0 or later (found v20.11.0)" in result.stderr, result.stderr
+    assert not install.calls()
+    print("PASS old Node.js is reported before running npm", flush=True)
+
+    install = Installation(root / "agents", binary)
+    install.fake_npm()
+    (install.home / ".claude").mkdir()
+    install.run(("skills", "install"), direct=True, extra_env={"FAKE_INSTALL_ARGS": "claude"})
+    node = install.calls()[1]
+    assert node["args"] == INSTALL_ARGS + ["claude-code"], node
+    print("PASS detected agents are targeted explicitly", flush=True)
 
     install = Installation(root / "nonbrew", binary)
     install.fake_npm()
@@ -334,7 +360,7 @@ def shell_tests(root, binary):
         assert result.returncode == 0, (result.stdout, result.stderr)
         if name == "success":
             install.assert_installs(1)
-            assert "Blaxel skills installed." in result.stdout, result.stdout
+            assert "Blaxel skills installed" in result.stderr, (result.stdout, result.stderr)
         else:
             assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
             assert "Could not install the Blaxel skills" in result.stdout, result.stdout
@@ -427,13 +453,13 @@ def sudo_shell_tests(root, binary, source=None):
         assert result.returncode == 0, (result.stdout, result.stderr)
         if name == "success":
             install.assert_installs(1)
-            assert "Blaxel skills installed." in result.stdout, (result.stdout, result.stderr)
+            assert "Blaxel skills installed" in result.stderr, (result.stdout, result.stderr)
         elif name == "failure":
             assert len(install.calls()) == 1 and install.calls()[0]["tool"] == "npm", install.calls()
             assert "Could not install the Blaxel skills" in result.stdout, result.stdout
         else:
             assert not install.calls(), install.calls()
-            assert "Node.js" in result.stdout and "was not found" in result.stdout, result.stdout
+            assert "install Node.js 22.20+" in result.stdout, result.stdout
         sudo_calls = [json.loads(line) for line in (install.home / "sudo-calls.jsonl").read_text().splitlines()]
         assert sudo_calls[0] == ["sh", "-c", "command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1"], sudo_calls
         assert sudo_calls[1:] == ([] if name == "missing-tools" else [["sh", "-s"]]), sudo_calls
@@ -453,7 +479,7 @@ def real_test(root, binary):
             raise RuntimeError(f"--real-npm requires {name} on the invoking PATH")
         (install.tools / name).symlink_to(Path(executable).resolve())
     first = install.run()
-    assert "Blaxel skills installed." in first.stderr, first.stderr
+    assert "Blaxel skills installed" in first.stderr, first.stderr
     skills = list((install.home / ".agents/skills").glob("*/SKILL.md"))
     assert {path.parent.name for path in skills} == {"blaxel-cli", "blaxel-sdk"}, skills
     assert install.marker().exists()

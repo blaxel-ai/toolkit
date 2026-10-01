@@ -192,15 +192,19 @@ $SkillsInstallCmd = "bl skills install"
 # BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
 $InstallSkills = Test-SkillsInstallationEnabled -SkipSkills:$SkipSkills
 if ($InstallSkills) {
+    # Releases before `bl skills install` existed (e.g. -Version) skip quietly.
+    & $BlaxelExe skills install --help *> $null
+    if ($LASTEXITCODE -ne 0) {
+        $InstallSkills = $false
+    }
+}
+if ($InstallSkills) {
     Write-Host ""
     if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)..."
+        # The CLI prints its own progress and result.
         try {
             & $BlaxelExe skills install
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "Blaxel skills installed. Restart your coding agent to load them." -ForegroundColor Green
-            }
-            else {
+            if ($LASTEXITCODE -ne 0) {
                 Write-Host "Could not install the Blaxel skills (exit code $LASTEXITCODE). You can retry later with:" -ForegroundColor Yellow
                 Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
             }
@@ -211,9 +215,8 @@ if ($InstallSkills) {
         }
     }
     else {
-        Write-Host "Note: Node.js (node and npm) was not found, skipping Blaxel skills installation." -ForegroundColor Yellow
-        Write-Host "Install Node.js (https://nodejs.org) and then run:" -ForegroundColor Yellow
-        Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
+        Write-Host "Tip: install Node.js 22.20+ (https://nodejs.org), then run '$SkillsInstallCmd'" -ForegroundColor Yellow
+        Write-Host "     to give your coding agents (Claude Code, Codex, Cursor, ...) the Blaxel skills." -ForegroundColor Yellow
     }
 }
 

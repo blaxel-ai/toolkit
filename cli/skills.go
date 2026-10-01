@@ -65,12 +65,34 @@ func installSkillsOnce() error {
 }
 
 func runSkillsInstall() error {
-	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)...")
+	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	if err := installPinnedSkills(ctx, os.Stderr); err != nil {
+	result, err := installPinnedSkills(ctx)
+	if err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "Blaxel skills installed. Restart your coding agent to load them.")
+	fmt.Fprintln(os.Stderr, skillsInstalledMessage(result))
 	return nil
+}
+
+func skillsInstalledMessage(result skillsInstallResult) string {
+	target := "to ~/.agents/skills"
+	if len(result.agents) > 0 {
+		target = "for " + joinSkillsNames(result.agents)
+	}
+	return fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
+		target, strings.Join(result.skills, ", "))
+}
+
+func joinSkillsNames(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	case 2:
+		return names[0] + " and " + names[1]
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }

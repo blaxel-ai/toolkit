@@ -669,6 +669,26 @@ setup_skills() {
     fi
   fi
 
+  # Releases before `bl skills install` existed (e.g. VERSION=...) skip quietly.
+  if ! "${ABSOLUTE_BINDIR}/${BINARY}" skills install --help >/dev/null 2>&1; then
+    return
+  fi
+
+  # If running as root (e.g. via sudo), install the skills for the real user.
+  # A login shell (-i) is used so the user's own Node setup (nvm, fnm, Homebrew, ...)
+  # is on PATH and the skills land in the user's home.
+  skills_runner=""
+  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
+    skills_runner="sudo -u ${SUDO_USER} -H -i"
+  fi
+
+  if ! $skills_runner sh -c 'command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1'; then
+    echo ""
+    echo "Tip: install Node.js 22.20+ (https://nodejs.org), then run \`${SKILLS_INSTALL_CMD}\`"
+    echo "     to give your coding agents (Claude Code, Codex, Cursor, ...) the Blaxel skills."
+    return
+  fi
+
   if [ "${BL_INSTALL_SKILLS:-}" != "true" ]; then
     echo ""
     if ! prompt_user "Do you want to install the Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...)? [Y/n] "; then
@@ -682,32 +702,12 @@ setup_skills() {
     esac
   fi
 
-  # If running as root (e.g. via sudo), install the skills for the real user.
-  # A login shell (-i) is used so the user's own Node setup (nvm, fnm, Homebrew, ...)
-  # is on PATH and the skills land in the user's home.
-  skills_runner=""
-  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
-    skills_runner="sudo -u ${SUDO_USER} -H -i"
-  fi
-
-  if ! $skills_runner sh -c 'command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1'; then
-    echo "⚠ Could not install the Blaxel skills: Node.js (node and npm) was not found."
-    echo "  Install Node.js (https://nodejs.org) and then run:"
-    echo "    ${SKILLS_INSTALL_CMD}"
-    return
-  fi
-
-  echo "Installing Blaxel skills..."
-  skills_ok=0
   # sudo -i passes command arguments through the user's login shell, which
   # expands dollar signs again. Send the literal path in a quoted script on
-  # stdin instead, so only the final sh interprets it.
+  # stdin instead, so only the final sh interprets it. The CLI prints its own
+  # progress and result.
   skills_binary=$(printf '%s' "${ABSOLUTE_BINDIR}/${BINARY}" | sed "s/'/'\\\\''/g")
-  printf "exec '%s' skills install\n" "$skills_binary" | $skills_runner sh -s && skills_ok=1
-
-  if [ "$skills_ok" = "1" ]; then
-    echo "✓ Blaxel skills installed. Restart your coding agent to load them."
-  else
+  if ! printf "exec '%s' skills install\n" "$skills_binary" | $skills_runner sh -s; then
     echo "⚠ Could not install the Blaxel skills. You can retry later with:"
     echo "    ${SKILLS_INSTALL_CMD}"
   fi

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -60,7 +61,7 @@ func TestPinnedSkillsCommands(t *testing.T) {
 	var commands []*exec.Cmd
 	npm := filepath.Join(t.TempDir(), "npm")
 	var directory string
-	err := runPinnedSkills(context.Background(), "/trusted/node", npm, &output, func(cmd *exec.Cmd) error {
+	report, err := runPinnedSkills(context.Background(), "/trusted/node", npm, []string{"universal", "claude-code"}, &output, func(cmd *exec.Cmd) error {
 		commands = append(commands, cmd)
 		assert.Empty(t, cmd.Dir, "preserve caller directory for version-manager shims")
 		if directory == "" {
@@ -69,15 +70,21 @@ func TestPinnedSkillsCommands(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(directory, "package-lock.json"))
 		require.NoError(t, err)
 		assert.Equal(t, skillsPackageLock, data)
-		assert.Same(t, &output, cmd.Stdout)
 		assert.Same(t, &output, cmd.Stderr)
+		if len(commands) == 1 {
+			assert.Same(t, &output, cmd.Stdout)
+		} else {
+			assert.NotSame(t, &output, cmd.Stdout, "the JSON report is captured separately")
+			_, _ = cmd.Stdout.Write([]byte(`[{"name":"blaxel-cli","status":"installed"}]`))
+		}
 		assert.Nil(t, cmd.Stdin)
 		return nil
 	})
 	require.NoError(t, err)
+	assert.JSONEq(t, `[{"name":"blaxel-cli","status":"installed"}]`, string(report))
 	require.Len(t, commands, 2)
 	assert.Equal(t, []string{npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org"}, commands[0].Args[:7])
-	assert.Equal(t, []string{"/trusted/node", filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "--all"}, commands[1].Args)
+	assert.Equal(t, []string{"/trusted/node", filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "-y", "--skill", "*", "--json", "--agent", "universal", "claude-code"}, commands[1].Args)
 	assert.Equal(t, commands[0].Dir, commands[1].Dir)
 	_, err = os.Stat(directory)
 	assert.True(t, os.IsNotExist(err), "temporary package tree must be removed")
@@ -85,7 +92,7 @@ func TestPinnedSkillsCommands(t *testing.T) {
 
 func TestPinnedSkillsPreparationFailureStopsExecution(t *testing.T) {
 	calls := 0
-	err := runPinnedSkills(context.Background(), "node", "npm-cli.js", &bytes.Buffer{}, func(_ *exec.Cmd) error {
+	_, err := runPinnedSkills(context.Background(), "node", "npm-cli.js", []string{"universal"}, &bytes.Buffer{}, func(_ *exec.Cmd) error {
 		calls++
 		return errors.New("EINTEGRITY")
 	})
@@ -133,7 +140,7 @@ func TestPinnedSkillsRejectsChangedTarball(t *testing.T) {
 	defer cancel()
 	var output bytes.Buffer
 	calls := 0
-	err = runPinnedSkills(ctx, node, npm, &output, func(cmd *exec.Cmd) error {
+	_, err = runPinnedSkills(ctx, node, npm, []string{"universal"}, &output, func(cmd *exec.Cmd) error {
 		calls++
 		require.Equal(t, 1, calls, "installer must never run after an integrity mismatch")
 		fixture := map[string]any{
@@ -190,7 +197,7 @@ func TestPinnedSkillsExecutesShellShim(t *testing.T) {
 	require.NoError(t, os.Symlink(shim, alias))
 	var output bytes.Buffer
 	calls := 0
-	err := runPinnedSkills(context.Background(), "unused-node", alias, &output, func(cmd *exec.Cmd) error {
+	_, err := runPinnedSkills(context.Background(), "unused-node", alias, []string{"universal"}, &output, func(cmd *exec.Cmd) error {
 		calls++
 		if calls == 1 {
 			assert.Equal(t, alias, cmd.Path, "preserve shim symlink invocation")
@@ -201,4 +208,81 @@ func TestPinnedSkillsExecutesShellShim(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "shim:ci", output.String())
 	assert.Equal(t, 2, calls)
+}
+
+func TestDetectSkillsAgents(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{}
+	lookup := func(key string) string { return env[key] }
+
+	targets, names := detectSkillsAgents(home, lookup)
+	assert.Equal(t, []string{"universal"}, targets, "no agents: only the shared directory")
+	assert.Empty(t, names)
+	entries, err := os.ReadDir(home)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "detection must not create directories")
+
+	for _, dir := range []string{".claude", ".codex", filepath.Join(".config", "goose"), ".cursor"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(home, dir), 0700))
+	}
+	targets, names = detectSkillsAgents(home, lookup)
+	assert.Equal(t, []string{"universal", "claude-code", "goose"}, targets)
+	assert.Equal(t, []string{"Claude Code", "Codex", "Cursor", "Goose"}, names)
+
+	// Custom config locations are honored, like the skills installer does.
+	other := t.TempDir()
+	env["CLAUDE_CONFIG_DIR"] = filepath.Join(other, "claude")
+	env["XDG_CONFIG_HOME"] = filepath.Join(other, "xdg")
+	require.NoError(t, os.RemoveAll(filepath.Join(home, ".claude")))
+	require.NoError(t, os.MkdirAll(env["CLAUDE_CONFIG_DIR"], 0700))
+	require.NoError(t, os.MkdirAll(filepath.Join(env["XDG_CONFIG_HOME"], "opencode"), 0700))
+	targets, names = detectSkillsAgents(home, lookup)
+	assert.Equal(t, []string{"universal", "claude-code"}, targets)
+	assert.Equal(t, []string{"Claude Code", "Codex", "Cursor", "OpenCode"}, names)
+}
+
+func TestSkillsNodeVersionSupported(t *testing.T) {
+	for version, supported := range map[string]bool{
+		"v22.20.0": true, "v22.21.1": true, "v23.0.0": true, "v26.3.0": true, "v22.20.0-nightly": true,
+		"v22.19.9": false, "v20.11.0": false, "v18.0.0": false, "": false, "garbage": false,
+	} {
+		assert.Equal(t, supported, skillsNodeVersionSupported(version), version)
+	}
+}
+
+func TestParseSkillsResult(t *testing.T) {
+	skills, err := parseSkillsResult([]byte(`[{"name":"blaxel-cli","status":"installed"},{"name":"blaxel-sdk","status":"installed"}]` + "\n"))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"blaxel-cli", "blaxel-sdk"}, skills)
+
+	_, err = parseSkillsResult([]byte(`[{"name":"blaxel-cli","status":"failed","error":"boom"}]`))
+	assert.ErrorContains(t, err, "blaxel-cli: boom")
+	_, err = parseSkillsResult([]byte(`[]`))
+	assert.ErrorContains(t, err, "no skills were installed")
+	_, err = parseSkillsResult([]byte("not json"))
+	assert.ErrorContains(t, err, "unexpected installer output")
+}
+
+func TestWithSkillsLog(t *testing.T) {
+	var log strings.Builder
+	for i := 0; i < 30; i++ {
+		log.WriteString("\x1b[32mline " + strconv.Itoa(i) + "\x1b[0m\n│\n")
+	}
+	err := withSkillsLog(errors.New("installing skills: exit status 1"), []byte(log.String()))
+	message := err.Error()
+	assert.True(t, strings.HasPrefix(message, "installing skills: exit status 1\n"))
+	assert.Contains(t, message, "line 29")
+	assert.NotContains(t, message, "line 14\n")
+	assert.NotContains(t, message, "\x1b")
+	assert.Equal(t, errors.New("x").Error(), withSkillsLog(errors.New("x"), nil).Error())
+}
+
+func TestSkillsInstalledMessage(t *testing.T) {
+	skills := []string{"blaxel-cli", "blaxel-sdk"}
+	assert.Equal(t, "Blaxel skills installed to ~/.agents/skills (blaxel-cli, blaxel-sdk). Restart your coding agent to load them.",
+		skillsInstalledMessage(skillsInstallResult{skills: skills}))
+	assert.Equal(t, "Blaxel skills installed for Claude Code (blaxel-cli, blaxel-sdk). Restart your coding agent to load them.",
+		skillsInstalledMessage(skillsInstallResult{skills: skills, agents: []string{"Claude Code"}}))
+	assert.Equal(t, "Blaxel skills installed for Claude Code, Codex and Cursor (blaxel-cli, blaxel-sdk). Restart your coding agent to load them.",
+		skillsInstalledMessage(skillsInstallResult{skills: skills, agents: []string{"Claude Code", "Codex", "Cursor"}}))
 }
