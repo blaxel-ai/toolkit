@@ -188,7 +188,9 @@ param(
         finally {
             Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
         }
-        Write-Step ok "Blaxel CLI" "$Version · $InstallDir\bl.exe · verified"
+        # The separator as a code: Windows PowerShell reads a file without a BOM as ANSI.
+        $dot = [char]0x00B7
+        Write-Step ok "Blaxel CLI" "$Version $dot $InstallDir\bl.exe $dot verified"
 
         # ── Add to PATH ──────────────────────────────────────────────────────
         $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")

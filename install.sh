@@ -222,7 +222,23 @@ install_cli() {
 
 # --- Shell: PATH and completions -------------------------------------------
 
+# login_shell prints the sudo user's login shell, or nothing.
+login_shell() {
+  if is_command getent; then
+    getent passwd "$SUDO_USER" | cut -d: -f7
+  elif is_command dscl; then
+    dscl . -read "/Users/$SUDO_USER" UserShell 2>/dev/null | sed -n 's/^UserShell: *//p'
+  else
+    awk -F: -v user="$SUDO_USER" '$1 == user { print $7 }' /etc/passwd 2>/dev/null
+  fi
+}
+
 detect_shell() {
+  # Under sudo, SHELL is root's; the PATH goes in the user's own shell.
+  if [ -n "$SUDO_HOME" ]; then
+    user_shell=$(login_shell | head -n 1)
+    [ -z "$user_shell" ] || SHELL=$user_shell
+  fi
   SHELL_NAME=$(basename "${SHELL:-sh}")
   case "$SHELL_NAME" in
     zsh) RC_FILE="$HOME/.zshrc" ;;
@@ -342,22 +358,23 @@ fix_owner() {
 # sudo user's real home, so root never writes or chowns outside it through a
 # link. Without sudo, everything is the user's own.
 in_home() {
+  # POSIX sh has no local variables: these names are its own.
   [ -n "$SUDO_HOME" ] || return 0
-  target=$1 hops=0
-  while [ -L "$target" ]; do
-    hops=$((hops + 1))
-    [ "$hops" -le 8 ] || return 1
-    link=$(readlink "$target") || return 1
-    case "$link" in /*) target=$link ;; *) target="$(dirname "$target")/$link" ;; esac
+  ih_target=$1 ih_hops=0
+  while [ -L "$ih_target" ]; do
+    ih_hops=$((ih_hops + 1))
+    [ "$ih_hops" -le 8 ] || return 1
+    ih_link=$(readlink "$ih_target") || return 1
+    case "$ih_link" in /*) ih_target=$ih_link ;; *) ih_target="$(dirname "$ih_target")/$ih_link" ;; esac
   done
   # The deepest folder that exists; mkdir -p makes real folders below it.
-  dir=$(dirname "$target")
-  while [ ! -d "$dir" ]; do
-    { [ -e "$dir" ] || [ -L "$dir" ]; } && return 1
-    dir=$(dirname "$dir")
+  ih_dir=$(dirname "$ih_target")
+  while [ ! -d "$ih_dir" ]; do
+    { [ -e "$ih_dir" ] || [ -L "$ih_dir" ]; } && return 1
+    ih_dir=$(dirname "$ih_dir")
   done
-  real=$(cd "$dir" 2>/dev/null && pwd -P) || return 1
-  case "$real/" in "$REAL_HOME"/*) return 0 ;; esac
+  ih_real=$(cd "$ih_dir" 2>/dev/null && pwd -P) || return 1
+  case "$ih_real/" in "$REAL_HOME"/*) return 0 ;; esac
   return 1
 }
 
