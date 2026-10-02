@@ -36,9 +36,9 @@ func (p skillsAgentPaths) envOr(key string, fallback string) string {
 	return fallback
 }
 
-// Detection mirrors the pinned skills package (cli/skillsinstaller). Passing an
-// explicit agent list prevents its fallback of writing into every one of its
-// ~80 supported agent directories when it detects none.
+// Detection and folders mirror the skills package (npx skills), so both
+// installers put the skills in the same places. Only detected or chosen agents
+// are set up, never every agent the skills package knows.
 var skillsAgents = []skillsAgent{
 	{"claude-code", "Claude Code", false, func(p skillsAgentPaths) []string {
 		return []string{p.envOr("CLAUDE_CONFIG_DIR", p.homeDir(".claude"))}
@@ -73,21 +73,62 @@ var skillsAgents = []skillsAgent{
 // detectSkillsAgents returns the installer's --agent values and the detected
 // agent names. "universal" (~/.agents/skills) is always targeted.
 func detectSkillsAgents(home string, env func(string) string) (targets []string, names []string) {
+	return skillsTargets(detectedSkillsAgents(home, env))
+}
+
+func newSkillsAgentPaths(home string, env func(string) string) skillsAgentPaths {
 	paths := skillsAgentPaths{home: home, config: filepath.Join(home, ".config"), env: env}
 	if xdg := strings.TrimSpace(env("XDG_CONFIG_HOME")); xdg != "" {
 		paths.config = xdg
 	}
-	targets = []string{"universal"}
+	return paths
+}
+
+// skillsAgentDir is the global skills folder of an agent that does not read
+// ~/.agents/skills: the skills folder of its first existing home, as in the
+// skills package (for example ~/.claude/skills or ~/.pi/agent/skills).
+func skillsAgentDir(agent skillsAgent, paths skillsAgentPaths) string {
+	homes := agent.homes(paths)
+	for _, dir := range homes {
+		if _, err := os.Stat(dir); err == nil {
+			return filepath.Join(dir, "skills")
+		}
+	}
+	return filepath.Join(homes[0], "skills")
+}
+
+// detectedSkillsAgents returns the coding agents configured on this machine.
+func detectedSkillsAgents(home string, env func(string) string) []skillsAgent {
+	paths := newSkillsAgentPaths(home, env)
+	var detected []skillsAgent
 	for _, agent := range skillsAgents {
 		for _, dir := range agent.homes(paths) {
 			if _, err := os.Stat(dir); err == nil {
-				if !agent.universal {
-					targets = append(targets, agent.id)
-				}
-				names = append(names, agent.name)
+				detected = append(detected, agent)
 				break
 			}
 		}
 	}
+	return detected
+}
+
+// skillsTargets returns the installer's --agent values for the given agents.
+func skillsTargets(agents []skillsAgent) (targets []string, names []string) {
+	targets = []string{"universal"}
+	for _, agent := range agents {
+		if !agent.universal {
+			targets = append(targets, agent.id)
+		}
+		names = append(names, agent.name)
+	}
 	return targets, names
+}
+
+func findSkillsAgent(id string) (skillsAgent, bool) {
+	for _, agent := range skillsAgents {
+		if agent.id == id {
+			return agent, true
+		}
+	}
+	return skillsAgent{}, false
 }

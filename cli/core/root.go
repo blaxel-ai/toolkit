@@ -238,7 +238,7 @@ var rootCmd = &cobra.Command{
 		SetSentryTag("command.class", cmd.CommandPath())
 
 		// Skip version warning for specific commands/conditions
-		shouldSkipWarning := skipVersionWarning ||
+		shouldSkipWarning := skipVersionWarning || cmd.Name() == "setup" ||
 			cmd.Name() == "__complete" ||
 			cmd.Name() == "completion" ||
 			cmd.Name() == "token" ||
@@ -289,6 +289,7 @@ var rootCmd = &cobra.Command{
 		workspaceExemptCommands := map[string]bool{
 			"login":            true,
 			"logout":           true,
+			"setup":            true,
 			"version":          true,
 			"upgrade":          true,
 			"workspaces":       true,
@@ -644,5 +645,6 @@ func isTrackingPromptCommandExempt(args []string) bool {
 	}
 
 	cmd := args[1]
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
+	// bl setup asks about error reports itself.
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup"
 }
