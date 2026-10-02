@@ -1,32 +1,30 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
-	_ "embed"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
-	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
+	"runtime"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
-
-// The reviewed lockfile pins the installer and every transitive dependency.
-// npm ci verifies these SHA512 values before the installer is executed.
-//
-//go:embed skillsinstaller/package.json
-var skillsPackageJSON []byte
-
-//go:embed skillsinstaller/package-lock.json
-var skillsPackageLock []byte
 
 func init() {
 	core.RegisterCommand("skills", SkillsCmd)
@@ -39,7 +37,7 @@ func SkillsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(&cobra.Command{
 		Use: "install", Short: "Install or refresh Blaxel skills for coding agents",
-		Long:         "Install Blaxel agent skills globally with a version-pinned, integrity-checked installer.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Requires Node.js 22.20.0 or later, npm and git.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.",
+		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.",
 		Args:         cobra.NoArgs,
 		RunE:         func(_ *cobra.Command, _ []string) error { return installSkillsOnce() },
 		SilenceUsage: true, SilenceErrors: true,
@@ -53,226 +51,611 @@ type skillsInstallResult struct {
 	agents []string
 }
 
-const skillsMinimumNode = "22.20.0"
+const (
+	// skillsArchiveURL serves the default branch of skillsRepo as a tarball.
+	skillsArchiveURL = "https://codeload.github.com/" + skillsRepo + "/tar.gz/HEAD"
+	// skillsArchiveURLEnv downloads the same tarball from a mirror instead.
+	skillsArchiveURLEnv = "BL_SKILLS_ARCHIVE_URL"
+	// Limits keep a broken or hostile download from filling the disk or memory.
+	skillsArchiveMaxBytes   = 32 << 20
+	skillsExtractedMaxBytes = 64 << 20
+	skillsArchiveMaxEntries = 10000
+)
 
-func installPinnedSkills(ctx context.Context) (skillsInstallResult, error) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		return skillsInstallResult{}, fmt.Errorf("requires Node.js %s or later and npm (https://nodejs.org)", skillsMinimumNode)
-	}
-	npm, err := exec.LookPath("npm")
-	if err != nil {
-		return skillsInstallResult{}, fmt.Errorf("requires npm alongside Node.js")
-	}
-	if _, err := exec.LookPath("git"); err != nil {
-		return skillsInstallResult{}, fmt.Errorf("requires git to download the skills")
-	}
-	if err := checkSkillsNodeVersion(ctx, node); err != nil {
-		return skillsInstallResult{}, err
-	}
+// skillsArchiveSource downloads the skills archive. Tests replace it.
+var skillsArchiveSource = downloadSkillsArchive
+
+func installDetectedSkills(ctx context.Context) (skillsInstallResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return skillsInstallResult{}, err
 	}
-	targets, agents := detectSkillsAgents(home, os.Getenv)
-	var log bytes.Buffer
-	output, err := runPinnedSkills(ctx, node, npm, targets, &log, func(cmd *exec.Cmd) error { return cmd.Run() })
-	if err != nil {
-		return skillsInstallResult{}, withSkillsLog(err, log.Bytes())
-	}
-	skills, err := parseSkillsResult(output)
-	if err != nil {
-		return skillsInstallResult{}, withSkillsLog(err, log.Bytes())
-	}
-	return skillsInstallResult{skills: skills, agents: agents}, nil
+	return installSkillsFor(ctx, detectedSkillsAgents(home, os.Getenv))
 }
 
-func checkSkillsNodeVersion(ctx context.Context, node string) error {
-	cmd := exec.CommandContext(ctx, node, "--version")
-	cmd.Env = skillsInstallerEnvironment(os.Environ())
-	output, err := cmd.Output()
+// installSkillsFor installs the skills to ~/.agents/skills and the given agents.
+func installSkillsFor(ctx context.Context, selected []skillsAgent) (skillsInstallResult, error) {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("could not run node --version: %w", err)
+		return skillsInstallResult{}, err
 	}
-	version := strings.TrimSpace(string(output))
-	if !skillsNodeVersionSupported(version) {
-		return fmt.Errorf("requires Node.js %s or later (found %s)", skillsMinimumNode, version)
+	archive, err := skillsArchiveSource(ctx)
+	if err != nil {
+		return skillsInstallResult{}, err
 	}
-	return nil
+	return installSkillsArchive(archive, home, os.Getenv, selected, time.Now())
 }
 
-func skillsNodeVersionSupported(version string) bool {
-	parse := func(v string) []int {
-		parts := strings.SplitN(strings.TrimPrefix(strings.TrimSpace(v), "v"), ".", 3)
-		numbers := make([]int, 3)
-		for i := 0; i < len(parts); i++ {
-			digits := parts[i]
-			end := strings.IndexFunc(digits, func(r rune) bool { return r < '0' || r > '9' })
-			if end >= 0 {
-				digits = digits[:end]
-			}
-			n, err := strconv.Atoi(digits)
-			if err != nil {
-				return nil
-			}
-			numbers[i] = n
+// skillsDownloadAttempts retries brief network problems, such as a DNS
+// lookup failing while a VPN reconnects.
+var skillsDownloadAttempts = []time.Duration{0, 300 * time.Millisecond, time.Second}
+
+func downloadSkillsArchive(ctx context.Context) ([]byte, error) {
+	address := skillsArchiveURL
+	if mirror := strings.TrimSpace(os.Getenv(skillsArchiveURLEnv)); mirror != "" {
+		address = mirror
+	}
+	var lastErr error
+	for _, wait := range skillsDownloadAttempts {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(wait):
 		}
-		return numbers
+		data, retry, err := fetchSkillsArchive(ctx, address)
+		if err == nil || !retry {
+			return data, err
+		}
+		lastErr = err
 	}
-	actual, minimum := parse(version), parse(skillsMinimumNode)
-	if actual == nil {
+	return nil, lastErr
+}
+
+// fetchSkillsArchive downloads the archive once, and reports whether a
+// failure is worth retrying.
+func fetchSkillsArchive(ctx context.Context, address string) (data []byte, retry bool, err error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, false, err
+	}
+	request.Header.Set("User-Agent", "blaxel-cli/"+core.GetVersion())
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, false, ctx.Err()
+		}
+		return nil, true, &skillsNetworkError{host: request.URL.Host, err: err}
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		retry := response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= 500
+		return nil, retry, fmt.Errorf("downloading the skills from %s: %s", request.URL.Host, response.Status)
+	}
+	data, err = io.ReadAll(io.LimitReader(response.Body, skillsArchiveMaxBytes+1))
+	if err != nil {
+		return nil, true, &skillsNetworkError{host: request.URL.Host, err: err}
+	}
+	if len(data) > skillsArchiveMaxBytes {
+		return nil, false, fmt.Errorf("the skills archive is larger than %d MB", skillsArchiveMaxBytes>>20)
+	}
+	return data, false, nil
+}
+
+// skillsNetworkError reads as a short sentence; the cause stays available.
+type skillsNetworkError struct {
+	host string
+	err  error
+}
+
+func (e *skillsNetworkError) Error() string {
+	return "couldn't reach " + e.host + " · check your connection"
+}
+
+func (e *skillsNetworkError) Unwrap() error { return e.err }
+
+// skillFile is one entry of a skill folder, with its path relative to the folder.
+type skillFile struct {
+	path   string
+	mode   int64
+	data   []byte
+	link   string
+	isLink bool
+}
+
+// archivedSkill is a skill folder found in the archive.
+type archivedSkill struct {
+	name, folder string
+	files        []skillFile
+}
+
+// readSkillsArchive returns the skills under skills/<name>/ in a repository tarball.
+func readSkillsArchive(archive []byte) ([]archivedSkill, error) {
+	compressed, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return nil, fmt.Errorf("reading the skills archive: %w", err)
+	}
+	reader := tar.NewReader(compressed)
+	folders := map[string][]skillFile{}
+	var total int64
+	for entries := 0; ; entries++ {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("reading the skills archive: %w", err)
+		}
+		if entries >= skillsArchiveMaxEntries {
+			return nil, fmt.Errorf("the skills archive has more than %d entries", skillsArchiveMaxEntries)
+		}
+		// Paths are <repository>-<ref>/skills/<skill>/<file>.
+		_, name, _ := strings.Cut(strings.TrimPrefix(header.Name, "./"), "/")
+		name = strings.TrimSuffix(name, "/")
+		if !strings.HasPrefix(name, "skills/") || !validArchivePath(name) {
+			continue
+		}
+		parts := strings.SplitN(name, "/", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		folder := parts[0] + "/" + parts[1]
+		file := skillFile{path: parts[2], mode: header.Mode}
+		switch header.Typeflag {
+		case tar.TypeReg:
+			if total += header.Size; total > skillsExtractedMaxBytes {
+				return nil, fmt.Errorf("the skills archive expands to more than %d MB", skillsExtractedMaxBytes>>20)
+			}
+			if file.data, err = io.ReadAll(reader); err != nil {
+				return nil, fmt.Errorf("reading the skills archive: %w", err)
+			}
+		case tar.TypeSymlink:
+			file.link, file.isLink = header.Linkname, true
+		default:
+			continue
+		}
+		folders[folder] = append(folders[folder], file)
+	}
+
+	var skills []archivedSkill
+	for folder, files := range folders {
+		var manifest []byte
+		for _, file := range files {
+			if file.path == "SKILL.md" && !file.isLink {
+				manifest = file.data
+			}
+		}
+		name, ok := skillManifestName(manifest)
+		if !ok {
+			continue
+		}
+		sort.Slice(files, func(i, j int) bool { return files[i].path < files[j].path })
+		skills = append(skills, archivedSkill{name: name, folder: folder, files: files})
+	}
+	sort.Slice(skills, func(i, j int) bool { return skills[i].name < skills[j].name })
+	if len(skills) == 0 {
+		return nil, errors.New("no skills found in the skills archive")
+	}
+	return skills, nil
+}
+
+// validArchivePath rejects absolute paths and parent directory references.
+func validArchivePath(name string) bool {
+	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") {
 		return false
 	}
-	for i := range minimum {
-		if actual[i] != minimum[i] {
-			return actual[i] > minimum[i]
+	for _, part := range strings.Split(name, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
 		}
 	}
 	return true
 }
 
-// parseSkillsResult reads the installer's --json report.
-func parseSkillsResult(output []byte) ([]string, error) {
-	var results []struct {
-		Name   string `json:"name"`
-		Status string `json:"status"`
-		Error  string `json:"error"`
+// skillManifestName reads the name of a SKILL.md, following the skills
+// installer: a skill needs a name and a description, and internal skills are
+// only installed on request.
+func skillManifestName(manifest []byte) (string, bool) {
+	text := strings.ReplaceAll(string(manifest), "\r\n", "\n")
+	if !strings.HasPrefix(text, "---\n") {
+		return "", false
 	}
-	// The report is the JSON array on stdout; tolerate any notice printed before it.
-	report := bytes.TrimSpace(output)
-	if start := bytes.IndexByte(report, '['); start > 0 {
-		report = report[start:]
+	body, _, found := strings.Cut(text[4:], "\n---")
+	if !found {
+		return "", false
 	}
-	if err := json.Unmarshal(report, &results); err != nil {
-		return nil, fmt.Errorf("unexpected installer output: %w", err)
+	var frontmatter struct {
+		Name        any `yaml:"name"`
+		Description any `yaml:"description"`
+		Metadata    struct {
+			Internal any `yaml:"internal"`
+		} `yaml:"metadata"`
 	}
-	var skills, failures []string
-	for _, result := range results {
-		if result.Status == "failed" || result.Error != "" {
-			failures = append(failures, result.Name+": "+result.Error)
-			continue
-		}
-		skills = append(skills, result.Name)
+	if err := yaml.Unmarshal([]byte(body), &frontmatter); err != nil {
+		return "", false
 	}
-	if len(failures) > 0 {
-		return nil, fmt.Errorf("installing skills: %s", strings.Join(failures, "; "))
+	name, nameOK := frontmatter.Name.(string)
+	description, descriptionOK := frontmatter.Description.(string)
+	if !nameOK || !descriptionOK || strings.TrimSpace(name) == "" || strings.TrimSpace(description) == "" {
+		return "", false
 	}
-	if len(skills) == 0 {
-		return nil, fmt.Errorf("installing skills: no skills were installed")
+	if internal, _ := frontmatter.Metadata.Internal.(bool); internal {
+		return "", false
 	}
-	return skills, nil
+	return strings.TrimSpace(name), true
 }
 
-var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+var skillNameInvalid = regexp.MustCompile(`[^a-z0-9._]+`)
 
-// withSkillsLog appends the end of the installer output to an error so users
-// can see why it failed without the full progress output on success.
-func withSkillsLog(err error, log []byte) error {
-	lines := strings.Split(strings.TrimSpace(ansiEscape.ReplaceAllString(string(log), "")), "\n")
-	var kept []string
-	for _, line := range lines {
-		if line = strings.TrimRight(line, " \r"); strings.Trim(line, " │") != "" {
-			kept = append(kept, line)
+// sanitizeSkillName turns a skill name into its folder name, as the skills installer does.
+func sanitizeSkillName(name string) string {
+	name = skillNameInvalid.ReplaceAllString(strings.ToLower(name), "-")
+	name = strings.TrimRight(strings.TrimLeft(name, ".-"), ".-")
+	if len(name) > 255 {
+		name = name[:255]
+	}
+	if name == "" {
+		return "unnamed-skill"
+	}
+	return name
+}
+
+// gitTreeHash is the Git tree ID of a skill folder. The skills CLI records it
+// in its lock file to find updates, so `npx skills update` keeps working.
+func gitTreeHash(files []skillFile) string {
+	type entry struct {
+		name, mode string
+		id         []byte
+	}
+	var build func(prefix string) []byte
+	build = func(prefix string) []byte {
+		children := map[string]entry{}
+		for _, file := range files {
+			if !strings.HasPrefix(file.path, prefix) {
+				continue
+			}
+			rest := strings.TrimPrefix(file.path, prefix)
+			if first, _, nested := strings.Cut(rest, "/"); nested {
+				if _, seen := children[first]; !seen {
+					children[first] = entry{name: first, mode: "40000", id: build(prefix + first + "/")}
+				}
+				continue
+			}
+			switch {
+			case file.isLink:
+				children[rest] = entry{name: rest, mode: "120000", id: gitObjectID("blob", []byte(file.link))}
+			case file.mode&0o111 != 0:
+				children[rest] = entry{name: rest, mode: "100755", id: gitObjectID("blob", file.data)}
+			default:
+				children[rest] = entry{name: rest, mode: "100644", id: gitObjectID("blob", file.data)}
+			}
+		}
+		sorted := make([]entry, 0, len(children))
+		for _, child := range children {
+			sorted = append(sorted, child)
+		}
+		// Git orders trees as if their names ended with a slash.
+		key := func(e entry) string {
+			if e.mode == "40000" {
+				return e.name + "/"
+			}
+			return e.name
+		}
+		sort.Slice(sorted, func(i, j int) bool { return key(sorted[i]) < key(sorted[j]) })
+		var body bytes.Buffer
+		for _, child := range sorted {
+			body.WriteString(child.mode + " " + child.name + "\x00")
+			body.Write(child.id)
+		}
+		return gitObjectID("tree", body.Bytes())
+	}
+	return hex.EncodeToString(build(""))
+}
+
+func gitObjectID(kind string, data []byte) []byte {
+	// Git object IDs are SHA-1; they identify content and protect nothing.
+	hash := sha1.New()
+	_, _ = fmt.Fprintf(hash, "%s %d\x00", kind, len(data))
+	hash.Write(data)
+	return hash.Sum(nil)
+}
+
+// Files the skills installer leaves out of installed skills.
+func skillFileExcluded(name string) bool {
+	for _, part := range strings.Split(name, "/") {
+		if part == ".git" || part == "__pycache__" || part == "__pypackages__" {
+			return true
 		}
 	}
-	if len(kept) == 0 {
+	return path.Base(name) == "metadata.json"
+}
+
+// installSkillsArchive installs every skill in the archive the way
+// `skills add -g` does: one copy in ~/.agents/skills, which most agents read,
+// and a link from each other selected agent's skills folder to that copy.
+func installSkillsArchive(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time) (skillsInstallResult, error) {
+	skills, err := readSkillsArchive(archive)
+	if err != nil {
+		return skillsInstallResult{}, err
+	}
+	paths := newSkillsAgentPaths(home, env)
+	canonicalBase := filepath.Join(home, ".agents", "skills")
+	_, agentNames := skillsTargets(selected)
+	result := skillsInstallResult{agents: agentNames}
+	for _, skill := range skills {
+		folder := sanitizeSkillName(skill.name)
+		canonical := filepath.Join(canonicalBase, folder)
+		if err := replaceSkillFolder(canonical, skill.files); err != nil {
+			return skillsInstallResult{}, fmt.Errorf("installing %s: %w", skill.name, err)
+		}
+		for _, agent := range selected {
+			if agent.universal {
+				continue
+			}
+			if err := linkSkillFolder(canonical, filepath.Join(skillsAgentDir(agent, paths), folder), skill.files); err != nil {
+				return skillsInstallResult{}, fmt.Errorf("installing %s for %s: %w", skill.name, agent.name, err)
+			}
+		}
+		result.skills = append(result.skills, skill.name)
+	}
+	if err := recordSkillsLock(home, env, skills, now); err != nil {
+		return skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", err)
+	}
+	return result, nil
+}
+
+// writeSkillFolder writes a skill's files into an empty folder. Links inside
+// the skill are replaced by the file they point to, as the skills installer
+// copies with dereferencing; links leaving the skill are skipped.
+func writeSkillFolder(dir string, files []skillFile) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	if len(kept) > 15 {
-		kept = kept[len(kept)-15:]
+	byPath := map[string]skillFile{}
+	for _, file := range files {
+		byPath[file.path] = file
 	}
-	return fmt.Errorf("%w\n%s", err, strings.Join(kept, "\n"))
-}
-
-// Preserve executable shims and their symlinks on Unix and for native Windows
-// executables. Only Windows batch launchers need npm's JS entry point because
-// they cannot be executed directly without invoking a command shell.
-func skillsNPMCommand(node, npm string) ([]string, error) {
-	npm, err := filepath.Abs(npm)
-	if err != nil {
-		return nil, err
-	}
-	extension := strings.ToLower(filepath.Ext(npm))
-	if extension != ".cmd" && extension != ".bat" {
-		return []string{npm}, nil
-	}
-	resolved, err := filepath.EvalSymlinks(npm)
-	if err != nil {
-		return nil, err
-	}
-	entry := filepath.Join(filepath.Dir(resolved), "node_modules", "npm", "bin", "npm-cli.js")
-	if _, err := os.Stat(entry); err != nil {
-		return nil, fmt.Errorf("could not locate npm CLI: %w", err)
-	}
-	return []string{node, entry}, nil
-}
-
-// runPinnedSkills prepares the locked installer and installs the skills for
-// the given agent targets. Progress goes to log; the JSON report is returned.
-func runPinnedSkills(ctx context.Context, node, npm string, agents []string, log io.Writer, run func(*exec.Cmd) error) ([]byte, error) {
-	npmCommand, err := skillsNPMCommand(node, npm)
-	if err != nil {
-		return nil, err
-	}
-	directory, err := os.MkdirTemp("", "blaxel-skills-")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.RemoveAll(directory) }()
-	// npm treats a symlinked prefix (such as macOS /var) as another dependency.
-	resolvedDirectory, err := filepath.EvalSymlinks(directory)
-	if err != nil {
-		return nil, err
-	}
-	directory = resolvedDirectory
-	for name, data := range map[string][]byte{
-		"package.json": skillsPackageJSON, "package-lock.json": skillsPackageLock, "npmrc": {}, "global-npmrc": {},
-	} {
-		if err := os.WriteFile(filepath.Join(directory, name), data, 0600); err != nil {
-			return nil, err
-		}
-	}
-	env := skillsInstallerEnvironment(os.Environ())
-	var report bytes.Buffer
-	install := append([]string{node, filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"),
-		"add", skillsRepo, "-g", "-y", "--skill", "*", "--json", "--agent"}, agents...)
-	commands := [][]string{
-		append(npmCommand, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org",
-			"--userconfig="+filepath.Join(directory, "npmrc"), "--globalconfig="+filepath.Join(directory, "global-npmrc"),
-			"--cache="+filepath.Join(directory, "npm-cache"), "--prefix="+directory),
-		install,
-	}
-	for index, args := range commands {
-		cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-		// Retain the caller's directory so version-manager shims can select Node.
-		// --prefix and absolute entry/config paths keep all npm writes isolated.
-		cmd.Env = env
-		cmd.Stdout, cmd.Stderr = log, log
-		if index == 1 {
-			cmd.Stdout = &report
-		}
-		cmd.WaitDelay = time.Second
-		if err := run(cmd); err != nil {
-			if index == 0 {
-				return nil, fmt.Errorf("preparing verified skills installer: %w", err)
-			}
-			return nil, fmt.Errorf("installing skills: %w", err)
-		}
-	}
-	return report.Bytes(), nil
-}
-
-// Do not let inherited Node hooks or npm configuration change the pinned
-// installation. Preserve HOME and agent configuration for the intended target.
-func skillsInstallerEnvironment(environ []string) []string {
-	env := make([]string, 0, len(environ))
-	for _, entry := range environ {
-		key, _, _ := strings.Cut(entry, "=")
-		key = strings.ToUpper(key)
-		if key == "NODE_OPTIONS" || key == "NODE_PATH" || strings.HasPrefix(key, "NPM_CONFIG_") {
+	for _, file := range files {
+		if skillFileExcluded(file.path) {
 			continue
 		}
-		env = append(env, entry)
+		resolved := file
+		for hops := 0; resolved.isLink && hops < 8; hops++ {
+			target := path.Join(path.Dir(resolved.path), resolved.link)
+			next, ok := byPath[target]
+			if !ok || strings.HasPrefix(resolved.link, "/") {
+				break
+			}
+			resolved = next
+		}
+		if resolved.isLink {
+			continue
+		}
+		destination := filepath.Join(dir, filepath.FromSlash(file.path))
+		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+			return err
+		}
+		mode := os.FileMode(0644)
+		if resolved.mode&0o111 != 0 {
+			mode = 0755
+		}
+		if err := os.WriteFile(destination, resolved.data, mode); err != nil {
+			return err
+		}
 	}
-	return env
+	return nil
+}
+
+// replaceSkillFolder swaps in a fresh copy of the skill, so agents never see a
+// half-written skill and a failure leaves the previous version in place.
+func replaceSkillFolder(destination string, files []skillFile) error {
+	parent := filepath.Dir(destination)
+	if err := os.MkdirAll(parent, 0755); err != nil {
+		return err
+	}
+	if resolved, err := filepath.EvalSymlinks(parent); err == nil {
+		parent = resolved
+		destination = filepath.Join(parent, filepath.Base(destination))
+	}
+	// Stage beside the skills folder, not inside it, so agents scanning it
+	// never load the staging copy, and the final rename stays on one disk.
+	staging, err := os.MkdirTemp(filepath.Dir(parent), ".blaxel-skills-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+	fresh := filepath.Join(staging, "new")
+	if err := writeSkillFolder(fresh, files); err != nil {
+		return err
+	}
+	previous := filepath.Join(staging, "previous")
+	hadPrevious := false
+	if _, err := os.Lstat(destination); err == nil {
+		if err := os.Rename(destination, previous); err != nil {
+			return err
+		}
+		hadPrevious = true
+	}
+	if err := os.Rename(fresh, destination); err != nil {
+		if hadPrevious {
+			_ = os.Rename(previous, destination)
+		}
+		return err
+	}
+	return nil
+}
+
+// linkSkillFolder points an agent's skill folder at the shared copy, and
+// falls back to a copy where links are unavailable (such as Windows without
+// developer mode).
+func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
+		return err
+	}
+	linkDir, err := filepath.EvalSymlinks(filepath.Dir(linkPath))
+	if err != nil {
+		return err
+	}
+	target, err := filepath.EvalSymlinks(canonical)
+	if err != nil {
+		return err
+	}
+	linkPath = filepath.Join(linkDir, filepath.Base(linkPath))
+	// Already linked, or the agent's skills folder is itself a link to the shared one.
+	if existing, err := filepath.EvalSymlinks(linkPath); err == nil && existing == target {
+		return nil
+	}
+	relative, err := filepath.Rel(linkDir, target)
+	if err != nil {
+		relative = target
+	}
+	// As in replaceSkillFolder, stage outside the folder the agent scans.
+	staging, err := os.MkdirTemp(filepath.Dir(linkDir), ".blaxel-skills-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+	fresh := filepath.Join(staging, "new")
+	// A relative link resolves from the folder it ends up in, not the staging folder.
+	if runtime.GOOS == "windows" || os.Symlink(relative, fresh) != nil {
+		if err := writeSkillFolder(fresh, files); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Lstat(linkPath); err == nil {
+		if err := os.Rename(linkPath, filepath.Join(staging, "previous")); err != nil {
+			return err
+		}
+	}
+	return os.Rename(fresh, linkPath)
+}
+
+type skillsLockEntry struct {
+	Source          string `json:"source"`
+	SourceType      string `json:"sourceType"`
+	SourceURL       string `json:"sourceUrl"`
+	SkillPath       string `json:"skillPath"`
+	SkillFolderHash string `json:"skillFolderHash"`
+	InstalledAt     string `json:"installedAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
+const skillsLockVersion = 3
+
+// skillsLockPath is where the skills CLI keeps its global lock file.
+func skillsLockPath(home string, env func(string) string) string {
+	if state := env("XDG_STATE_HOME"); state != "" {
+		return filepath.Join(state, "skills", ".skill-lock.json")
+	}
+	return filepath.Join(home, ".agents", ".skill-lock.json")
+}
+
+// recordSkillsLock records the skills in the skills CLI lock file, keeping
+// every other entry and their order, so `npx skills list -g`, `check` and
+// `update` know them.
+func recordSkillsLock(home string, env func(string) string, skills []archivedSkill, now time.Time) error {
+	file := skillsLockPath(home, env)
+	data, err := os.ReadFile(file)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	lock, entries := readSkillsLock(data)
+	timestamp := now.UTC().Format("2006-01-02T15:04:05.000Z")
+	for _, skill := range skills {
+		entry := skillsLockEntry{
+			Source:          skillsRepo,
+			SourceType:      "github",
+			SourceURL:       "https://github.com/" + skillsRepo + ".git",
+			SkillPath:       skill.folder + "/SKILL.md",
+			SkillFolderHash: gitTreeHash(skill.files),
+			InstalledAt:     timestamp,
+			UpdatedAt:       timestamp,
+		}
+		index := findJSONMember(entries, skill.name)
+		if index >= 0 {
+			var existing struct {
+				InstalledAt string `json:"installedAt"`
+			}
+			if json.Unmarshal(entries[index].value, &existing) == nil && existing.InstalledAt != "" {
+				entry.InstalledAt = existing.InstalledAt
+			}
+		}
+		encoded, err := json.Marshal(entry)
+		if err != nil {
+			return err
+		}
+		if index >= 0 {
+			entries[index].value = encoded
+		} else {
+			entries = append(entries, jsonMember{skill.name, encoded})
+		}
+	}
+	encodedEntries, err := encodeJSONObject(entries)
+	if err != nil {
+		return err
+	}
+	lock[findJSONMember(lock, "skills")].value = encodedEntries
+	updated, err := encodeJSONObject(lock)
+	if err != nil {
+		return err
+	}
+	return writeConfigFile(file, updated)
+}
+
+// readSkillsLock returns the lock file members and its skills. Like the
+// skills CLI, it starts over from an unreadable or outdated lock file.
+func readSkillsLock(data []byte) (lock, entries []jsonMember) {
+	fresh := []jsonMember{
+		{"version", json.RawMessage(fmt.Sprint(skillsLockVersion))},
+		{"skills", json.RawMessage("{}")},
+		{"dismissed", json.RawMessage("{}")},
+	}
+	lock, err := parseJSONObject(data)
+	versionIndex, skillsIndex := findJSONMember(lock, "version"), findJSONMember(lock, "skills")
+	if err != nil || versionIndex < 0 || skillsIndex < 0 {
+		return fresh, nil
+	}
+	var version float64
+	if json.Unmarshal(lock[versionIndex].value, &version) != nil || version < skillsLockVersion {
+		return fresh, nil
+	}
+	if entries, err = parseJSONObject(lock[skillsIndex].value); err != nil {
+		return fresh, nil
+	}
+	return lock, entries
+}
+
+// installedBlaxelSkills lists the Blaxel skills recorded in the skills lock file.
+func installedBlaxelSkills(home string, env func(string) string) []string {
+	data, err := os.ReadFile(skillsLockPath(home, env))
+	if err != nil {
+		return nil
+	}
+	_, entries := readSkillsLock(data)
+	var names []string
+	for _, entry := range entries {
+		var locked struct {
+			Source string `json:"source"`
+		}
+		if json.Unmarshal(entry.value, &locked) == nil && locked.Source == skillsRepo {
+			names = append(names, entry.key)
+		}
+	}
+	return names
+}
+
+// skillsInstalledFor reports whether the agent sees every installed Blaxel skill.
+func skillsInstalledFor(agent skillsAgent, home string, env func(string) string, skills []string) bool {
+	if len(skills) == 0 {
+		return false
+	}
+	dir := filepath.Join(home, ".agents", "skills")
+	if !agent.universal {
+		dir = skillsAgentDir(agent, newSkillsAgentPaths(home, env))
+	}
+	for _, name := range skills {
+		if _, err := os.Stat(filepath.Join(dir, sanitizeSkillName(name), "SKILL.md")); err != nil {
+			return false
+		}
+	}
+	return true
 }

@@ -34,7 +34,14 @@ func installHomebrewSkills() {
 	if err != nil {
 		return
 	}
-	install := installSkills
+	install := func() {
+		installSkills()
+		// Homebrew cannot ask questions during install, so the first command
+		// points new users to the rest of the setup once.
+		if !isLoginCommand(os.Args[1:]) && setupLoginState("") == "" {
+			fmt.Fprintln(os.Stderr, homebrewSetupHint)
+		}
+	}
 	if isSkillsCommand(os.Args[1:]) {
 		// The explicit command installs and reports by itself; only record it.
 		install = func() {}
@@ -42,8 +49,15 @@ func installHomebrewSkills() {
 	setupHomebrewSkills(executable, install)
 }
 
+const homebrewSetupHint = "Finish setting up Blaxel (MCP servers for your coding agents, then login) with: bl setup"
+
+func isLoginCommand(args []string) bool {
+	return len(args) > 0 && args[0] == "login"
+}
+
+// isSkillsCommand reports commands that install the skills themselves.
 func isSkillsCommand(args []string) bool {
-	return len(args) > 0 && args[0] == "skills"
+	return len(args) > 0 && (args[0] == "skills" || args[0] == "setup")
 }
 
 // setupHomebrewSkills records an attempt before installing, so concurrent

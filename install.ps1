@@ -1,45 +1,78 @@
 <#
 .SYNOPSIS
-    Installs the Blaxel CLI (blaxel / bl) on Windows.
+    Installs the Blaxel CLI (blaxel and bl) on Windows.
 
 .DESCRIPTION
-    Downloads the latest (or a specified) release of the Blaxel CLI from GitHub,
-    extracts it to $env:LOCALAPPDATA\blaxel, creates a bl.exe alias, and adds
-    the directory to the user's PATH.
+    Downloads the latest (or the given) release of the Blaxel CLI, verifies it
+    against the release checksums, installs it to $env:LOCALAPPDATA\blaxel and
+    adds that folder to your PATH. It then runs bl setup, which shows the coding
+    agents it found and sets up Blaxel for them, then logs you in.
 
 .PARAMETER Version
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
 
 .PARAMETER SkipSkills
-    Skip installing the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills).
-    Can also be disabled with the BL_INSTALL_SKILLS=false environment variable.
+    Do not install the Blaxel agent skills. BL_INSTALL_SKILLS=false does the same.
+
+.PARAMETER SkipSetup
+    Do not run bl setup. BL_INSTALL_SETUP=false does the same; =true runs it
+    with the defaults even without a terminal or in CI.
 
 .EXAMPLE
-    # Install the latest version:
-    powershell -Command "irm https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.ps1 | iex"
+    irm https://blaxel.ai/install.ps1 | iex
 
-    # Install a specific version:
+.EXAMPLE
     .\install.ps1 -Version v0.1.21
 #>
 
 param(
     [string]$Version = "",
-    [switch]$SkipSkills
+    [switch]$SkipSkills,
+    [switch]$SkipSetup
 )
 
 $ErrorActionPreference = "Stop"
+# Windows PowerShell draws download progress slowly; the steps below say enough.
+$ProgressPreference = "SilentlyContinue"
+# Windows PowerShell 5.1 can default to TLS versions GitHub no longer accepts.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $Owner = "blaxel-ai"
-$Repo  = "toolkit"
+$Repo = "toolkit"
+$Releases = "https://github.com/$Owner/$Repo/releases"
 
-function Test-SkillsInstallationEnabled {
-    param([switch]$SkipSkills)
+# ── Output: styled where the console takes escape codes, plain elsewhere ──
+$Styled = $Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected -and -not $env:NO_COLOR
+$Esc = [char]27
+function Write-Step {
+    param([string]$Kind, [string]$Label, [string]$Detail)
+    $marker = @{ ok = "+"; fail = "x"; next = ">"; note = "!" }[$Kind]
+    if ($Styled) {
+        $glyph = @{ ok = [char]0x2713; fail = [char]0x2717; next = [char]0x203A; note = "!" }[$Kind]
+        $color = @{ ok = "38;5;78"; fail = "38;5;203"; next = "38;5;208"; note = "38;5;214" }[$Kind]
+        Write-Host ("  $Esc[${color}m$glyph$Esc[0m {0,-14} $Esc[38;5;245m{1}$Esc[0m" -f $Label, $Detail)
+    }
+    else {
+        Write-Host ("  {0} {1,-14} {2}" -f $marker, $Label, $Detail)
+    }
+}
+function Stop-Install {
+    param([string]$Label, [string]$Detail)
+    Write-Step fail $Label $Detail
+    exit 1
+}
 
-    if ($SkipSkills) { return $false }
+# bl setup runs by default outside CI. BL_INSTALL_SETUP=true (or the previous
+# BL_INSTALL_SKILLS=true) forces it, BL_INSTALL_SETUP=false or -SkipSetup disables it.
+function Test-SetupEnabled {
+    param([switch]$SkipSetup)
 
-    $override = ([string]$env:BL_INSTALL_SKILLS).Trim()
+    if ($SkipSetup) { return $false }
+
+    $override = ([string]$env:BL_INSTALL_SETUP).Trim()
     if ($override -eq "false") { return $false }
     if ($override -eq "true") { return $true }
+    if (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true") { return $true }
 
     foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
         if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
@@ -49,116 +82,95 @@ function Test-SkillsInstallationEnabled {
     return $true
 }
 
-# ── Detect architecture ──────────────────────────────────────────────
 function Get-BlaxelArch {
     switch ($env:PROCESSOR_ARCHITECTURE) {
-        "AMD64"   { return "x86_64" }
-        "x86"     { return "i386" }
-        "ARM64"   { return "arm64" }
-        default   {
-            # Fallback: check via .NET
-            $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-            switch ($arch) {
-                "X64"   { return "x86_64" }
-                "X86"   { return "i386" }
-                "Arm64" { return "arm64" }
-                default {
-                    Write-Error "Unsupported architecture: $arch"
-                    exit 1
-                }
-            }
-        }
+        "AMD64" { return "x86_64" }
+        "x86" { return "i386" }
+        "ARM64" { return "arm64" }
     }
+    switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+        "X64" { return "x86_64" }
+        "X86" { return "i386" }
+        "Arm64" { return "arm64" }
+    }
+    Stop-Install "Platform" "$env:PROCESSOR_ARCHITECTURE is not supported (x86_64, arm64 and i386 are)"
 }
 
-# ── Resolve version ──────────────────────────────────────────────────
+# The newest release tag, from the redirect GitHub serves for the latest
+# release; the GitHub API is rate limited, so it is only the fallback.
 function Get-LatestVersion {
-    $url = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
     try {
-        $release = Invoke-RestMethod -Uri $url -UseBasicParsing
-        return $release.tag_name
+        $request = [System.Net.WebRequest]::Create("$Releases/latest")
+        $request.Method = "HEAD"
+        $request.AllowAutoRedirect = $false
+        $response = $request.GetResponse()
+        try { $location = $response.Headers["Location"] } finally { $response.Close() }
+        if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
+    }
+    catch { }
+    try {
+        return (Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases/latest" -UseBasicParsing).tag_name
     }
     catch {
-        Write-Error "Failed to fetch the latest release from GitHub: $_"
-        exit 1
+        Stop-Install "Blaxel CLI" "could not find the latest release; pass -Version (see $Releases)"
     }
 }
 
-# ── Main install logic ───────────────────────────────────────────────
+# ── Download, verify and install ─────────────────────────────────────
 $Arch = Get-BlaxelArch
+if (-not $Version -or $Version -eq "latest") { $Version = Get-LatestVersion }
+if (-not $Version.StartsWith("v")) { $Version = "v$Version" }
 
-if (-not $Version) {
-    Write-Host "blaxel-ai/toolkit: checking GitHub for latest version"
-    $Version = Get-LatestVersion
-}
-
-Write-Host "blaxel-ai/toolkit: installing version $Version for Windows $Arch"
-
-$ZipName    = "blaxel_Windows_${Arch}.zip"
-$DownloadUrl = "https://github.com/$Owner/$Repo/releases/download/$Version/$ZipName"
-
-# Destination directory
+$ZipName = "blaxel_Windows_${Arch}.zip"
+$Temp = Join-Path ([System.IO.Path]::GetTempPath()) "blaxel-install-$([System.IO.Path]::GetRandomFileName())"
+New-Item -ItemType Directory -Path $Temp -Force | Out-Null
 $InstallDir = Join-Path $env:LOCALAPPDATA "blaxel"
-if (-not (Test-Path $InstallDir)) {
+try {
+    $Zip = Join-Path $Temp $ZipName
+    try {
+        Invoke-WebRequest -Uri "$Releases/download/$Version/$ZipName" -OutFile $Zip -UseBasicParsing
+    }
+    catch {
+        Stop-Install "Blaxel CLI" "could not download $Version for Windows $Arch"
+    }
+
+    $Checksums = Join-Path $Temp "checksums.txt"
+    try {
+        Invoke-WebRequest -Uri "$Releases/download/$Version/blaxel_$($Version.TrimStart('v'))_checksums.txt" -OutFile $Checksums -UseBasicParsing
+    }
+    catch {
+        Stop-Install "Checksum" "could not download the checksums of $Version"
+    }
+    $line = Get-Content $Checksums | Where-Object { $_ -match "\s$([regex]::Escape($ZipName))$" } | Select-Object -First 1
+    if (-not $line) { Stop-Install "Checksum" "$ZipName is not listed in the release checksums" }
+    # Hashes compare without regard to case.
+    if ((Get-FileHash -Path $Zip -Algorithm SHA256).Hash -ne ($line -split "\s+")[0]) {
+        Stop-Install "Checksum" "the download does not match the release checksums; try again"
+    }
+
+    Expand-Archive -Path $Zip -DestinationPath (Join-Path $Temp "release") -Force
+    $Extracted = Join-Path $Temp "release\blaxel.exe"
+    if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-}
-
-# Download to a temporary file
-$TempZip = Join-Path $env:TEMP "blaxel_install_$([System.IO.Path]::GetRandomFileName()).zip"
-
-Write-Host "blaxel-ai/toolkit: downloading from $DownloadUrl"
-try {
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempZip -UseBasicParsing
-}
-catch {
-    Write-Error "Failed to download $DownloadUrl : $_"
-    exit 1
-}
-
-# Extract
-Write-Host "blaxel-ai/toolkit: extracting to $InstallDir"
-try {
-    Expand-Archive -Path $TempZip -DestinationPath $InstallDir -Force
-}
-catch {
-    Write-Error "Failed to extract archive: $_"
-    exit 1
+    $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
+    Copy-Item -Path $Extracted -Destination $BlaxelExe -Force
+    Copy-Item -Path $Extracted -Destination (Join-Path $InstallDir "bl.exe") -Force
 }
 finally {
-    Remove-Item -Path $TempZip -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
 }
-
-# Ensure blaxel.exe exists
-$BlaxelExe = Join-Path $InstallDir "blaxel.exe"
-if (-not (Test-Path $BlaxelExe)) {
-    Write-Error "blaxel.exe not found in the extracted archive."
-    exit 1
-}
-
-# Create bl.exe alias (copy)
-$BlExe = Join-Path $InstallDir "bl.exe"
-Copy-Item -Path $BlaxelExe -Destination $BlExe -Force
+Write-Step ok "Blaxel CLI" "$Version · $InstallDir\bl.exe · verified"
 
 # ── Add to PATH ──────────────────────────────────────────────────────
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($UserPath -split ";" | Where-Object { $_ -eq $InstallDir }) {
-    Write-Host "blaxel-ai/toolkit: $InstallDir is already in your PATH"
-}
-else {
+if (-not ($UserPath -split ";" | Where-Object { $_ -eq $InstallDir })) {
     [Environment]::SetEnvironmentVariable("Path", "$InstallDir;$UserPath", "User")
-    Write-Host "blaxel-ai/toolkit: added $InstallDir to your user PATH"
 }
-
-# Also update the current session so the binary is usable immediately
-if ($env:Path -split ";" | Where-Object { $_ -eq $InstallDir }) {
-    # Already in session PATH
-}
-else {
+# This session can use bl right away.
+if (-not ($env:Path -split ";" | Where-Object { $_ -eq $InstallDir })) {
     $env:Path = "$InstallDir;$env:Path"
 }
-
-# Broadcast WM_SETTINGCHANGE so newly spawned processes (e.g. from Explorer)
-# pick up the updated user PATH without requiring a logout.
+# Tell running programs (such as Explorer) that PATH changed, so new terminals see it.
 try {
     if (-not ('NativeMethods.Win32EnvBroadcast' -as [type])) {
         Add-Type -Namespace NativeMethods -Name Win32EnvBroadcast -MemberDefinition @'
@@ -168,68 +180,53 @@ public static extern System.IntPtr SendMessageTimeout(
     uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);
 '@ -ErrorAction Stop
     }
-    $HWND_BROADCAST = [IntPtr]0xffff
-    $WM_SETTINGCHANGE = 0x1A
     [System.UIntPtr]$result = [System.UIntPtr]::Zero
     [void][NativeMethods.Win32EnvBroadcast]::SendMessageTimeout(
-        $HWND_BROADCAST, $WM_SETTINGCHANGE, [System.UIntPtr]::Zero, "Environment",
-        2, 5000, [ref]$result)
+        [IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result)
 }
 catch {
-    # Best-effort; PATH is still persisted via SetEnvironmentVariable above.
+    # Best-effort; PATH is still saved for new sessions.
 }
 
-# ── Check optional dependencies ──────────────────────────────────────
+# Some bl commands (like bl new) clone templates with Git.
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Host ""
-    Write-Host "Note: Git was not found on your PATH." -ForegroundColor Yellow
-    Write-Host "Some 'bl' commands (like 'bl new') require Git to be installed." -ForegroundColor Yellow
-    Write-Host "Install it from: https://git-scm.com/download/win" -ForegroundColor Yellow
+    Write-Step note "Git" "Git was not found; bl new needs it: https://git-scm.com/download/win"
 }
 
-# ── Install Blaxel agent skills ──────────────────────────────────────
-$SkillsInstallCmd = "bl skills install"
-# BL_INSTALL_SKILLS=true forces the install (even in CI), BL_INSTALL_SKILLS=false or -SkipSkills disables it.
-$InstallSkills = Test-SkillsInstallationEnabled -SkipSkills:$SkipSkills
-if ($InstallSkills) {
-    # Releases before `bl skills install` existed (e.g. -Version) skip quietly.
-    # Windows PowerShell turns redirected stderr into errors under "Stop".
+# ── Hand-off to bl setup ─────────────────────────────────────────────
+$SetupAvailable = $false
+try {
+    & $BlaxelExe setup --help *> $null
+    $SetupAvailable = ($LASTEXITCODE -eq 0)
+}
+catch { }
+
+$Interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+$Forced = (([string]$env:BL_INSTALL_SETUP).Trim() -eq "true") -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true")
+if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup) -and ($Interactive -or $Forced)) {
+    $SetupArgs = @("setup")
+    if ($SkipSkills) { $SetupArgs += "--skip-skills" }
+    if (-not $Interactive) { $SetupArgs += "--yes" }
+    # bl setup shows the shell and what to run next itself.
+    $env:BL_INSTALLER = "1"
+    $env:BL_INSTALLER_SHELL = "bl on PATH"
     try {
-        & $BlaxelExe skills install --help *> $null
-        if ($LASTEXITCODE -ne 0) { $InstallSkills = $false }
+        & $BlaxelExe @SetupArgs
     }
     catch {
-        $InstallSkills = $false
+        Write-Step next "bl setup" "to finish setting up"
     }
-}
-if ($InstallSkills) {
-    Write-Host ""
-    if ((Get-Command node -ErrorAction SilentlyContinue) -and (Get-Command npm -ErrorAction SilentlyContinue)) {
-        # The CLI prints its own progress and result.
-        try {
-            & $BlaxelExe skills install
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "Could not install the Blaxel skills (exit code $LASTEXITCODE). You can retry later with:" -ForegroundColor Yellow
-                Write-Host "    $SkillsInstallCmd" -ForegroundColor Yellow
-            }
-        }
-        catch {
-            Write-Host "Could not install the Blaxel skills: $_" -ForegroundColor Yellow
-            Write-Host "You can retry later with: $SkillsInstallCmd" -ForegroundColor Yellow
-        }
-    }
-    else {
-        Write-Host "Tip: install Node.js 22.20+ (https://nodejs.org), then run '$SkillsInstallCmd'" -ForegroundColor Yellow
-        Write-Host "     to give your coding agents (Claude Code, Codex, Cursor, ...) the Blaxel skills." -ForegroundColor Yellow
-    }
+    exit 0
 }
 
-# ── Done ─────────────────────────────────────────────────────────────
+Write-Step ok "Shell" "bl on PATH (open a new terminal elsewhere)"
 Write-Host ""
-Write-Host "blaxel and bl were installed successfully to $InstallDir"
-Write-Host "Installed version: $Version"
-Write-Host ""
-Write-Host "Open a NEW terminal window for 'bl' to be available on your PATH." -ForegroundColor Cyan
-Write-Host "(Already-open terminals will not pick up the updated PATH.)"
-Write-Host ""
-Write-Host "Then run: bl --help"
+# Skipping bl setup on purpose needs no reminder.
+if ($SkipSetup -or ([string]$env:BL_INSTALL_SETUP).Trim() -eq "false") {
+}
+elseif ($SetupAvailable) {
+    Write-Step next "bl setup" "set up your coding agents and log in"
+}
+else {
+    Write-Step next "bl login" "log in to Blaxel"
+}

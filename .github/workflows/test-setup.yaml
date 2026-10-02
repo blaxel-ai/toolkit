@@ -1,0 +1,95 @@
+name: Test setup and installer
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "cli/**"
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+      - "install.sh"
+      - "test/install/**"
+      - ".github/workflows/test-setup.yaml"
+
+jobs:
+  # install.sh against a local release: release lookup, checksums, PATH,
+  # completions and the hand-off to bl setup, with no network for the CLI.
+  installer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+
+      - name: Release lookup
+        run: sh test/install/test_release_lookup.sh
+
+      - name: Installer and skills, end to end
+        run: |
+          go build -o "$RUNNER_TEMP/blaxel" .
+          python3 test/install/test_homebrew_skills.py "$RUNNER_TEMP/blaxel"
+
+  # The built bl setup, with its defaults, in a home with three coding agents.
+  setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+
+      - name: bl setup (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          go build -o "$RUNNER_TEMP/bl" .
+          home="$RUNNER_TEMP/home"
+          mkdir -p "$home/.claude" "$home/.cursor" "$home/.codex"
+          HOME="$home" XDG_CONFIG_HOME="$home/.config" "$RUNNER_TEMP/bl" setup --yes
+          test -f "$home/.agents/skills/blaxel-cli/SKILL.md"
+          test -e "$home/.claude/skills/blaxel-cli"
+          grep -q '"blaxel"' "$home/.cursor/mcp.json"
+          grep -q 'mcp_servers.blaxel' "$home/.codex/config.toml"
+          grep -q '"blaxel"' "$home/.claude.json"
+          # CI never turns error reports on.
+          ! grep -qs '^tracking: true' "$home/.blaxel/config.yaml"
+
+      - name: bl setup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          go build -o "$env:RUNNER_TEMP\bl.exe" .
+          $root = Join-Path $env:RUNNER_TEMP "home"
+          foreach ($dir in ".claude", ".cursor", ".codex") { New-Item -ItemType Directory -Force (Join-Path $root $dir) | Out-Null }
+          $env:USERPROFILE = $root
+          $env:HOME = $root
+          & "$env:RUNNER_TEMP\bl.exe" setup --yes
+          if ($LASTEXITCODE -ne 0) { throw "bl setup exited with $LASTEXITCODE" }
+          foreach ($path in ".agents\skills\blaxel-cli\SKILL.md", ".claude\skills\blaxel-cli", ".cursor\mcp.json", ".codex\config.toml", ".claude.json") {
+            if (-not (Test-Path (Join-Path $root $path))) { throw "missing $path" }
+          }
+          if (-not (Select-String -Quiet -Path (Join-Path $root ".codex\config.toml") -Pattern 'mcp_servers.blaxel')) { throw "Codex has no blaxel MCP server" }
+          # CI never turns error reports on.
+          $config = Join-Path $root ".blaxel\config.yaml"
+          if ((Test-Path $config) -and (Select-String -Quiet -Path $config -Pattern '^tracking: true')) { throw "error reports were turned on in CI" }

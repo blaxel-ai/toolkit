@@ -47,26 +47,26 @@ func TestBuildCurlUpgradeCommand(t *testing.T) {
 		{
 			name:     "latest without sudo",
 			binDir:   "/home/user/.local/bin",
-			expected: "curl -fsSL https://example.com/install.sh | BL_INSTALL_SKILLS=false BINDIR=/home/user/.local/bin sh",
+			expected: "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false BINDIR=/home/user/.local/bin sh",
 		},
 		{
 			name:          "specific version without sudo",
 			targetVersion: "v1.2.3",
 			binDir:        "/home/user/.local/bin",
-			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/home/user/.local/bin sh",
+			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/home/user/.local/bin sh",
 		},
 		{
 			name:      "latest with sudo",
 			binDir:    "/usr/local/bin",
 			needsSudo: true,
-			expected:  "curl -fsSL https://example.com/install.sh | BL_INSTALL_SKILLS=false BINDIR=/usr/local/bin sudo -E sh",
+			expected:  "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false BINDIR=/usr/local/bin sudo -E sh",
 		},
 		{
 			name:          "specific version with sudo",
 			targetVersion: "v1.2.3",
 			binDir:        "/usr/local/bin",
 			needsSudo:     true,
-			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/usr/local/bin sudo -E sh",
+			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/usr/local/bin sudo -E sh",
 		},
 	}
 

@@ -22,7 +22,7 @@ const (
 	skillsInstallEnv = "BL_INSTALL_SKILLS"
 )
 
-// skillsInstallCommand is the shared, integrity-checked installation entry point.
+// skillsInstallCommand is the command that installs or refreshes the skills.
 func skillsInstallCommand() string {
 	return "bl skills install"
 }
@@ -53,7 +53,7 @@ func installSkills() {
 		return
 	}
 	// A first invocation of `bl upgrade` also passes through startup setup.
-	// Both paths use the same installer, but only one npm process is needed.
+	// Both paths use the same installer, but only one download is needed.
 	if err := installSkillsOnce(); err != nil {
 		// Startup setup and bl upgrade can share one failed attempt; report it once.
 		skillsReportOnce.Do(func() {
@@ -72,7 +72,7 @@ func runSkillsInstall() error {
 	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	result, err := installPinnedSkills(ctx)
+	result, err := installDetectedSkills(ctx)
 	if err != nil {
 		return err
 	}

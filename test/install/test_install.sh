@@ -25,18 +25,31 @@ fail() {
 export BL_INSTALL_PATH=true
 export BL_INSTALL_COMPLETION=true
 export BL_INSTALL_TRACKING=true
-# Force the skills step: Node.js is not available in the test image, so this
-# exercises the "Node.js missing" path and checks it never aborts the install.
-export BL_INSTALL_SKILLS=true
+# Run bl setup with its defaults without a terminal. Releases before bl setup
+# print the next step instead. Either way the install must finish.
+export BL_INSTALL_SETUP=true
 
 echo "=== Installing with SHELL=bash ==="
 printf '# Added by blaxel installer\n#export PATH="%s:$PATH"\n' "$HOME/.local/bin" > "$HOME/.bashrc"
 INSTALL_OUTPUT=$(SHELL=/bin/bash sh /home/testuser/install.sh 2>&1)
 echo "$INSTALL_OUTPUT"
-if echo "$INSTALL_OUTPUT" | grep -q "bl skills install"; then
-  pass "skills step ran and printed the manual install command (Node.js missing)"
+HAS_SETUP=""
+"$HOME/.local/bin/blaxel" setup --help >/dev/null 2>&1 && HAS_SETUP=1
+if echo "$INSTALL_OUTPUT" | grep -q "verified"; then
+  pass "download verified against the release checksums"
 else
-  fail "skills step did not print the manual install command"
+  fail "installer did not report a verified download"
+fi
+if [ -n "$HAS_SETUP" ]; then
+  if [ -d "$HOME/.agents/skills/blaxel-cli" ] && echo "$INSTALL_OUTPUT" | grep -q "Blaxel is ready"; then
+    pass "bl setup ran with its defaults and installed the skills without Node.js"
+  else
+    fail "bl setup did not install the skills"
+  fi
+elif echo "$INSTALL_OUTPUT" | grep -q "bl login"; then
+  pass "release without bl setup: printed the next step"
+else
+  fail "installer printed no next step"
 fi
 if grep -Eq "^[[:space:]]*export[[:space:]]+PATH=.*$HOME/.local/bin" "$HOME/.bashrc"; then
   pass "bash: commented PATH entry is ignored and active PATH export is added"
@@ -174,8 +187,10 @@ fi
 echo ""
 echo "=== Verifying tracking setup ==="
 
-if [ -f "$HOME/.blaxel/config.yaml" ] && grep -q "^tracking:" "$HOME/.blaxel/config.yaml"; then
-  pass "tracking config created"
+if [ -z "$HAS_SETUP" ]; then
+  pass "release without bl setup: the CLI asks about error reports on first use"
+elif [ -f "$HOME/.blaxel/config.yaml" ] && grep -q "^tracking: true" "$HOME/.blaxel/config.yaml"; then
+  pass "BL_INSTALL_TRACKING=true recorded by bl setup"
 else
   fail "tracking config not found"
 fi
