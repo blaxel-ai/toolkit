@@ -386,13 +386,7 @@ func runInstallationSteps(p *tea.Program, t Template, opts TemplateOptions) erro
 		return err
 	}
 
-	env := os.Getenv("BL_ENV")
-	branch := "main"
-	if env == "dev" || env == "local" {
-		branch = "develop"
-	}
-
-	cloneCmd := exec.Command("git", "clone", "-b", branch, "--progress", t.URL, opts.Directory)
+	cloneCmd := templateCloneCommand(t.URL, opts.Directory, "--progress")
 	if err := cloneCmd.Run(); err != nil {
 		p.Send(stepFailedMsg{step: 1, err: fmt.Errorf("failed to clone: %w", err)})
 		return err

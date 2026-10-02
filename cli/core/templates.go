@@ -266,21 +266,33 @@ func (t Templates) Find(name string) (Template, error) {
 	)
 }
 
+// templateBranch is the branch every template is cloned from, whatever BL_ENV is.
+//
+// bl used to clone `develop` when BL_ENV was dev or local. The template repos no
+// longer keep `develop` in sync with `main`: fixes land on `main` (the branch
+// customers get), and most `develop` branches stopped moving in December 2025.
+// Cloning `develop` gave dev users stale templates that fail with current
+// tooling, e.g. jobs-ts under pnpm 11+ (ERR_PNPM_IGNORED_BUILDS).
+const templateBranch = "main"
+
+// templateCloneCommand builds the git command that clones a template repository
+// into dir. Both the plain and the interactive install paths use it.
+func templateCloneCommand(url, dir string, extraArgs ...string) *exec.Cmd {
+	args := append([]string{"clone", "-b", templateBranch}, extraArgs...)
+	args = append(args, url, dir)
+	return exec.Command("git", args...)
+}
+
 func (t Template) Clone(opts TemplateOptions) error {
 	// Create project directory
 	if err := os.MkdirAll(opts.Directory, 0755); err != nil {
 		return err
 	}
-	env := os.Getenv("BL_ENV")
-	branch := "main"
-	if env == "dev" || env == "local" {
-		branch = "develop"
-	}
 	if !isCommandAvailable("git") {
 		return fmt.Errorf("git is not available on your system. Please install git and try again")
 	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
-	cloneDirCmd := exec.Command("git", "clone", "-b", branch, t.URL, opts.Directory)
+	cloneDirCmd := templateCloneCommand(t.URL, opts.Directory)
 	if err := cloneDirCmd.Run(); err != nil {
 		return fmt.Errorf("failed to clone templates repository: %w", err)
 	}
