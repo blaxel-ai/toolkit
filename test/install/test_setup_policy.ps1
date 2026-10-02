@@ -25,8 +25,8 @@ foreach ($key in $keys) {
 }
 
 function Assert-Policy {
-    param([bool]$Expected, [string]$Label, [switch]$SkipSetup)
-    $actual = Test-SetupEnabled -SkipSetup:$SkipSetup
+    param([bool]$Expected, [string]$Label, [switch]$SkipSetup, [switch]$SkipSkills)
+    $actual = Test-SetupEnabled -SkipSetup:$SkipSetup -SkipSkills:$SkipSkills
     if ($actual -ne $Expected) {
         throw "${Label}: expected $Expected, got $actual"
     }
@@ -43,8 +43,12 @@ try {
     Assert-Policy -Expected $true -Label "unrecognized override follows default policy"
     [Environment]::SetEnvironmentVariable("BL_INSTALL_SETUP", $null, "Process")
     $env:BL_INSTALL_SKILLS = "false"
-    Assert-Policy -Expected $true -Label "BL_INSTALL_SKILLS=false still runs setup (setup skips the skills)"
+    Assert-Policy -Expected $false -Label "BL_INSTALL_SKILLS=false leaves the agents alone"
+    $env:BL_INSTALL_SETUP = "true"
+    Assert-Policy -Expected $true -Label "BL_INSTALL_SETUP=true still runs setup without the skills"
+    [Environment]::SetEnvironmentVariable("BL_INSTALL_SETUP", $null, "Process")
     [Environment]::SetEnvironmentVariable("BL_INSTALL_SKILLS", $null, "Process")
+    Assert-Policy -Expected $false -Label "SkipSkills leaves the agents alone" -SkipSkills
 
     foreach ($marker in $ciMarkers) {
         [Environment]::SetEnvironmentVariable($marker, "true", "Process")

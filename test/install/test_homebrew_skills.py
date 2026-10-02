@@ -335,6 +335,40 @@ def fake_release(root, binary, corrupt=False):
     return release
 
 
+def run_in_terminal(argv, cwd, env, timeout=60):
+    """Runs argv on a pseudo-terminal, as at a person's terminal, and returns
+    its exit code and output. The code is None when it is still running after
+    the timeout, for example because it is waiting at a prompt."""
+    import os, pty, select, signal, time
+    pid, fd = pty.fork()
+    if pid == 0:
+        try:
+            os.chdir(cwd)
+            os.execve(argv[0], argv, env)
+        finally:
+            os._exit(127)
+    chunks, deadline = [], time.monotonic() + timeout
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            os.killpg(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
+            os.close(fd)
+            return None, b"".join(chunks).decode(errors="replace")
+        if not select.select([fd], [], [], left)[0]:
+            continue
+        try:
+            data = os.read(fd, 65536)
+        except OSError:  # EIO once the terminal closes
+            data = b""
+        if not data:
+            break
+        chunks.append(data)
+    _, status = os.waitpid(pid, 0)
+    os.close(fd)
+    return os.waitstatus_to_exitcode(status), b"".join(chunks).decode(errors="replace")
+
+
 def install_script_tests(root, binary, server):
     """Runs install.sh end to end against a local release, with no network."""
     script = Path(__file__).resolve().parents[2] / "install.sh"
@@ -344,6 +378,11 @@ def install_script_tests(root, binary, server):
         ("no-path", False, {"BL_INSTALL_PATH": "false"}),
         ("corrupt", True, {}),
         ("no-sha256", False, {}),
+        # bl upgrade before v0.1.119 runs the latest install.sh at the user's
+        # terminal with only these variables.
+        ("old-upgrade", False, {"BL_INSTALL_SKILLS": "false"}),
+        # The one-liner at a person's terminal.
+        ("terminal", False, {}),
     ):
         install = Installation(root / f"script-{name}", binary, server)
         release = fake_release(install.root, binary, corrupt)
@@ -359,6 +398,24 @@ def install_script_tests(root, binary, server):
         (install.home / ".claude").mkdir()
         env = {**install.env, "FAKE_RELEASE": str(release), "SHELL": "/bin/zsh", "BL_INSTALL_SETUP": "true",
                "BL_INSTALL_TRACKING": "false", **extra}
+        if name == "terminal":
+            del env["BL_INSTALL_SETUP"]
+            code, output = run_in_terminal(["/bin/sh", str(script)], install.cwd, env, timeout=15)
+            assert code is None, "it hands the terminal to bl setup, which waits for the person:\n" + output
+            assert "Blaxel CLI" in output and "Install" in output, output
+            print("PASS install.sh at a terminal opens bl setup", flush=True)
+            continue
+        if name == "old-upgrade":
+            del env["BL_INSTALL_SETUP"]
+            env["BINDIR"] = str(install.home / ".local/bin")
+            code, output = run_in_terminal(["/bin/sh", str(script)], install.cwd, env)
+            assert code is not None, "an old bl upgrade must not stop at bl setup:\n" + output
+            assert code == 0, output
+            assert (install.home / ".local/bin/bl").is_file(), output
+            assert "Blaxel setup" not in output and not install.installed_skills(), output
+            assert "bl setup" in output, "it says how to finish setting up:\n" + output
+            print("PASS an old bl upgrade at a terminal installs and only suggests bl setup", flush=True)
+            continue
         result = subprocess.run(["/bin/sh", str(script)], cwd=install.cwd, env=env, stdin=subprocess.DEVNULL,
                                 capture_output=True, text=True, timeout=120)
         output = result.stdout + result.stderr

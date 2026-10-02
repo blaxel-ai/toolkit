@@ -12,7 +12,8 @@
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
 
 .PARAMETER SkipSkills
-    Do not install the Blaxel agent skills. BL_INSTALL_SKILLS=false does the same.
+    Leave your coding agents alone: bl setup is only suggested, unless
+    BL_INSTALL_SETUP=true runs it without the skills. BL_INSTALL_SKILLS=false does the same.
 
 .PARAMETER SkipSetup
     Do not run bl setup. BL_INSTALL_SETUP=false does the same; =true runs it
@@ -74,13 +75,15 @@ param(
         # bl setup runs by default outside CI. BL_INSTALL_SETUP=true (or the previous
         # BL_INSTALL_SKILLS=true) forces it, BL_INSTALL_SETUP=false or -SkipSetup disables it.
         function Test-SetupEnabled {
-            param([switch]$SkipSetup)
+            param([switch]$SkipSetup, [switch]$SkipSkills)
 
             if ($SkipSetup) { return $false }
 
             $override = ([string]$env:BL_INSTALL_SETUP).Trim()
             if ($override -eq "false") { return $false }
             if ($override -eq "true") { return $true }
+            # Skipping the skills leaves the agents alone, so setup is only suggested.
+            if ($SkipSkills -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "false")) { return $false }
             if (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true") { return $true }
 
             foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
@@ -212,7 +215,7 @@ public static extern System.IntPtr SendMessageTimeout(
 
         $Interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
         $Forced = (([string]$env:BL_INSTALL_SETUP).Trim() -eq "true") -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true")
-        if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup) -and ($Interactive -or $Forced)) {
+        if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup -SkipSkills:$SkipSkills) -and ($Interactive -or $Forced)) {
             $SetupArgs = @("setup")
             if ($SkipSkills) { $SetupArgs += "--skip-skills" }
             if (-not $Interactive) { $SetupArgs += "--yes" }

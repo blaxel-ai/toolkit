@@ -13,6 +13,8 @@
 #   BL_INSTALL_PATH=false         leave your shell configuration alone
 #   BL_INSTALL_COMPLETION=false   skip shell completions
 #   BL_INSTALL_SETUP=false        skip bl setup (=true runs it without a terminal)
+#   BL_INSTALL_SKILLS=false       leave your coding agents alone: bl setup is
+#                                 only suggested (bl upgrade before v0.1.119)
 #   NO_COLOR=1                    plain output
 set -e
 
@@ -335,6 +337,11 @@ fix_owner() {
 setup_mode() {
   SETUP_MODE=""
   [ "${BL_INSTALL_SETUP:-}" != "false" ] || return 0
+  # BL_INSTALL_SKILLS=false leaves the agents alone; bl upgrade before v0.1.119
+  # passes it, at the user's terminal, without BL_INSTALL_SETUP.
+  if [ "${BL_INSTALL_SKILLS:-}" = "false" ] && [ "${BL_INSTALL_SETUP:-}" != "true" ]; then
+    return 0
+  fi
   # Releases before bl setup existed (VERSION=...) leave it to the user.
   "$BINDIR/$BINARY" setup --help >/dev/null 2>&1 || return 0
   forced=""
