@@ -26,7 +26,23 @@ jobs:
 
       - name: Test release lookup
         shell: pwsh
-        run: ./test/install/test_release_lookup.ps1
+        run: ./test/install/test_release_lookup.ps1 -Live
+
+      # Windows PowerShell 5.1 is what most people get from irm | iex.
+      - name: Test release lookup in Windows PowerShell 5.1
+        shell: powershell
+        run: ./test/install/test_release_lookup.ps1 -Live
+
+      - name: Run install.ps1 in Windows PowerShell 5.1, from a file and through irm | iex
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited with $LASTEXITCODE" }
+          $script = "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.pull_request.head.sha }}/install.ps1"
+          $output = powershell -NoProfile -Command "irm $script | iex; 'session still open'" 2>&1 | Out-String
+          Write-Host $output
+          if ($output -notmatch 'session still open') { throw "irm | iex closed the session" }
+          & (Join-Path $env:LOCALAPPDATA "blaxel\bl.exe") version
 
       - name: Run install.ps1 with latest release
         shell: pwsh

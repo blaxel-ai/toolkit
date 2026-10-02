@@ -113,15 +113,23 @@ param(
         # the redirect fails, the newest stable tag from the GitHub API.
         $Unstable = "preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable"
         function Get-RedirectTag {
+            $location = $null
             try {
                 $request = [System.Net.WebRequest]::Create("$Releases/latest")
                 $request.Method = "HEAD"
                 $request.AllowAutoRedirect = $false
                 $response = $request.GetResponse()
                 try { $location = $response.Headers["Location"] } finally { $response.Close() }
-                if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
+            }
+            catch [System.Net.WebException] {
+                # Some runtimes raise on the 302 when redirects are off; it still has the header.
+                $response = $_.Exception.Response
+                if ($response) {
+                    try { $location = $response.Headers["Location"] } finally { $response.Close() }
+                }
             }
             catch { }
+            if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
             return $null
         }
         # Release tags, newest first. The API is rate limited, so it is only the fallback.
