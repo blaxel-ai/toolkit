@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,9 +57,12 @@ func TestUpsertJSONConfigPreservesOrderAndValues(t *testing.T) {
   "alpha": true
 }
 `, readTestFile(t, file))
-	info, err := os.Stat(file)
-	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+	// Windows has no Unix permissions to keep.
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(file)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+	}
 }
 
 func TestUpsertJSONConfigCreatesFileAndContainer(t *testing.T) {
