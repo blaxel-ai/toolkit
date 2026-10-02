@@ -164,7 +164,7 @@ func setupLoginState(workspace string) string {
 // setupDeviceLogin logs in with the browser from the setup screens.
 func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (string, error) {
 	c.Progress("opening your browser")
-	login, opened, err := auth.StartDeviceLogin()
+	login, opened, err := auth.StartDeviceLogin(ctx)
 	if err != nil {
 		return "", err
 	}

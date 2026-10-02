@@ -79,12 +79,25 @@ func TestRequestDeviceLogin(t *testing.T) {
 		_, _ = w.Write([]byte(`{"device_code":"device-code","verification_uri_complete":"https://app.blaxel.ai/device?code=1"}`))
 	}))
 	defer server.Close()
-	response, err := requestDeviceLogin(server.URL + "/login/device")
+	response, err := requestDeviceLogin(context.Background(), server.URL+"/login/device")
 	require.NoError(t, err)
 	assert.Equal(t, "device-code", response.DeviceCode)
 
-	_, err = requestDeviceLogin(server.URL + "/broken")
+	_, err = requestDeviceLogin(context.Background(), server.URL+"/broken")
 	assert.ErrorContains(t, err, "status 503", "an unusable answer stops the login instead of polling for nothing")
+}
+
+func TestRequestDeviceLoginStopsWhenCancelled(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-release }))
+	defer server.Close()
+	defer close(release)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(30 * time.Millisecond); cancel() }()
+	started := time.Now()
+	_, err := requestDeviceLogin(ctx, server.URL)
+	assert.ErrorIs(t, err, context.Canceled, "skipping the login stops a request that hangs")
+	assert.Less(t, time.Since(started), 2*time.Second)
 }
 
 func TestPollDeviceTokenStopsWhenCancelled(t *testing.T) {

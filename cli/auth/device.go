@@ -56,6 +56,8 @@ type AuthErrorResponse struct {
 var (
 	devicePollInterval = 3 * time.Second
 	devicePollAttempts = 61
+	// deviceRequestTimeout bounds the request that starts a login.
+	deviceRequestTimeout = 30 * time.Second
 )
 
 // LoginDevice logs in with the browser for bl login, and exits on failure.
@@ -70,7 +72,7 @@ func LoginDevice(workspace string) {
 // empty workspace, the user picks one of their workspaces after signing in.
 // Failures are returned, so callers such as bl setup can carry on.
 func LoginWithDevice(workspace string) error {
-	deviceLogin, opened, err := StartDeviceLogin()
+	deviceLogin, opened, err := StartDeviceLogin(context.Background())
 	if err != nil {
 		return err
 	}
@@ -98,9 +100,10 @@ func LoginWithDevice(workspace string) error {
 }
 
 // StartDeviceLogin asks for a device login and opens its page in the
-// browser. opened is false where no browser could be opened.
-func StartDeviceLogin() (login DeviceLoginResponse, opened bool, err error) {
-	login, err = requestDeviceLogin(blaxel.BuildOAuthDeviceURL())
+// browser. opened is false where no browser could be opened. Cancelling ctx
+// (such as skipping the login in bl setup) stops the request.
+func StartDeviceLogin(ctx context.Context) (login DeviceLoginResponse, opened bool, err error) {
+	login, err = requestDeviceLogin(ctx, blaxel.BuildOAuthDeviceURL())
 	if err != nil {
 		return login, false, err
 	}
@@ -155,12 +158,19 @@ func SaveDeviceLogin(workspace string, creds blaxel.Credentials) error {
 	return nil
 }
 
-func requestDeviceLogin(url string) (DeviceLoginResponse, error) {
+func requestDeviceLogin(ctx context.Context, url string) (DeviceLoginResponse, error) {
 	payloadBytes, err := json.Marshal(DeviceLogin{ClientID: "blaxel", Scope: "offline_access"})
 	if err != nil {
 		return DeviceLoginResponse{}, err
 	}
-	res, err := http.Post(url, "application/json", bytes.NewReader(payloadBytes))
+	ctx, cancel := context.WithTimeout(ctx, deviceRequestTimeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return DeviceLoginResponse{}, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(request)
 	if err != nil {
 		return DeviceLoginResponse{}, fmt.Errorf("error making request: %w", err)
 	}

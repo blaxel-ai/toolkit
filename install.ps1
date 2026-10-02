@@ -240,6 +240,9 @@ public static extern System.IntPtr SendMessageTimeout(
             finally {
                 Remove-Item Env:BL_INSTALLER, Env:BL_INSTALLER_SHELL -ErrorAction SilentlyContinue
             }
+            # bl is installed: setup has shown its own problems, and leaves the
+            # install a success, as install.sh does.
+            $global:LASTEXITCODE = 0
             return
         }
 
