@@ -31,202 +31,225 @@ param(
     [switch]$SkipSetup
 )
 
-$ErrorActionPreference = "Stop"
-# Windows PowerShell draws download progress slowly; the steps below say enough.
-$ProgressPreference = "SilentlyContinue"
-# Windows PowerShell 5.1 can default to TLS versions GitHub no longer accepts.
-[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+# Under `irm | iex` this runs in the user's own PowerShell session: everything
+# happens in a child scope, so their preferences and variables stay as they
+# were, and nothing calls exit, which would close their window. Run as a file,
+# the exit code still reports a failure.
+& {
+    param([string]$Version, [switch]$SkipSkills, [switch]$SkipSetup)
 
-$Owner = "blaxel-ai"
-$Repo = "toolkit"
-$Releases = "https://github.com/$Owner/$Repo/releases"
+    try {
+        $ErrorActionPreference = "Stop"
+        # Windows PowerShell draws download progress slowly; the steps below say enough.
+        $ProgressPreference = "SilentlyContinue"
+        # Windows PowerShell 5.1 can default to TLS versions GitHub no longer accepts.
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-# ── Output: styled where the console takes escape codes, plain elsewhere ──
-$Styled = $Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected -and -not $env:NO_COLOR
-$Esc = [char]27
-function Write-Step {
-    param([string]$Kind, [string]$Label, [string]$Detail)
-    $marker = @{ ok = "+"; fail = "x"; next = ">"; note = "!" }[$Kind]
-    if ($Styled) {
-        $glyph = @{ ok = [char]0x2713; fail = [char]0x2717; next = [char]0x203A; note = "!" }[$Kind]
-        $color = @{ ok = "38;5;78"; fail = "38;5;203"; next = "38;5;208"; note = "38;5;214" }[$Kind]
-        Write-Host ("  $Esc[${color}m$glyph$Esc[0m {0,-14} $Esc[38;5;245m{1}$Esc[0m" -f $Label, $Detail)
-    }
-    else {
-        Write-Host ("  {0} {1,-14} {2}" -f $marker, $Label, $Detail)
-    }
-}
-function Stop-Install {
-    param([string]$Label, [string]$Detail)
-    Write-Step fail $Label $Detail
-    exit 1
-}
+        $Owner = "blaxel-ai"
+        $Repo = "toolkit"
+        $Releases = "https://github.com/$Owner/$Repo/releases"
 
-# bl setup runs by default outside CI. BL_INSTALL_SETUP=true (or the previous
-# BL_INSTALL_SKILLS=true) forces it, BL_INSTALL_SETUP=false or -SkipSetup disables it.
-function Test-SetupEnabled {
-    param([switch]$SkipSetup)
-
-    if ($SkipSetup) { return $false }
-
-    $override = ([string]$env:BL_INSTALL_SETUP).Trim()
-    if ($override -eq "false") { return $false }
-    if ($override -eq "true") { return $true }
-    if (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true") { return $true }
-
-    foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
-        if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
-            return $false
+        # ── Output: styled where the console takes escape codes, plain elsewhere ──
+        $Styled = $Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected -and -not $env:NO_COLOR
+        $Esc = [char]27
+        function Write-Step {
+            param([string]$Kind, [string]$Label, [string]$Detail)
+            $marker = @{ ok = "+"; fail = "x"; next = ">"; note = "!" }[$Kind]
+            if ($Styled) {
+                $glyph = @{ ok = [char]0x2713; fail = [char]0x2717; next = [char]0x203A; note = "!" }[$Kind]
+                $color = @{ ok = "38;5;78"; fail = "38;5;203"; next = "38;5;208"; note = "38;5;214" }[$Kind]
+                Write-Host ("  $Esc[${color}m$glyph$Esc[0m {0,-14} $Esc[38;5;245m{1}$Esc[0m" -f $Label, $Detail)
+            }
+            else {
+                Write-Host ("  {0} {1,-14} {2}" -f $marker, $Label, $Detail)
+            }
         }
-    }
-    return $true
-}
+        # Stop-Install reports a failure and stops the install (see the note above).
+        function Stop-Install {
+            param([string]$Label, [string]$Detail)
+            Write-Step fail $Label $Detail
+            throw [System.OperationCanceledException]::new("blaxel-install-stopped")
+        }
 
-function Get-BlaxelArch {
-    switch ($env:PROCESSOR_ARCHITECTURE) {
-        "AMD64" { return "x86_64" }
-        "x86" { return "i386" }
-        "ARM64" { return "arm64" }
-    }
-    switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
-        "X64" { return "x86_64" }
-        "X86" { return "i386" }
-        "Arm64" { return "arm64" }
-    }
-    Stop-Install "Platform" "$env:PROCESSOR_ARCHITECTURE is not supported (x86_64, arm64 and i386 are)"
-}
+        # bl setup runs by default outside CI. BL_INSTALL_SETUP=true (or the previous
+        # BL_INSTALL_SKILLS=true) forces it, BL_INSTALL_SETUP=false or -SkipSetup disables it.
+        function Test-SetupEnabled {
+            param([switch]$SkipSetup)
 
-# The newest release tag, from the redirect GitHub serves for the latest
-# release; the GitHub API is rate limited, so it is only the fallback.
-function Get-LatestVersion {
-    try {
-        $request = [System.Net.WebRequest]::Create("$Releases/latest")
-        $request.Method = "HEAD"
-        $request.AllowAutoRedirect = $false
-        $response = $request.GetResponse()
-        try { $location = $response.Headers["Location"] } finally { $response.Close() }
-        if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
-    }
-    catch { }
-    try {
-        return (Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases/latest" -UseBasicParsing).tag_name
-    }
-    catch {
-        Stop-Install "Blaxel CLI" "could not find the latest release; pass -Version (see $Releases)"
-    }
-}
+            if ($SkipSetup) { return $false }
 
-# ── Download, verify and install ─────────────────────────────────────
-$Arch = Get-BlaxelArch
-if (-not $Version -or $Version -eq "latest") { $Version = Get-LatestVersion }
-if (-not $Version.StartsWith("v")) { $Version = "v$Version" }
+            $override = ([string]$env:BL_INSTALL_SETUP).Trim()
+            if ($override -eq "false") { return $false }
+            if ($override -eq "true") { return $true }
+            if (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true") { return $true }
 
-$ZipName = "blaxel_Windows_${Arch}.zip"
-$Temp = Join-Path ([System.IO.Path]::GetTempPath()) "blaxel-install-$([System.IO.Path]::GetRandomFileName())"
-New-Item -ItemType Directory -Path $Temp -Force | Out-Null
-$InstallDir = Join-Path $env:LOCALAPPDATA "blaxel"
-try {
-    $Zip = Join-Path $Temp $ZipName
-    try {
-        Invoke-WebRequest -Uri "$Releases/download/$Version/$ZipName" -OutFile $Zip -UseBasicParsing
-    }
-    catch {
-        Stop-Install "Blaxel CLI" "could not download $Version for Windows $Arch"
-    }
+            foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
+                if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
+                    return $false
+                }
+            }
+            return $true
+        }
 
-    $Checksums = Join-Path $Temp "checksums.txt"
-    try {
-        Invoke-WebRequest -Uri "$Releases/download/$Version/blaxel_$($Version.TrimStart('v'))_checksums.txt" -OutFile $Checksums -UseBasicParsing
-    }
-    catch {
-        Stop-Install "Checksum" "could not download the checksums of $Version"
-    }
-    $line = Get-Content $Checksums | Where-Object { $_ -match "\s$([regex]::Escape($ZipName))$" } | Select-Object -First 1
-    if (-not $line) { Stop-Install "Checksum" "$ZipName is not listed in the release checksums" }
-    # Hashes compare without regard to case.
-    if ((Get-FileHash -Path $Zip -Algorithm SHA256).Hash -ne ($line -split "\s+")[0]) {
-        Stop-Install "Checksum" "the download does not match the release checksums; try again"
-    }
+        function Get-BlaxelArch {
+            switch ($env:PROCESSOR_ARCHITECTURE) {
+                "AMD64" { return "x86_64" }
+                "x86" { return "i386" }
+                "ARM64" { return "arm64" }
+            }
+            switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+                "X64" { return "x86_64" }
+                "X86" { return "i386" }
+                "Arm64" { return "arm64" }
+            }
+            Stop-Install "Platform" "$env:PROCESSOR_ARCHITECTURE is not supported (x86_64, arm64 and i386 are)"
+        }
 
-    Expand-Archive -Path $Zip -DestinationPath (Join-Path $Temp "release") -Force
-    $Extracted = Join-Path $Temp "release\blaxel.exe"
-    if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
-    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
-    Copy-Item -Path $Extracted -Destination $BlaxelExe -Force
-    Copy-Item -Path $Extracted -Destination (Join-Path $InstallDir "bl.exe") -Force
-}
-finally {
-    Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
-}
-Write-Step ok "Blaxel CLI" "$Version · $InstallDir\bl.exe · verified"
+        # The newest release tag, from the redirect GitHub serves for the latest
+        # release; the GitHub API is rate limited, so it is only the fallback.
+        function Get-LatestVersion {
+            try {
+                $request = [System.Net.WebRequest]::Create("$Releases/latest")
+                $request.Method = "HEAD"
+                $request.AllowAutoRedirect = $false
+                $response = $request.GetResponse()
+                try { $location = $response.Headers["Location"] } finally { $response.Close() }
+                if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
+            }
+            catch { }
+            try {
+                return (Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases/latest" -UseBasicParsing).tag_name
+            }
+            catch {
+                Stop-Install "Blaxel CLI" "could not find the latest release; pass -Version (see $Releases)"
+            }
+        }
 
-# ── Add to PATH ──────────────────────────────────────────────────────
-$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if (-not ($UserPath -split ";" | Where-Object { $_ -eq $InstallDir })) {
-    [Environment]::SetEnvironmentVariable("Path", "$InstallDir;$UserPath", "User")
-}
-# This session can use bl right away.
-if (-not ($env:Path -split ";" | Where-Object { $_ -eq $InstallDir })) {
-    $env:Path = "$InstallDir;$env:Path"
-}
-# Tell running programs (such as Explorer) that PATH changed, so new terminals see it.
-try {
-    if (-not ('NativeMethods.Win32EnvBroadcast' -as [type])) {
-        Add-Type -Namespace NativeMethods -Name Win32EnvBroadcast -MemberDefinition @'
+        # ── Download, verify and install ─────────────────────────────────────
+        $Arch = Get-BlaxelArch
+        if (-not $Version -or $Version -eq "latest") { $Version = Get-LatestVersion }
+        if (-not $Version.StartsWith("v")) { $Version = "v$Version" }
+
+        $ZipName = "blaxel_Windows_${Arch}.zip"
+        $Temp = Join-Path ([System.IO.Path]::GetTempPath()) "blaxel-install-$([System.IO.Path]::GetRandomFileName())"
+        New-Item -ItemType Directory -Path $Temp -Force | Out-Null
+        $InstallDir = Join-Path $env:LOCALAPPDATA "blaxel"
+        try {
+            $Zip = Join-Path $Temp $ZipName
+            try {
+                Invoke-WebRequest -Uri "$Releases/download/$Version/$ZipName" -OutFile $Zip -UseBasicParsing
+            }
+            catch {
+                Stop-Install "Blaxel CLI" "could not download $Version for Windows $Arch"
+            }
+
+            $Checksums = Join-Path $Temp "checksums.txt"
+            try {
+                Invoke-WebRequest -Uri "$Releases/download/$Version/blaxel_$($Version.TrimStart('v'))_checksums.txt" -OutFile $Checksums -UseBasicParsing
+            }
+            catch {
+                Stop-Install "Checksum" "could not download the checksums of $Version"
+            }
+            $line = Get-Content $Checksums | Where-Object { $_ -match "\s$([regex]::Escape($ZipName))$" } | Select-Object -First 1
+            if (-not $line) { Stop-Install "Checksum" "$ZipName is not listed in the release checksums" }
+            # Hashes compare without regard to case.
+            if ((Get-FileHash -Path $Zip -Algorithm SHA256).Hash -ne ($line -split "\s+")[0]) {
+                Stop-Install "Checksum" "the download does not match the release checksums; try again"
+            }
+
+            Expand-Archive -Path $Zip -DestinationPath (Join-Path $Temp "release") -Force
+            $Extracted = Join-Path $Temp "release\blaxel.exe"
+            if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
+            New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+            $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
+            Copy-Item -Path $Extracted -Destination $BlaxelExe -Force
+            Copy-Item -Path $Extracted -Destination (Join-Path $InstallDir "bl.exe") -Force
+        }
+        finally {
+            Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Write-Step ok "Blaxel CLI" "$Version · $InstallDir\bl.exe · verified"
+
+        # ── Add to PATH ──────────────────────────────────────────────────────
+        $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if (-not ($UserPath -split ";" | Where-Object { $_ -eq $InstallDir })) {
+            [Environment]::SetEnvironmentVariable("Path", "$InstallDir;$UserPath", "User")
+        }
+        # This session can use bl right away.
+        if (-not ($env:Path -split ";" | Where-Object { $_ -eq $InstallDir })) {
+            $env:Path = "$InstallDir;$env:Path"
+        }
+        # Tell running programs (such as Explorer) that PATH changed, so new terminals see it.
+        try {
+            if (-not ('NativeMethods.Win32EnvBroadcast' -as [type])) {
+                Add-Type -Namespace NativeMethods -Name Win32EnvBroadcast -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
 public static extern System.IntPtr SendMessageTimeout(
     System.IntPtr hWnd, uint Msg, System.UIntPtr wParam, string lParam,
     uint fuFlags, uint uTimeout, out System.UIntPtr lpdwResult);
 '@ -ErrorAction Stop
-    }
-    [System.UIntPtr]$result = [System.UIntPtr]::Zero
-    [void][NativeMethods.Win32EnvBroadcast]::SendMessageTimeout(
-        [IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result)
-}
-catch {
-    # Best-effort; PATH is still saved for new sessions.
-}
+            }
+            [System.UIntPtr]$result = [System.UIntPtr]::Zero
+            [void][NativeMethods.Win32EnvBroadcast]::SendMessageTimeout(
+                [IntPtr]0xffff, 0x1A, [System.UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result)
+        }
+        catch {
+            # Best-effort; PATH is still saved for new sessions.
+        }
 
-# Some bl commands (like bl new) clone templates with Git.
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Step note "Git" "Git was not found; bl new needs it: https://git-scm.com/download/win"
-}
+        # Some bl commands (like bl new) clone templates with Git.
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            Write-Step note "Git" "Git was not found; bl new needs it: https://git-scm.com/download/win"
+        }
 
-# ── Hand-off to bl setup ─────────────────────────────────────────────
-$SetupAvailable = $false
-try {
-    & $BlaxelExe setup --help *> $null
-    $SetupAvailable = ($LASTEXITCODE -eq 0)
-}
-catch { }
+        # ── Hand-off to bl setup ─────────────────────────────────────────────
+        $SetupAvailable = $false
+        try {
+            & $BlaxelExe setup --help *> $null
+            $SetupAvailable = ($LASTEXITCODE -eq 0)
+        }
+        catch { }
 
-$Interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
-$Forced = (([string]$env:BL_INSTALL_SETUP).Trim() -eq "true") -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true")
-if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup) -and ($Interactive -or $Forced)) {
-    $SetupArgs = @("setup")
-    if ($SkipSkills) { $SetupArgs += "--skip-skills" }
-    if (-not $Interactive) { $SetupArgs += "--yes" }
-    # bl setup shows the shell and what to run next itself.
-    $env:BL_INSTALLER = "1"
-    $env:BL_INSTALLER_SHELL = "bl on PATH"
-    try {
-        & $BlaxelExe @SetupArgs
+        $Interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
+        $Forced = (([string]$env:BL_INSTALL_SETUP).Trim() -eq "true") -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true")
+        if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup) -and ($Interactive -or $Forced)) {
+            $SetupArgs = @("setup")
+            if ($SkipSkills) { $SetupArgs += "--skip-skills" }
+            if (-not $Interactive) { $SetupArgs += "--yes" }
+            # bl setup shows the shell and what to run next itself, problems included.
+            $env:BL_INSTALLER = "1"
+            $env:BL_INSTALLER_SHELL = "bl on PATH"
+            try {
+                & $BlaxelExe @SetupArgs
+            }
+            catch {
+                Write-Step next "bl setup" "to finish setting up"
+            }
+            finally {
+                Remove-Item Env:BL_INSTALLER, Env:BL_INSTALLER_SHELL -ErrorAction SilentlyContinue
+            }
+            return
+        }
+
+        Write-Step ok "Shell" "bl on PATH (open a new terminal elsewhere)"
+        Write-Host ""
+        # Skipping bl setup on purpose needs no reminder.
+        if ($SkipSetup -or ([string]$env:BL_INSTALL_SETUP).Trim() -eq "false") {
+        }
+        elseif ($SetupAvailable) {
+            Write-Step next "bl setup" "set up your coding agents and log in"
+        }
+        else {
+            Write-Step next "bl login" "log in to Blaxel"
+        }
+        $global:LASTEXITCODE = 0
     }
     catch {
-        Write-Step next "bl setup" "to finish setting up"
+        if ($_.Exception -isnot [System.OperationCanceledException]) {
+            Write-Host "  Blaxel install failed: $($_.Exception.Message)"
+        }
+        $global:LASTEXITCODE = 1
     }
-    exit 0
-}
+} $Version $SkipSkills $SkipSetup
 
-Write-Step ok "Shell" "bl on PATH (open a new terminal elsewhere)"
-Write-Host ""
-# Skipping bl setup on purpose needs no reminder.
-if ($SkipSetup -or ([string]$env:BL_INSTALL_SETUP).Trim() -eq "false") {
-}
-elseif ($SetupAvailable) {
-    Write-Step next "bl setup" "set up your coding agents and log in"
-}
-else {
-    Write-Step next "bl login" "log in to Blaxel"
-}
+if ($MyInvocation.MyCommand.CommandType -eq "ExternalScript") { exit $global:LASTEXITCODE }

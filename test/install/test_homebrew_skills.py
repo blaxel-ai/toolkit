@@ -343,6 +343,7 @@ def install_script_tests(root, binary, server):
         ("bash", False, {"SHELL": "/bin/bash"}),
         ("no-path", False, {"BL_INSTALL_PATH": "false"}),
         ("corrupt", True, {}),
+        ("no-sha256", False, {}),
     ):
         install = Installation(root / f"script-{name}", binary, server)
         release = fake_release(install.root, binary, corrupt)
@@ -351,6 +352,8 @@ def install_script_tests(root, binary, server):
         for tool in ("sh", "uname", "tr", "sed", "grep", "cut", "head", "mkdir", "mktemp", "tar", "gzip", "install",
                      "basename", "dirname", "awk", "id", "rm", "mv", "cat", "chmod", "shasum", "sha256sum", "env", "sleep"):
             found = shutil.which(tool, path="/usr/bin:/bin:/usr/sbin:/sbin")
+            if name == "no-sha256" and tool in ("shasum", "sha256sum"):
+                continue
             if found and not (install.tools / tool).exists():
                 (install.tools / tool).symlink_to(found)
         (install.home / ".claude").mkdir()
@@ -365,6 +368,12 @@ def install_script_tests(root, binary, server):
             assert "does not match the release checksums" in output, output
             assert not (bindir / "bl").exists(), "a corrupt download is not installed"
             print("PASS install.sh refuses a download that fails its checksum", flush=True)
+            continue
+        if name == "no-sha256":
+            assert result.returncode != 0, output
+            assert "cannot verify the download" in output, output
+            assert not (bindir / "bl").exists(), "nothing is installed unverified"
+            print("PASS install.sh installs nothing it cannot verify", flush=True)
             continue
         assert result.returncode == 0, output
         assert (bindir / "bl").is_file() and (bindir / "blaxel").is_file(), output

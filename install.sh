@@ -20,6 +20,15 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
+# Under sudo, set up the user who ran it: their home, their shell, their files.
+SUDO_HOME=""
+if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+  case "$SUDO_USER" in
+    *[!A-Za-z0-9._-]*) ;;
+    *) SUDO_HOME=$(eval "echo ~$SUDO_USER") ;;
+  esac
+  case "$SUDO_HOME" in /*) HOME=$SUDO_HOME ;; *) SUDO_HOME="" ;; esac
+fi
 BINDIR=${BINDIR:-$HOME/.local/bin}
 RELEASES="https://github.com/$OWNER/$REPO/releases"
 
@@ -160,13 +169,9 @@ verify() {
   want=$(grep " $NAME\$" "$2" 2>/dev/null | cut -d ' ' -f 1)
   [ -n "$want" ] || fail "Checksum" "$NAME is not listed in the release checksums"
   got=$(sha256 "$1")
-  if [ -z "$got" ]; then
-    VERIFIED="not verified: no sha256sum, shasum or openssl"
-  elif [ "$got" = "$want" ]; then
-    VERIFIED="verified"
-  else
-    fail "Checksum" "the download does not match the release checksums; try again"
-  fi
+  # Nothing is installed unverified.
+  [ -n "$got" ] || fail "Checksum" "cannot verify the download: install sha256sum, shasum or openssl"
+  [ "$got" = "$want" ] || fail "Checksum" "the download does not match the release checksums; try again"
 }
 
 display_path() {
@@ -203,7 +208,8 @@ install_cli() {
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY_SHORT_NAME$EXE"
   rm -rf "$tmp"
   tmp=""
-  ok "Blaxel CLI" "$VERSION · $(display_path "$BINDIR")/$BINARY_SHORT_NAME · $VERIFIED"
+  fix_owner "$BINDIR/$BINARY$EXE" "$BINDIR/$BINARY_SHORT_NAME$EXE"
+  ok "Blaxel CLI" "$VERSION · $(display_path "$BINDIR")/$BINARY_SHORT_NAME · verified"
 }
 
 # --- Shell: PATH and completions -------------------------------------------
@@ -303,14 +309,23 @@ BASH_SHIM
   if [ "$SHELL_NAME" = "zsh" ] && ! grep -q "$dir" "$RC_FILE" 2>/dev/null; then
     printf '\n# Added by the Blaxel installer: completions\nfpath=(%s $fpath)\nautoload -Uz compinit && compinit\n' "$dir" >> "$RC_FILE"
   fi
+  fix_owner "$file"
   SHELL_DONE="${SHELL_DONE:+$SHELL_DONE · }$SHELL_NAME completions"
 }
 
-# When run with sudo, the shell files belong to the real user.
+# fix_owner PATH... gives what the installer wrote in the sudo user's home, and
+# the folders it made for it, back to that user. Nothing outside it changes.
 fix_owner() {
-  if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ]; then
-    chown "$SUDO_USER" "$@" 2>/dev/null || true
-  fi
+  [ -n "$SUDO_HOME" ] || return 0
+  for path in "$@"; do
+    while :; do
+      case "$path" in "$SUDO_HOME"/*) ;; *) break ;; esac
+      if [ -e "$path" ] && [ -O "$path" ]; then
+        chown "$SUDO_USER:$(id -g "$SUDO_USER")" "$path" 2>/dev/null || true
+      fi
+      path=$(dirname "$path")
+    done
+  done
 }
 
 # --- Hand-off to bl setup ---------------------------------------------------
