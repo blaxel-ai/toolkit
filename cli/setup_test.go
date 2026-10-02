@@ -578,4 +578,56 @@ func TestSetupRerunShowsWhatIsNew(t *testing.T) {
 	assert.Contains(t, readTestFile(t, filepath.Join(home, ".claude.json")), "https://example.test/mcp", "existing servers are left alone")
 	assert.Contains(t, text, "Codex                codex mcp login blaxel", "new agents are told how to sign in")
 	assert.NotContains(t, text, "run /mcp, then select blaxel", "Claude Code was already set up")
+	require.Len(t, recorder.skillsAgents, 1)
+	assert.Contains(t, recorder.skillsAgents[0], "claude-code", "updating the skills refreshes the agents that already have them")
+}
+
+func TestSetupLeavesDoNotTrackAlone(t *testing.T) {
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, t.TempDir(), map[string]string{"DO_NOT_TRACK": "1"}, recorder)
+	plan, err := newSetupPlan(options)
+	require.NoError(t, err)
+	assert.NotContains(t, itemIDs(setupItems(options, plan)), "tracking")
+	require.NoError(t, runSetup(context.Background(), options))
+	assert.Empty(t, recorder.tracking, "DO_NOT_TRACK is already a choice")
+}
+
+// A server added before a later one fails still gets its sign-in step.
+func TestSetupShowsSignInAfterAPartialMCPFailure(t *testing.T) {
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
+	recorder := &setupRecorder{}
+	env := map[string]string{"PATH_HAS_claude": "", "LOGGED_IN": "main", "TRACKING_SET": "1"}
+	options := testSetupOptions(t, home, env, recorder)
+	calls := 0
+	options.mcp.run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
+		calls++
+		if calls > 1 {
+			return []byte("boom"), errors.New("exit status 1")
+		}
+		return []byte("Added HTTP MCP server"), nil
+	}
+	err := runSetup(context.Background(), options)
+	var problems setupProblems
+	require.ErrorAs(t, err, &problems)
+	text := recorder.text(t)
+	assert.Contains(t, text, "boom")
+	assert.Contains(t, text, "run /mcp, then select blaxel")
+}
+
+func TestClaudeMCPLeavesFilesItCannotReadToTheCLI(t *testing.T) {
+	home := t.TempDir()
+	writeTestFile(t, filepath.Join(home, ".claude.json"), "// settings\n{\"numStartups\": 3}\n")
+	var commands []fakeCommand
+	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": ""}, &commands, "Added HTTP MCP server", nil)
+	added, err := mcpTargets["claude-code"].add(context.Background(), env, testResourceServer)
+	require.NoError(t, err)
+	assert.True(t, added)
+	assert.Len(t, commands, 1, "the claude CLI applies the server")
+
+	// Without the CLI, the file is not rewritten.
+	env = testMCPEnv(home, map[string]string{}, &commands, "", nil)
+	_, err = mcpTargets["claude-code"].add(context.Background(), env, testResourceServer)
+	assert.Error(t, err)
+	assert.Equal(t, "// settings\n{\"numStartups\": 3}\n", readTestFile(t, filepath.Join(home, ".claude.json")))
 }

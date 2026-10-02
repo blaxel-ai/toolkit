@@ -374,7 +374,9 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 		items = append(items, &ui.Item{ID: "login", Group: "This machine", Label: "Log in", Detail: "opens your browser", On: true})
 	}
 	explicit := strings.EqualFold(strings.TrimSpace(options.env(trackingInstallEnv)), "true")
-	if !options.trackingConfigured() && (explicit || !ciEnvironment(options.env)) {
+	// DO_NOT_TRACK, set either way, is already a choice, as in sdk-go.
+	doNotTrack := strings.TrimSpace(options.env("DO_NOT_TRACK")) != ""
+	if !doNotTrack && !options.trackingConfigured() && (explicit || !ciEnvironment(options.env)) {
 		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster",
 			On: !envDisabled(options.env, trackingInstallEnv)})
 	}
@@ -462,13 +464,21 @@ func chosenAgents(plan setupPlan, chosen map[string]bool) []skillsAgent {
 // servers install in parallel; the browser login comes last.
 func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, outcome *setupOutcome) []ui.Task {
 	agents := chosenAgents(plan, chosen)
+	// Updating the skills also refreshes the agents that already have them:
+	// where links are unavailable (Windows), their folders are copies.
+	var skillsAgents []skillsAgent
+	for _, agent := range plan.agents {
+		if chosen["agent:"+agent.id] || plan.status[agent.id].skills {
+			skillsAgents = append(skillsAgents, agent)
+		}
+	}
 	var tasks []ui.Task
 	if chosen["skills"] {
 		tasks = append(tasks, ui.Task{ID: "skills", Label: "Agent skills", Run: func(ctx context.Context, c *ui.Control) (string, error) {
 			c.Progress("downloading from GitHub")
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
-			result, err := options.installSkills(ctx, agents)
+			result, err := options.installSkills(ctx, skillsAgents)
 			if err != nil {
 				return "", err
 			}
@@ -493,12 +503,13 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 		tasks = append(tasks, ui.Task{ID: "mcp:" + agent.id, Label: agent.name, Group: "MCP servers", Run: func(ctx context.Context, c *ui.Control) (string, error) {
 			c.Progress("adding the MCP servers")
 			result := configureAgentMCP(ctx, options.mcp, target, servers)
-			if result.err != nil {
-				return "", fmt.Errorf("could not edit %s: %w", displayHomePath(options.home, target.file(options.mcp)), result.err)
-			}
+			// Kept on failure too: a server added before it still needs its sign-in.
 			outcome.mu.Lock()
 			outcome.mcp[agent.id] = result
 			outcome.mu.Unlock()
+			if result.err != nil {
+				return "", fmt.Errorf("could not edit %s: %w", displayHomePath(options.home, target.file(options.mcp)), result.err)
+			}
 			return result.short(), nil
 		}})
 	}

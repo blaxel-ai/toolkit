@@ -108,9 +108,11 @@ param(
             Stop-Install "Platform" "$env:PROCESSOR_ARCHITECTURE is not supported (x86_64, arm64 and i386 are)"
         }
 
-        # The newest release tag, from the redirect GitHub serves for the latest
-        # release; the GitHub API is rate limited, so it is only the fallback.
-        function Get-LatestVersion {
+        # The newest stable release tag, as install.sh picks it: the redirect
+        # GitHub serves for the latest release, or, when that is a preview or
+        # the redirect fails, the newest stable tag from the GitHub API.
+        $Unstable = "preview|alpha|beta|rc|dev|pre|snapshot|nightly|canary|experimental|unstable"
+        function Get-RedirectTag {
             try {
                 $request = [System.Net.WebRequest]::Create("$Releases/latest")
                 $request.Method = "HEAD"
@@ -120,12 +122,19 @@ param(
                 if ($location -match "/tag/([^/]+)$") { return $Matches[1] }
             }
             catch { }
-            try {
-                return (Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases/latest" -UseBasicParsing).tag_name
-            }
-            catch {
-                Stop-Install "Blaxel CLI" "could not find the latest release; pass -Version (see $Releases)"
-            }
+            return $null
+        }
+        # Release tags, newest first. The API is rate limited, so it is only the fallback.
+        function Get-ApiTags {
+            try { return @(Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repo/releases" -UseBasicParsing | ForEach-Object { $_.tag_name }) }
+            catch { return @() }
+        }
+        function Get-LatestVersion {
+            $tag = Get-RedirectTag
+            if ($tag -and $tag -notmatch $Unstable) { return $tag }
+            $tag = @(Get-ApiTags | Where-Object { $_ -and $_ -notmatch $Unstable })[0]
+            if ($tag) { return $tag }
+            Stop-Install "Blaxel CLI" "could not find the latest release; pass -Version (see $Releases)"
         }
 
         # ── Download, verify and install ─────────────────────────────────────

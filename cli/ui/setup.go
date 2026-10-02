@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -77,6 +79,8 @@ type Setup struct {
 // Options control how a setup runs.
 type Options struct {
 	Out *os.File
+	// In answers questions in plain output, when it is a terminal (stdin by default).
+	In *os.File
 	// Interactive shows the plan and waits for Enter at the end.
 	Interactive bool
 	// Yes accepts the plan without showing it and closes when done.
@@ -95,7 +99,17 @@ func (s *Setup) Run(ctx context.Context, options Options) (Summary, error) {
 	if fancyTerminal(out) && (options.Interactive || options.Yes) {
 		return s.runApp(ctx, out, options)
 	}
-	return s.runPlain(ctx, out), nil
+	var in *bufio.Reader
+	if options.Interactive {
+		file := options.In
+		if file == nil {
+			file = os.Stdin
+		}
+		if term.IsTerminal(int(file.Fd())) {
+			in = bufio.NewReader(file)
+		}
+	}
+	return s.runPlain(ctx, out, in), nil
 }
 
 func fancyTerminal(file *os.File) bool {
@@ -128,8 +142,8 @@ func (c *Control) Progress(detail string) {
 // Note shows a line under the rows, such as a URL to open.
 func (c *Control) Note(text string) { c.send(event{kind: eventNote, id: c.id, detail: text}) }
 
-// Choose asks the user to pick one option. Plain output cannot ask, so it
-// returns an error there.
+// Choose asks the user to pick one option. Plain output asks for a number on
+// the terminal, and returns an error without one.
 func (c *Control) Choose(title string, options []string) (int, error) {
 	reply := make(chan int, 1)
 	c.send(event{kind: eventChoose, id: c.id, detail: title, options: options, reply: reply})
@@ -257,7 +271,7 @@ func (s *skipper) any() bool {
 }
 
 // runPlain prints the setup as plain lines, for logs, CI and coding agents.
-func (s *Setup) runPlain(ctx context.Context, out io.Writer) Summary {
+func (s *Setup) runPlain(ctx context.Context, out io.Writer, in *bufio.Reader) Summary {
 	st := newStyles(plainRenderer(out))
 	glyph := glyphsFor(true)
 	if s.Subtitle != "" {
@@ -277,7 +291,7 @@ func (s *Setup) runPlain(ctx context.Context, out io.Writer) Summary {
 		case eventNote:
 			_, _ = fmt.Fprintln(out, "  "+e.detail)
 		case eventChoose:
-			e.reply <- -1
+			e.reply <- plainChoose(out, in, e.detail, e.options)
 		case eventFinish:
 			results[e.id] = e.result
 			marker, detail := glyph.ok, e.result.Detail
@@ -294,6 +308,29 @@ func (s *Setup) runPlain(ctx context.Context, out io.Writer) Summary {
 	// Logs keep every line, for people and agents reading them later.
 	printSummary(out, st, glyph, summary, 0, false, 120)
 	return summary
+}
+
+// plainChoose lists the options and reads the number of one from in; -1
+// without in, or after three answers that are not a listed number.
+func plainChoose(out io.Writer, in *bufio.Reader, title string, options []string) int {
+	if in == nil {
+		return -1
+	}
+	_, _ = fmt.Fprintln(out, "  "+title)
+	for i, option := range options {
+		_, _ = fmt.Fprintf(out, "    %d  %s\n", i+1, option)
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		_, _ = fmt.Fprintf(out, "  Number (1-%d): ", len(options))
+		line, err := in.ReadString('\n')
+		if n, convErr := strconv.Atoi(strings.TrimSpace(line)); convErr == nil && n >= 1 && n <= len(options) {
+			return n - 1
+		}
+		if err != nil {
+			return -1
+		}
+	}
+	return -1
 }
 
 // plainLine prints one step, lined up with the installer's own lines.

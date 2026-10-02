@@ -193,11 +193,13 @@ func codexConfigFile(e mcpEnv) string {
 }
 
 // addClaudeMCPServer prefers the claude CLI, which owns .claude.json, and edits
-// the file directly only when the CLI cannot be found.
+// the file directly only when the CLI cannot be found. A file it cannot read
+// (such as one with comments) is left to the CLI.
 func addClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer) (bool, error) {
 	file := claudeConfigFile(e)
-	if exists, err := jsonConfigHas(file, "mcpServers", server.name); err != nil || exists {
-		return false, err
+	exists, readErr := jsonConfigHas(file, "mcpServers", server.name)
+	if readErr == nil && exists {
+		return false, nil
 	}
 	claude, err := e.lookPath("claude")
 	if err != nil {
@@ -209,6 +211,9 @@ func addClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer) (bool, 
 		}
 	}
 	if err != nil {
+		if readErr != nil {
+			return false, readErr
+		}
 		return upsertJSONConfig(file, "mcpServers", server.name, map[string]string{"type": "http", "url": server.url})
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)

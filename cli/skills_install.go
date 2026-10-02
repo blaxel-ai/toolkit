@@ -521,12 +521,21 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 			return err
 		}
 	}
+	previous := filepath.Join(staging, "previous")
+	hadPrevious := false
 	if _, err := os.Lstat(linkPath); err == nil {
-		if err := os.Rename(linkPath, filepath.Join(staging, "previous")); err != nil {
+		if err := os.Rename(linkPath, previous); err != nil {
 			return err
 		}
+		hadPrevious = true
 	}
-	return os.Rename(fresh, linkPath)
+	if err := os.Rename(fresh, linkPath); err != nil {
+		if hadPrevious {
+			_ = os.Rename(previous, linkPath)
+		}
+		return err
+	}
+	return nil
 }
 
 type skillsLockEntry struct {

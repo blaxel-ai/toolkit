@@ -31,6 +31,9 @@ if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]
   esac
   case "$SUDO_HOME" in /*) HOME=$SUDO_HOME ;; *) SUDO_HOME="" ;; esac
 fi
+# The home with every symlink resolved, to check where root writes.
+REAL_HOME=""
+[ -z "$SUDO_HOME" ] || REAL_HOME=$(cd "$SUDO_HOME" 2>/dev/null && pwd -P) || SUDO_HOME=""
 BINDIR=${BINDIR:-$HOME/.local/bin}
 RELEASES="https://github.com/$OWNER/$REPO/releases"
 
@@ -204,6 +207,9 @@ install_cli() {
     *.zip) unzip -q -o "$tmp/$NAME" -d "$tmp" ;;
     *) tar -xzf "$tmp/$NAME" -C "$tmp" ;;
   esac
+  case "$BINDIR" in
+    "$SUDO_HOME"/*) in_home "$BINDIR/$BINARY" || fail "Blaxel CLI" "$(display_path "$BINDIR") leads outside your home; choose another BINDIR" ;;
+  esac
   mkdir -p "$BINDIR"
   BINDIR=$(cd "$BINDIR" && pwd)
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY$EXE"
@@ -248,7 +254,7 @@ setup_path() {
     SHELL_DONE="bl on PATH" RELOAD="source $(display_path "$RC_FILE")"
     return
   fi
-  if [ "${BL_INSTALL_PATH:-}" = "false" ] || { is_ci && [ "${BL_INSTALL_PATH:-}" != "true" ]; }; then
+  if [ "${BL_INSTALL_PATH:-}" = "false" ] || { is_ci && [ "${BL_INSTALL_PATH:-}" != "true" ]; } || ! in_home "$RC_FILE"; then
     RELOAD="export PATH=\"$(display_path "$BINDIR"):\$PATH\""
     return
   fi
@@ -272,6 +278,7 @@ setup_completion() {
     fish) dir="$HOME/.config/fish/completions" file="$dir/$BINARY_SHORT_NAME.fish" ;;
     *) return ;;
   esac
+  in_home "$file" || return 0
   mkdir -p "$dir"
   if ! "$BINDIR/$BINARY_SHORT_NAME" completion "$SHELL_NAME" > "$file.tmp" 2>/dev/null; then
     rm -f "$file.tmp"
@@ -308,7 +315,7 @@ BASH_SHIM
   else
     mv "$file.tmp" "$file"
   fi
-  if [ "$SHELL_NAME" = "zsh" ] && ! grep -q "$dir" "$RC_FILE" 2>/dev/null; then
+  if [ "$SHELL_NAME" = "zsh" ] && in_home "$RC_FILE" && ! grep -q "$dir" "$RC_FILE" 2>/dev/null; then
     printf '\n# Added by the Blaxel installer: completions\nfpath=(%s $fpath)\nautoload -Uz compinit && compinit\n' "$dir" >> "$RC_FILE"
   fi
   fix_owner "$file"
@@ -322,12 +329,36 @@ fix_owner() {
   for path in "$@"; do
     while :; do
       case "$path" in "$SUDO_HOME"/*) ;; *) break ;; esac
-      if [ -e "$path" ] && [ -O "$path" ]; then
-        chown "$SUDO_USER:$(id -g "$SUDO_USER")" "$path" 2>/dev/null || true
+      # -h: a symlink itself, never what it points to.
+      if [ -e "$path" ] && [ -O "$path" ] && [ ! -L "$path" ] && in_home "$path"; then
+        chown -h "$SUDO_USER:$(id -g "$SUDO_USER")" "$path" 2>/dev/null || true
       fi
       path=$(dirname "$path")
     done
   done
+}
+
+# in_home PATH reports whether PATH, with its symlinks resolved, is inside the
+# sudo user's real home, so root never writes or chowns outside it through a
+# link. Without sudo, everything is the user's own.
+in_home() {
+  [ -n "$SUDO_HOME" ] || return 0
+  target=$1 hops=0
+  while [ -L "$target" ]; do
+    hops=$((hops + 1))
+    [ "$hops" -le 8 ] || return 1
+    link=$(readlink "$target") || return 1
+    case "$link" in /*) target=$link ;; *) target="$(dirname "$target")/$link" ;; esac
+  done
+  # The deepest folder that exists; mkdir -p makes real folders below it.
+  dir=$(dirname "$target")
+  while [ ! -d "$dir" ]; do
+    { [ -e "$dir" ] || [ -L "$dir" ]; } && return 1
+    dir=$(dirname "$dir")
+  done
+  real=$(cd "$dir" 2>/dev/null && pwd -P) || return 1
+  case "$real/" in "$REAL_HOME"/*) return 0 ;; esac
+  return 1
 }
 
 # --- Hand-off to bl setup ---------------------------------------------------
@@ -367,9 +398,23 @@ run_setup() {
     runner="sudo -u $SUDO_USER -H -i"
   fi
   quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
-  printf 'exec env BL_INSTALLER=1 BL_INSTALLER_SHELL=%s BL_INSTALLER_RELOAD=%s %s %s < %s\n' \
-    "$(quote "${SHELL_DONE:-}")" "$(quote "${RELOAD:-}")" "$(quote "$BINDIR/$BINARY")" "$args" "$input" | $runner sh -s
+  {
+    printf 'export BL_INSTALLER=1 BL_INSTALLER_SHELL=%s BL_INSTALLER_RELOAD=%s\n' "$(quote "${SHELL_DONE:-}")" "$(quote "${RELOAD:-}")"
+    # sudo -i starts from a clean environment: carry over the user's choices.
+    # They go through the pipe, never on a command line other users can see.
+    isset="" value=""
+    for name in $SETUP_ENV; do
+      eval "isset=\${$name+x} value=\${$name-}"
+      [ -z "$isset" ] || printf 'export %s=%s\n' "$name" "$(quote "$value")"
+    done
+    printf 'exec %s %s < %s\n' "$(quote "$BINDIR/$BINARY")" "$args" "$input"
+  } | $runner sh -s
 }
+
+# What bl setup reads from the environment.
+SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING DO_NOT_TRACK BL_WORKSPACE BL_ENV
+  BL_API_KEY BL_CLIENT_CREDENTIALS NO_COLOR CLAUDE_CONFIG_DIR CODEX_HOME XDG_CONFIG_HOME XDG_STATE_HOME
+  CI GITHUB_ACTIONS GITLAB_CI CIRCLECI TRAVIS JENKINS_URL BUILDKITE"
 
 main() {
   case "${1:-}" in

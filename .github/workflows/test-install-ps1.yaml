@@ -7,6 +7,7 @@ on:
     paths:
       - "install.ps1"
       - "test/install/test_setup_policy.ps1"
+      - "test/install/test_release_lookup.ps1"
       - ".github/workflows/test-install-ps1.yaml"
 
 jobs:
@@ -22,6 +23,10 @@ jobs:
       - name: Test setup policy
         shell: pwsh
         run: ./test/install/test_setup_policy.ps1
+
+      - name: Test release lookup
+        shell: pwsh
+        run: ./test/install/test_release_lookup.ps1
 
       - name: Run install.ps1 with latest release
         shell: pwsh

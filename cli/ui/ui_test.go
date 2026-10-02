@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -96,6 +97,36 @@ func TestRunTasksSkipAndChoose(t *testing.T) {
 	cancel()
 	results = collect(t, ctx, []Task{{ID: "x", Skippable: true, Run: func(ctx context.Context, _ *Control) (string, error) { return "", ctx.Err() }}}, skips)
 	assert.ErrorIs(t, results["x"].Err, context.Canceled)
+}
+
+func TestPlainOutputAsksOnTheTerminal(t *testing.T) {
+	setup := func(picked *string) *Setup {
+		return &Setup{
+			Tasks: func(map[string]bool) []Task {
+				return []Task{{ID: "login", Label: "Log in", Run: func(_ context.Context, c *Control) (string, error) {
+					index, err := c.Choose("Choose a workspace", []string{"main", "other"})
+					if err != nil {
+						return "", err
+					}
+					*picked = []string{"main", "other"}[index]
+					return *picked, nil
+				}}}
+			},
+			Summary: func(map[string]Result) Summary { return Summary{Title: "done"} },
+		}
+	}
+	var out strings.Builder
+	var picked string
+	setup(&picked).runPlain(context.Background(), &out, bufio.NewReader(strings.NewReader("x\n2\n")))
+	assert.Equal(t, "other", picked, "a wrong answer is asked again")
+	assert.Contains(t, out.String(), "2  other")
+
+	// Without a terminal, there is no one to ask.
+	out.Reset()
+	picked = ""
+	setup(&picked).runPlain(context.Background(), &out, nil)
+	assert.Empty(t, picked)
+	assert.Contains(t, out.String(), "no choice is possible without a terminal")
 }
 
 func TestWrapBreaksLongWords(t *testing.T) {
