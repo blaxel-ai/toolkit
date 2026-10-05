@@ -8,20 +8,28 @@ Serve the Blaxel MCP server to a coding agent, signed in with your bl login
 
 ### Synopsis
 
-Serve the Blaxel MCP server to a coding agent over stdio, signed in with your bl login.
+Serve the hosted Blaxel MCP tools over stdio using your existing bl login.
 
-Coding agents start this command themselves: bl setup adds it to their MCP
-configuration. Requests go to the hosted Blaxel MCP server, so agents need no
-sign-in of their own and no token is stored in their configuration.
+Run bl login before starting your agent. bl setup configures local MCP targets;
+no token is stored in agent configurations and no separate MCP OAuth is needed.
+Without a usable login, the connection still initializes, with an empty tool
+list and instructions to run bl login, then restart or reconnect the agent.
+Some agents discover tools live after login; reconnect is the reliable fallback.
 
-The workspace is the current one when the agent starts (see bl workspaces),
---workspace or BL_WORKSPACE. It stays the same for the agent's session; tools
-take a workspace argument to use another workspace you belong to. BL_API_KEY
-and BL_CLIENT_CREDENTIALS work as for every other bl command.
+The default workspace is pinned when the bridge starts resolving credentials:
+the current bl workspace, --workspace or BL_WORKSPACE. A tool's workspace
+argument can intentionally select another authorized workspace. This pin is
+not a restriction on the user's authority.
 
-Without a login, the agent gets one tool, blaxel_login, which opens the Blaxel
-login page in your browser. Once you confirm, the Blaxel tools appear in the
-agent; you can also run bl login in a terminal.
+Tokens refresh in memory only. bl logout removes local credentials, affecting
+future requests, but does not revoke refresh grants or work already in flight.
+BL_API_KEY and BL_CLIENT_CREDENTIALS override stored credentials and are not
+removed by bl logout. Environment inheritance varies between agent clients.
+
+The trusted HTTPS origin comes from the stored workspace environment (prod or
+dev), not inherited BL_API_URL or BL_ENV. --api-url explicitly opts into sending
+credentials to a custom HTTPS origin and prints a warning to stderr. Redirects
+are refused for both MCP requests and token exchanges.
 
 ```
 bl mcp [flags]
@@ -30,17 +38,16 @@ bl mcp [flags]
 ### Examples
 
 ```
-  # Claude Code
   claude mcp add --scope user blaxel -- bl mcp
 
-  # Any agent that starts local (stdio) MCP servers
-  {"mcpServers": {"blaxel": {"command": "bl", "args": ["mcp"]}}}
+  {"mcpServers": {"blaxel": {"command": "/absolute/path/to/bl", "args": ["mcp"]}}}
 ```
 
 ### Options
 
 ```
-  -h, --help   help for mcp
+      --api-url string   Explicit trusted HTTPS API origin for this bridge (credentials will be sent there)
+  -h, --help             help for mcp
 ```
 
 ### Options inherited from parent commands

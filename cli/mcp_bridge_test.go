@@ -79,7 +79,7 @@ func (f *fakeAuth) resolve(context.Context) (mcpCredentials, error) {
 		return mcpCredentials{}, errNotLoggedIn
 	}
 	return mcpCredentials{workspace: f.workspace, endpoint: f.endpoint, fingerprint: "fp",
-		headers: map[string]string{"X-Blaxel-Authorization": "Bearer token-1", "X-Blaxel-Workspace": f.workspace}}, nil
+		headers: map[string]string{"Authorization": "Bearer token-1", "X-Blaxel-Workspace": f.workspace}}, nil
 }
 
 func (f *fakeAuth) reject(mcpCredentials) {
@@ -176,7 +176,7 @@ func TestBridgeRelaysJSONAndSignsRequestsIn(t *testing.T) {
 
 	list := server.request(t, "tools/list")
 	assert.Equal(t, "/v0/mcp", list.URL.Path)
-	assert.Equal(t, "Bearer token-1", list.Header.Get("X-Blaxel-Authorization"))
+	assert.Equal(t, "Bearer token-1", list.Header.Get("Authorization"))
 	assert.Equal(t, "my-workspace", list.Header.Get("X-Blaxel-Workspace"))
 	assert.Equal(t, "2025-03-26", list.Header.Get("MCP-Protocol-Version"))
 	assert.Equal(t, "blaxel-cli/test (bl mcp)", list.Header.Get("User-Agent"))
@@ -217,53 +217,19 @@ func TestBridgeTurnsRefusedCallsIntoToolErrors(t *testing.T) {
 }
 
 func TestBridgeStandsInBeforeLogin(t *testing.T) {
-	bridge, authenticator := testBridge(t, nil)
-	authenticator.setLoggedIn(false)
-	confirm := make(chan struct{})
-	var asked []string
-	bridge.login = func(_ context.Context, workspace string) (string, func(context.Context) (string, error), error) {
-		asked = append(asked, workspace)
-		return "https://app.blaxel.ai/device?code=ABC", func(context.Context) (string, error) {
-			<-confirm
-			authenticator.setLoggedIn(true)
-			return "main", nil
-		}, nil
-	}
-	in, writer := io.Pipe()
-	var out syncBuffer
-	done := make(chan error, 1)
-	go func() { done <- bridge.serve(context.Background(), in, &out) }()
-	send := func(message string) { _, _ = writer.Write([]byte(message + "\n")) }
-
-	send(initializeMessage)
-	send(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
-	send(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_sandboxes","arguments":{}}}`)
-	send(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"blaxel_login","arguments":{"workspace":"main"}}}`)
-	answers := out.waitFor(t, 4)
-
+	bridge, a := testBridge(t, nil)
+	a.setLoggedIn(false)
+	answers := runBridge(t, bridge, initializeMessage, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"blaxel_login"}}`)
 	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
-	assert.Equal(t, "2025-03-26", initialize["protocolVersion"], "the agent's protocol version is kept")
-	assert.Equal(t, map[string]any{"tools": map[string]any{"listChanged": true}}, initialize["capabilities"])
-	tools := answerFor(t, answers, 2)["result"].(map[string]any)["tools"].([]any)
-	require.Len(t, tools, 1)
-	assert.Equal(t, mcpLoginTool, tools[0].(map[string]any)["name"])
+	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
+	assert.Contains(t, initialize["instructions"], mcpLoginInstructions)
+	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
 	text, isError := toolText(t, answerFor(t, answers, 3))
 	assert.True(t, isError)
-	assert.Contains(t, text, "blaxel_login")
-	text, isError = toolText(t, answerFor(t, answers, 4))
-	assert.False(t, isError)
-	assert.Contains(t, text, "https://app.blaxel.ai/device?code=ABC")
-	assert.Equal(t, []string{"main"}, asked)
-
-	// Once the user confirms, the agent is told to list the tools again.
-	close(confirm)
-	answers = out.waitFor(t, 5)
-	assert.Equal(t, "notifications/tools/list_changed", answers[4]["method"])
-	_ = writer.Close()
-	require.NoError(t, <-done)
+	assert.Contains(t, text, mcpLoginInstructions)
 }
 
-func TestBridgeOffersTheLoginAgainWhenTheServerRefusesIt(t *testing.T) {
+func TestBridgeOffersTerminalLoginWhenTheServerRefusesIt(t *testing.T) {
 	server := &fakeMCPServer{handle: func(w http.ResponseWriter, method string, id json.RawMessage) {
 		if method == "tools/list" {
 			jsonResult(w, id, `{"tools":[{"name":"list_sandboxes"}]}`)
@@ -287,7 +253,7 @@ func TestBridgeOffersTheLoginAgainWhenTheServerRefusesIt(t *testing.T) {
 
 	text, isError := toolText(t, answerFor(t, answers, 2))
 	assert.True(t, isError)
-	assert.Contains(t, text, "login expired")
+	assert.Contains(t, text, mcpLoginInstructions)
 	assert.Equal(t, "notifications/tools/list_changed", answers[2]["method"])
 	assert.Equal(t, 1, authenticator.rejected)
 }
@@ -382,14 +348,17 @@ func TestBridgeAuthRefreshesInMemoryAndKeepsTheWorkspace(t *testing.T) {
 	var environments []string
 	authenticator := &bridgeAuth{
 		env: func(string) string { return "" }, loadConfig: func() (blaxel.Config, error) { return config, nil },
-		environment: func(workspace string) string { environments = append(environments, workspace); return tokens.URL + "/v0/" },
-		client:      tokens.Client(), now: func() time.Time { return now },
+		environment: func(workspace string) string {
+			environments = append(environments, workspace)
+			return tokens.URL + "/v0/"
+		},
+		client: tokens.Client(), now: func() time.Time { return now },
 	}
 	credentials, err := authenticator.resolve(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "main", credentials.workspace)
 	assert.Equal(t, tokens.URL+"/v0/mcp", credentials.endpoint)
-	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["X-Blaxel-Authorization"])
+	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["Authorization"])
 	require.Len(t, refreshes, 1)
 	assert.Equal(t, map[string]string{"grant_type": "refresh_token", "refresh_token": "refresh-1", "client_id": "blaxel", "device_code": "device-1"}, refreshes[0])
 
@@ -402,15 +371,16 @@ func TestBridgeAuthRefreshesInMemoryAndKeepsTheWorkspace(t *testing.T) {
 	assert.Len(t, refreshes, 1)
 	assert.Equal(t, []string{"main"}, environments)
 
-	// A refused login is not used again until it changes.
+	// A refused access token forces a refresh, not permanent logout.
 	authenticator.reject(credentials)
 	_, err = authenticator.resolve(context.Background())
-	assert.ErrorIs(t, err, errNotLoggedIn)
+	require.NoError(t, err)
+	assert.Len(t, refreshes, 2)
 	config.Workspaces[0].Credentials = blaxel.Credentials{AccessToken: bridgeJWT(now, now.Add(2*time.Hour)), RefreshToken: "refresh-2"}
 	credentials, err = authenticator.resolve(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["X-Blaxel-Authorization"])
-	assert.Len(t, refreshes, 1, "a fresh token needs no refresh")
+	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["Authorization"])
+	assert.Len(t, refreshes, 2, "a fresh token needs no refresh")
 
 	// Logging out removes the credentials.
 	config.Workspaces = nil
@@ -439,12 +409,14 @@ func TestBridgeAuthUsesEnvironmentKeys(t *testing.T) {
 		env: func(key string) string {
 			return map[string]string{"BL_API_KEY": "bl_key"}[key]
 		},
-		loadConfig:  func() (blaxel.Config, error) { return blaxel.Config{Context: blaxel.ContextConfig{Workspace: "ws"}}, nil },
+		loadConfig: func() (blaxel.Config, error) {
+			return blaxel.Config{Context: blaxel.ContextConfig{Workspace: "ws"}}, nil
+		},
 		environment: func(string) string { return "https://api.blaxel.ai/v0" }, now: time.Now,
 	}
 	credentials, err := authenticator.resolve(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, "Bearer bl_key", credentials.headers["X-Blaxel-Authorization"])
+	assert.Equal(t, "Bearer bl_key", credentials.headers["Authorization"])
 	assert.Equal(t, "ws", credentials.headers["X-Blaxel-Workspace"])
 	assert.Equal(t, "https://api.blaxel.ai/v0/mcp", credentials.endpoint)
 
@@ -465,23 +437,6 @@ func TestTokenLifetime(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestDefaultLoginWorkspace(t *testing.T) {
-	names := []string{"calibrator", "main"}
-	chosen, err := defaultLoginWorkspace(names, "", "main")
-	require.NoError(t, err)
-	assert.Equal(t, "main", chosen, "the current workspace is kept")
-	chosen, err = defaultLoginWorkspace(names, "", "gone")
-	require.NoError(t, err)
-	assert.Equal(t, "calibrator", chosen)
-	chosen, err = defaultLoginWorkspace(names, "calibrator", "main")
-	require.NoError(t, err)
-	assert.Equal(t, "calibrator", chosen)
-	_, err = defaultLoginWorkspace(names, "nope", "main")
-	assert.ErrorContains(t, err, "calibrator, main")
-	_, err = defaultLoginWorkspace(nil, "", "")
-	assert.Error(t, err)
-}
-
 // bl mcp must print nothing but JSON-RPC, even on a machine without a login.
 func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	if testing.Short() {
@@ -491,7 +446,7 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	build := execCommand(t, "go", "build", "-o", binary, "..")
 	require.NoError(t, build.Run())
 	home := t.TempDir()
-	cmd := execCommand(t, binary, "mcp")
+	cmd := execCommand(t, binary, "--workspace", "main", "--skip-version-warning", "mcp")
 	cmd.Dir = home
 	cmd.Env = []string{"HOME=" + home, "USERPROFILE=" + home, "PATH=" + os.Getenv("PATH"), "BL_INSTALL_SKILLS=false"}
 	cmd.Stdin = strings.NewReader(initializeMessage + "\n" + `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n")
@@ -500,7 +455,7 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	require.NoError(t, cmd.Run(), stderr.String())
 	answers := decodeLines(t, stdout.String())
 	require.Len(t, answers, 2)
-	assert.Equal(t, mcpLoginTool, answerFor(t, answers, 2)["result"].(map[string]any)["tools"].([]any)[0].(map[string]any)["name"])
+	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
 	_, err := os.Stat(filepath.Join(home, ".blaxel"))
 	assert.True(t, errors.Is(err, os.ErrNotExist), "bl mcp writes no configuration")
 }

@@ -4,7 +4,7 @@ configuration, and check it answers over stdio with nothing but JSON-RPC.
     python3 test/install/test_bl_mcp.py HOME
 
 HOME is a home where bl setup ran, without a Blaxel login: the bridge must
-still connect and offer its login tool.
+still connect with an empty tool list and terminal-login instructions.
 """
 
 import json
@@ -35,5 +35,6 @@ for line in result.stdout.splitlines():
 assert sorted(answers) == [1, 2], result.stdout
 assert answers[1]["result"]["capabilities"]["tools"]["listChanged"] is True, answers[1]
 tools = [tool["name"] for tool in answers[2]["result"]["tools"]]
-assert tools == ["blaxel_login"], tools
+assert tools == [], tools
+assert "bl login" in answers[1]["result"]["instructions"]
 print(f"bl mcp answered from {command[0]}: {tools}")
