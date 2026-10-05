@@ -272,16 +272,16 @@ func TestClaudeMCPReportsCLIFailures(t *testing.T) {
 	assert.ErrorContains(t, err, "boom")
 }
 
-func TestConfigureAgentMCPSkipsServersFromTheBlaxelPlugin(t *testing.T) {
+func TestConfigureAgentMCPDoesNotAssumePluginTransport(t *testing.T) {
 	home := t.TempDir()
 	var commands []fakeCommand
 	env := testMCPEnv(home, map[string]string{}, &commands, "", nil)
 	writeTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), `{"version":2,"plugins":{"blaxel@blaxel":[{"scope":"user"}]}}`)
 
 	result := configureAgentMCP(context.Background(), env, mcpTargets["claude-code"], []mcpServer{testResourceServer, testDocsServer})
-	require.NoError(t, result.err)
-	assert.Equal(t, []string{"blaxel"}, result.plugin)
-	assert.Equal(t, []string{"blaxel-docs"}, result.added)
+	require.ErrorContains(t, result.err, "effective MCP configuration")
+	assert.Empty(t, result.plugin)
+	assert.Equal(t, []string{"blaxel", "blaxel-docs"}, result.added)
 
 	writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[plugins.\"blaxel@blaxel\"]\nenabled = false\n")
 	result = configureAgentMCP(context.Background(), env, mcpTargets["codex"], []mcpServer{testResourceServer})
@@ -650,7 +650,7 @@ func TestClassifyMCPEntry(t *testing.T) {
 	}{
 		"absent":                {nil, mcpEntryAbsent},
 		"bl mcp":                {map[string]any{"command": "/opt/blaxel/bin/bl", "args": []any{"mcp"}}, mcpEntryCurrent},
-		"another bl":            {map[string]any{"command": "/usr/local/bin/blaxel", "args": []any{"mcp", "-w", "x"}}, mcpEntryCurrent},
+		"another bl":            {map[string]any{"command": "/usr/local/bin/blaxel", "args": []any{"mcp", "-w", "x"}}, mcpEntryCustom},
 		"bare bl":               {map[string]any{"type": "stdio", "command": "bl", "args": []any{"mcp"}}, mcpEntryCurrent},
 		"Windows bl":            {map[string]any{"command": `C:\Users\me\bin\bl.exe`, "args": []any{"mcp"}}, mcpEntryCurrent},
 		"OpenCode list":         {map[string]any{"type": "local", "command": []any{"/opt/blaxel/bin/bl", "mcp"}, "enabled": true}, mcpEntryCurrent},
@@ -762,9 +762,15 @@ func TestBlCommandPath(t *testing.T) {
 	require.NoError(t, err)
 	keg := filepath.Join(dir, "Cellar", "blaxel", "0.1.120", "bin", "blaxel")
 	writeTestFile(t, keg, "")
-	assert.Equal(t, filepath.Join(dir, "bin", "bl"), blCommandPath(func() (string, error) { return keg, nil }), "Homebrew's bin link survives upgrades")
+	path, err := blCommandPath(func() (string, error) { return keg, nil })
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, "bin", "bl"), path)
 	plain := filepath.Join(dir, ".local", "bin", "bl")
 	writeTestFile(t, plain, "")
-	assert.Equal(t, plain, blCommandPath(func() (string, error) { return plain, nil }))
-	assert.Equal(t, "bl", blCommandPath(func() (string, error) { return "", errors.New("unknown") }))
+	path, err = blCommandPath(func() (string, error) { return plain, nil })
+	require.NoError(t, err)
+	assert.Equal(t, plain, path)
+	path, err = blCommandPath(func() (string, error) { return "", errors.New("unknown") })
+	assert.Empty(t, path)
+	assert.ErrorContains(t, err, "cannot locate")
 }

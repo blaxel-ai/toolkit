@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // mcpServer is a Blaxel MCP server that setup adds to coding agents: a hosted
@@ -47,27 +46,27 @@ func docsMCPServer() mcpServer {
 // agents before bl mcp, which it now replaces.
 func isHostedResourceMCPURL(value string) bool {
 	value = strings.TrimSuffix(strings.TrimSpace(value), "/")
-	return value == "https://api.blaxel.ai/v0/mcp" || value == "https://api.blaxel.dev/v0/mcp" ||
-		value == strings.TrimSuffix(blaxel.GetBaseURL(), "/")+"/mcp"
+	return value == "https://api.blaxel.ai/v0/mcp" || value == "https://api.blaxel.dev/v0/mcp"
 }
 
 // blCommandPath is the bl binary agents start for bl mcp. It is absolute,
 // because desktop apps do not get the shell's PATH, and survives upgrades:
 // Homebrew's bin link rather than the versioned keg.
-func blCommandPath(executable func() (string, error)) string {
+func blCommandPath(executable func() (string, error)) (string, error) {
 	path, err := executable()
-	if err != nil {
-		return "bl"
+	if err != nil || path == "" {
+		return "", errors.New("cannot locate the bl executable; run setup from an installed bl or blaxel binary")
 	}
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		if prefix, _ := homebrewSkillsLocation(resolved); prefix != "" {
-			return filepath.Join(prefix, "bin", "bl")
+			return filepath.Join(prefix, "bin", "bl"), nil
 		}
 	}
-	if absolute, err := filepath.Abs(path); err == nil {
-		return absolute
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve the absolute bl executable path: %w", err)
 	}
-	return path
+	return absolute, nil
 }
 
 // mcpEnv is everything MCP configuration needs from the machine, so tests can
@@ -117,8 +116,8 @@ const (
 )
 
 // classifyMCPEntry decides what setup does with an existing entry. Only
-// entries setup itself wrote are replaced: the hosted Blaxel URL from before
-// bl mcp, or a bl mcp command whose bl no longer exists.
+// exact minimal known shapes are repairable; this is not proof of ownership.
+// Custom arguments, env, headers, unknown keys and disabled entries stay intact.
 func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntryState {
 	if entry == nil {
 		return mcpEntryAbsent
@@ -126,15 +125,30 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 	if !server.local() {
 		return mcpEntryCurrent
 	}
+	// Never re-enable a disabled server or overwrite customization.
+	if disabled, _ := entry["disabled"].(bool); disabled {
+		return mcpEntryCustom
+	}
+	if enabled, ok := entry["enabled"]; ok && enabled != true {
+		return mcpEntryCustom
+	}
 	if command, args := entryCommand(entry); command != "" {
-		name := strings.TrimSuffix(strings.ToLower(filepath.Base(filepath.ToSlash(command))), ".exe")
-		if strings.Contains(name, "\\") {
-			name = name[strings.LastIndex(name, "\\")+1:]
-		}
-		if (name != "bl" && name != "blaxel") || len(args) == 0 || args[0] != "mcp" {
+		name := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(command, `\`, "/"))), ".exe")
+		if (name != "bl" && name != "blaxel") || len(args) != 1 || args[0] != "mcp" {
 			return mcpEntryCustom
 		}
-		if filepath.IsAbs(command) && e.exists != nil && !e.exists(command) {
+		for key, value := range entry {
+			switch key {
+			case "command", "args", "enabled":
+			case "type":
+				if value != "stdio" && value != "local" {
+					return mcpEntryCustom
+				}
+			default:
+				return mcpEntryCustom
+			}
+		}
+		if isAbsoluteMCPCommand(command) && e.exists != nil && !e.exists(command) {
 			return mcpEntryOutdated
 		}
 		return mcpEntryCurrent
@@ -148,9 +162,12 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 				return mcpEntryCustom
 			}
 			hosted = true
-		case "type", "enabled":
+		case "type":
+			if value != "http" && value != "remote" && value != "streamable-http" {
+				return mcpEntryCustom
+			}
+		case "enabled":
 		default:
-			// Headers, environment, ...: someone configured it by hand.
 			return mcpEntryCustom
 		}
 	}
@@ -158,6 +175,10 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 		return mcpEntryCustom
 	}
 	return mcpEntryOutdated
+}
+
+func isAbsoluteMCPCommand(path string) bool {
+	return filepath.IsAbs(path) || strings.HasPrefix(path, `\\`) || (len(path) > 2 && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
 }
 
 // entryCommand reads a local server's command and arguments, in the common
@@ -281,7 +302,16 @@ var mcpTargets = map[string]mcpTarget{
 			if json.Unmarshal(data, &installed) != nil {
 				return false
 			}
+			var settings struct {
+				EnabledPlugins map[string]bool `json:"enabledPlugins"`
+			}
+			if data, err := os.ReadFile(filepath.Join(claudeConfigDir(e), "settings.json")); err == nil {
+				_ = json.Unmarshal(data, &settings)
+			}
 			for id := range installed.Plugins {
+				if enabled, ok := settings.EnabledPlugins[id]; ok && !enabled {
+					continue
+				}
 				if strings.HasPrefix(id, "blaxel@") {
 					return true
 				}
@@ -395,9 +425,15 @@ func writeClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer, repla
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	var previous map[string]any
 	if replace {
-		// The CLI cannot change a server in place; a missing one is fine.
-		_, _ = e.run(ctx, claude, "mcp", "remove", "--scope", "user", server.name)
+		previous = jsonConfigEntry(file, "mcpServers", server.name)
+		if previous == nil || readErr != nil {
+			return errors.New("cannot safely back up the existing Claude MCP entry")
+		}
+		if _, err = e.run(ctx, claude, "mcp", "remove", "--scope", "user", server.name); err != nil {
+			return fmt.Errorf("claude mcp remove: %w", err)
+		}
 	}
 	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", server.name, server.url}
 	if server.local() {
@@ -405,6 +441,11 @@ func writeClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer, repla
 	}
 	output, err := e.run(ctx, claude, args...)
 	if err != nil {
+		if previous != nil {
+			if _, restoreErr := upsertJSONConfig(file, "mcpServers", server.name, previous, true); restoreErr != nil {
+				return fmt.Errorf("claude mcp add failed (%w); restoring the old entry also failed: %v", err, restoreErr)
+			}
+		}
 		if strings.Contains(string(output), "already exists") {
 			return errMCPServerExists
 		}
