@@ -446,6 +446,8 @@ def install_script_tests(root, binary, server):
             assert install.installed_skills() == SKILLS, output
             assert (install.home / ".claude/skills/blaxel-cli").is_symlink()
             assert "error reports off" in output, output
+            assert output.count("✦ 1 step left: bl login") == 1, output
+            assert "Blaxel is ready" not in output and "enter close" not in output, output
             # Running it again does not add PATH twice.
             again = subprocess.run(["/bin/sh", str(script)], cwd=install.cwd, env=env, stdin=subprocess.DEVNULL,
                                    capture_output=True, text=True, timeout=120)
@@ -457,7 +459,8 @@ def install_script_tests(root, binary, server):
             bashrc = (install.home / ".bashrc").read_text()
             assert f'export PATH="{bindir}:$PATH"' in bashrc, output
             assert (install.home / ".local/share/bash-completion/completions/bl").is_file(), output
-            assert "Blaxel is ready" in output or "Blaxel is set up" in output, output
+            assert output.count("✦ 1 step left: bl login") == 1, output
+            assert output.count("source ~/.bashrc") == 1, output
             print("PASS install.sh sets up bash through ~/.bashrc", flush=True)
         else:
             assert "export PATH" not in zshrc, zshrc

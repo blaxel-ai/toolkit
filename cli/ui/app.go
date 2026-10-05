@@ -46,11 +46,10 @@ type tickMsg struct{}
 type eventMsg event
 
 type model struct {
-	setup   *Setup
-	options Options
-	st      styles
-	pal     palette
-	glyph   glyphs
+	setup *Setup
+	st    styles
+	pal   palette
+	glyph glyphs
 
 	width, height int
 	phase         phase
@@ -73,7 +72,7 @@ type model struct {
 
 func (s *Setup) runApp(ctx context.Context, out *os.File, options Options) (Summary, error) {
 	renderer := lipgloss.NewRenderer(out)
-	m := newModel(s, options, renderer, os.Getenv("TERM") != "linux")
+	m := newModel(s, renderer, os.Getenv("TERM") != "linux")
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	defer m.cancel()
 	if options.Yes {
@@ -96,9 +95,9 @@ func (s *Setup) runApp(ctx context.Context, out *os.File, options Options) (Summ
 	return m.summary, nil
 }
 
-func newModel(s *Setup, options Options, renderer *lipgloss.Renderer, unicode bool) *model {
+func newModel(s *Setup, renderer *lipgloss.Renderer, unicode bool) *model {
 	m := &model{
-		setup: s, options: options, st: newStyles(renderer), pal: palette{profile: renderer.ColorProfile()},
+		setup: s, st: newStyles(renderer), pal: palette{profile: renderer.ColorProfile()},
 		glyph: glyphsFor(unicode), width: 80, height: 24, results: map[string]Result{},
 	}
 	for _, item := range s.Items {
@@ -193,10 +192,7 @@ func (m *model) handleEvent(e event) (tea.Model, tea.Cmd) {
 		m.phase, m.offset = finished, 0
 		m.notes = nil
 		m.summary = m.setup.Summary(m.results)
-		if m.options.Yes || m.cancelled {
-			return m, tea.Quit
-		}
-		return m, nil
+		return m, tea.Quit
 	}
 	return m, m.waitForEvent()
 }
@@ -235,19 +231,6 @@ func (m *model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			m.cancelled = true
 			m.cancel()
-		}
-	case finished:
-		switch key.String() {
-		case "up", "k":
-			m.offset--
-		case "down", "j":
-			m.offset++
-		case "pgup":
-			m.offset -= m.height / 2
-		case "pgdown":
-			m.offset += m.height / 2
-		case "enter", "esc", "q", "ctrl+c", " ":
-			return m, tea.Quit
 		}
 	}
 	return m, nil
@@ -363,18 +346,22 @@ func (m *model) columnWidth() int {
 }
 
 func (m *model) View() string {
+	// Completion goes straight to the shell summary, never another full screen.
+	if m.phase == finished {
+		return ""
+	}
 	width := m.columnWidth()
 	body, anchor, pinned := m.screen(width)
 	headers := [][]string{m.header(m.width - 2), m.header(wordmarkSmallWidth), nil}
 	for _, header := range headers {
-		view := m.compose(header, body, pinned, m.footer(m.width-2, false), width)
+		view := m.compose(header, body, pinned, m.footer(m.width-2), width)
 		if lipgloss.Height(view) <= m.height {
 			return m.place(view)
 		}
 	}
 	// Too tall even without the wordmark: scroll the body, keeping the
 	// pinned lines and the keys in view.
-	footer := m.footer(m.width-2, true)
+	footer := m.footer(m.width - 2)
 	room := m.height - len(pinned) - 3
 	if pinned == nil {
 		room += 1
@@ -401,7 +388,7 @@ func (m *model) screen(width int) (body []string, anchor int, pinned []string) {
 		body, anchor = m.runningLines(width)
 		return body, anchor, []string{m.progressBar(width)}
 	}
-	return m.finalLines(width), -1, nil
+	return nil, -1, nil
 }
 
 // compose stacks the header, the column of body and pinned lines, and the
@@ -786,48 +773,9 @@ func (m *model) progressBar(width int) string {
 	return m.st.accent.Render(strings.Repeat(m.glyph.done, filled)) + m.st.rail.Render(strings.Repeat(m.glyph.todo, room-filled)) + m.st.muted.Render(count)
 }
 
-func (m *model) finalLines(width int) []string {
-	s := m.summary
-	lines := []string{center(m.st.accent.Render(m.glyph.spark)+"  "+m.st.title.Render(s.Title)+"  "+m.st.accent.Render(m.glyph.spark), width), ""}
-	if s.Group != "" {
-		lines = append(lines, m.heading(s.Group))
-	}
-	detailWidth := width - labelWidth - 3
-	for _, r := range summaryRows(s.Lines, true, detailWidth) {
-		marker := m.st.ok.Render(m.glyph.ok)
-		detail := m.st.muted.Render(truncate(r.detail, detailWidth))
-		label := r.label
-		switch {
-		case r.failed:
-			marker, detail = m.st.fail.Render(m.glyph.fail), m.st.fail.Render(truncate(r.detail, detailWidth))
-		case r.more:
-			marker, label, detail = " ", "", m.st.muted.Render(r.label)
-		}
-		lines = append(lines, marker+" "+padRight(label, labelWidth)+" "+detail)
-		for _, names := range r.names {
-			lines = append(lines, strings.Repeat(" ", labelWidth+3)+m.st.muted.Render(names))
-		}
-	}
-	if len(s.Next) > 0 {
-		lines = append(lines, "", m.heading("Next"))
-		commandWidth := 0
-		for _, next := range s.Next {
-			commandWidth = max(commandWidth, lipgloss.Width(next[0]))
-		}
-		for _, next := range s.Next {
-			line := m.st.accent.Render(m.glyph.pointer) + " " + m.st.key.Render(padRight(next[0], commandWidth))
-			if next[1] != "" {
-				line += "  " + m.st.muted.Render(next[1])
-			}
-			lines = append(lines, line)
-		}
-	}
-	return lines
-}
-
 // footer shows the keys of the current screen, dropping the least important
 // ones when the terminal is narrow.
-func (m *model) footer(width int, scrolling bool) string {
+func (m *model) footer(width int) string {
 	key := func(k, what string) string { return m.st.key.Render(k) + " " + m.st.muted.Render(what) }
 	var keys []string
 	switch m.phase {
@@ -841,11 +789,6 @@ func (m *model) footer(width int, scrolling bool) string {
 			keys = []string{key("esc", "skip"), key("ctrl+c", "stop")}
 		default:
 			keys = []string{key("ctrl+c", "stop")}
-		}
-	case finished:
-		keys = []string{key("enter", "close")}
-		if scrolling {
-			keys = append(keys, key("↑↓", "scroll"))
 		}
 	}
 	gap := m.st.rail.Render("  ·  ")
