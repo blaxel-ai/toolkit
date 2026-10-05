@@ -293,6 +293,8 @@ type Package struct {
 // BuildConfig represents the [build] section of blaxel.toml
 type BuildConfig struct {
 	Args map[string]string `toml:"args,omitempty"`
+	// Dockerfile selects a project-relative Dockerfile for source-building deploys only.
+	Dockerfile string `toml:"dockerfile,omitempty"`
 	// Experimental opts this project into the new build system. It is the one
 	// setting here that changes which builder runs, rather than how it is sized.
 	Experimental bool `toml:"experimental,omitempty"`
