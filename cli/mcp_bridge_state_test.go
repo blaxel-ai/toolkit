@@ -82,6 +82,35 @@ func TestBridgeUpstreamNegotiationMustMatchSavedVersion(t *testing.T) {
 	assert.Contains(t, answerFor(t, answers, 2)["error"].(map[string]any)["message"], "negotiation changed")
 }
 
+func TestBridgePreservesStoredAuthSourcePrecedence(t *testing.T) {
+	now := time.Now()
+	access := bridgeJWT(now, now.Add(time.Hour))
+	for _, fixture := range []struct {
+		name        string
+		credentials blaxel.Credentials
+		want        string
+	}{
+		{"api-key", blaxel.Credentials{APIKey: "fake-key", AccessToken: access, RefreshToken: "fake", ClientCredentials: "fake:secret"}, "Bearer fake-key"},
+		{"access-token", blaxel.Credentials{AccessToken: access, ClientCredentials: "fake:secret"}, "Bearer " + access},
+		{"refreshable-access-token", blaxel.Credentials{AccessToken: access, RefreshToken: "fake", ClientCredentials: "fake:secret"}, "Bearer " + access},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			a := newBridgeAuth("main")
+			a.env = func(string) string { return "" }
+			a.loadConfig = func() (blaxel.Config, error) {
+				return blaxel.Config{Workspaces: []blaxel.WorkspaceConfig{{Name: "main", Credentials: fixture.credentials}}}, nil
+			}
+			a.client = &http.Client{Transport: bridgeRoundTripFunc(func(*http.Request) (*http.Response, error) {
+				t.Error("unexpected client-credentials exchange")
+				return nil, io.ErrUnexpectedEOF
+			})}
+			c, err := a.resolve(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, fixture.want, c.headers["Authorization"])
+		})
+	}
+}
+
 func TestBridgeClientCredentialsKeepTheSDKGrantFormat(t *testing.T) {
 	a := newBridgeAuth("main")
 	a.env = func(string) string { return "" }

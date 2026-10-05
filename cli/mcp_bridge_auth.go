@@ -221,7 +221,7 @@ func credentialsFingerprint(c blaxel.Credentials) string {
 func (a *bridgeAuth) authorization(ctx context.Context, _ string, c blaxel.Credentials) (string, error) {
 	fp := credentialsFingerprint(c)
 	forced := a.forced == fp
-	if forced && c.RefreshToken == "" && c.ClientCredentials == "" {
+	if forced && (c.APIKey != "" || (c.RefreshToken == "" && (c.ClientCredentials == "" || c.AccessToken != ""))) {
 		// A static rejected token cannot be refreshed, but rejection is not sticky
 		// for this process: retry after a short cooldown or as soon as login changes.
 		a.forced = ""
@@ -230,7 +230,7 @@ func (a *bridgeAuth) authorization(ctx context.Context, _ string, c blaxel.Crede
 	if c.APIKey != "" {
 		return "Bearer " + c.APIKey, nil
 	}
-	if c.ClientCredentials != "" {
+	if c.ClientCredentials != "" && c.AccessToken == "" {
 		now := a.now()
 		if !forced && a.cached.refreshToken == fp && now.Add(time.Minute).Before(a.cached.expires) {
 			return "Bearer " + a.cached.accessToken, nil
