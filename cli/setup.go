@@ -387,6 +387,7 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 type setupOutcome struct {
 	mu        sync.Mutex
 	skills    []string
+	preserved []string
 	mcp       map[string]mcpAgentResult
 	workspace string
 	tracking  *bool
@@ -483,9 +484,10 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 				return "", err
 			}
 			outcome.mu.Lock()
-			outcome.skills = result.skills
+			outcome.skills = append(append([]string(nil), result.skills...), result.preserved...)
+			outcome.preserved = result.preserved
 			outcome.mu.Unlock()
-			return strings.Join(result.skills, ", "), nil
+			return skillsInstallDetail(result), nil
 		}})
 	}
 	var servers []mcpServer
@@ -588,6 +590,9 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: setupError(skillsFailed), Failed: true})
 	case len(agents) == 0 && chosen["skills"]:
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: "~/.agents/skills"})
+	}
+	if len(outcome.preserved) > 0 {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Kept managed", Detail: strings.Join(outcome.preserved, ", ") + " · links and contents unchanged"})
 	}
 	if shell := strings.TrimSpace(options.env(installerShellEnv)); shell != "" {
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Shell", Detail: shell})
