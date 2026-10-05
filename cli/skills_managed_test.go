@@ -12,6 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// resolvedTempDir returns t.TempDir() with links and Windows 8.3 short names
+// (C:\Users\RUNNER~1) expanded, matching the resolved paths in error messages.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	return dir
+}
+
 func managedSkillLink(t *testing.T, target, link string) {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -73,7 +82,7 @@ func TestInstallSkillsArchivePreservesExternalSkillLink(t *testing.T) {
 func TestInstallSkillsArchiveRejectsNestedNameCollisionBeforeWriting(t *testing.T) {
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
 		t.Run(name, func(t *testing.T) {
-			home := t.TempDir()
+			home := resolvedTempDir(t)
 			root := filepath.Join(home, ".agents", "skills")
 			nested := filepath.Join(root, "blaxel", name)
 			writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest(name))
@@ -121,7 +130,7 @@ func TestInstallSkillsArchiveRejectsAgentManagedLinkBeforeWriting(t *testing.T) 
 }
 
 func TestInstallSkillsArchiveRejectsAgentNestedNameCollision(t *testing.T) {
-	home := t.TempDir()
+	home := resolvedTempDir(t)
 	nested := filepath.Join(home, ".claude", "skills", "custom", "sdk")
 	writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest("blaxel-sdk"))
 	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
