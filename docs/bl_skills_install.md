@@ -13,6 +13,8 @@ Skills go to ~/.agents/skills and to the coding agents detected on this machine
 (Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.
 This explicit command runs even when automatic installation is disabled with
 BL_INSTALL_SKILLS=false or in CI.
+Existing externally managed skill links are kept, not refreshed. Same-name
+skills in other folders are reported before any skill or lock file is changed.
 
 ```
 bl skills install [flags]
