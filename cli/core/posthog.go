@@ -218,6 +218,7 @@ func TrackCLIInstalled(cliVersion string) {
 		telemetryMu.Unlock()
 		return
 	}
+	seenCLI := state.CLI
 	if _, pending := pendingCLIEvents[eventKey]; pending {
 		telemetryMu.Unlock()
 		return
@@ -237,7 +238,7 @@ func TrackCLIInstalled(cliVersion string) {
 		state := loadTelemetryState()
 		// An upgrade may complete before this older install event. Do not
 		// overwrite the newer version recorded by that successful upgrade.
-		if state.CLI == "" || state.CLI == cliVersion {
+		if state.CLI == seenCLI || state.CLI == cliVersion {
 			state.CLI = cliVersion
 			saveTelemetryState(state)
 		}

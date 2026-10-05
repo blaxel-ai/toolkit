@@ -229,6 +229,70 @@ func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {
 	assert.Equal(t, "1.2.3", loadTelemetryState().CLI)
 }
 
+// A user who installs a newer binary directly (curl, brew upgrade outside
+// `bl upgrade`) already has an older version recorded. The new version must
+// replace it, or every later command re-sends "Installed CLI".
+func TestTrackCLIInstalledRecordsNewerVersionOverPreviouslyRecordedOne(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"shared-id","cli":"1.0.0"}`), 0o600))
+
+	TrackCLIInstalled("2.0.0")
+	FlushPosthog()
+	TrackCLIInstalled("2.0.0")
+	FlushPosthog()
+
+	assert.Equal(t, int32(1), requests.Load(), "the newer version must be reported exactly once")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cli": "2.0.0"`)
+}
+
+// An upgrade can be delivered before the install event of the binary that ran
+// it. The older install event must not roll back the upgraded version.
+func TestTrackCLIInstalledDoesNotOverwriteUpgradeDeliveredFirst(t *testing.T) {
+	requestStarted := make(chan struct{}, 2)
+	releaseInstall := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		if payload["event"] == "Installed CLI" {
+			requestStarted <- struct{}{}
+			<-releaseInstall
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	TrackCLIInstalled("1.0.0")
+	<-requestStarted
+	TrackCLIUpgraded("1.0.0", "2.0.0")
+	for loadTelemetryStateCLI() != "2.0.0" {
+		time.Sleep(5 * time.Millisecond)
+	}
+	close(releaseInstall)
+	FlushPosthog()
+
+	data, err := os.ReadFile(getTelemetryPath())
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cli": "2.0.0"`)
+}
+
+func loadTelemetryStateCLI() string {
+	telemetryMu.Lock()
+	defer telemetryMu.Unlock()
+	return loadTelemetryState().CLI
+}
+
 func TestTrackCLIInstalledDeduplicatesPendingDelivery(t *testing.T) {
 	requestStarted := make(chan struct{})
 	releaseRequest := make(chan struct{})
