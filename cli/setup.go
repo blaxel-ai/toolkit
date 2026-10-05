@@ -614,9 +614,17 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 			summary.Problems++
 		}
 	}
+	var remaining []string
+	if loggedIn == "" {
+		remaining = append(remaining, "bl login")
+	}
+	// A failed login is covered by bl login; other failed installs need a retry.
+	if slices.ContainsFunc(summary.Lines, func(line ui.Line) bool { return line.Failed && line.Label != "Log in" }) {
+		remaining = append(remaining, "bl setup")
+	}
 	summary.Title = "Blaxel is ready"
-	if summary.Problems > 0 {
-		summary.Title = fmt.Sprintf("Blaxel is set up, with %d %s", summary.Problems, plural(summary.Problems, "problem", "problems"))
+	if len(remaining) > 0 {
+		summary.Title = fmt.Sprintf("%d %s left: %s", len(remaining), plural(len(remaining), "step", "steps"), strings.Join(remaining, ", "))
 	}
 	if reload := strings.TrimSpace(options.env(installerReloadEnv)); reload != "" {
 		summary.Next = append(summary.Next, [2]string{reload, "use bl in this terminal"})

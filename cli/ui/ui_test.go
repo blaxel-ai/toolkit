@@ -172,14 +172,11 @@ func testModel(t *testing.T, profile termenv.Profile) *model {
 
 func TestAppRendersAtEverySize(t *testing.T) {
 	for _, profile := range []termenv.Profile{termenv.TrueColor, termenv.ANSI256, termenv.ANSI, termenv.Ascii} {
-		for _, size := range [][2]int{{20, 8}, {40, 16}, {80, 24}, {120, 40}, {240, 70}} {
+		for _, size := range [][2]int{{20, 8}, {40, 16}, {80, 24}, {110, 42}, {120, 40}, {240, 70}} {
 			m := testModel(t, profile)
 			m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
-			for _, phase := range []phase{planning, running, finished} {
+			for _, phase := range []phase{planning, running} {
 				m.phase = phase
-				if phase == finished {
-					m.summary = m.setup.Summary(nil)
-				}
 				view := m.View()
 				for _, line := range strings.Split(view, "\n") {
 					assert.LessOrEqual(t, lipgloss.Width(line), max(size[0], 23), "profile %v size %v phase %v: %q", profile, size, phase, line)
@@ -189,6 +186,62 @@ func TestAppRendersAtEverySize(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestAppQuitsAfterTasksWithoutAnotherKey(t *testing.T) {
+	for _, size := range [][2]int{{80, 24}, {110, 42}} {
+		for _, taskErr := range []error{nil, ErrSkipped, errors.New("failed"), context.Canceled} {
+			m := testModel(t, termenv.Ascii)
+			m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+			m.phase = running
+			m.rows = []*row{{id: "skills", label: "Agent skills", state: rowRunning}}
+			m.cancelled = errors.Is(taskErr, context.Canceled)
+			result := Result{ID: "skills", Label: "Agent skills", Detail: "done", Err: taskErr}
+			m.Update(eventMsg{kind: eventFinish, id: "skills", result: result})
+			_, cmd := m.Update(eventMsg{kind: eventAllDone})
+			require.NotNil(t, cmd)
+			assert.IsType(t, tea.QuitMsg{}, cmd(), "completion quits without a key in every outcome")
+			assert.Equal(t, finished, m.phase)
+			assert.Equal(t, result, m.results["skills"])
+			assert.Equal(t, m.setup.Summary(m.results), m.summary)
+			assert.Empty(t, m.View(), "there is no final full-screen summary")
+			for _, profile := range []termenv.Profile{termenv.TrueColor, termenv.Ascii} {
+				renderer := lipgloss.NewRenderer(nil)
+				renderer.SetColorProfile(profile)
+				var out strings.Builder
+				printSummary(&out, newStyles(renderer), m.glyph, m.summary, 2, true, size[0])
+				assert.Equal(t, 1, strings.Count(out.String(), m.summary.Title))
+				assert.NotContains(t, out.String(), "enter close")
+				assert.Equal(t, profile != termenv.Ascii, strings.Contains(out.String(), "\x1b["))
+			}
+		}
+	}
+	// With no tasks (everything already done or deselected), completion also quits.
+	m := testModel(t, termenv.Ascii)
+	m.phase = running
+	_, cmd := m.Update(eventMsg{kind: eventAllDone})
+	require.NotNil(t, cmd)
+	assert.IsType(t, tea.QuitMsg{}, cmd())
+}
+
+func TestAppProgramExitsAfterAcceptingPlan(t *testing.T) {
+	for _, taskErr := range []error{nil, ErrSkipped, errors.New("failed")} {
+		m := testModel(t, termenv.Ascii)
+		m.setup.Tasks = func(map[string]bool) []Task {
+			return []Task{{ID: "skills", Label: "Agent skills", Run: func(context.Context, *Control) (string, error) {
+				return "done", taskErr
+			}}}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		var out strings.Builder
+		// Only the Enter accepting the plan is available. No completion key.
+		final, err := tea.NewProgram(m, tea.WithInput(strings.NewReader("\r")), tea.WithOutput(&out),
+			tea.WithoutRenderer(), tea.WithoutSignalHandler(), tea.WithContext(ctx)).Run()
+		require.NoError(t, err)
+		require.Equal(t, finished, final.(*model).phase)
+		assert.Equal(t, taskErr, m.results["skills"].Err)
 	}
 }
 
@@ -351,7 +404,7 @@ func TestRunningCollapsesManyTasks(t *testing.T) {
 	assert.Contains(t, plain(view), "and 2 more failed")
 }
 
-func TestFinalScreenGroupsManyAgents(t *testing.T) {
+func TestShellSummaryGroupsManyAgents(t *testing.T) {
 	var lines []Line
 	for i := 0; i < 60; i++ {
 		line := Line{Label: fmt.Sprintf("Agent %02d", i+1), Group: "agents", Detail: "skills · MCP"}
@@ -379,12 +432,16 @@ func TestFinalScreenGroupsManyAgents(t *testing.T) {
 	assert.Contains(t, rows[1].names[1], "more")
 	assert.Len(t, summaryRows(lines, false, 40), 61, "logs keep every line")
 
-	m := manyAgents(t, 60, 10)
-	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	m.phase, m.summary = finished, Summary{Title: "Blaxel is set up, with 4 problems", Group: "Installed into", Lines: lines,
-		Next: [][2]string{{"source ~/.zshrc", "use bl in this terminal"}, {"bl login", "log in"}}}
-	assertFits(t, m.View(), 80, 24, "final")
-	assert.Contains(t, plain(m.View()), "44 agents")
+	for _, size := range [][2]int{{80, 24}, {110, 42}} {
+		m := manyAgents(t, 60, 10)
+		var out strings.Builder
+		summary := Summary{Title: "2 steps left: bl login, bl setup", Group: "Installed into", Lines: lines,
+			Next: [][2]string{{"source ~/.zshrc", "use bl in this terminal"}, {"bl login", "log in"}}}
+		printSummary(&out, m.st, m.glyph, summary, 2, true, size[0])
+		assertFits(t, out.String(), size[0], size[1], "shell summary")
+		assert.Contains(t, plain(out.String()), "44 agents")
+		assert.NotContains(t, plain(out.String()), "enter close")
+	}
 }
 
 func TestNameList(t *testing.T) {
