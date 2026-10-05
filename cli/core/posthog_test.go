@@ -188,11 +188,18 @@ func TestTrackCLIInstalledSkipsCommandsThatMustStayFast(t *testing.T) {
 	oldArgs := os.Args
 	t.Cleanup(func() { os.Args = oldArgs })
 
-	for _, command := range []string{"__complete", "completion", "version", "--version"} {
-		os.Args = []string{"bl", command}
+	for _, args := range [][]string{
+		{"bl", "__complete"},
+		{"bl", "__completeNoDesc", "get", ""},
+		{"bl", "-w", "dev", "__complete", ""},
+		{"bl", "completion"},
+		{"bl", "version"},
+		{"bl", "--version"},
+	} {
+		os.Args = args
 		TrackCLIInstalled("4.0.0")
 		FlushPosthog()
-		assert.Equal(t, int32(0), requests.Load(), "%q must not send telemetry", command)
+		assert.Equal(t, int32(0), requests.Load(), "%q must not send telemetry", args)
 	}
 
 	// An ordinary command still reports the install.

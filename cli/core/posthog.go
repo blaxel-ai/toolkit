@@ -207,7 +207,7 @@ func TrackCLIInstalled(cliVersion string) {
 	// each keypress wait out the flush budget until PostHog accepts the event.
 	// These are the same latency-sensitive, side-effect-free commands already
 	// exempted from the tracking consent prompt.
-	if isTrackingPromptCommandExempt(os.Args) {
+	if isTrackingPromptCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
 		return
 	}
 
