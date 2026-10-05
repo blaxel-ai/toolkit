@@ -148,6 +148,29 @@ func TestSaveTelemetryStateNeverRollsBackEntriesItDoesNotOwn(t *testing.T) {
 		"the CLI owns no language entries and must not roll back the SDK's newer version")
 }
 
+// distinct_id is shared by the CLI and both SDKs. If the CLI starts before any
+// id exists and an SDK persists one first, the CLI must adopt it instead of
+// replacing it, or the same user becomes two PostHog identities.
+func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
+	resetPosthogTestState(t, "http://127.0.0.1:1")
+
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"sdks":{}}`), 0o600))
+	loadTelemetryState()
+
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"sdk-generated"}`), 0o600))
+
+	used := getDistinctID()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var got map[string]interface{}
+	require.NoError(t, json.Unmarshal(data, &got))
+	assert.Equal(t, "sdk-generated", got["distinct_id"])
+	assert.Equal(t, "sdk-generated", used)
+}
+
 // Shell completion runs on every TAB press, and the version marker is only
 // persisted after a successful delivery, so an unreported version or an
 // unreachable endpoint would otherwise make each keypress pay the flush budget.

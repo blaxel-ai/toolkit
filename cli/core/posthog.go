@@ -112,7 +112,11 @@ func saveTelemetryState(state *telemetryState) {
 		}
 	}
 
-	if state.DistinctID != "" {
+	// distinct_id is shared by every writer, so the first one persisted wins.
+	// Replacing it would split the same user across two PostHog identities.
+	if id, _ := merged["distinct_id"].(string); id != "" {
+		state.DistinctID = id
+	} else {
 		merged["distinct_id"] = state.DistinctID
 	}
 	if state.CLI != "" {
