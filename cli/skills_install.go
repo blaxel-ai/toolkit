@@ -400,7 +400,9 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 			result.skills = append(result.skills, plan.skill.name)
 		}
 		for _, link := range plan.links {
-			if err := linkSkillFolder(plan.canonical, link, files); err != nil {
+			if err := linkSkillFolder(plan.canonical, link, files); errors.Is(err, errManagedSkillNotLinked) {
+				continue // that agent is left unchanged
+			} else if err != nil {
 				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link, err)
 			}
 		}
@@ -502,6 +504,11 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 // linkSkillFolder points an agent's skill folder at the shared copy, and
 // falls back to a copy where links are unavailable (such as Windows without
 // developer mode).
+// errManagedSkillNotLinked means an externally managed skill could not be
+// linked into an agent's folder (Windows has no link here). No upstream copy
+// is substituted; that agent's folder is left unchanged.
+var errManagedSkillNotLinked = errors.New("externally managed skill not linked")
+
 func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
 		return err
@@ -538,7 +545,7 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	// A relative link resolves from the folder it ends up in, not the staging folder.
 	if runtime.GOOS == "windows" || os.Symlink(relative, fresh) != nil {
 		if files == nil {
-			return fmt.Errorf("could not link externally managed skill %s at %s; no upstream copy was substituted", canonical, linkPath)
+			return errManagedSkillNotLinked
 		}
 		if err := writeSkillFolder(fresh, files); err != nil {
 			return err
