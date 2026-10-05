@@ -294,6 +294,33 @@ func TestTrackCLIInstalledDoesNotOverwriteUpgradeDeliveredFirst(t *testing.T) {
 	assert.Contains(t, string(data), `"cli": "2.0.0"`)
 }
 
+// A long-running older CLI can finish delivering its install event after a
+// newer CLI in another terminal recorded its own version. The older event must
+// not roll that back, or the newer CLI re-sends "Installed CLI" on its next run.
+func TestTrackCLIInstalledDoesNotOverwriteVersionAnotherProcessRecorded(t *testing.T) {
+	requestStarted := make(chan struct{})
+	releaseInstall := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(requestStarted)
+		<-releaseInstall
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	TrackCLIInstalled("1.0.0")
+	<-requestStarted
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"shared-id","cli":"2.0.0"}`), 0o600))
+	close(releaseInstall)
+	FlushPosthog()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cli":"2.0.0"`)
+}
+
 func loadTelemetryStateCLI() string {
 	telemetryMu.Lock()
 	defer telemetryMu.Unlock()

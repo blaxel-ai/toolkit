@@ -236,9 +236,11 @@ func TrackCLIInstalled(cliVersion string) {
 			return
 		}
 		state := loadTelemetryState()
-		// An upgrade may complete before this older install event. Do not
-		// overwrite the newer version recorded by that successful upgrade.
-		if state.CLI == seenCLI || state.CLI == cliVersion {
+		// Skip the write if an upgrade in this process or another CLI process
+		// recorded a different version while the event was in flight.
+		onDisk := readOnDiskCLI()
+		unchanged := func(v string) bool { return v == seenCLI || v == cliVersion }
+		if unchanged(state.CLI) && unchanged(onDisk) {
 			state.CLI = cliVersion
 			saveTelemetryState(state)
 		}
@@ -248,6 +250,20 @@ func TrackCLIInstalled(cliVersion string) {
 		delete(pendingCLIEvents, eventKey)
 		telemetryMu.Unlock()
 	}
+}
+
+// readOnDiskCLI returns the "cli" value currently in telemetry.json, ignoring
+// this process's cache.
+func readOnDiskCLI() string {
+	data, err := os.ReadFile(getTelemetryPath())
+	if err != nil {
+		return ""
+	}
+	var onDisk struct {
+		CLI string `json:"cli"`
+	}
+	_ = json.Unmarshal(data, &onDisk)
+	return onDisk.CLI
 }
 
 // TrackCLIUpgraded sends an "Upgraded CLI" event with old and new versions.
