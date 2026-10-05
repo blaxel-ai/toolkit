@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -237,7 +238,7 @@ var rootCmd = &cobra.Command{
 		SetSentryTag("command.class", cmd.CommandPath())
 
 		// Skip version warning for specific commands/conditions
-		shouldSkipWarning := skipVersionWarning ||
+		shouldSkipWarning := skipVersionWarning || cmd.Name() == "setup" ||
 			cmd.Name() == "__complete" ||
 			cmd.Name() == "completion" ||
 			cmd.Name() == "token" ||
@@ -288,6 +289,7 @@ var rootCmd = &cobra.Command{
 		workspaceExemptCommands := map[string]bool{
 			"login":            true,
 			"logout":           true,
+			"setup":            true,
 			"version":          true,
 			"upgrade":          true,
 			"workspaces":       true,
@@ -372,6 +374,34 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// Register global flags before startup hooks inspect the command line.
+func init() {
+	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
+	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
+}
+
+// IsShellCompletionRequest resolves the shell's internal completion commands
+// using the same global flag definitions as normal CLI execution. Find reads
+// flag metadata without parsing values or changing the active configuration.
+func IsShellCompletionRequest(args []string) bool {
+	if !slices.Contains(args, "__complete") && !slices.Contains(args, "__completeNoDesc") {
+		return false
+	}
+	resolver := &cobra.Command{Use: "bl", Version: "completion", DisableSuggestions: true}
+	resolver.PersistentFlags().AddFlagSet(rootCmd.PersistentFlags())
+	resolver.InitDefaultHelpFlag()
+	resolver.InitDefaultVersionFlag()
+	resolver.AddCommand(
+		&cobra.Command{Use: "__complete", Args: cobra.ArbitraryArgs},
+		&cobra.Command{Use: "__completeNoDesc", Args: cobra.ArbitraryArgs},
+	)
+	command, _, err := resolver.Find(args)
+	return err == nil && (command.Name() == "__complete" || command.Name() == "__completeNoDesc")
+}
+
 // completeWorkspaceNames returns a list of workspace names from the local config for shell completion
 func completeWorkspaceNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	// Load config from ~/.blaxel/config.yaml
@@ -406,12 +436,6 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
-
-	rootCmd.PersistentFlags().StringVarP(&workspace, "workspace", "w", "", "Specify the workspace name")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "", "Output format. One of: pretty,yaml,json,table")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&utc, "utc", "u", false, "Enable UTC timezone")
-	rootCmd.PersistentFlags().BoolVarP(&skipVersionWarning, "skip-version-warning", "", false, "Skip version warning")
 
 	// Register workspace flag completion
 	_ = rootCmd.RegisterFlagCompletionFunc("workspace", completeWorkspaceNames)
@@ -624,5 +648,6 @@ func isTrackingPromptCommandExempt(args []string) bool {
 	}
 
 	cmd := args[1]
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
+	// bl setup asks about error reports itself.
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup"
 }

@@ -38,7 +38,7 @@ if [ "$INTERACTIVE" = true ]; then
       # Install with all options enabled, no prompts
       export BL_INSTALL_PATH=true
       export BL_INSTALL_COMPLETION=true
-      export BL_INSTALL_TRACKING=true
+      export BL_INSTALL_TRACKING=true BL_INSTALL_SETUP=false
       SHELL=/bin/bash sh /home/testuser/install.sh
       export PATH="$HOME/.local/bin:$PATH"
 
