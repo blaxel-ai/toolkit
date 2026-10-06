@@ -151,10 +151,10 @@ func TestWrapKeepsURLsWhole(t *testing.T) {
 	assert.Equal(t, []string{"Open", link, "now"}, wrap("Open "+url+" now", 20, 80, true))
 	assert.Equal(t, len(url), lipgloss.Width(link))
 
-	// Past the cells there are in all, a URL breaks, and is no hyperlink: a
-	// link to a piece would open the wrong page.
+	// Wider than the terminal, a URL breaks like any word, and is no hyperlink:
+	// a link to a piece would open the wrong page.
 	lines := wrap("Open "+url, 20, 30, true)
-	assert.Equal(t, []string{"Open", url[:30], url[30:]}, lines)
+	assert.Equal(t, []string{"Open", url[:20], url[20:40], url[40:]}, lines)
 }
 
 func TestAppKeepsTheLoginLinkWhole(t *testing.T) {
@@ -186,17 +186,29 @@ func TestAppKeepsTheLoginLinkWhole(t *testing.T) {
 		}
 	}
 
-	// On a terminal narrower than the URL it still shows in pieces, and no
-	// hyperlink points at a piece.
-	m := testModel(t, termenv.TrueColor)
-	m.links = true
-	m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
-	m.phase = running
-	m.notes = []string{"Open this page to log in: " + url}
-	view := ansi.ReplaceAllString(m.View(), "")
-	assert.NotContains(t, view, "\x1b]8")
-	assert.Contains(t, view, url[:40])
-	assert.Contains(t, view, url[40:])
+	// On a terminal narrower than the URL it breaks into pieces of the column,
+	// without losing a character, and no hyperlink points at a piece.
+	for _, columns := range []int{24, 30, 32, 40} {
+		m := testModel(t, termenv.TrueColor)
+		m.links = true
+		m.Update(tea.WindowSizeMsg{Width: columns, Height: 24})
+		m.phase = running
+		m.notes = []string{"Open this page to log in: " + url}
+		view := ansi.ReplaceAllString(m.View(), "")
+		assert.NotContains(t, view, "\x1b]8")
+		var pieces string
+		for _, line := range strings.Split(view, "\n") {
+			line = strings.TrimSpace(line)
+			if pieces != "" && line == "" {
+				break
+			}
+			if pieces != "" || strings.Contains(line, "https://") {
+				assert.LessOrEqual(t, len(line), columns-2, "columns %d: %q", columns, line)
+				pieces += line
+			}
+		}
+		assert.Equal(t, url, pieces, "columns %d", columns)
+	}
 }
 
 func testModel(t *testing.T, profile termenv.Profile) *model {

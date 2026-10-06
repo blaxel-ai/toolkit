@@ -52,7 +52,7 @@ type model struct {
 	glyph glyphs
 
 	width, height int
-	links         bool // the terminal can show OSC 8 hyperlinks
+	links         bool // link URLs with OSC 8; off on the Linux console
 	phase         phase
 	cursor        int // index in toggles; len(toggles) is the button
 	toggles       []*Item
@@ -834,18 +834,18 @@ func truncateStyled(text string, width int) string {
 }
 
 // wrap breaks text into lines of at most width cells at spaces, and breaks
-// words longer than a line. A URL is kept whole, so that it stays clickable,
-// unless it is longer than room, the cells there are in all. A whole URL is a
-// hyperlink when links is set, with the URL as its text, so that a terminal
-// that ignores hyperlinks still shows it complete.
+// words longer than a line. A URL that fits in room cells, the width of the
+// terminal, is kept whole so that it stays clickable, and one wider than that
+// breaks like any word. A whole URL is a hyperlink when links is set, with the
+// URL as its text, so that a terminal that ignores hyperlinks still shows it.
 func wrap(text string, width, room int, links bool) []string {
 	var lines []string
 	line := ""
 	for _, word := range strings.Fields(text) {
 		limit := width
-		if isURL(word) {
+		if isURL(word) && lipgloss.Width(word) <= max(room, width) {
 			limit = max(room, width)
-			if links && lipgloss.Width(word) <= limit {
+			if links {
 				word = "\x1b]8;;" + word + "\x1b\\" + word + "\x1b]8;;\x1b\\"
 			}
 		}
