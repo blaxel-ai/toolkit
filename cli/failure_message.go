@@ -20,18 +20,20 @@ func failureError(summary, message string) error {
 	return errors.New(summary + ": " + message)
 }
 
-// latestFailureMessage uses timestamps, not response ordering. It deliberately
-// does not fall back to an older failure when a newer event has no useful detail.
-// Malformed histories cannot establish which attempt a message belongs to.
-func latestFailureMessage(raw json.RawMessage, typePrefix string) string {
-	var events []struct {
-		Type    string `json:"type"`
-		Status  string `json:"status"`
-		Time    string `json:"time"`
-		Message string `json:"message"`
-	}
+type failureEvent struct {
+	Type     string `json:"type"`
+	Status   string `json:"status"`
+	Time     string `json:"time"`
+	Message  string `json:"message"`
+	Revision string `json:"revision,omitempty"`
+}
+
+// latestFailureEvent selects the newest event (including a newer non-failure),
+// never an older convenient failure. Malformed history cannot establish order.
+func latestFailureEvent(raw json.RawMessage, typePrefix string) (failureEvent, bool) {
+	var events []failureEvent
 	if json.Unmarshal(raw, &events) != nil {
-		return ""
+		return failureEvent{}, false
 	}
 	latest := -1
 	var latestTime time.Time
@@ -41,16 +43,25 @@ func latestFailureMessage(raw json.RawMessage, typePrefix string) string {
 		}
 		timestamp, err := time.Parse(time.RFC3339Nano, event.Time)
 		if err != nil {
-			return ""
+			return failureEvent{}, false
 		}
 		if latest == -1 || !timestamp.Before(latestTime) {
 			latest, latestTime = i, timestamp
 		}
 	}
 	if latest == -1 {
+		return failureEvent{}, false
+	}
+	return events[latest], true
+}
+
+// latestFailureMessage uses timestamps, not response ordering. It deliberately
+// does not fall back to an older failure when a newer event has no useful detail.
+func latestFailureMessage(raw json.RawMessage, typePrefix string) string {
+	event, ok := latestFailureEvent(raw, typePrefix)
+	if !ok {
 		return ""
 	}
-	event := events[latest]
 	if !strings.EqualFold(event.Status, "failed") && !strings.HasSuffix(event.Type, ".failed") {
 		return ""
 	}
