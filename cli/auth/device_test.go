@@ -127,21 +127,21 @@ func useCurrentWorkspace(t *testing.T, workspace string) {
 }
 
 func TestCurrentWorkspaceIndex(t *testing.T) {
-	names := []string{"calibrator", "main", "other"}
-	for current, want := range map[string]int{"main": 1, "other": 2, "calibrator": 0, "gone": 0, "": 0} {
+	names := []string{"alpha", "beta", "gamma"}
+	for current, want := range map[string]int{"beta": 1, "gamma": 2, "alpha": 0, "gone": 0, "": 0} {
 		useCurrentWorkspace(t, current)
 		assert.Equal(t, want, currentWorkspaceIndex(names), "current workspace %q", current)
 	}
 }
 
 func TestAskWorkspaceStartsOnCurrentWorkspace(t *testing.T) {
-	names := []string{"calibrator", "main", "other"}
+	names := []string{"alpha", "beta", "gamma"}
 	const enter, down = "\r", "\x1b[B"
 	for _, tc := range []struct{ name, current, keys, want string }{
-		{"Enter keeps the current workspace", "main", enter, "main"},
-		{"arrows move from the current workspace", "main", down + enter, "other"},
-		{"a workspace the login cannot use keeps the list order", "gone", enter, "calibrator"},
-		{"no current workspace keeps the list order", "", enter, "calibrator"},
+		{"Enter keeps the current workspace", "beta", enter, "beta"},
+		{"arrows move from the current workspace", "beta", down + enter, "gamma"},
+		{"a workspace the login cannot use keeps the list order", "gone", enter, "alpha"},
+		{"no current workspace keeps the list order", "", enter, "alpha"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			useCurrentWorkspace(t, tc.current)
