@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"mime"
 	"net"
 	"net/http"
@@ -52,12 +51,6 @@ func doMCPRequest(client *http.Client, r *http.Request) (*http.Response, error) 
 }
 
 func (b *mcpBridge) forward(ctx context.Context, message []byte, m rpcEnvelope, c mcpCredentials, relay func([]byte)) error {
-	b.stateMu.Lock()
-	retryAt := b.retryAt
-	b.stateMu.Unlock()
-	if time.Now().Before(retryAt) {
-		return errors.New("blaxel MCP is temporarily unavailable; retry shortly (the call was not replayed)")
-	}
 	err := b.exchange(ctx, message, m, c, relay)
 	var status *mcpHTTPError
 	if errors.As(err, &status) && status.status == http.StatusUnauthorized {
@@ -73,15 +66,6 @@ func (b *mcpBridge) forward(ctx context.Context, message []byte, m rpcEnvelope, 
 		if errors.As(err, &status) && status.status == 401 {
 			err = errors.New("blaxel MCP refused the refreshed access token; retry shortly or run `bl login` and reconnect")
 		}
-	}
-	b.stateMu.Lock()
-	defer b.stateMu.Unlock()
-	if err == nil {
-		b.failures = 0
-		b.retryAt = time.Time{}
-	} else if (!errors.As(err, &status) || status.status == 408 || status.status == 429 || status.status >= 500) && ctx.Err() == nil {
-		b.failures++
-		b.retryAt = time.Now().Add(time.Second*time.Duration(1<<min(b.failures-1, 3)) + time.Duration(rand.IntN(500))*time.Millisecond)
 	}
 	return err
 }

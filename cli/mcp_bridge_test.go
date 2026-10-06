@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -465,4 +466,74 @@ func execCommand(t *testing.T, name string, args ...string) *exec.Cmd {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 	return exec.CommandContext(ctx, name, args...)
+}
+
+// bl mcp sends credentials only to the stored login's Blaxel origin: no flag
+// can point it elsewhere.
+func TestMCPCommandHasNoAPIURLFlag(t *testing.T) {
+	assert.Nil(t, MCPCmd().Flags().Lookup("api-url"))
+}
+
+// A failed start says what failed, not that the agent is logged out.
+func TestBridgeNamesTheCauseOfAStartupFailure(t *testing.T) {
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	for name, test := range map[string]struct {
+		bridge func(t *testing.T) *mcpBridge
+		want   string
+	}{
+		"server error": {func(t *testing.T) *mcpBridge {
+			b, _ := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) }))
+			return b
+		}, "HTTP 500"},
+		"unreachable": {func(t *testing.T) *mcpBridge {
+			b, a := testBridge(t, nil)
+			a.endpoint = closed.URL
+			return b
+		}, "cannot reach"},
+		"token endpoint down": {func(t *testing.T) *mcpBridge {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
+			t.Cleanup(server.Close)
+			return newMCPBridge(bridgeTestAuth(t, server, blaxel.Credentials{AccessToken: "expired", RefreshToken: "fake"}))
+		}, "HTTP 503"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			b := test.bridge(t)
+			b.poll = 0
+			answers := runBridge(t, b, initializeMessage)
+			failure, _ := answerFor(t, answers, 1)["error"].(map[string]any)
+			require.NotNil(t, failure, "initialize reports the failure: %v", answers)
+			assert.Contains(t, failure["message"], test.want)
+			assert.NotContains(t, failure["message"], "bl login")
+		})
+	}
+}
+
+// One failed call does not make unrelated calls fail.
+func TestBridgeOneFailureDoesNotFailOtherCalls(t *testing.T) {
+	var calls atomic.Int32
+	server := &fakeMCPServer{handle: func(w http.ResponseWriter, _ string, id json.RawMessage) {
+		if calls.Add(1) == 1 {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		jsonResult(w, id, `{"content":[{"type":"text","text":"deleted"}]}`)
+	}}
+	bridge, _ := testBridge(t, server)
+	in, writer := io.Pipe()
+	var out syncBuffer
+	done := make(chan error, 1)
+	go func() { done <- bridge.serve(context.Background(), in, &out) }()
+	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_sandbox_command"}}` + "\n"))
+	out.waitFor(t, 1)
+	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"delete_sandbox"}}` + "\n"))
+	answers := out.waitFor(t, 2)
+	_ = writer.Close()
+	require.NoError(t, <-done)
+
+	_, failed := toolText(t, answerFor(t, answers, 1))
+	assert.True(t, failed)
+	text, isError := toolText(t, answerFor(t, answers, 2))
+	assert.Equal(t, "deleted", text)
+	assert.False(t, isError)
 }

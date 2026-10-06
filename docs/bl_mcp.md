@@ -26,10 +26,9 @@ future requests, but does not revoke refresh grants or work already in flight.
 BL_API_KEY and BL_CLIENT_CREDENTIALS override stored credentials and are not
 removed by bl logout. Environment inheritance varies between agent clients.
 
-The trusted HTTPS origin comes from the stored workspace environment (prod or
-dev), not inherited BL_API_URL or BL_ENV. --api-url explicitly opts into sending
-credentials to a custom HTTPS origin and prints a warning to stderr. Redirects
-are refused for both MCP requests and token exchanges.
+The HTTPS origin comes from the stored workspace environment (prod or dev),
+not inherited BL_API_URL or BL_ENV. Redirects are refused for both MCP requests
+and token exchanges.
 
 ```
 bl mcp [flags]
@@ -46,8 +45,7 @@ bl mcp [flags]
 ### Options
 
 ```
-      --api-url string   Explicit trusted HTTPS API origin for this bridge (credentials will be sent there)
-  -h, --help             help for mcp
+  -h, --help   help for mcp
 ```
 
 ### Options inherited from parent commands

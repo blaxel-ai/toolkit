@@ -245,6 +245,20 @@ func TestClaudeMCPUsesTheClaudeCLI(t *testing.T) {
 	assert.Equal(t, []string{"mcp", "add", "--scope", "user", "blaxel", "--", "/opt/blaxel/bin/bl", "mcp"}, commands[2].args)
 }
 
+// claude mcp add writes "env": {}, which is not a customization: a bl that
+// moved is repaired.
+func TestClaudeMCPRepairsAMovedBl(t *testing.T) {
+	home := t.TempDir()
+	var commands []fakeCommand
+	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": "", "MISSING:/old/bin/bl": "1"}, &commands, "", nil)
+	writeTestFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"blaxel":{"type":"stdio","command":"/old/bin/bl","args":["mcp"],"env":{}}}}`)
+	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
+	require.NoError(t, err)
+	assert.Equal(t, mcpReplaced, change)
+	require.Len(t, commands, 2)
+	assert.Equal(t, []string{"mcp", "add", "--scope", "user", "blaxel", "--", "/opt/blaxel/bin/bl", "mcp"}, commands[1].args)
+}
+
 func TestClaudeMCPWithoutTheCLIEditsClaudeJSON(t *testing.T) {
 	home := t.TempDir()
 	configDir := filepath.Join(home, "claude-config")
@@ -272,16 +286,16 @@ func TestClaudeMCPReportsCLIFailures(t *testing.T) {
 	assert.ErrorContains(t, err, "boom")
 }
 
-func TestConfigureAgentMCPDoesNotAssumePluginTransport(t *testing.T) {
+func TestConfigureAgentMCPLeavesInstalledPluginsToThemselves(t *testing.T) {
 	home := t.TempDir()
 	var commands []fakeCommand
 	env := testMCPEnv(home, map[string]string{}, &commands, "", nil)
 	writeTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), `{"version":2,"plugins":{"blaxel@blaxel":[{"scope":"user"}]}}`)
 
 	result := configureAgentMCP(context.Background(), env, mcpTargets["claude-code"], []mcpServer{testResourceServer, testDocsServer})
-	require.ErrorContains(t, result.err, "effective MCP configuration")
-	assert.Empty(t, result.plugin)
-	assert.Equal(t, []string{"blaxel", "blaxel-docs"}, result.added)
+	require.NoError(t, result.err)
+	assert.Equal(t, []string{"blaxel"}, result.plugin, "a plugin whose files cannot be found is left alone")
+	assert.Equal(t, []string{"blaxel-docs"}, result.added)
 
 	writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[plugins.\"blaxel@blaxel\"]\nenabled = false\n")
 	result = configureAgentMCP(context.Background(), env, mcpTargets["codex"], []mcpServer{testResourceServer})
@@ -656,6 +670,8 @@ func TestClassifyMCPEntry(t *testing.T) {
 		"Windows bl":            {map[string]any{"command": `C:\Users\me\bin\bl.exe`, "args": []any{"mcp"}}, mcpEntryCurrent},
 		"OpenCode list":         {map[string]any{"type": "local", "command": []any{"/opt/blaxel/bin/bl", "mcp"}, "enabled": true}, mcpEntryCurrent},
 		"bl that moved":         {map[string]any{"command": "/old/bin/bl", "args": []any{"mcp"}}, mcpEntryOutdated},
+		"moved, empty env":      {map[string]any{"type": "stdio", "command": "/old/bin/bl", "args": []any{"mcp"}, "env": map[string]any{}}, mcpEntryOutdated},
+		"moved, custom env":     {map[string]any{"type": "stdio", "command": "/old/bin/bl", "args": []any{"mcp"}, "env": map[string]any{"BL_WORKSPACE": "x"}}, mcpEntryCustom},
 		"hosted, Claude":        {map[string]any{"type": "http", "url": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
 		"hosted, Gemini":        {map[string]any{"httpUrl": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
 		"hosted, OpenCode":      {map[string]any{"type": "remote", "url": "https://api.blaxel.dev/v0/mcp", "enabled": true}, mcpEntryOutdated},

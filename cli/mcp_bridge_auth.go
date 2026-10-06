@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +37,6 @@ type mcpAuthenticator interface {
 // The context-aware gate serializes refreshes without blocking cancelled callers.
 type bridgeAuth struct {
 	explicit                   string
-	customURL                  string
 	env                        func(string) string
 	loadConfig                 func() (blaxel.Config, error)
 	environment                func(string) string // test seam; production uses stored workspace env
@@ -151,7 +149,7 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 		return mcpCredentials{}, errNotLoggedIn
 	}
 	if a.baseURL == "" {
-		base, err := bridgeBaseURL(storedEnv, a.customURL)
+		base, err := bridgeBaseURL(storedEnv)
 		if a.environment != nil {
 			base, err = a.environment(workspace), nil
 		}
@@ -159,7 +157,7 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 			return mcpCredentials{}, err
 		}
 		a.baseURL, a.pinnedEnv = strings.TrimSuffix(base, "/"), storedEnv
-	} else if a.environment == nil && a.customURL == "" && a.pinnedEnv != storedEnv {
+	} else if a.environment == nil && a.pinnedEnv != storedEnv {
 		return mcpCredentials{}, errors.New("the pinned workspace environment changed; restart or reconnect this agent")
 	}
 	fp := credentialsFingerprint(c)
@@ -180,21 +178,14 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 	return mcpCredentials{workspace: workspace, endpoint: a.baseURL + "/mcp", fingerprint: fp, headers: map[string]string{"Authorization": authorization, "X-Blaxel-Workspace": workspace}}, nil
 }
 
-func bridgeBaseURL(env, custom string) (string, error) {
-	if custom != "" {
-		u, err := url.Parse(custom)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/" && u.Path != "/v0" && u.Path != "/v0/") {
-			return "", errors.New("--api-url must be an HTTPS origin (optionally ending in /v0), without credentials, query or fragment")
-		}
-		return "https://" + u.Host + "/v0", nil
-	}
+func bridgeBaseURL(env string) (string, error) {
 	switch env {
 	case "", "prod":
 		return "https://api.blaxel.ai/v0", nil
 	case "dev":
 		return "https://api.blaxel.dev/v0", nil
 	default:
-		return "", errors.New("unsupported stored Blaxel environment; explicitly configure --api-url with a trusted HTTPS origin")
+		return "", errors.New("bl mcp supports only workspaces in the prod and dev Blaxel environments")
 	}
 }
 

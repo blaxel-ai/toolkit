@@ -263,18 +263,14 @@ func newSetupPlan(options setupOptions) (setupPlan, error) {
 		}
 		if target, ok := mcpTargets[agent.id]; ok {
 			status.mcp = true
-			pluginReady, pluginErr := pluginResourceMCP(options.mcp, target)
+			plugin := target.pluginServes(options.mcp)
 			for _, server := range []mcpServer{options.resourceServer, options.documentsServer} {
 				if !target.takes(server) {
 					continue
 				}
 				state := classifyMCPEntry(options.mcp, server, target.entry(options.mcp, server.name))
 				switch {
-				case server.plugin && pluginErr != nil:
-					// Plugin presence alone does not prove its hosted OAuth transport
-					// has been replaced. Reconcile it before reporting completion.
-					status.missing = append(status.missing, server.name)
-				case server.plugin && pluginReady, state == mcpEntryCurrent, state == mcpEntryCustom:
+				case server.plugin && plugin, state == mcpEntryCurrent, state == mcpEntryCustom:
 					status.has = append(status.has, server.name)
 				case state == mcpEntryOutdated:
 					status.missing = append(status.missing, server.name)
@@ -720,18 +716,14 @@ type mcpAgentResult struct {
 
 func configureAgentMCP(ctx context.Context, env mcpEnv, target mcpTarget, servers []mcpServer) mcpAgentResult {
 	result := mcpAgentResult{}
-	pluginReady, pluginErr := pluginResourceMCP(env, target)
+	plugin := target.pluginServes(env)
 	for _, server := range servers {
 		if !target.takes(server) {
 			continue
 		}
-
-		if server.plugin && pluginReady {
-			if target.entry(env, server.name) == nil {
-				result.plugin = append(result.plugin, server.name)
-				continue
-			}
-			pluginErr = errors.New("both the Blaxel plugin and agent config provide MCP servers; keep the local bl mcp entry and disable only the plugin MCP server, then reconnect; setup is not complete")
+		if server.plugin && plugin {
+			result.plugin = append(result.plugin, server.name)
+			continue
 		}
 		change, err := addMCPServer(ctx, env, target, server)
 		if err != nil {
@@ -745,14 +737,6 @@ func configureAgentMCP(ctx context.Context, env mcpEnv, target mcpTarget, server
 			result.updated = append(result.updated, server.name)
 		default:
 			result.existing = append(result.existing, server.name)
-		}
-	}
-	if target.hasPlugin != nil && target.hasPlugin(env) {
-		for _, server := range servers {
-			if server.plugin {
-				result.err = pluginErr
-				break
-			}
 		}
 	}
 	return result

@@ -250,10 +250,8 @@ func TestBridgeIgnoresInheritedCredentialDestinations(t *testing.T) {
 			assert.Empty(t, c.headers["X-Blaxel-Authorization"])
 		})
 	}
-	for _, bad := range []string{"http://api.blaxel.ai", "https://user:password@example.com", "https://example.com/x", "https://example.com?secret=x"} {
-		_, err := bridgeBaseURL("prod", bad)
-		require.Error(t, err)
-	}
+	_, err := bridgeBaseURL("local")
+	require.Error(t, err)
 }
 
 func bridgeTestAuth(t *testing.T, server *httptest.Server, c blaxel.Credentials) *bridgeAuth {

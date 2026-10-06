@@ -140,6 +140,11 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 		for key, value := range entry {
 			switch key {
 			case "command", "args", "enabled":
+			case "env":
+				// claude mcp add writes an empty one: not a customization.
+				if env, ok := value.(map[string]any); !ok || len(env) > 0 {
+					return mcpEntryCustom
+				}
 			case "type":
 				if value != "stdio" && value != "local" {
 					return mcpEntryCustom
@@ -214,10 +219,40 @@ type mcpTarget struct {
 	entry func(e mcpEnv, name string) map[string]any
 	// write adds the server, replacing the existing entry when replace is set.
 	write func(ctx context.Context, e mcpEnv, server mcpServer, replace bool) error
-	// hasPlugin reports whether the Blaxel plugin is installed in this agent.
-	hasPlugin func(mcpEnv) bool
+	// hasPlugin reports whether the Blaxel plugin is installed in this agent,
+	// and pluginDirs where its files are.
+	hasPlugin  func(mcpEnv) bool
+	pluginDirs func(mcpEnv) []string
 	// localOnly targets run local servers only, so they get bl mcp alone.
 	localOnly bool
+}
+
+// pluginServes reports whether the installed Blaxel plugin supplies the blaxel
+// server itself. Setup then adds none, because the agent would have two. A
+// plugin without an MCP server (skills only) leaves that to setup.
+func (t mcpTarget) pluginServes(e mcpEnv) bool {
+	if t.hasPlugin == nil || !t.hasPlugin(e) {
+		return false
+	}
+	dirs := t.pluginDirs(e)
+	if len(dirs) == 0 {
+		return true // installed, but its files cannot be found
+	}
+	for _, dir := range dirs {
+		for _, name := range []string{".mcp.json", "mcp.json"} {
+			data, err := os.ReadFile(filepath.Join(dir, name))
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			var config struct {
+				Servers map[string]json.RawMessage `json:"mcpServers"`
+			}
+			if err != nil || json.Unmarshal(data, &config) != nil || config.Servers["blaxel"] != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // takes reports whether the target can run the server.
@@ -291,32 +326,21 @@ var mcpTargets = map[string]mcpTarget{
 			return jsonConfigEntry(claudeConfigFile(e), "mcpServers", name)
 		},
 		write: writeClaudeMCPServer,
-		hasPlugin: func(e mcpEnv) bool {
-			data, err := os.ReadFile(filepath.Join(claudeConfigDir(e), "plugins", "installed_plugins.json"))
-			if err != nil {
-				return false
-			}
-			var installed struct {
-				Plugins map[string]json.RawMessage `json:"plugins"`
-			}
-			if json.Unmarshal(data, &installed) != nil {
-				return false
-			}
-			var settings struct {
-				EnabledPlugins map[string]bool `json:"enabledPlugins"`
-			}
-			if data, err := os.ReadFile(filepath.Join(claudeConfigDir(e), "settings.json")); err == nil {
-				_ = json.Unmarshal(data, &settings)
-			}
-			for id := range installed.Plugins {
-				if enabled, ok := settings.EnabledPlugins[id]; ok && !enabled {
-					continue
+		hasPlugin: func(e mcpEnv) bool { return len(installedClaudePlugins(e)) > 0 },
+		pluginDirs: func(e mcpEnv) []string {
+			var dirs []string
+			for _, raw := range installedClaudePlugins(e) {
+				var installs []struct {
+					InstallPath string `json:"installPath"`
 				}
-				if strings.HasPrefix(id, "blaxel@") {
-					return true
+				_ = json.Unmarshal(raw, &installs)
+				for _, install := range installs {
+					if install.InstallPath != "" {
+						dirs = append(dirs, install.InstallPath)
+					}
 				}
 			}
-			return false
+			return dirs
 		},
 	},
 	"codex": {
@@ -353,6 +377,10 @@ var mcpTargets = map[string]mcpTarget{
 			}
 			return false
 		},
+		pluginDirs: func(e mcpEnv) []string {
+			dirs, _ := filepath.Glob(filepath.Join(filepath.Dir(codexConfigFile(e)), "plugins", "cache", "*", "blaxel", "*"))
+			return dirs
+		},
 	},
 	"cursor": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".cursor", "mcp.json") },
 		"mcpServers", commandOrURL("url")),
@@ -378,6 +406,24 @@ var mcpTargets = map[string]mcpTarget{
 		target.localOnly = true
 		return target
 	}(),
+}
+
+// installedClaudePlugins returns the installed Blaxel plugins, by plugin id.
+func installedClaudePlugins(e mcpEnv) map[string]json.RawMessage {
+	data, err := os.ReadFile(filepath.Join(claudeConfigDir(e), "plugins", "installed_plugins.json"))
+	if err != nil {
+		return nil
+	}
+	var installed struct {
+		Plugins map[string]json.RawMessage `json:"plugins"`
+	}
+	_ = json.Unmarshal(data, &installed)
+	for id := range installed.Plugins {
+		if !strings.HasPrefix(id, "blaxel@") {
+			delete(installed.Plugins, id)
+		}
+	}
+	return installed.Plugins
 }
 
 func claudeConfigDir(e mcpEnv) string {

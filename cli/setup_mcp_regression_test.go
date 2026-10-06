@@ -105,56 +105,41 @@ func TestMCPClaudeReplacementRollsBackOnFailure(t *testing.T) {
 	assert.Contains(t, readTestFile(t, file), `"theme": "dark"`)
 }
 
-func TestMCPSetupInspectsPluginTransportAndReportsRemainingMigration(t *testing.T) {
+// With the Blaxel plugin installed, setup leaves the plugin's blaxel server
+// alone and adds no second one. It exits cleanly, every time it runs.
+func TestSetupLeavesThePluginServerAlone(t *testing.T) {
 	for _, agent := range []string{"claude-code", "codex"} {
 		t.Run(agent, func(t *testing.T) {
 			home := t.TempDir()
-			var commands []fakeCommand
-			e := testMCPEnv(home, map[string]string{}, &commands, "", nil)
-			root := filepath.Join(home, "plugin")
+			root := filepath.Join(home, "plugin", "blaxel", "1.0.0")
 			if agent == "claude-code" {
-				data, _ := json.Marshal(map[string]any{"plugins": map[string]any{"blaxel@blaxel": []any{map[string]any{"installPath": root, "scope": "user"}}}})
-				writeTestFile(t, filepath.Join(claudeConfigDir(e), "plugins", "installed_plugins.json"), string(data))
+				data, _ := json.Marshal(map[string]any{"plugins": map[string]any{"blaxel@blaxel": []any{map[string]any{"installPath": root}}}})
+				writeTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), string(data))
 			} else {
 				root = filepath.Join(home, ".codex", "plugins", "cache", "blaxel", "blaxel", "1.0.0")
-				writeTestFile(t, codexConfigFile(e), "[plugins.\"blaxel@blaxel\"]\nenabled = true\n")
+				writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[plugins.\"blaxel@blaxel\"]\nenabled = true\n")
 			}
 			hosted := `{"mcpServers":{"blaxel":{"type":"http","url":"https://api.blaxel.ai/v0/mcp"}}}`
-			pluginFile := filepath.Join(root, ".mcp.json")
-			writeTestFile(t, pluginFile, hosted)
-			result := configureAgentMCP(context.Background(), e, mcpTargets[agent], []mcpServer{testResourceServer, testDocsServer})
-			require.ErrorContains(t, result.err, "setup is not complete")
-			assert.ErrorContains(t, result.err, "disable only")
-			assert.ErrorContains(t, result.err, "second OAuth")
-			assert.Equal(t, []string{"blaxel", "blaxel-docs"}, result.added)
-			assert.Empty(t, result.plugin)
-			command, args := entryCommand(mcpTargets[agent].entry(e, "blaxel"))
-			assert.Equal(t, testResourceServer.command[0], command)
+			writeTestFile(t, filepath.Join(root, ".mcp.json"), hosted)
+			run := func() {
+				options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", skillsInstallEnv: "false"}, &setupRecorder{})
+				options.agents = []string{agent}
+				require.NoError(t, runSetup(context.Background(), options))
+			}
+			run()
+			run()
+			target := mcpTargets[agent]
+			e := testMCPEnv(home, map[string]string{}, &[]fakeCommand{}, "", nil)
+			assert.Nil(t, target.entry(e, "blaxel"), "the plugin's server is the only Blaxel server")
+			assert.NotNil(t, target.entry(e, "blaxel-docs"))
+			assert.Equal(t, hosted, readTestFile(t, filepath.Join(root, ".mcp.json")), "plugin files are never edited")
+
+			// A plugin that no longer bundles the server leaves the job to setup.
+			require.NoError(t, os.Remove(filepath.Join(root, ".mcp.json")))
+			run()
+			command, args := entryCommand(target.entry(e, "blaxel"))
+			assert.Equal(t, "/opt/blaxel/bin/bl", command)
 			assert.Equal(t, []string{"mcp"}, args)
-			assert.Equal(t, hosted, readTestFile(t, pluginFile), "cached plugin and its skills are never modified")
-			// A skills-only plugin is compatible and needs no second transport.
-			writeTestFile(t, pluginFile, `{"mcpServers":{}}`)
-			result = configureAgentMCP(context.Background(), e, mcpTargets[agent], []mcpServer{testResourceServer})
-			require.NoError(t, result.err)
 		})
 	}
-}
-
-func TestMCPSetupRecognizesLocalOnlyPlugin(t *testing.T) {
-	home := t.TempDir()
-	var commands []fakeCommand
-	e := testMCPEnv(home, map[string]string{}, &commands, "", nil)
-	root := filepath.Join(home, "plugin")
-	require.NoError(t, os.MkdirAll(root, 0700))
-	data, _ := json.Marshal(map[string]any{"plugins": map[string]any{"blaxel@blaxel": []any{map[string]any{"installPath": root}}}})
-	writeTestFile(t, filepath.Join(claudeConfigDir(e), "plugins", "installed_plugins.json"), string(data))
-	writeTestFile(t, filepath.Join(root, ".mcp.json"), `{"mcpServers":{"blaxel":{"command":"bl","args":["mcp"]}}}`)
-	result := configureAgentMCP(context.Background(), e, mcpTargets["claude-code"], []mcpServer{testResourceServer})
-	require.NoError(t, result.err)
-	assert.Equal(t, []string{"blaxel"}, result.plugin)
-	assert.Empty(t, result.added, "do not add a second local tool set")
-	writeTestFile(t, claudeConfigFile(e), `{"mcpServers":{"blaxel":{"command":"bl","args":["mcp"]}}}`)
-	ready, err := pluginResourceMCP(e, mcpTargets["claude-code"])
-	assert.False(t, ready)
-	assert.ErrorContains(t, err, "both define MCP servers")
 }

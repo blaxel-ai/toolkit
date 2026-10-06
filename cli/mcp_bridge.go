@@ -36,8 +36,7 @@ var mcpProtocolVersions = []string{"2025-06-18", "2025-03-26", "2024-11-05"}
 func init() { core.RegisterCommand("mcp", MCPCmd) }
 
 func MCPCmd() *cobra.Command {
-	var apiURL string
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use: "mcp", Short: "Serve the Blaxel MCP server to a coding agent, signed in with your bl login",
 		Long: `Serve the hosted Blaxel MCP tools over stdio using your existing bl login.
 
@@ -57,10 +56,9 @@ future requests, but does not revoke refresh grants or work already in flight.
 BL_API_KEY and BL_CLIENT_CREDENTIALS override stored credentials and are not
 removed by bl logout. Environment inheritance varies between agent clients.
 
-The trusted HTTPS origin comes from the stored workspace environment (prod or
-dev), not inherited BL_API_URL or BL_ENV. --api-url explicitly opts into sending
-credentials to a custom HTTPS origin and prints a warning to stderr. Redirects
-are refused for both MCP requests and token exchanges.`,
+The HTTPS origin comes from the stored workspace environment (prod or dev),
+not inherited BL_API_URL or BL_ENV. Redirects are refused for both MCP requests
+and token exchanges.`,
 		Example: `  claude mcp add --scope user blaxel -- bl mcp
 
   {"mcpServers": {"blaxel": {"command": "/absolute/path/to/bl", "args": ["mcp"]}}}`,
@@ -71,14 +69,6 @@ are refused for both MCP requests and token exchanges.`,
 				workspace = strings.TrimSpace(os.Getenv("BL_WORKSPACE"))
 			}
 			authenticator := newBridgeAuth(workspace)
-			if apiURL != "" {
-				base, err := bridgeBaseURL("", apiURL)
-				if err != nil {
-					return err
-				}
-				authenticator.customURL = base
-				_, _ = fmt.Fprintf(os.Stderr, "bl mcp: explicitly sending Blaxel credentials to custom origin %s\n", base)
-			}
 			if os.Getenv("BL_API_URL") != "" || os.Getenv("BL_ENV") != "" {
 				_, _ = fmt.Fprintln(os.Stderr, "bl mcp: ignoring inherited BL_API_URL/BL_ENV; using the stored workspace environment")
 			}
@@ -92,8 +82,6 @@ are refused for both MCP requests and token exchanges.`,
 			return newMCPBridge(authenticator).serve(ctx, os.Stdin, os.Stdout)
 		},
 	}
-	cmd.Flags().StringVar(&apiURL, "api-url", "", "Explicit trusted HTTPS API origin for this bridge (credentials will be sent there)")
-	return cmd
 }
 
 // This is a stateless POST relay, not a second hosted tool implementation.
@@ -117,8 +105,6 @@ type mcpBridge struct {
 	initGate                 chan struct{}
 	cancels                  map[string]context.CancelFunc
 	listed                   string // "empty" or "tools", or "" before listing
-	retryAt                  time.Time
-	failures                 int
 }
 
 func newMCPBridge(a mcpAuthenticator) *mcpBridge {
@@ -293,7 +279,7 @@ func (b *mcpBridge) handle(ctx context.Context, message []byte, envelope rpcEnve
 	}
 	c, err := b.auth.resolve(ctx)
 	if err != nil {
-		if envelope.Method == "initialize" || errors.Is(err, errNotLoggedIn) {
+		if errors.Is(err, errNotLoggedIn) {
 			b.answerLoggedOut(parentCtx, envelope)
 		} else {
 			b.requestError(parentCtx, envelope, err.Error())
@@ -312,9 +298,7 @@ func (b *mcpBridge) handle(ctx context.Context, message []byte, envelope rpcEnve
 	}
 	err = b.forward(ctx, message, envelope, c, func(p []byte) { b.relay(p, envelope, c) })
 	if err != nil {
-		if envelope.Method == "initialize" {
-			b.answerLoggedOut(parentCtx, envelope)
-		} else if errors.Is(err, errMCPIncomplete) {
+		if errors.Is(err, errMCPIncomplete) {
 			b.fail(parentCtx, envelope, -32603, err.Error())
 		} else if errors.Is(err, errNotLoggedIn) {
 			b.answerLoggedOut(ctx, envelope)
