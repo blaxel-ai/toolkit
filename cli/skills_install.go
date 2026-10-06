@@ -16,7 +16,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -386,6 +385,9 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	if err != nil {
 		return skillsInstallResult{}, err
 	}
+	if err := preflightSkillRepairs(plans); err != nil {
+		return skillsInstallResult{}, err
+	}
 	_, agentNames := skillsTargets(selected)
 	result := skillsInstallResult{agents: agentNames}
 	var installed []archivedSkill
@@ -515,12 +517,14 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 }
 
 // linkSkillFolder points an agent's skill folder at the shared copy, and
-// falls back to a copy where links are unavailable (such as Windows without
-// developer mode).
+// uses a junction on Windows without requiring symlink privileges, and falls
+// back to a copy where directory links are unavailable.
 // errManagedSkillNotLinked means an externally managed skill could not be
-// linked into an agent's folder (Windows has no link here). No upstream copy
+// linked into an agent's folder. No upstream copy
 // is substituted; that agent's folder is left unchanged.
 var errManagedSkillNotLinked = errors.New("externally managed skill not linked")
+
+var skillDirectoryLink = createSkillDirectoryLink
 
 func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
@@ -556,9 +560,9 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	defer func() { _ = os.RemoveAll(staging) }()
 	fresh := filepath.Join(staging, "new")
 	// A relative link resolves from the folder it ends up in, not the staging folder.
-	if runtime.GOOS == "windows" || os.Symlink(relative, fresh) != nil {
+	if err := skillDirectoryLink(target, relative, fresh); err != nil {
 		if files == nil {
-			return errManagedSkillNotLinked
+			return fmt.Errorf("%w: %v", errManagedSkillNotLinked, err)
 		}
 		if err := writeSkillFolder(fresh, files); err != nil {
 			return err

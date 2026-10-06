@@ -186,6 +186,47 @@ func planExistingSkill(root, flat, target string, existing []string, managed boo
 	return source, repairs, nil
 }
 
+// Check required link support before installing any earlier upstream skill.
+// In particular, junctions are unavailable on some Windows filesystems. Probe
+// outside scanned roots, remove the probe, and leave every skill/lock unchanged
+// when the platform cannot project a retained copy.
+func preflightSkillRepairs(plans []skillInstallPlan) error {
+	checked := map[struct{ root, target string }]bool{}
+	for _, plan := range plans {
+		for _, link := range plan.links {
+			if !link.repair {
+				continue
+			}
+			root, err := resolveSkillPath(link.root)
+			if err != nil {
+				return err
+			}
+			target, err := resolveSkillPath(link.target)
+			if err != nil {
+				return err
+			}
+			key := struct{ root, target string }{root, target}
+			if checked[key] {
+				continue
+			}
+			if err := probeSkillDirectoryLink(root, target); err != nil {
+				return fmt.Errorf("cannot link retained skill at %s; no skills were changed: %w", link.destination, err)
+			}
+			checked[key] = true
+		}
+	}
+	return nil
+}
+
+func probeSkillDirectoryLink(root, target string) error {
+	staging, err := os.MkdirTemp(filepath.Dir(root), ".blaxel-skills-link-check-")
+	if err != nil {
+		return err
+	}
+	err = skillDirectoryLink(target, target, filepath.Join(staging, "link"))
+	return errors.Join(err, os.RemoveAll(staging))
+}
+
 // repairSkillLink retains the displaced directory on the same filesystem,
 // outside the scanned root. If linking fails, restore it before returning.
 func repairSkillLink(plan skillLinkPlan) (string, error) {
