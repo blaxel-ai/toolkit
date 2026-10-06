@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -247,6 +248,17 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 	)
 }
 
+// currentWorkspaceIndex is where the workspace in use (context.workspace in
+// the config) sits in names, or 0 when the new login cannot use it. The picker
+// starts there, so pressing Enter keeps the current workspace.
+func currentWorkspaceIndex(names []string) int {
+	current, err := blaxel.CurrentContext()
+	if err != nil {
+		return 0
+	}
+	return max(slices.Index(names, current.Workspace), 0)
+}
+
 // chooseWorkspace returns the user's only workspace, or asks which one to use.
 func chooseWorkspace(creds blaxel.Credentials) (string, error) {
 	workspaces, err := LoginWorkspaces(creds)
@@ -256,7 +268,12 @@ func chooseWorkspace(creds blaxel.Credentials) (string, error) {
 	if len(workspaces) == 1 {
 		return workspaces[0], nil
 	}
+	return askWorkspace(workspaces, nil, nil)
+}
 
+// askWorkspace asks which workspace to connect to, starting on the current
+// one. in and out replace the terminal in tests.
+func askWorkspace(workspaces []string, in io.Reader, out io.Writer) (string, error) {
 	// Get workspaces the user is already connected to
 	cfg, _ := blaxel.LoadConfig()
 	connectedWorkspaceSet := make(map[string]bool)
@@ -272,7 +289,7 @@ func chooseWorkspace(creds blaxel.Credentials) (string, error) {
 		options = append(options, huh.NewOption(displayName, name))
 	}
 
-	var workspace string
+	workspace := workspaces[currentWorkspaceIndex(workspaces)]
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -283,6 +300,12 @@ func chooseWorkspace(creds blaxel.Credentials) (string, error) {
 		),
 	)
 	form.WithTheme(core.GetHuhTheme())
+	if in != nil {
+		form.WithInput(in)
+	}
+	if out != nil {
+		form.WithOutput(out)
+	}
 	if err := form.Run(); err != nil {
 		return "", fmt.Errorf("error selecting workspace: %w", err)
 	}
