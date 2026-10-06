@@ -3,14 +3,19 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,7 +133,7 @@ func useCurrentWorkspace(t *testing.T, workspace string) {
 
 func TestCurrentWorkspaceIndex(t *testing.T) {
 	names := []string{"calibrator", "main", "other"}
-	for current, want := range map[string]int{"main": 1, "other": 2, "calibrator": 0, "gone": 0, "": 0} {
+	for current, want := range map[string]int{"main": 1, "other": 2, "calibrator": 0, "gone": -1, "": -1} {
 		useCurrentWorkspace(t, current)
 		assert.Equal(t, want, currentWorkspaceIndex(names), "current workspace %q", current)
 	}
@@ -148,6 +153,142 @@ func TestAskWorkspaceStartsOnCurrentWorkspace(t *testing.T) {
 			got, err := askWorkspace(names, strings.NewReader(tc.keys), io.Discard)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+const deviceLoginURL = "https://app.example.com/device?code=1"
+
+// loginServer answers a device login, the token request and the workspace
+// calls of a login for an account with workspaces, without a browser.
+func loginServer(t *testing.T, workspaces ...string) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login/device", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintf(w, `{"device_code":"device-code","verification_uri_complete":%q}`, deviceLoginURL)
+	})
+	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"access_token":"access","refresh_token":"refresh","expires_in":3600}`))
+	})
+	mux.HandleFunc("/workspaces", func(w http.ResponseWriter, _ *http.Request) {
+		list := make([]map[string]string, 0, len(workspaces))
+		for _, name := range workspaces {
+			list = append(list, map[string]string{"name": name})
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(list))
+	})
+	mux.HandleFunc("/workspaces/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/workspaces/")
+		if !assert.Contains(t, workspaces, name) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = fmt.Fprintf(w, `{"name":%q,"id":"id-%s"}`, name, name)
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		mux.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	baseURL, interval, open, noColor := blaxel.GetBaseURL(), devicePollInterval, openBrowser, color.NoColor
+	t.Cleanup(func() {
+		blaxel.SetBaseURL(baseURL)
+		devicePollInterval, openBrowser, color.NoColor = interval, open, noColor
+	})
+	// The SDK re-reads BL_API_URL whenever it builds a client.
+	t.Setenv("BL_API_URL", server.URL)
+	blaxel.ApplyEnvironmentOverrides()
+	devicePollInterval = time.Millisecond
+	openBrowser = func(string) error { return nil }
+	color.NoColor = true
+}
+
+// captureStdout returns what fn prints.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = writer
+	defer func() { os.Stdout = original }()
+	fn()
+	require.NoError(t, writer.Close())
+	out, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	return string(out)
+}
+
+func TestDescribeWait(t *testing.T) {
+	assert.Equal(t, "3 minutes", describeWait(devicePollInterval*61))
+	assert.Equal(t, "2 minutes", describeWait(2*time.Minute))
+	assert.Equal(t, "30 seconds", describeWait(30*time.Second))
+}
+
+func TestLoginWithoutTerminalChoosesTheWorkspace(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		workspaces []string
+		current    string
+		named      string
+		want, note string
+	}{
+		{"the named workspace", []string{"a", "b", "c"}, "b", "c", "c", ""},
+		{"the current workspace", []string{"c", "a", "b"}, "b", "", "b", "using workspace b (your current workspace)."},
+		{"the first workspace by name", []string{"c", "a", "b"}, "gone", "", "a", "using workspace a (the first of your 3 workspaces by name)."},
+		{"the only workspace", []string{"solo"}, "gone", "", "solo", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useCurrentWorkspace(t, tc.current)
+			loginServer(t, tc.workspaces...)
+			var err error
+			out := captureStdout(t, func() { err = loginWithDevice(tc.named, false) })
+			require.NoError(t, err)
+
+			context, err := blaxel.CurrentContext()
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, context.Workspace)
+			credentials, err := blaxel.LoadCredentials(tc.want)
+			require.NoError(t, err)
+			assert.Equal(t, "access", credentials.AccessToken)
+			assert.Contains(t, out, "Successfully logged in to workspace "+tc.want)
+			if tc.note == "" {
+				assert.NotContains(t, out, "No terminal to ask in")
+				return
+			}
+			assert.Contains(t, out, "No terminal to ask in, so "+tc.note)
+			assert.Contains(t, out, "bl login <workspace>")
+			assert.Contains(t, out, "bl workspaces <workspace>")
+		})
+	}
+}
+
+func TestDeviceLoginMessages(t *testing.T) {
+	waiting := regexp.MustCompile(`(?m)^ℹ Waiting up to \d+ seconds for you to confirm the login in your browser\.\.\.$`)
+	for _, tc := range []struct {
+		name                string
+		interactive, opened bool
+		want                string
+	}{
+		{"no terminal, browser opened", false, true, "ℹ Opened the login page in your browser. If it did not open, visit this URL:\n" + deviceLoginURL + "\n"},
+		{"no terminal, no browser", false, false, "ℹ Visit this URL to finish logging in:\n" + deviceLoginURL + "\n"},
+		{"terminal, browser opened", true, true, "ℹ Opened URL in browser. If it's not working, please open it manually: " + deviceLoginURL + "\nℹ Waiting for you to confirm the login in your browser...\n"},
+		{"terminal, no browser", true, false, "ℹ Please visit the following URL to finish logging in: " + deviceLoginURL + "\nℹ Waiting for you to confirm the login in your browser...\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useCurrentWorkspace(t, "")
+			loginServer(t, "solo")
+			openBrowser = func(string) error {
+				if tc.opened {
+					return nil
+				}
+				return errors.New("no browser")
+			}
+			var err error
+			out := captureStdout(t, func() { err = loginWithDevice("", tc.interactive) })
+			require.NoError(t, err)
+			assert.True(t, strings.HasPrefix(out, tc.want), "output starts with %q, got %q", tc.want, out)
+			assert.Equal(t, !tc.interactive, waiting.MatchString(out), "only without a terminal does it say how long it waits")
 		})
 	}
 }

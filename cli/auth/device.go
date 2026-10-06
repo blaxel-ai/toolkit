@@ -71,25 +71,41 @@ func LoginDevice(workspace string) {
 
 // LoginWithDevice logs in with the browser and saves the credentials. With an
 // empty workspace, the user picks one of their workspaces after signing in.
-// Failures are returned, so callers such as bl setup can carry on.
+// Without a terminal (such as a coding agent running bl login) nothing is
+// asked: the workspace is chosen for them and the login URL is printed on its
+// own line. Failures are returned, so callers such as bl setup can carry on.
 func LoginWithDevice(workspace string) error {
+	return loginWithDevice(workspace, core.IsTerminalInteractive())
+}
+
+func loginWithDevice(workspace string, interactive bool) error {
 	deviceLogin, opened, err := StartDeviceLogin(context.Background())
 	if err != nil {
 		return err
 	}
-	if opened {
+	switch {
+	case !interactive:
+		if opened {
+			core.PrintInfo("Opened the login page in your browser. If it did not open, visit this URL:")
+		} else {
+			core.PrintInfo("Visit this URL to finish logging in:")
+		}
+		core.Print(deviceLogin.VerificationURIComplete)
+		core.PrintInfo(fmt.Sprintf("Waiting up to %s for you to confirm the login in your browser...", describeWait(devicePollInterval*time.Duration(devicePollAttempts))))
+	case opened:
 		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLogin.VerificationURIComplete))
-	} else {
+		core.PrintInfo("Waiting for you to confirm the login in your browser...")
+	default:
 		core.PrintInfo(fmt.Sprintf("Please visit the following URL to finish logging in: %s", deviceLogin.VerificationURIComplete))
+		core.PrintInfo("Waiting for you to confirm the login in your browser...")
 	}
-	core.PrintInfo("Waiting for you to confirm the login in your browser...")
 
 	creds, err := WaitForDeviceLogin(context.Background(), deviceLogin.DeviceCode)
 	if err != nil {
 		return err
 	}
 	if workspace == "" {
-		if workspace, err = chooseWorkspace(creds); err != nil {
+		if workspace, err = chooseWorkspace(creds, interactive); err != nil {
 			return err
 		}
 	}
@@ -98,6 +114,14 @@ func LoginWithDevice(workspace string) error {
 	}
 	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 	return nil
+}
+
+// describeWait says how long a wait is in whole minutes, or seconds when short.
+func describeWait(d time.Duration) string {
+	if d < 90*time.Second {
+		return fmt.Sprintf("%d seconds", int(d.Round(time.Second)/time.Second))
+	}
+	return fmt.Sprintf("%d minutes", int(d.Round(time.Minute)/time.Minute))
 }
 
 // StartDeviceLogin asks for a device login and opens its page in the
@@ -249,18 +273,18 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 }
 
 // currentWorkspaceIndex is where the workspace in use (context.workspace in
-// the config) sits in names, or 0 when the new login cannot use it. The picker
-// starts there, so pressing Enter keeps the current workspace.
+// the config) sits in names, or -1 when the new login cannot use it.
 func currentWorkspaceIndex(names []string) int {
 	current, err := blaxel.CurrentContext()
 	if err != nil {
-		return 0
+		return -1
 	}
-	return max(slices.Index(names, current.Workspace), 0)
+	return slices.Index(names, current.Workspace)
 }
 
 // chooseWorkspace returns the user's only workspace, or asks which one to use.
-func chooseWorkspace(creds blaxel.Credentials) (string, error) {
+// Without a terminal it chooses one and says how to use another.
+func chooseWorkspace(creds blaxel.Credentials, interactive bool) (string, error) {
 	workspaces, err := LoginWorkspaces(creds)
 	if err != nil {
 		return "", err
@@ -268,7 +292,22 @@ func chooseWorkspace(creds blaxel.Credentials) (string, error) {
 	if len(workspaces) == 1 {
 		return workspaces[0], nil
 	}
-	return askWorkspace(workspaces, nil, nil)
+	if interactive {
+		return askWorkspace(workspaces, nil, nil)
+	}
+	workspace, why := workspaceWithoutAsking(workspaces)
+	core.PrintInfo(fmt.Sprintf("No terminal to ask in, so using workspace %s (%s).", workspace, why))
+	core.PrintInfo("To use another one, run bl login <workspace>. To switch between workspaces you are already logged in to, run bl workspaces <workspace>.")
+	return workspace, nil
+}
+
+// workspaceWithoutAsking is the current workspace when the new login can use
+// it, else the first by name (the API lists workspaces in a varying order).
+func workspaceWithoutAsking(names []string) (workspace, why string) {
+	if index := currentWorkspaceIndex(names); index >= 0 {
+		return names[index], "your current workspace"
+	}
+	return slices.Min(names), fmt.Sprintf("the first of your %d workspaces by name", len(names))
 }
 
 // askWorkspace asks which workspace to connect to, starting on the current
@@ -289,7 +328,7 @@ func askWorkspace(workspaces []string, in io.Reader, out io.Writer) (string, err
 		options = append(options, huh.NewOption(displayName, name))
 	}
 
-	workspace := workspaces[currentWorkspaceIndex(workspaces)]
+	workspace := workspaces[max(currentWorkspaceIndex(workspaces), 0)]
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
