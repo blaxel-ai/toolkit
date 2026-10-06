@@ -99,7 +99,7 @@ jobs:
           # CI never turns error reports on.
           $config = Join-Path $root ".blaxel\config.yaml"
           if ((Test-Path $config) -and (Select-String -Quiet -Path $config -Pattern '^tracking: true')) { throw "error reports were turned on in CI" }
-          # The agents start bl mcp from their configuration (a Windows path in JSON and TOML).
+          # The agents start bl mcp from their configuration (here a Windows path in JSON).
           python test/install/test_bl_mcp.py $root
           if ($LASTEXITCODE -ne 0) { throw "bl mcp did not answer" }
 

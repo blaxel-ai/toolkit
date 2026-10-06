@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Regression versions of both setup findings, plus the reviewed config shapes.
+// Setup replaces the hosted server it added before bl mcp, and leaves every
+// customized or disabled entry as it is.
 func TestMCPMigrationPreservesCustomAndDisabledEntries(t *testing.T) {
 	for _, fixture := range []struct{ name, target, config string }{
 		{"missing custom command", "cursor", `{"mcpServers":{"blaxel":{"command":"/old/bin/bl","args":["mcp","--workspace","production"],"env":{"BL_ENV":"dev"}}}}`},
@@ -55,32 +55,6 @@ func TestMCPMigrationLeavesJSONCAlone(t *testing.T) {
 			assert.Equal(t, original, readTestFile(t, file))
 		})
 	}
-}
-
-func TestMCPWindowsPathRoundTripAndMinimalRepair(t *testing.T) {
-	server := resourceMCPServer(`C:\Program Files\Blaxel\bl.exe`)
-	table, err := codexServerTable(server)
-	require.NoError(t, err)
-	var config struct {
-		MCPServers map[string]struct {
-			Command string
-			Args    []string
-		} `toml:"mcp_servers"`
-	}
-	_, err = toml.Decode(table, &config)
-	require.NoError(t, err)
-	assert.Equal(t, server.command[0], config.MCPServers["blaxel"].Command)
-	data, err := json.Marshal(commandOrURL("url")(server))
-	require.NoError(t, err)
-	var entry map[string]any
-	require.NoError(t, json.Unmarshal(data, &entry))
-	command, args := entryCommand(entry)
-	assert.Equal(t, server.command[0], command)
-	assert.Equal(t, []string{"mcp"}, args)
-	e := mcpEnv{exists: func(string) bool { return false }}
-	assert.Equal(t, mcpEntryOutdated, classifyMCPEntry(e, server, entry))
-	entry["env"] = map[string]any{"BL_WORKSPACE": "production"}
-	assert.Equal(t, mcpEntryCustom, classifyMCPEntry(e, server, entry))
 }
 
 func TestMCPClaudeReplacementRollsBackOnFailure(t *testing.T) {

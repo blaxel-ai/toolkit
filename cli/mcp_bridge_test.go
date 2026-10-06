@@ -3,9 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,91 +22,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeMCPServer answers like the hosted Blaxel MCP server and records requests.
-type fakeMCPServer struct {
-	mu       sync.Mutex
-	requests []*http.Request
-	bodies   []string
-	handle   func(w http.ResponseWriter, method string, id json.RawMessage)
-}
-
-func (f *fakeMCPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	body, _ := io.ReadAll(r.Body)
-	f.mu.Lock()
-	f.requests = append(f.requests, r)
-	f.bodies = append(f.bodies, string(body))
-	f.mu.Unlock()
-	var message struct {
-		ID     json.RawMessage `json:"id"`
-		Method string          `json:"method"`
-	}
-	_ = json.Unmarshal(body, &message)
-	f.handle(w, message.Method, message.ID)
-}
-
-func (f *fakeMCPServer) request(t *testing.T, method string) *http.Request {
+// testBridge returns a bridge signed in with an API key to a test server.
+func testBridge(t *testing.T, handler http.Handler) *mcpBridge {
 	t.Helper()
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	for i, body := range f.bodies {
-		if strings.Contains(body, `"method":"`+method+`"`) {
-			return f.requests[i]
-		}
-	}
-	t.Fatalf("no %s request in %v", method, f.bodies)
-	return nil
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	b := newMCPBridge(bridgeTestAuth(t, server, blaxel.Credentials{APIKey: "token-1"}))
+	b.version, b.userAgent, b.client = "9.9.9", "blaxel-cli/test (bl mcp)", server.Client()
+	return b
 }
+
+// loggedOutBridge returns a bridge without a login.
+func loggedOutBridge() *mcpBridge { return newMCPBridge(testBridgeAuth(nil)) }
 
 func jsonResult(w http.ResponseWriter, id json.RawMessage, result string) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":` + string(id) + `,"result":` + result + `}`))
 }
 
-// fakeAuth signs every request in, or reports no login.
-type fakeAuth struct {
-	mu        sync.Mutex
-	loggedIn  bool
-	endpoint  string
-	rejected  int
-	workspace string
-}
-
-func (f *fakeAuth) resolve(context.Context) (mcpCredentials, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if !f.loggedIn {
-		return mcpCredentials{}, errNotLoggedIn
-	}
-	return mcpCredentials{workspace: f.workspace, endpoint: f.endpoint, fingerprint: "fp",
-		headers: map[string]string{"Authorization": "Bearer token-1", "X-Blaxel-Workspace": f.workspace}}, nil
-}
-
-func (f *fakeAuth) reject(mcpCredentials) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.rejected++
-	f.loggedIn = false
-}
-
-func (f *fakeAuth) setLoggedIn(value bool) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.loggedIn = value
-}
-
-func testBridge(t *testing.T, server http.Handler) (*mcpBridge, *fakeAuth) {
-	t.Helper()
-	authenticator := &fakeAuth{loggedIn: true, workspace: "my-workspace"}
-	bridge := newMCPBridge(authenticator)
-	bridge.version, bridge.userAgent, bridge.poll = "9.9.9", "blaxel-cli/test (bl mcp)", 0
-	bridge.logf = func(string, ...any) {}
-	if server != nil {
-		httpServer := httptest.NewServer(server)
-		t.Cleanup(httpServer.Close)
-		authenticator.endpoint = httpServer.URL + "/v0/mcp"
-		bridge.client = httpServer.Client()
-	}
-	return bridge, authenticator
+// holdUntilClientLeaves answers nothing until the bridge gives up on the call.
+func holdUntilClientLeaves(_ http.ResponseWriter, r *http.Request) {
+	_, _ = io.Copy(io.Discard, r.Body)
+	<-r.Context().Done()
 }
 
 // runBridge sends the messages and returns everything the bridge wrote, one
@@ -153,146 +88,6 @@ func toolText(t *testing.T, answer map[string]any) (string, bool) {
 	return content["text"].(string), isError
 }
 
-const initializeMessage = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`
-
-func TestBridgeRelaysJSONAndSignsRequestsIn(t *testing.T) {
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, method string, id json.RawMessage) {
-		switch method {
-		case "initialize":
-			jsonResult(w, id, `{"protocolVersion":"2025-03-26","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"blaxel-mcp-server","version":"1"}}`)
-		case "notifications/initialized":
-			w.WriteHeader(http.StatusAccepted)
-		default:
-			jsonResult(w, id, `{"tools":[{"name":"list_sandboxes"}]}`)
-		}
-	}}
-	bridge, _ := testBridge(t, server)
-	answers := runBridge(t, bridge, initializeMessage, `{"jsonrpc":"2.0","method":"notifications/initialized"}`, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
-
-	require.Len(t, answers, 2, "notifications get no answer")
-	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
-	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
-	assert.Contains(t, initialize["instructions"], "workspace my-workspace", "the agent learns which workspace the tools use")
-	assert.Equal(t, "list_sandboxes", answerFor(t, answers, 2)["result"].(map[string]any)["tools"].([]any)[0].(map[string]any)["name"])
-
-	list := server.request(t, "tools/list")
-	assert.Equal(t, "/v0/mcp", list.URL.Path)
-	assert.Equal(t, "Bearer token-1", list.Header.Get("Authorization"))
-	assert.Equal(t, "my-workspace", list.Header.Get("X-Blaxel-Workspace"))
-	assert.Equal(t, "2025-03-26", list.Header.Get("MCP-Protocol-Version"))
-	assert.Equal(t, "blaxel-cli/test (bl mcp)", list.Header.Get("User-Agent"))
-	assert.Contains(t, list.Header.Get("Accept"), "text/event-stream")
-	assert.Empty(t, server.request(t, "initialize").Header.Get("MCP-Protocol-Version"))
-}
-
-func TestBridgeRelaysServerSentEvents(t *testing.T) {
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, _ string, id json.RawMessage) {
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = fmt.Fprintf(w, "event: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{\"progress\":1}}\n\n")
-		_, _ = fmt.Fprintf(w, "data: {\"jsonrpc\":\"2.0\",\"id\":%s,\n", id)
-		_, _ = fmt.Fprintf(w, "data: \"result\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}\n\n")
-	}}
-	bridge, _ := testBridge(t, server)
-	answers := runBridge(t, bridge, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"run"}}`)
-	require.Len(t, answers, 2)
-	assert.Equal(t, "notifications/progress", answers[0]["method"])
-	text, isError := toolText(t, answerFor(t, answers, 7))
-	assert.Equal(t, "done", text)
-	assert.False(t, isError)
-}
-
-func TestBridgeTurnsRefusedCallsIntoToolErrors(t *testing.T) {
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, method string, id json.RawMessage) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"code":403,"error":"requested workspace is unavailable; check its name and your access"}`))
-	}}
-	bridge, _ := testBridge(t, server)
-	answers := runBridge(t, bridge,
-		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sandboxes","arguments":{"workspace":"other"}}}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
-	text, isError := toolText(t, answerFor(t, answers, 1))
-	assert.True(t, isError)
-	assert.Contains(t, text, "requested workspace is unavailable")
-	assert.Contains(t, answerFor(t, answers, 2)["error"].(map[string]any)["message"], "403")
-}
-
-func TestBridgeStandsInBeforeLogin(t *testing.T) {
-	bridge, a := testBridge(t, nil)
-	a.setLoggedIn(false)
-	answers := runBridge(t, bridge, initializeMessage, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"blaxel_login"}}`)
-	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
-	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
-	assert.Contains(t, initialize["instructions"], mcpLoginInstructions)
-	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
-	text, isError := toolText(t, answerFor(t, answers, 3))
-	assert.True(t, isError)
-	assert.Contains(t, text, mcpLoginInstructions)
-}
-
-func TestBridgeOffersTerminalLoginWhenTheServerRefusesIt(t *testing.T) {
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, method string, id json.RawMessage) {
-		if method == "tools/list" {
-			jsonResult(w, id, `{"tools":[{"name":"list_sandboxes"}]}`)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":"invalid_token","error_description":"Unauthorized"}`))
-	}}
-	bridge, authenticator := testBridge(t, server)
-	in, writer := io.Pipe()
-	var out syncBuffer
-	done := make(chan error, 1)
-	go func() { done <- bridge.serve(context.Background(), in, &out) }()
-	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}` + "\n"))
-	out.waitFor(t, 1)
-	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_sandboxes"}}` + "\n"))
-	answers := out.waitFor(t, 3)
-	_ = writer.Close()
-	require.NoError(t, <-done)
-
-	text, isError := toolText(t, answerFor(t, answers, 2))
-	assert.True(t, isError)
-	assert.Contains(t, text, mcpLoginInstructions)
-	assert.Equal(t, "notifications/tools/list_changed", answers[2]["method"])
-	assert.Equal(t, 1, authenticator.rejected)
-}
-
-func TestBridgeAnswersInitializeFirstAndCancels(t *testing.T) {
-	started := make(chan struct{})
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, method string, id json.RawMessage) {
-		switch method {
-		case "initialize":
-			time.Sleep(50 * time.Millisecond)
-			jsonResult(w, id, `{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"s","version":"1"},"instructions":"server text"}`)
-		case "tools/call":
-			close(started)
-			time.Sleep(2 * time.Second)
-			jsonResult(w, id, `{"content":[]}`)
-		default:
-			jsonResult(w, id, `{"tools":[]}`)
-		}
-	}}
-	bridge, _ := testBridge(t, server)
-	in, writer := io.Pipe()
-	var out syncBuffer
-	done := make(chan error, 1)
-	go func() { done <- bridge.serve(context.Background(), in, &out) }()
-	_, _ = writer.Write([]byte(initializeMessage + "\n" + `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n" +
-		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"slow"}}` + "\n"))
-	answers := out.waitFor(t, 2)
-	assert.Equal(t, float64(1), answers[0]["id"], "initialize is answered before anything sent after it")
-	assert.Equal(t, "server text", answers[0]["result"].(map[string]any)["instructions"], "server instructions are kept")
-	<-started
-	start := time.Now()
-	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":3}}` + "\n"))
-	_ = writer.Close()
-	require.NoError(t, <-done)
-	assert.Less(t, time.Since(start), time.Second, "a cancelled request stops at once")
-	assert.Len(t, decodeLines(t, out.String()), 2, "a cancelled request gets no answer")
-}
-
 // syncBuffer is an output buffer safe to read while the bridge writes.
 type syncBuffer struct {
 	mu  sync.Mutex
@@ -305,137 +100,280 @@ func (s *syncBuffer) Write(p []byte) (int, error) {
 	return s.buf.Write(p)
 }
 
-func (s *syncBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.String()
-}
-
 func (s *syncBuffer) waitFor(t *testing.T, count int) []map[string]any {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		answers := decodeLines(t, s.String())
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		s.mu.Lock()
+		answers := decodeLines(t, s.buf.String())
+		s.mu.Unlock()
 		if len(answers) >= count {
 			return answers
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("waited for %d messages, got %v", count, answers)
+	}
+	t.Fatalf("waited for %d messages", count)
+	return nil
+}
+
+const initializeMessage = `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`
+
+func TestBridgeRelaysJSONAndSignsRequestsIn(t *testing.T) {
+	var mu sync.Mutex
+	headers := map[string]http.Header{}
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		mu.Lock()
+		headers[m.Method] = r.Header
+		mu.Unlock()
+		switch m.Method {
+		case "initialize":
+			jsonResult(w, m.ID, `{"protocolVersion":"2025-03-26","capabilities":{"tools":{}},"serverInfo":{"name":"blaxel-mcp-server","version":"1"}}`)
+		case "notifications/initialized":
+			w.WriteHeader(http.StatusAccepted)
+		default:
+			jsonResult(w, m.ID, `{"tools":[{"name":"list_sandboxes"}]}`)
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func bridgeJWT(issued, expires time.Time) string {
-	payload, _ := json.Marshal(map[string]int64{"iat": issued.Unix(), "exp": expires.Unix()})
-	return "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".sig"
-}
-
-func TestBridgeAuthRefreshesInMemoryAndKeepsTheWorkspace(t *testing.T) {
-	now := time.Now()
-	var refreshes []map[string]string
-	tokens := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]string
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		refreshes = append(refreshes, body)
-		assert.Equal(t, "/v0/oauth/token", r.URL.Path)
-		_, _ = fmt.Fprintf(w, `{"access_token":%q,"expires_in":7200}`, bridgeJWT(now, now.Add(2*time.Hour)))
 	}))
-	defer tokens.Close()
-	config := blaxel.Config{Context: blaxel.ContextConfig{Workspace: "main"}, Workspaces: []blaxel.WorkspaceConfig{
-		{Name: "main", Credentials: blaxel.Credentials{AccessToken: bridgeJWT(now.Add(-2*time.Hour), now.Add(-time.Minute)), RefreshToken: "refresh-1", DeviceCode: "device-1"}},
-		{Name: "other", Credentials: blaxel.Credentials{APIKey: "bl_other"}},
-	}}
-	var environments []string
-	authenticator := &bridgeAuth{
-		env: func(string) string { return "" }, loadConfig: func() (blaxel.Config, error) { return config, nil },
-		environment: func(workspace string) string {
-			environments = append(environments, workspace)
-			return tokens.URL + "/v0/"
-		},
-		client: tokens.Client(), now: func() time.Time { return now },
-	}
-	credentials, err := authenticator.resolve(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, "main", credentials.workspace)
-	assert.Equal(t, tokens.URL+"/v0/mcp", credentials.endpoint)
-	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["Authorization"])
-	require.Len(t, refreshes, 1)
-	assert.Equal(t, map[string]string{"grant_type": "refresh_token", "refresh_token": "refresh-1", "client_id": "blaxel", "device_code": "device-1"}, refreshes[0])
+	answers := runBridge(t, b, initializeMessage, `{"jsonrpc":"2.0","method":"notifications/initialized"}`, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
 
-	// The refreshed token is reused, and a later bl workspaces switch does not
-	// move the agent's session.
-	config.Context.Workspace = "other"
-	credentials, err = authenticator.resolve(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, "main", credentials.workspace)
-	assert.Len(t, refreshes, 1)
-	assert.Equal(t, []string{"main"}, environments)
+	require.Len(t, answers, 2, "notifications get no answer")
+	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
+	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
+	assert.Contains(t, initialize["instructions"], "workspace main", "the agent learns which workspace the tools use")
+	assert.Equal(t, "list_sandboxes", answerFor(t, answers, 2)["result"].(map[string]any)["tools"].([]any)[0].(map[string]any)["name"])
 
-	// A refused access token forces a refresh, not permanent logout.
-	authenticator.reject(credentials)
-	_, err = authenticator.resolve(context.Background())
-	require.NoError(t, err)
-	assert.Len(t, refreshes, 2)
-	config.Workspaces[0].Credentials = blaxel.Credentials{AccessToken: bridgeJWT(now, now.Add(2*time.Hour)), RefreshToken: "refresh-2"}
-	credentials, err = authenticator.resolve(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, "Bearer "+bridgeJWT(now, now.Add(2*time.Hour)), credentials.headers["Authorization"])
-	assert.Len(t, refreshes, 2, "a fresh token needs no refresh")
-
-	// Logging out removes the credentials.
-	config.Workspaces = nil
-	_, err = authenticator.resolve(context.Background())
-	assert.ErrorIs(t, err, errNotLoggedIn)
+	list := headers["tools/list"]
+	assert.Equal(t, "Bearer token-1", list.Get("Authorization"))
+	assert.Equal(t, "main", list.Get("X-Blaxel-Workspace"))
+	assert.Equal(t, "2025-03-26", list.Get("MCP-Protocol-Version"))
+	assert.Equal(t, "blaxel-cli/test (bl mcp)", list.Get("User-Agent"))
+	assert.Contains(t, list.Get("Accept"), "text/event-stream")
+	assert.Empty(t, headers["initialize"].Get("MCP-Protocol-Version"))
 }
 
-func TestBridgeAuthTreatsARefusedRefreshAsLoggedOut(t *testing.T) {
-	now := time.Now()
-	tokens := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
+func TestBridgeRelaysServerSentEvents(t *testing.T) {
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = fmt.Fprint(w, "event: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{\"progress\":1}}\n\n")
+		_, _ = fmt.Fprint(w, "data: {\"jsonrpc\":\"2.0\",\"id\":7,\n")
+		_, _ = fmt.Fprint(w, "data: \"result\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}\n\n")
 	}))
-	defer tokens.Close()
-	config := blaxel.Config{Workspaces: []blaxel.WorkspaceConfig{{Name: "main", Credentials: blaxel.Credentials{
-		AccessToken: bridgeJWT(now.Add(-2*time.Hour), now.Add(-time.Minute)), RefreshToken: "revoked"}}}}
-	authenticator := &bridgeAuth{
-		explicit: "main", env: func(string) string { return "" }, loadConfig: func() (blaxel.Config, error) { return config, nil },
-		environment: func(string) string { return tokens.URL + "/v0" }, client: tokens.Client(), now: func() time.Time { return now },
-	}
-	_, err := authenticator.resolve(context.Background())
-	assert.ErrorIs(t, err, errNotLoggedIn)
+	answers := runBridge(t, b, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"run"}}`)
+	require.Len(t, answers, 2)
+	assert.Equal(t, "notifications/progress", answers[0]["method"])
+	text, isError := toolText(t, answerFor(t, answers, 7))
+	assert.Equal(t, "done", text)
+	assert.False(t, isError)
 }
 
-func TestBridgeAuthUsesEnvironmentKeys(t *testing.T) {
-	authenticator := &bridgeAuth{
-		env: func(key string) string {
-			return map[string]string{"BL_API_KEY": "bl_key"}[key]
-		},
-		loadConfig: func() (blaxel.Config, error) {
-			return blaxel.Config{Context: blaxel.ContextConfig{Workspace: "ws"}}, nil
-		},
-		environment: func(string) string { return "https://api.blaxel.ai/v0" }, now: time.Now,
-	}
-	credentials, err := authenticator.resolve(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, "Bearer bl_key", credentials.headers["Authorization"])
-	assert.Equal(t, "ws", credentials.headers["X-Blaxel-Workspace"])
-	assert.Equal(t, "https://api.blaxel.ai/v0/mcp", credentials.endpoint)
-
-	// No workspace at all is no login.
-	authenticator = &bridgeAuth{env: func(string) string { return "" }, loadConfig: func() (blaxel.Config, error) { return blaxel.Config{}, nil }}
-	_, err = authenticator.resolve(context.Background())
-	assert.ErrorIs(t, err, errNotLoggedIn)
+func TestBridgeTurnsRefusedCallsIntoToolErrors(t *testing.T) {
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }))
+	answers := runBridge(t, b,
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_sandboxes","arguments":{"workspace":"other"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
+	text, isError := toolText(t, answerFor(t, answers, 1))
+	assert.True(t, isError)
+	assert.Contains(t, text, "requested workspace is unavailable")
+	assert.Contains(t, answerFor(t, answers, 2)["error"].(map[string]any)["message"], "403")
 }
 
-func TestTokenLifetime(t *testing.T) {
-	now := time.Now()
-	issued, expires, ok := jwtLifetime(bridgeJWT(now.Add(-time.Hour), now.Add(time.Hour)))
-	require.True(t, ok)
-	assert.Equal(t, now.Add(time.Hour).Unix(), expires.Unix())
-	assert.True(t, tokenFresh(issued, expires, now))
-	assert.False(t, tokenFresh(issued, expires, now.Add(40*time.Minute)), "less than a fifth of the lifetime is left")
-	_, _, ok = jwtLifetime("not-a-jwt")
-	assert.False(t, ok)
+func TestBridgeStandsInBeforeLogin(t *testing.T) {
+	answers := runBridge(t, loggedOutBridge(), initializeMessage, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_sandboxes"}}`)
+	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
+	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
+	assert.Contains(t, initialize["instructions"], mcpLoginInstructions)
+	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
+	text, isError := toolText(t, answerFor(t, answers, 3))
+	assert.True(t, isError)
+	assert.Contains(t, text, mcpLoginInstructions)
+}
+
+func TestBridgeAnswersInitializeFirstAndCancels(t *testing.T) {
+	started := make(chan struct{})
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		switch m.Method {
+		case "initialize":
+			time.Sleep(50 * time.Millisecond)
+			jsonResult(w, m.ID, `{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"s","version":"1"},"instructions":"server text"}`)
+		case "tools/call":
+			close(started)
+			<-r.Context().Done()
+		default:
+			jsonResult(w, m.ID, `{"tools":[]}`)
+		}
+	}))
+	in, writer := io.Pipe()
+	var out syncBuffer
+	done := make(chan error, 1)
+	go func() { done <- b.serve(context.Background(), in, &out) }()
+	_, _ = writer.Write([]byte(initializeMessage + "\n" + `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n" +
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"slow"}}` + "\n"))
+	answers := out.waitFor(t, 2)
+	assert.Equal(t, float64(1), answers[0]["id"], "initialize is answered before anything sent after it")
+	assert.Equal(t, "server text", answers[0]["result"].(map[string]any)["instructions"], "server instructions are kept")
+	<-started
+	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":3}}` + "\n"))
+	_ = writer.Close()
+	require.NoError(t, <-done)
+	assert.Len(t, out.waitFor(t, 2), 2, "a cancelled request gets no answer")
+}
+
+// A call that fails gets an error answer, and is sent once: it is never replayed.
+func TestBridgeAnswersFailedCallsOnceAndNeverReplaysThem(t *testing.T) {
+	for _, kind := range []string{"502", "dropped", "hangs", "sse without a result", "sse partial", "empty", "202", "oversize line", "oversize body"} {
+		t.Run(kind, func(t *testing.T) {
+			var calls atomic.Int32
+			b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				switch kind {
+				case "502":
+					w.WriteHeader(http.StatusBadGateway)
+					_, _ = io.WriteString(w, "upstream-body-must-not-be-echoed")
+				case "dropped":
+					conn, _, _ := w.(http.Hijacker).Hijack()
+					_ = conn.Close()
+				case "hangs":
+					holdUntilClientLeaves(w, r)
+				case "sse without a result":
+					w.Header().Set("Content-Type", "text/event-stream")
+					_, _ = io.WriteString(w, "id: resume-me\ndata:\nretry: 10\n\n")
+				case "sse partial":
+					w.Header().Set("Content-Type", "text/event-stream")
+					_, _ = io.WriteString(w, "data: {\"jsonrpc\":\"2.0\",\"id\":8,\"result\":{}}\n")
+				case "202":
+					w.WriteHeader(http.StatusAccepted)
+				case "oversize line":
+					w.Header().Set("Content-Type", "text/event-stream")
+					_, _ = io.WriteString(w, "data: "+strings.Repeat("x", mcpBridgeMaxMessage+1))
+				case "oversize body":
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":8,"result":"`+strings.Repeat("x", mcpBridgeMaxMessage)+`"}`)
+				}
+			}))
+			b.requestTimeout = 100 * time.Millisecond
+			answers := runBridge(t, b, `{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"write"}}`)
+			answer := answerFor(t, answers, 8)
+			result, _ := answer["result"].(map[string]any)
+			assert.True(t, answer["error"] != nil || result["isError"] == true, "the call gets an error answer: %v", answer)
+			assert.EqualValues(t, 1, calls.Load())
+			assert.NotContains(t, fmt.Sprint(answers), "upstream-body-must-not-be-echoed")
+		})
+	}
+}
+
+// An SSE event is limited as a whole, not just per line, and a failure after the
+// result does not answer twice.
+func TestBridgeSSEEvents(t *testing.T) {
+	var event strings.Builder
+	event.WriteString("data: {\"items\":[\n")
+	for range 33 {
+		event.WriteString("data: \"" + strings.Repeat("x", 1<<20) + "\",\n")
+	}
+	event.WriteString("data: 0]}\n\n")
+	relayed := false
+	require.Error(t, relayEvents(strings.NewReader(event.String()), func([]byte) { relayed = true }))
+	assert.False(t, relayed)
+
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\ndata: partial")
+	}))
+	answers := runBridge(t, b, `{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+	require.Len(t, answers, 1)
+	assert.NotNil(t, answers[0]["result"])
+}
+
+func TestBridgeRedirectsDoNotLeakCredentials(t *testing.T) {
+	var leaks atomic.Int32
+	sink := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { leaks.Add(1) }))
+	defer sink.Close()
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, sink.URL, http.StatusTemporaryRedirect)
+	}))
+	defer source.Close()
+	a := bridgeTestAuth(t, source, blaxel.Credentials{APIKey: "token-1"})
+	answers := runBridge(t, newMCPBridge(a), `{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+	_, isError := toolText(t, answerFor(t, answers, 1))
+	assert.True(t, isError)
+	_, err := a.refresh(context.Background(), blaxel.Credentials{RefreshToken: "fake-refresh"})
+	require.Error(t, err)
+	assert.Zero(t, leaks.Load(), "neither the bearer token nor a token grant reaches a redirect target")
+}
+
+func TestBridgeRejectsBatches(t *testing.T) {
+	answers := runBridge(t, loggedOutBridge(), initializeMessage, `[{"jsonrpc":"2.0","id":2,"method":"ping"}]`)
+	require.Len(t, answers, 2)
+	assert.EqualValues(t, -32600, answers[1]["error"].(map[string]any)["code"])
+}
+
+// Sixteen calls run at once; the next is refused, and cancellations and pings
+// still get through.
+func TestBridgeBoundsInFlightCalls(t *testing.T) {
+	started := make(chan struct{}, mcpBridgeMaxInFlight)
+	cancelled := make(chan struct{}, 1)
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		if m.Method != "tools/call" {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		started <- struct{}{}
+		<-r.Context().Done()
+		if string(m.ID) == "1" {
+			cancelled <- struct{}{}
+		}
+	}))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	in, w := io.Pipe()
+	defer func() { _ = w.Close() }()
+	var out syncBuffer
+	done := make(chan error, 1)
+	go func() { done <- b.serve(ctx, in, &out) }()
+	for i := 1; i <= mcpBridgeMaxInFlight; i++ {
+		_, _ = fmt.Fprintf(w, "{\"jsonrpc\":\"2.0\",\"id\":%d,\"method\":\"tools/call\"}\n", i)
+		<-started
+	}
+	_, _ = io.WriteString(w, "{\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"tools/call\"}\n"+
+		"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/cancelled\",\"params\":{\"requestId\":1}}\n"+
+		"{\"jsonrpc\":\"2.0\",\"id\":18,\"method\":\"ping\"}\n")
+	answers := out.waitFor(t, 2)
+	assert.Contains(t, answerFor(t, answers, 17)["error"].(map[string]any)["message"], "busy")
+	assert.NotNil(t, answerFor(t, answers, 18)["result"])
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("cancellation blocked by saturation")
+	}
+	cancel()
+	require.NoError(t, <-done)
+}
+
+type brokenWriter struct{}
+
+func (brokenWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// The bridge stops when stdout breaks, and when stdin closes with a call stuck.
+func TestBridgeStopsPromptly(t *testing.T) {
+	in, w := io.Pipe()
+	defer func() { _ = w.Close() }()
+	done := make(chan error, 1)
+	go func() { done <- loggedOutBridge().serve(context.Background(), in, brokenWriter{}) }()
+	_, _ = io.WriteString(w, initializeMessage+"\n")
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, io.ErrClosedPipe)
+	case <-time.After(time.Second):
+		t.Fatal("a stdout failure did not shut the bridge down")
+	}
+
+	start := time.Now()
+	runBridge(t, testBridge(t, http.HandlerFunc(holdUntilClientLeaves)), `{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+	assert.Less(t, time.Since(start), 5*time.Second)
 }
 
 // bl mcp must print nothing but JSON-RPC, even on a machine without a login.
@@ -444,10 +382,11 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 		t.Skip("builds the CLI")
 	}
 	binary := filepath.Join(t.TempDir(), "bl")
-	build := execCommand(t, "go", "build", "-o", binary, "..")
-	require.NoError(t, build.Run())
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	require.NoError(t, exec.CommandContext(ctx, "go", "build", "-o", binary, "..").Run())
 	home := t.TempDir()
-	cmd := execCommand(t, binary, "--workspace", "main", "--skip-version-warning", "mcp")
+	cmd := exec.CommandContext(ctx, binary, "--workspace", "main", "--skip-version-warning", "mcp")
 	cmd.Dir = home
 	cmd.Env = []string{"HOME=" + home, "USERPROFILE=" + home, "PATH=" + os.Getenv("PATH"), "BL_INSTALL_SKILLS=false"}
 	cmd.Stdin = strings.NewReader(initializeMessage + "\n" + `{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n")
@@ -457,15 +396,7 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	answers := decodeLines(t, stdout.String())
 	require.Len(t, answers, 2)
 	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
-	_, err := os.Stat(filepath.Join(home, ".blaxel"))
-	assert.True(t, errors.Is(err, os.ErrNotExist), "bl mcp writes no configuration")
-}
-
-func execCommand(t *testing.T, name string, args ...string) *exec.Cmd {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	t.Cleanup(cancel)
-	return exec.CommandContext(ctx, name, args...)
+	assert.NoDirExists(t, filepath.Join(home, ".blaxel"), "bl mcp writes no configuration")
 }
 
 // bl mcp sends credentials only to the stored login's Blaxel origin: no flag
@@ -478,29 +409,21 @@ func TestMCPCommandHasNoAPIURLFlag(t *testing.T) {
 func TestBridgeNamesTheCauseOfAStartupFailure(t *testing.T) {
 	closed := httptest.NewServer(http.NotFoundHandler())
 	closed.Close()
+	tokenDown := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
+	defer tokenDown.Close()
+	unreachable := testBridge(t, http.NotFoundHandler())
+	unreachable.auth.(*bridgeAuth).baseURL = closed.URL
 	for name, test := range map[string]struct {
-		bridge func(t *testing.T) *mcpBridge
+		bridge *mcpBridge
 		want   string
 	}{
-		"server error": {func(t *testing.T) *mcpBridge {
-			b, _ := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) }))
-			return b
-		}, "HTTP 500"},
-		"unreachable": {func(t *testing.T) *mcpBridge {
-			b, a := testBridge(t, nil)
-			a.endpoint = closed.URL
-			return b
-		}, "cannot reach"},
-		"token endpoint down": {func(t *testing.T) *mcpBridge {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
-			t.Cleanup(server.Close)
-			return newMCPBridge(bridgeTestAuth(t, server, blaxel.Credentials{AccessToken: "expired", RefreshToken: "fake"}))
-		}, "HTTP 503"},
+		"server error": {testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusInternalServerError) })), "HTTP 500"},
+		"unreachable":  {unreachable, "cannot reach"},
+		"token endpoint down": {newMCPBridge(bridgeTestAuth(t, tokenDown, blaxel.Credentials{AccessToken: "expired", RefreshToken: "fake"})),
+			"HTTP 503"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			b := test.bridge(t)
-			b.poll = 0
-			answers := runBridge(t, b, initializeMessage)
+			answers := runBridge(t, test.bridge, initializeMessage)
 			failure, _ := answerFor(t, answers, 1)["error"].(map[string]any)
 			require.NotNil(t, failure, "initialize reports the failure: %v", answers)
 			assert.Contains(t, failure["message"], test.want)
@@ -512,28 +435,20 @@ func TestBridgeNamesTheCauseOfAStartupFailure(t *testing.T) {
 // One failed call does not make unrelated calls fail.
 func TestBridgeOneFailureDoesNotFailOtherCalls(t *testing.T) {
 	var calls atomic.Int32
-	server := &fakeMCPServer{handle: func(w http.ResponseWriter, _ string, id json.RawMessage) {
+	b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
 		if calls.Add(1) == 1 {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
-		jsonResult(w, id, `{"content":[{"type":"text","text":"deleted"}]}`)
-	}}
-	bridge, _ := testBridge(t, server)
-	in, writer := io.Pipe()
-	var out syncBuffer
-	done := make(chan error, 1)
-	go func() { done <- bridge.serve(context.Background(), in, &out) }()
-	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_sandbox_command"}}` + "\n"))
-	out.waitFor(t, 1)
-	_, _ = writer.Write([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"delete_sandbox"}}` + "\n"))
-	answers := out.waitFor(t, 2)
-	_ = writer.Close()
-	require.NoError(t, <-done)
-
-	_, failed := toolText(t, answerFor(t, answers, 1))
+		jsonResult(w, m.ID, `{"content":[{"type":"text","text":"deleted"}]}`)
+	}))
+	first := runBridge(t, b, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_sandbox_command"}}`)
+	_, failed := toolText(t, answerFor(t, first, 1))
 	assert.True(t, failed)
-	text, isError := toolText(t, answerFor(t, answers, 2))
+	second := runBridge(t, b, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"delete_sandbox"}}`)
+	text, isError := toolText(t, answerFor(t, second, 2))
 	assert.Equal(t, "deleted", text)
 	assert.False(t, isError)
 }

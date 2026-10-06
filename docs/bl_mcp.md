@@ -14,7 +14,6 @@ Run bl login before starting your agent. bl setup configures local MCP targets;
 no token is stored in agent configurations and no separate MCP OAuth is needed.
 Without a usable login, the connection still initializes, with an empty tool
 list and instructions to run bl login, then restart or reconnect the agent.
-Some agents discover tools live after login; reconnect is the reliable fallback.
 
 The default workspace is pinned when the bridge starts resolving credentials:
 the current bl workspace, --workspace or BL_WORKSPACE. A tool's workspace

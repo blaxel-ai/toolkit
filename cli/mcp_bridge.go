@@ -24,7 +24,6 @@ import (
 const (
 	mcpBridgeMaxInFlight = 16
 	mcpBridgeMaxMessage  = 32 << 20
-	mcpLoginPoll         = 2 * time.Second
 	mcpRefreshTimeout    = 30 * time.Second
 	mcpRequestTimeout    = 10 * time.Minute
 	mcpDrainTimeout      = 3 * time.Second
@@ -44,7 +43,6 @@ Run bl login before starting your agent. bl setup configures local MCP targets;
 no token is stored in agent configurations and no separate MCP OAuth is needed.
 Without a usable login, the connection still initializes, with an empty tool
 list and instructions to run bl login, then restart or reconnect the agent.
-Some agents discover tools live after login; reconnect is the reliable fallback.
 
 The default workspace is pinned when the bridge starts resolving credentials:
 the current bl workspace, --workspace or BL_WORKSPACE. A tool's workspace
@@ -88,27 +86,27 @@ and token exchanges.`,
 // Stateful GET streams/resumption and newer protocol features are deliberately
 // not advertised by synthetic initialization.
 type mcpBridge struct {
-	auth                     mcpAuthenticator
-	client                   *http.Client
-	userAgent, version       string
-	logf                     func(string, ...any)
-	poll                     time.Duration
-	requestTimeout           time.Duration
-	out                      io.Writer
-	writeMu                  sync.Mutex
-	writeErr                 error
-	shutdown                 context.CancelFunc
-	stateMu                  sync.Mutex
-	session, protocolVersion string
-	initialize               json.RawMessage
-	upstreamFingerprint      string
-	initGate                 chan struct{}
-	cancels                  map[string]context.CancelFunc
-	listed                   string // "empty" or "tools", or "" before listing
+	auth               mcpAuthenticator
+	client             *http.Client
+	userAgent, version string
+	requestTimeout     time.Duration
+	out                io.Writer
+	writeMu            sync.Mutex
+	writeErr           error
+	shutdown           context.CancelFunc
+	stateMu            sync.Mutex
+	session            string
+	protocolVersion    string
+	cancels            map[string]context.CancelFunc
 }
 
 func newMCPBridge(a mcpAuthenticator) *mcpBridge {
-	return &mcpBridge{auth: a, client: newMCPHTTPClient(), version: core.GetVersion(), userAgent: "blaxel-cli/" + core.GetVersion() + " (bl mcp)", poll: mcpLoginPoll, initGate: make(chan struct{}, 1), logf: func(format string, args ...any) { _, _ = fmt.Fprintf(os.Stderr, "bl mcp: "+format+"\n", args...) }}
+	return &mcpBridge{
+		auth:      a,
+		client:    newMCPHTTPClient(),
+		version:   core.GetVersion(),
+		userAgent: "blaxel-cli/" + core.GetVersion() + " (bl mcp)",
+	}
 }
 
 type rpcEnvelope struct {
@@ -120,9 +118,11 @@ type rpcEnvelope struct {
 	Params  struct {
 		RequestID       json.RawMessage `json:"requestId"`
 		ProtocolVersion string          `json:"protocolVersion"`
-		Capabilities    json.RawMessage `json:"capabilities"`
-		Name            string          `json:"name"`
 	} `json:"params"`
+}
+
+func (m rpcEnvelope) valid() bool {
+	return m.JSONRPC == "2.0" && (m.Method != "" || len(m.Result) > 0 || len(m.Error) > 0)
 }
 
 func (m rpcEnvelope) isRequest() bool {
@@ -143,7 +143,6 @@ func (b *mcpBridge) serve(ctx context.Context, in io.Reader, out io.Writer) erro
 			_ = closer.Close()
 		}
 	}()
-	go b.watchLogin(ctx)
 	type input struct {
 		message []byte
 		err     error
@@ -194,7 +193,7 @@ loop:
 				b.writeError(json.RawMessage("null"), -32700, "parse error")
 				continue
 			}
-			if message[0] != '{' || json.Unmarshal(message, &envelope) != nil || envelope.JSONRPC != "2.0" || (envelope.Method == "" && len(envelope.Result) == 0 && len(envelope.Error) == 0) {
+			if message[0] != '{' || json.Unmarshal(message, &envelope) != nil || !envelope.valid() {
 				b.writeError(json.RawMessage("null"), -32600, "invalid request: JSON-RPC batches are not supported")
 				continue
 			}
@@ -261,58 +260,34 @@ loop:
 	return readErr
 }
 
-func (b *mcpBridge) handle(ctx context.Context, message []byte, envelope rpcEnvelope) {
-	parentCtx := ctx
+func (b *mcpBridge) handle(ctx context.Context, message []byte, m rpcEnvelope) {
 	timeout := b.requestTimeout
 	if timeout <= 0 {
 		timeout = mcpRequestTimeout
 	}
-	if envelope.Method == "initialize" {
+	if m.Method == "initialize" {
 		timeout = mcpRefreshTimeout
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	if envelope.Method == "initialize" {
-		b.stateMu.Lock()
-		b.initialize = append([]byte(nil), message...)
-		b.stateMu.Unlock()
+	c, err := b.auth.resolve(requestCtx)
+	if err == nil {
+		err = b.forward(requestCtx, message, m, c, func(p []byte) { b.relay(p, m, c.workspace) })
 	}
-	c, err := b.auth.resolve(ctx)
-	if err != nil {
-		if errors.Is(err, errNotLoggedIn) {
-			b.answerLoggedOut(parentCtx, envelope)
-		} else {
-			b.requestError(parentCtx, envelope, err.Error())
-		}
-		return
-	}
-	if envelope.isRequest() && envelope.Method != "initialize" {
-		if err = b.ensureUpstream(ctx, c); err != nil {
-			if errors.Is(err, errNotLoggedIn) {
-				b.answerLoggedOut(ctx, envelope)
-			} else {
-				b.requestError(parentCtx, envelope, err.Error())
-			}
-			return
-		}
-	}
-	err = b.forward(ctx, message, envelope, c, func(p []byte) { b.relay(p, envelope, c) })
-	if err != nil {
-		if errors.Is(err, errMCPIncomplete) {
-			b.fail(parentCtx, envelope, -32603, err.Error())
-		} else if errors.Is(err, errNotLoggedIn) {
-			b.answerLoggedOut(ctx, envelope)
-			b.notifyToolsChanged(ctx)
-		} else {
-			b.requestError(parentCtx, envelope, err.Error())
-		}
+	switch {
+	case err == nil:
+	case errors.Is(err, errNotLoggedIn):
+		b.answerLoggedOut(ctx, m)
+	case errors.Is(err, errMCPIncomplete):
+		b.fail(ctx, m, -32603, err.Error())
+	default:
+		b.requestError(ctx, m, err.Error())
 	}
 }
 
+// answerLoggedOut stands in for the hosted server: the agent still connects,
+// sees no tools, and is told to log in.
 func (b *mcpBridge) answerLoggedOut(ctx context.Context, m rpcEnvelope) {
-	b.stateMu.Lock()
-	b.session, b.upstreamFingerprint = "", ""
-	b.stateMu.Unlock()
 	if !m.isRequest() || ctx.Err() != nil {
 		return
 	}
@@ -324,14 +299,14 @@ func (b *mcpBridge) answerLoggedOut(ctx context.Context, m rpcEnvelope) {
 		}
 		b.stateMu.Lock()
 		b.protocolVersion = version
-		b.session = ""
-		b.upstreamFingerprint = ""
 		b.stateMu.Unlock()
-		b.writeResult(m.ID, map[string]any{"protocolVersion": version, "capabilities": map[string]any{"tools": map[string]any{"listChanged": true}}, "serverInfo": map[string]string{"name": "blaxel", "version": b.version}, "instructions": "Not connected to Blaxel. " + mcpLoginInstructions})
-	case "ping":
-		b.writeResult(m.ID, map[string]any{})
+		b.writeResult(m.ID, map[string]any{
+			"protocolVersion": version,
+			"capabilities":    map[string]any{"tools": map[string]any{}},
+			"serverInfo":      map[string]string{"name": "blaxel", "version": b.version},
+			"instructions":    "Not connected to Blaxel. " + mcpLoginInstructions,
+		})
 	case "tools/list":
-		b.setListed("empty")
 		b.writeResult(m.ID, map[string]any{"tools": []any{}})
 	case "tools/call":
 		b.writeToolText(m.ID, "Not logged in to Blaxel. "+mcpLoginInstructions, true)
@@ -340,137 +315,27 @@ func (b *mcpBridge) answerLoggedOut(ctx context.Context, m rpcEnvelope) {
 	}
 }
 
-// After synthetic initialize, establish the upstream exchange with the client's
-// actual capabilities. Its response is consumed locally, never a second result.
-func (b *mcpBridge) ensureUpstream(ctx context.Context, c mcpCredentials) error {
-	select {
-	case b.initGate <- struct{}{}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	defer func() { <-b.initGate }()
-	b.stateMu.Lock()
-	message := append([]byte(nil), b.initialize...)
-	version := b.protocolVersion
-	ready := b.upstreamFingerprint == c.fingerprint
-	b.stateMu.Unlock()
-	if ready || len(message) == 0 {
-		return nil
-	}
-	var request map[string]any
-	_ = json.Unmarshal(message, &request)
-	params, _ := request["params"].(map[string]any)
-	if params == nil {
-		params = map[string]any{}
-		request["params"] = params
-	}
-	params["protocolVersion"] = version
-	message, _ = json.Marshal(request)
-	var envelope rpcEnvelope
-	_ = json.Unmarshal(message, &envelope)
-	b.stateMu.Lock()
-	b.session = ""
-	b.stateMu.Unlock()
-	var negotiationErr error
-	err := b.forward(ctx, message, envelope, c, func(p []byte) {
-		var answer struct {
-			ID     json.RawMessage `json:"id"`
-			Result struct {
-				ProtocolVersion string `json:"protocolVersion"`
-			} `json:"result"`
-		}
-		if json.Unmarshal(p, &answer) != nil {
-			return
-		}
-		if string(answer.ID) != string(envelope.ID) {
-			b.write(p)
-			return
-		}
-		if answer.Result.ProtocolVersion != version {
-			negotiationErr = errors.New("upstream MCP negotiation changed; restart or reconnect this agent")
-		}
-	})
-	if err != nil {
-		return err
-	}
-	if negotiationErr != nil {
-		return negotiationErr
-	}
-	initialized := []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`)
-	if err = b.forward(ctx, initialized, rpcEnvelope{Method: "notifications/initialized"}, c, func([]byte) {}); err != nil {
-		return err
-	}
-	b.stateMu.Lock()
-	b.upstreamFingerprint = c.fingerprint
-	b.stateMu.Unlock()
-	return nil
-}
-
-func (b *mcpBridge) watchLogin(ctx context.Context) {
-	if b.poll <= 0 {
-		return
-	}
-	ticker := time.NewTicker(b.poll)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			b.stateMu.Lock()
-			waiting := b.listed == "empty"
-			b.stateMu.Unlock()
-			if waiting {
-				b.notifyToolsChanged(ctx)
-			}
-		}
-	}
-}
-func (b *mcpBridge) notifyToolsChanged(ctx context.Context) {
-	b.stateMu.Lock()
-	listed := b.listed
-	b.stateMu.Unlock()
-	if listed == "" {
-		return
-	}
-	_, err := b.auth.resolve(ctx)
-	if ctx.Err() != nil {
-		return
-	}
-	if err != nil && !errors.Is(err, errNotLoggedIn) {
-		return
-	}
-	if (listed == "empty") == (err == nil) {
-		b.setListed("")
-		b.write([]byte(`{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}`))
-	}
-}
-func (b *mcpBridge) setListed(s string) { b.stateMu.Lock(); b.listed = s; b.stateMu.Unlock() }
-
-func (b *mcpBridge) relay(message []byte, m rpcEnvelope, c mcpCredentials) {
+// relay writes what the hosted server sent. Its initialize answer is kept,
+// plus a note on the default workspace when the server gave no instructions.
+func (b *mcpBridge) relay(message []byte, m rpcEnvelope, workspace string) {
 	var answer struct {
 		ID     json.RawMessage `json:"id"`
 		Result map[string]any  `json:"result"`
 	}
-	if json.Unmarshal(message, &answer) == nil && answer.Result != nil && string(answer.ID) == string(m.ID) {
-		switch m.Method {
-		case "initialize":
-			version, _ := answer.Result["protocolVersion"].(string)
-			b.stateMu.Lock()
-			b.protocolVersion = version
-			b.upstreamFingerprint = c.fingerprint
-			b.stateMu.Unlock()
-			if _, has := answer.Result["instructions"]; !has {
-				answer.Result["instructions"] = "Blaxel tools default to workspace " + c.workspace + ". Pass a workspace argument to intentionally select another authorized workspace. " + mcpLoginInstructions
-				b.writeResult(answer.ID, answer.Result)
-				return
-			}
-		case "tools/list":
-			b.setListed("tools")
+	if m.Method == "initialize" && json.Unmarshal(message, &answer) == nil && answer.Result != nil && string(answer.ID) == string(m.ID) {
+		version, _ := answer.Result["protocolVersion"].(string)
+		b.stateMu.Lock()
+		b.protocolVersion = version
+		b.stateMu.Unlock()
+		if _, has := answer.Result["instructions"]; !has {
+			answer.Result["instructions"] = "Blaxel tools default to workspace " + workspace + ". Pass a workspace argument to intentionally select another authorized workspace."
+			b.writeResult(answer.ID, answer.Result)
+			return
 		}
 	}
 	b.write(message)
 }
+
 func (b *mcpBridge) requestError(ctx context.Context, m rpcEnvelope, message string) {
 	if ctx.Err() != nil || !m.isRequest() {
 		return
@@ -481,26 +346,33 @@ func (b *mcpBridge) requestError(ctx context.Context, m rpcEnvelope, message str
 		b.writeError(m.ID, -32603, message)
 	}
 }
+
 func (b *mcpBridge) fail(ctx context.Context, m rpcEnvelope, code int, message string) {
 	if m.isRequest() && ctx.Err() == nil {
 		b.writeError(m.ID, code, message)
 	}
 }
+
 func (b *mcpBridge) writeToolText(id json.RawMessage, text string, isError bool) {
-	b.writeResult(id, map[string]any{"content": []any{map[string]string{"type": "text", "text": text}}, "isError": isError})
+	content := []any{map[string]string{"type": "text", "text": text}}
+	b.writeResult(id, map[string]any{"content": content, "isError": isError})
 }
+
 func (b *mcpBridge) writeResult(id json.RawMessage, result any) {
 	data, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
 	if err == nil {
 		b.write(data)
 	}
 }
+
 func (b *mcpBridge) writeError(id json.RawMessage, code int, message string) {
-	data, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "error": map[string]any{"code": code, "message": message}})
+	failure := map[string]any{"code": code, "message": message}
+	data, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": id, "error": failure})
 	if err == nil {
 		b.write(data)
 	}
 }
+
 func (b *mcpBridge) write(message []byte) {
 	var line bytes.Buffer
 	if json.Compact(&line, message) != nil {
@@ -523,6 +395,7 @@ func (b *mcpBridge) write(message []byte) {
 		}
 	}
 }
+
 func (b *mcpBridge) track(id string, cancel context.CancelFunc) {
 	b.stateMu.Lock()
 	defer b.stateMu.Unlock()
@@ -531,7 +404,13 @@ func (b *mcpBridge) track(id string, cancel context.CancelFunc) {
 	}
 	b.cancels[id] = cancel
 }
-func (b *mcpBridge) untrack(id string) { b.stateMu.Lock(); delete(b.cancels, id); b.stateMu.Unlock() }
+
+func (b *mcpBridge) untrack(id string) {
+	b.stateMu.Lock()
+	delete(b.cancels, id)
+	b.stateMu.Unlock()
+}
+
 func (b *mcpBridge) cancel(id string) {
 	b.stateMu.Lock()
 	cancel := b.cancels[id]

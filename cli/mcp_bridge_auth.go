@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,28 +32,30 @@ type mcpAuthenticator interface {
 	reject(mcpCredentials)
 }
 
+// mcpExchangeCooldown is how long a failed token exchange is not repeated.
+const mcpExchangeCooldown = 5 * time.Second
+
 // Each process re-reads credentials and keeps refreshed tokens only in memory.
 // The context-aware gate serializes refreshes without blocking cancelled callers.
 type bridgeAuth struct {
-	explicit                   string
-	env                        func(string) string
-	loadConfig                 func() (blaxel.Config, error)
-	environment                func(string) string // test seam; production uses stored workspace env
-	client                     *http.Client
-	now                        func() time.Time
-	once                       sync.Once
-	gate                       chan struct{}
-	workspace, baseURL, forced string
-	pinnedEnv                  string
-	retryAt                    time.Time
-	retryFingerprint           string
-	retryErr                   error
-	failures                   int
-	refreshRetryAt             time.Time
-	refreshRetryFingerprint    string
-	refreshRetryErr            error
-	refreshFailures            int
-	cached                     struct {
+	explicit   string // --workspace or BL_WORKSPACE
+	env        func(string) string
+	loadConfig func() (blaxel.Config, error)
+	client     *http.Client
+	now        func() time.Time
+	once       sync.Once
+	gate       chan struct{}
+	// The default workspace and the origin of its stored environment are pinned
+	// by the first request that finds a login.
+	workspace, baseURL, pinnedEnv string
+	// forced is the login whose access token the server refused.
+	forced string
+	failed struct {
+		grant string
+		until time.Time
+		err   error
+	}
+	cached struct {
 		refreshToken, accessToken string
 		expires, issued           time.Time
 	}
@@ -150,32 +151,23 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 	}
 	if a.baseURL == "" {
 		base, err := bridgeBaseURL(storedEnv)
-		if a.environment != nil {
-			base, err = a.environment(workspace), nil
-		}
 		if err != nil {
 			return mcpCredentials{}, err
 		}
-		a.baseURL, a.pinnedEnv = strings.TrimSuffix(base, "/"), storedEnv
-	} else if a.environment == nil && a.pinnedEnv != storedEnv {
+		a.baseURL, a.pinnedEnv = base, storedEnv
+	} else if a.pinnedEnv != storedEnv {
 		return mcpCredentials{}, errors.New("the pinned workspace environment changed; restart or reconnect this agent")
 	}
-	fp := credentialsFingerprint(c)
-	if a.retryFingerprint == fp && a.now().Before(a.retryAt) {
-		return mcpCredentials{}, a.retryErr
-	}
-	authorization, err := a.authorization(ctx, workspace, c)
+	authorization, err := a.authorization(ctx, c)
 	if err != nil {
-		a.retryFingerprint, a.retryErr = fp, err
-		a.failures++
-		delay := min(time.Second*time.Duration(1<<min(a.failures-1, 3)), 8*time.Second) + time.Duration(rand.IntN(500))*time.Millisecond
-		a.retryAt = a.now().Add(delay)
 		return mcpCredentials{}, err
 	}
-	a.retryErr = nil
-	a.failures = 0
-	a.retryFingerprint = ""
-	return mcpCredentials{workspace: workspace, endpoint: a.baseURL + "/mcp", fingerprint: fp, headers: map[string]string{"Authorization": authorization, "X-Blaxel-Workspace": workspace}}, nil
+	return mcpCredentials{
+		workspace:   workspace,
+		endpoint:    a.baseURL + "/mcp",
+		fingerprint: credentialsFingerprint(c),
+		headers:     map[string]string{"Authorization": authorization, "X-Blaxel-Workspace": workspace},
+	}, nil
 }
 
 func bridgeBaseURL(env string) (string, error) {
@@ -201,15 +193,14 @@ func (a *bridgeAuth) reject(c mcpCredentials) {
 	}
 	a.forced = c.fingerprint
 	a.cached.accessToken = ""
-	a.retryFingerprint = ""
-	a.refreshRetryFingerprint = ""
+	a.failed.grant = ""
 }
 
 func credentialsFingerprint(c blaxel.Credentials) string {
 	return strings.Join([]string{c.APIKey, c.AccessToken, c.RefreshToken, c.DeviceCode, c.ClientCredentials}, "\x00")
 }
 
-func (a *bridgeAuth) authorization(ctx context.Context, _ string, c blaxel.Credentials) (string, error) {
+func (a *bridgeAuth) authorization(ctx context.Context, c blaxel.Credentials) (string, error) {
 	fp := credentialsFingerprint(c)
 	forced := a.forced == fp
 	if forced && (c.APIKey != "" || (c.RefreshToken == "" && (c.ClientCredentials == "" || c.AccessToken != ""))) {
@@ -276,24 +267,14 @@ func (a *bridgeAuth) accessToken(ctx context.Context, c blaxel.Credentials) (str
 	if !forced && ok && tokenFresh(issued, expires, now) {
 		return token, nil
 	}
-	if a.refreshRetryFingerprint == fp && now.Before(a.refreshRetryAt) {
-		if !forced && !errors.Is(a.refreshRetryErr, errNotLoggedIn) && ok && now.Before(expires) {
-			return token, nil
-		}
-		return "", a.refreshRetryErr
-	}
 	refreshed, err := a.refresh(ctx, c)
 	if err != nil {
-		a.refreshFailures++
-		a.refreshRetryFingerprint, a.refreshRetryErr = fp, err
-		a.refreshRetryAt = now.Add(time.Second*time.Duration(1<<min(a.refreshFailures-1, 3)) + time.Duration(rand.IntN(500))*time.Millisecond)
+		// A transient failure is not a logout: keep using a token that is still valid.
 		if !forced && !errors.Is(err, errNotLoggedIn) && ok && now.Before(expires) {
 			return token, nil
 		}
 		return "", err
 	}
-	a.refreshRetryFingerprint = ""
-	a.refreshFailures = 0
 	a.cache(fp, refreshed)
 	a.forced = ""
 	return refreshed, nil
@@ -304,7 +285,18 @@ func (a *bridgeAuth) refresh(ctx context.Context, c blaxel.Credentials) (string,
 }
 
 // All grants use our hardened HTTP client, never the SDK's global OAuth cache.
-func (a *bridgeAuth) exchange(ctx context.Context, grant map[string]string) (string, error) {
+func (a *bridgeAuth) exchange(ctx context.Context, grant map[string]string) (token string, err error) {
+	// One failure is remembered briefly, so every call does not retry it.
+	key := grant["refresh_token"] + "\x00" + grant["client_id"] + "\x00" + grant["client_secret"]
+	if a.failed.grant == key && a.now().Before(a.failed.until) {
+		return "", a.failed.err
+	}
+	caller := ctx
+	defer func() {
+		if err != nil && caller.Err() == nil {
+			a.failed.grant, a.failed.until, a.failed.err = key, a.now().Add(mcpExchangeCooldown), err
+		}
+	}()
 	bodyGrant := grant
 	if grant["grant_type"] == "client_credentials" {
 		bodyGrant = map[string]string{"grant_type": "client_credentials"}

@@ -325,7 +325,7 @@ var mcpTargets = map[string]mcpTarget{
 		entry: func(e mcpEnv, name string) map[string]any {
 			return jsonConfigEntry(claudeConfigFile(e), "mcpServers", name)
 		},
-		write: writeClaudeMCPServer,
+		write:     writeClaudeMCPServer,
 		hasPlugin: func(e mcpEnv) bool { return len(installedClaudePlugins(e)) > 0 },
 		pluginDirs: func(e mcpEnv) []string {
 			var dirs []string

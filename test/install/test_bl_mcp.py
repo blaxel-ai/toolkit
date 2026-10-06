@@ -33,7 +33,7 @@ for line in result.stdout.splitlines():
     message = json.loads(line)  # every line is one JSON-RPC message
     answers[message["id"]] = message
 assert sorted(answers) == [1, 2], result.stdout
-assert answers[1]["result"]["capabilities"]["tools"]["listChanged"] is True, answers[1]
+assert "tools" in answers[1]["result"]["capabilities"], answers[1]
 tools = [tool["name"] for tool in answers[2]["result"]["tools"]]
 assert tools == [], tools
 assert "bl login" in answers[1]["result"]["instructions"]

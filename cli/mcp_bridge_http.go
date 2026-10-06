@@ -20,14 +20,10 @@ var errMCPIncomplete = errors.New("blaxel MCP response ended before the request 
 type mcpHTTPError struct{ status int }
 
 func (e *mcpHTTPError) Error() string {
-	switch e.status {
-	case 403:
+	if e.status == http.StatusForbidden {
 		return "Blaxel MCP answered HTTP 403: requested workspace is unavailable; check its name and your access"
-	case 408, 429:
-		return fmt.Sprintf("Blaxel MCP answered HTTP %d; retry shortly (the call was not replayed)", e.status)
-	default:
-		return fmt.Sprintf("Blaxel MCP answered HTTP %d (the call was not replayed)", e.status)
 	}
+	return fmt.Sprintf("Blaxel MCP answered HTTP %d (the call was not replayed)", e.status)
 }
 
 func newMCPHTTPClient() *http.Client {
