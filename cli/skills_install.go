@@ -37,7 +37,7 @@ func SkillsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(&cobra.Command{
 		Use: "install", Short: "Install or refresh Blaxel skills for coding agents",
-		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.",
+		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.\nExisting externally managed skill links are kept, not refreshed. Same-name\nskills in nested folders are reused automatically. Conflicting copies are\nbacked up outside the agents' skills folders and replaced with links.",
 		Args:         cobra.NoArgs,
 		RunE:         func(_ *cobra.Command, _ []string) error { return installSkillsOnce() },
 		SilenceUsage: true, SilenceErrors: true,
@@ -47,8 +47,11 @@ func SkillsCmd() *cobra.Command {
 
 // skillsInstallResult summarizes a successful installation for the user.
 type skillsInstallResult struct {
-	skills []string
-	agents []string
+	skills    []string
+	preserved []string // externally managed skills used without refreshing or claiming ownership
+	repaired  []string
+	backups   []string
+	agents    []string
 }
 
 const (
@@ -379,26 +382,48 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	}
 	paths := newSkillsAgentPaths(home, env)
 	canonicalBase := filepath.Join(home, ".agents", "skills")
+	plans, err := planSkillsInstall(canonicalBase, paths, skills, selected)
+	if err != nil {
+		return skillsInstallResult{}, err
+	}
 	_, agentNames := skillsTargets(selected)
 	result := skillsInstallResult{agents: agentNames}
-	for _, skill := range skills {
-		folder := sanitizeSkillName(skill.name)
-		canonical := filepath.Join(canonicalBase, folder)
-		if err := replaceSkillFolder(canonical, skill.files); err != nil {
-			return skillsInstallResult{}, fmt.Errorf("installing %s: %w", skill.name, err)
+	var installed []archivedSkill
+	for _, plan := range plans {
+		files := plan.skill.files
+		if plan.preserved {
+			result.preserved = append(result.preserved, plan.skill.name)
+			files = nil // a failed symlink must never fall back to a copy of the upstream fork
+		} else {
+			if err := replaceSkillFolder(plan.canonical, files); err != nil {
+				return skillsInstallResult{}, fmt.Errorf("installing %s: %w", plan.skill.name, err)
+			}
+			installed = append(installed, plan.skill)
+			result.skills = append(result.skills, plan.skill.name)
 		}
-		for _, agent := range selected {
-			if agent.universal {
+		for _, link := range plan.links {
+			if link.repair {
+				backup, err := repairSkillLink(link)
+				if err != nil {
+					return skillsInstallResult{}, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
+				}
+				result.repaired = append(result.repaired, link.destination)
+				if backup != "" {
+					result.backups = append(result.backups, backup)
+				}
 				continue
 			}
-			if err := linkSkillFolder(canonical, filepath.Join(skillsAgentDir(agent, paths), folder), skill.files); err != nil {
-				return skillsInstallResult{}, fmt.Errorf("installing %s for %s: %w", skill.name, agent.name, err)
+			if err := linkSkillFolder(link.target, link.destination, files); errors.Is(err, errManagedSkillNotLinked) {
+				continue // that agent is left unchanged
+			} else if err != nil {
+				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
 			}
 		}
-		result.skills = append(result.skills, skill.name)
 	}
-	if err := recordSkillsLock(home, env, skills, now); err != nil {
-		return skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", err)
+	if len(installed) > 0 {
+		if err := recordSkillsLock(home, env, installed, now); err != nil {
+			return skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", err)
+		}
 	}
 	return result, nil
 }
@@ -448,6 +473,11 @@ func writeSkillFolder(dir string, files []skillFile) error {
 // replaceSkillFolder swaps in a fresh copy of the skill, so agents never see a
 // half-written skill and a failure leaves the previous version in place.
 func replaceSkillFolder(destination string, files []skillFile) error {
+	if info, err := os.Lstat(destination); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("externally managed skill link %s was left unchanged", destination)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 	parent := filepath.Dir(destination)
 	if err := os.MkdirAll(parent, 0755); err != nil {
 		return err
@@ -487,6 +517,11 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 // linkSkillFolder points an agent's skill folder at the shared copy, and
 // falls back to a copy where links are unavailable (such as Windows without
 // developer mode).
+// errManagedSkillNotLinked means an externally managed skill could not be
+// linked into an agent's folder (Windows has no link here). No upstream copy
+// is substituted; that agent's folder is left unchanged.
+var errManagedSkillNotLinked = errors.New("externally managed skill not linked")
+
 func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
 		return err
@@ -504,6 +539,11 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if existing, err := filepath.EvalSymlinks(linkPath); err == nil && existing == target {
 		return nil
 	}
+	if info, err := os.Lstat(linkPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("externally managed skill link %s was left unchanged", linkPath)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 	relative, err := filepath.Rel(linkDir, target)
 	if err != nil {
 		relative = target
@@ -517,6 +557,9 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	fresh := filepath.Join(staging, "new")
 	// A relative link resolves from the folder it ends up in, not the staging folder.
 	if runtime.GOOS == "windows" || os.Symlink(relative, fresh) != nil {
+		if files == nil {
+			return errManagedSkillNotLinked
+		}
 		if err := writeSkillFolder(fresh, files); err != nil {
 			return err
 		}

@@ -38,6 +38,7 @@ jobs:
         run: |
           go build -o "$RUNNER_TEMP/blaxel" .
           python3 test/install/test_homebrew_skills.py "$RUNNER_TEMP/blaxel"
+          python3 test/install/test_managed_skills.py "$RUNNER_TEMP/blaxel"
 
       - name: Installer under sudo, in a container
         run: sh test/install/test_sudo.sh "$RUNNER_TEMP/blaxel"

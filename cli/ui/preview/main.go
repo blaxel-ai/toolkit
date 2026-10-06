@@ -177,9 +177,20 @@ func main() {
 				summary.Problems++
 			}
 		}
-		summary.Title = "Blaxel is ready"
+		var remaining []string
+		if workspace == "" {
+			remaining = append(remaining, "bl login")
+		}
 		if summary.Problems > 0 {
-			summary.Title = fmt.Sprintf("Blaxel is set up, with %d problems", summary.Problems)
+			remaining = append(remaining, "bl setup")
+		}
+		summary.Title = "Blaxel is ready"
+		if len(remaining) > 0 {
+			step := "step"
+			if len(remaining) > 1 {
+				step = "steps"
+			}
+			summary.Title = fmt.Sprintf("%d %s left: %s", len(remaining), step, strings.Join(remaining, ", "))
 		}
 		summary.Next = [][2]string{{"source ~/.zshrc", "use bl in this terminal"}, {"Restart your agents", `and ask: "Create a Blaxel sandbox"`}}
 		if workspace == "" {

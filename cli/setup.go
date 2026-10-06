@@ -53,6 +53,7 @@ type setupOptions struct {
 	login                           func(ctx context.Context, c *ui.Control, workspace string) (string, error)
 	loginState                      func(workspace string) string
 	trackingConfigured              func() bool
+	trackingEnabled                 func() bool
 	setTracking                     func(bool)
 }
 
@@ -107,6 +108,7 @@ bl mcp.`,
 			options.login = setupDeviceLogin
 			options.loginState = setupLoginState
 			options.trackingConfigured = blaxel.IsTrackingConfigured
+			options.trackingEnabled = blaxel.IsTrackingEnabled
 			options.setTracking = blaxel.SetTracking
 			options.mcp = newMCPEnv(home)
 			bl, pathErr := blCommandPath(os.Executable)
@@ -420,9 +422,12 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 	explicit := strings.EqualFold(strings.TrimSpace(options.env(trackingInstallEnv)), "true")
 	// DO_NOT_TRACK, set either way, is already a choice, as in sdk-go.
 	doNotTrack := strings.TrimSpace(options.env("DO_NOT_TRACK")) != ""
-	if !doNotTrack && !options.trackingConfigured() && (explicit || !ciEnvironment(options.env)) {
-		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster",
-			On: !envDisabled(options.env, trackingInstallEnv)})
+	if !doNotTrack && (explicit || !ciEnvironment(options.env)) {
+		enabled := !envDisabled(options.env, trackingInstallEnv)
+		if strings.TrimSpace(options.env(trackingInstallEnv)) == "" && options.trackingConfigured() {
+			enabled = options.trackingEnabled()
+		}
+		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster", On: enabled})
 	}
 	return items
 }
@@ -431,6 +436,9 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 type setupOutcome struct {
 	mu        sync.Mutex
 	skills    []string
+	preserved []string
+	repaired  []string
+	backups   []string
 	mcp       map[string]mcpAgentResult
 	workspace string
 	tracking  *bool
@@ -527,9 +535,12 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 				return "", err
 			}
 			outcome.mu.Lock()
-			outcome.skills = result.skills
+			outcome.skills = append(append([]string(nil), result.skills...), result.preserved...)
+			outcome.preserved = result.preserved
+			outcome.repaired = result.repaired
+			outcome.backups = result.backups
 			outcome.mu.Unlock()
-			return strings.Join(result.skills, ", "), nil
+			return skillsInstallDetail(result), nil
 		}})
 	}
 	var servers []mcpServer
@@ -636,6 +647,19 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 	case len(agents) == 0 && chosen["skills"]:
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: "~/.agents/skills"})
 	}
+	if len(outcome.preserved) > 0 {
+		detail := "links and contents unchanged"
+		if len(outcome.repaired) > 0 {
+			detail = "existing contents unchanged"
+		}
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Kept managed", Detail: strings.Join(outcome.preserved, ", ") + " · " + detail})
+	}
+	if len(outcome.repaired) > 0 {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Auto-fixed", Detail: "skill paths linked to existing copies"})
+	}
+	for _, backup := range outcome.backups {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Backup", Detail: backup})
+	}
 	if shell := strings.TrimSpace(options.env(installerShellEnv)); shell != "" {
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Shell", Detail: shell})
 	}
@@ -661,9 +685,17 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 			summary.Problems++
 		}
 	}
+	var remaining []string
+	if loggedIn == "" {
+		remaining = append(remaining, "bl login")
+	}
+	// A failed login is covered by bl login; other failed installs need a retry.
+	if slices.ContainsFunc(summary.Lines, func(line ui.Line) bool { return line.Failed && line.Label != "Log in" }) {
+		remaining = append(remaining, "bl setup")
+	}
 	summary.Title = "Blaxel is ready"
-	if summary.Problems > 0 {
-		summary.Title = fmt.Sprintf("Blaxel is set up, with %d %s", summary.Problems, plural(summary.Problems, "problem", "problems"))
+	if len(remaining) > 0 {
+		summary.Title = fmt.Sprintf("%d %s left: %s", len(remaining), plural(len(remaining), "step", "steps"), strings.Join(remaining, ", "))
 	}
 	if reload := strings.TrimSpace(options.env(installerReloadEnv)); reload != "" {
 		summary.Next = append(summary.Next, [2]string{reload, "use bl in this terminal"})
