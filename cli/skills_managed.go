@@ -66,7 +66,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 		}
 		if err == nil {
 			switch {
-			case info.Mode()&os.ModeSymlink != 0:
+			case isSkillLink(canonical, info.Mode()):
 				manifest, err := os.ReadFile(filepath.Join(canonical, "SKILL.md"))
 				name, valid := skillManifestName(manifest)
 				if err != nil || !valid || name != skill.name {
@@ -110,7 +110,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
 			}
-			managed := info != nil && info.Mode()&os.ModeSymlink != 0
+			managed := info != nil && isSkillLink(link, info.Mode())
 			if managed && destination != target && destination != flatTarget {
 				manifest, err := os.ReadFile(filepath.Join(link, "SKILL.md"))
 				name, valid := skillManifestName(manifest)
@@ -118,7 +118,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 					return nil, fmt.Errorf("externally managed link %s does not contain a valid %s skill; left unchanged", link, skill.name)
 				}
 			}
-			if err == nil && !info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+			if err == nil && !info.IsDir() && !managed {
 				return nil, fmt.Errorf("skill destination %s is not a directory; left unchanged", link)
 			}
 			// A root shared with ~/.agents/skills has already been reconciled.
@@ -142,7 +142,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 				continue
 			}
 			if !managed || destination == target || destination == flatTarget {
-				repair := plan.preserved && info != nil && info.IsDir() && destination != target
+				repair := plan.preserved && !managed && info != nil && info.IsDir() && destination != target
 				plan.links = append(plan.links, skillLinkPlan{target: plan.canonical, destination: link, root: root, repair: repair})
 			}
 		}
@@ -184,6 +184,60 @@ func planExistingSkill(root, flat, target string, existing []string, managed boo
 		repairs = append(repairs, skillLinkPlan{target: source, destination: flat, root: root, repair: true})
 	}
 	return source, repairs, nil
+}
+
+// Windows junctions are ModeIrregular on modern Go. Recognize only irregular
+// entries that Readlink accepts, not arbitrary devices or other reparse points.
+func isSkillLink(name string, mode os.FileMode) bool {
+	if mode&os.ModeSymlink != 0 {
+		return true
+	}
+	if mode&os.ModeIrregular == 0 {
+		return false
+	}
+	_, err := os.Readlink(name)
+	return err == nil
+}
+
+// Check required link support before installing any earlier upstream skill.
+// In particular, junctions are unavailable on some Windows filesystems. Probe
+// outside scanned roots, remove the probe, and leave every skill/lock unchanged
+// when the platform cannot project a retained copy.
+func preflightSkillRepairs(plans []skillInstallPlan) error {
+	checked := map[struct{ root, target string }]bool{}
+	for _, plan := range plans {
+		for _, link := range plan.links {
+			if !link.repair {
+				continue
+			}
+			root, err := resolveSkillPath(link.root)
+			if err != nil {
+				return err
+			}
+			target, err := resolveSkillPath(link.target)
+			if err != nil {
+				return err
+			}
+			key := struct{ root, target string }{root, target}
+			if checked[key] {
+				continue
+			}
+			if err := probeSkillDirectoryLink(root, target); err != nil {
+				return fmt.Errorf("cannot link retained skill at %s; no skills were changed: %w", link.destination, err)
+			}
+			checked[key] = true
+		}
+	}
+	return nil
+}
+
+func probeSkillDirectoryLink(root, target string) error {
+	staging, err := os.MkdirTemp(filepath.Dir(root), ".blaxel-skills-link-check-")
+	if err != nil {
+		return err
+	}
+	err = skillDirectoryLink(target, target, filepath.Join(staging, "link"))
+	return errors.Join(err, os.RemoveAll(staging))
 }
 
 // repairSkillLink retains the displaced directory on the same filesystem,
@@ -238,7 +292,7 @@ func repairSkillLink(plan skillLinkPlan) (string, error) {
 // Resolve existing links even when the final destination does not exist yet.
 // A dangling skill link can then be compared to its planned canonical target.
 func resolveSkillPath(name string) (string, error) {
-	resolved, err := filepath.EvalSymlinks(name)
+	resolved, err := evalSkillLinks(name)
 	if err == nil {
 		return resolved, nil
 	}
@@ -251,7 +305,7 @@ func resolveSkillPath(name string) (string, error) {
 		}
 		// EvalSymlinks already rejects cycles; a dangling link's target has a
 		// missing component, so resolve only its parent rather than follow it again.
-		parent, err := filepath.EvalSymlinks(filepath.Dir(target))
+		parent, err := evalSkillLinks(filepath.Dir(target))
 		if err == nil {
 			return filepath.Join(parent, filepath.Base(target)), nil
 		}
@@ -288,7 +342,7 @@ func existingSkillFolders(root string, wanted map[string]bool) (map[string][]str
 				}
 				return nil
 			}
-			if entry.Type()&os.ModeSymlink != 0 {
+			if isSkillLink(name, entry.Type()) {
 				info, err := os.Stat(name)
 				if errors.Is(err, os.ErrNotExist) {
 					return nil // destination preflight handles broken projections
