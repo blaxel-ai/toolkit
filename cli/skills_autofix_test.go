@@ -2,8 +2,8 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -12,9 +12,6 @@ import (
 )
 
 func TestInstallSkillsArchiveAutoFixesFlatAndNestedCopies(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	home := resolvedTempDir(t)
 	root := filepath.Join(home, ".agents", "skills")
 	claude := filepath.Join(home, ".claude", "skills")
@@ -44,7 +41,7 @@ func TestInstallSkillsArchiveAutoFixesFlatAndNestedCopies(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
-		target, err := filepath.EvalSymlinks(filepath.Join(root, name))
+		target, err := evalSkillLinks(filepath.Join(root, name))
 		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(root, "blaxel", name), target)
 		assertSkillLink(t, home, claude, name)
@@ -67,9 +64,6 @@ func TestInstallSkillsArchiveAutoFixesFlatAndNestedCopies(t *testing.T) {
 }
 
 func TestInstallSkillsArchiveReconcilesMultipleNestedCopies(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	home := resolvedTempDir(t)
 	root := filepath.Join(home, ".agents", "skills")
 	first := filepath.Join(root, "a", "sdk")
@@ -81,7 +75,7 @@ func TestInstallSkillsArchiveReconcilesMultipleNestedCopies(t *testing.T) {
 	require.Len(t, result.backups, 1)
 	assert.Equal(t, skillManifest("blaxel-sdk")+"Second local copy.\n", readTestFile(t, filepath.Join(result.backups[0], "SKILL.md")))
 	for _, path := range []string{second, filepath.Join(root, "blaxel-sdk")} {
-		target, err := filepath.EvalSymlinks(path)
+		target, err := evalSkillLinks(path)
 		require.NoError(t, err)
 		assert.Equal(t, first, target)
 	}
@@ -114,10 +108,29 @@ func TestInstallSkillsArchivePreflightsRepairsBeforeWriting(t *testing.T) {
 	assert.Equal(t, []string{"skills"}, dirNames(t, filepath.Dir(root)))
 }
 
+func TestInstallSkillsArchivePreflightsUnavailableRepairLinks(t *testing.T) {
+	home := resolvedTempDir(t)
+	root := filepath.Join(home, ".agents", "skills")
+	nested := filepath.Join(root, "blaxel", "blaxel-sdk")
+	flat := filepath.Join(root, "blaxel-sdk")
+	manifest := skillManifest("blaxel-sdk") + "Retained local fork.\n"
+	writeTestFile(t, filepath.Join(nested, "SKILL.md"), manifest)
+	writeTestFile(t, filepath.Join(flat, "custom.txt"), "Retain duplicate")
+	previous := skillDirectoryLink
+	unavailable := errors.New("directory links are unavailable")
+	skillDirectoryLink = func(_, _, _ string) error { return unavailable }
+	t.Cleanup(func() { skillDirectoryLink = previous })
+
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, func(string) string { return "" }, nil, time.Now())
+	require.ErrorIs(t, err, unavailable)
+	assert.Contains(t, err.Error(), "no skills were changed")
+	assert.NoDirExists(t, filepath.Join(root, "blaxel-cli"), "an earlier upstream skill must not be written")
+	assert.Equal(t, manifest, readTestFile(t, filepath.Join(nested, "SKILL.md")))
+	assert.Equal(t, "Retain duplicate", readTestFile(t, filepath.Join(flat, "custom.txt")))
+	assert.Equal(t, []string{"skills"}, dirNames(t, filepath.Join(home, ".agents")), "no probe, backup, or lock may remain")
+}
+
 func TestSetupReportsAutomaticSkillRepair(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	home := resolvedTempDir(t)
 	root := filepath.Join(home, ".agents", "skills")
 	writeTestFile(t, filepath.Join(root, "blaxel", "blaxel-cli", "SKILL.md"), skillManifest("blaxel-cli"))

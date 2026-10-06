@@ -16,7 +16,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -386,6 +385,9 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	if err != nil {
 		return skillsInstallResult{}, err
 	}
+	if err := preflightSkillRepairs(plans); err != nil {
+		return skillsInstallResult{}, err
+	}
 	_, agentNames := skillsTargets(selected)
 	result := skillsInstallResult{agents: agentNames}
 	var installed []archivedSkill
@@ -473,7 +475,7 @@ func writeSkillFolder(dir string, files []skillFile) error {
 // replaceSkillFolder swaps in a fresh copy of the skill, so agents never see a
 // half-written skill and a failure leaves the previous version in place.
 func replaceSkillFolder(destination string, files []skillFile) error {
-	if info, err := os.Lstat(destination); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Lstat(destination); err == nil && isSkillLink(destination, info.Mode()) {
 		return fmt.Errorf("externally managed skill link %s was left unchanged", destination)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -482,7 +484,7 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 	if err := os.MkdirAll(parent, 0755); err != nil {
 		return err
 	}
-	if resolved, err := filepath.EvalSymlinks(parent); err == nil {
+	if resolved, err := evalSkillLinks(parent); err == nil {
 		parent = resolved
 		destination = filepath.Join(parent, filepath.Base(destination))
 	}
@@ -515,31 +517,33 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 }
 
 // linkSkillFolder points an agent's skill folder at the shared copy, and
-// falls back to a copy where links are unavailable (such as Windows without
-// developer mode).
+// uses a junction on Windows without requiring symlink privileges, and falls
+// back to a copy where directory links are unavailable.
 // errManagedSkillNotLinked means an externally managed skill could not be
-// linked into an agent's folder (Windows has no link here). No upstream copy
+// linked into an agent's folder. No upstream copy
 // is substituted; that agent's folder is left unchanged.
 var errManagedSkillNotLinked = errors.New("externally managed skill not linked")
+
+var skillDirectoryLink = createSkillDirectoryLink
 
 func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
 		return err
 	}
-	linkDir, err := filepath.EvalSymlinks(filepath.Dir(linkPath))
+	linkDir, err := evalSkillLinks(filepath.Dir(linkPath))
 	if err != nil {
 		return err
 	}
-	target, err := filepath.EvalSymlinks(canonical)
+	target, err := evalSkillLinks(canonical)
 	if err != nil {
 		return err
 	}
 	linkPath = filepath.Join(linkDir, filepath.Base(linkPath))
 	// Already linked, or the agent's skills folder is itself a link to the shared one.
-	if existing, err := filepath.EvalSymlinks(linkPath); err == nil && existing == target {
+	if existing, err := evalSkillLinks(linkPath); err == nil && existing == target {
 		return nil
 	}
-	if info, err := os.Lstat(linkPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Lstat(linkPath); err == nil && isSkillLink(linkPath, info.Mode()) {
 		return fmt.Errorf("externally managed skill link %s was left unchanged", linkPath)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -556,9 +560,9 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	defer func() { _ = os.RemoveAll(staging) }()
 	fresh := filepath.Join(staging, "new")
 	// A relative link resolves from the folder it ends up in, not the staging folder.
-	if runtime.GOOS == "windows" || os.Symlink(relative, fresh) != nil {
+	if err := skillDirectoryLink(target, relative, fresh); err != nil {
 		if files == nil {
-			return errManagedSkillNotLinked
+			return fmt.Errorf("%w: %v", errManagedSkillNotLinked, err)
 		}
 		if err := writeSkillFolder(fresh, files); err != nil {
 			return err

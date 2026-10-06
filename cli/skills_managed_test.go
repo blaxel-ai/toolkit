@@ -16,18 +16,19 @@ import (
 // (C:\Users\RUNNER~1) expanded, matching the resolved paths in error messages.
 func resolvedTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := filepath.EvalSymlinks(t.TempDir())
+	dir, err := evalSkillLinks(t.TempDir())
 	require.NoError(t, err)
 	return dir
 }
 
 func managedSkillLink(t *testing.T, target, link string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	require.NoError(t, os.MkdirAll(filepath.Dir(link), 0755))
-	require.NoError(t, os.Symlink(target, link))
+	absolute := target
+	if !filepath.IsAbs(absolute) {
+		absolute = filepath.Join(filepath.Dir(link), target)
+	}
+	require.NoError(t, createSkillDirectoryLink(absolute, target, link))
 }
 
 func TestInstallSkillsArchivePreservesManagedProjection(t *testing.T) {
@@ -52,7 +53,11 @@ func TestInstallSkillsArchivePreservesManagedProjection(t *testing.T) {
 		for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
 			link, err := os.Readlink(filepath.Join(root, name))
 			require.NoError(t, err, "the projection must remain a symlink")
-			assert.Equal(t, filepath.Join("blaxel", name), link)
+			expected := filepath.Join("blaxel", name)
+			if runtime.GOOS == "windows" {
+				expected = filepath.Join(root, "blaxel", name)
+			}
+			assert.Equal(t, expected, link)
 			assert.Equal(t, skillManifest(name)+"Local fork; do not replace.\n", readTestFile(t, filepath.Join(root, name, "SKILL.md")))
 			assert.Equal(t, "local reference", readTestFile(t, filepath.Join(root, name, "references", "local.md")))
 			assertSkillLink(t, home, filepath.Join(home, ".claude", "skills"), name)
@@ -80,9 +85,6 @@ func TestInstallSkillsArchivePreservesExternalSkillLink(t *testing.T) {
 }
 
 func TestInstallSkillsArchiveReusesNestedSkill(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
 		t.Run(name, func(t *testing.T) {
 			home := resolvedTempDir(t)
@@ -94,7 +96,7 @@ func TestInstallSkillsArchiveReusesNestedSkill(t *testing.T) {
 			assert.Contains(t, result.preserved, name)
 			assert.Contains(t, result.repaired, filepath.Join(root, name))
 			assert.Empty(t, result.backups)
-			target, err := filepath.EvalSymlinks(filepath.Join(root, name))
+			target, err := evalSkillLinks(filepath.Join(root, name))
 			require.NoError(t, err)
 			assert.Equal(t, nested, target)
 			assert.Equal(t, skillManifest(name)+"Local fork.\n", readTestFile(t, filepath.Join(nested, "SKILL.md")))
@@ -138,16 +140,13 @@ func TestInstallSkillsArchivePreservesAgentManagedLink(t *testing.T) {
 }
 
 func TestInstallSkillsArchiveReusesAgentNestedSkill(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("directory links need developer mode on Windows")
-	}
 	home := resolvedTempDir(t)
 	nested := filepath.Join(home, ".claude", "skills", "custom", "sdk")
 	writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest("blaxel-sdk"))
 	for range 2 {
 		_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
 		require.NoError(t, err)
-		target, err := filepath.EvalSymlinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
+		target, err := evalSkillLinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
 		require.NoError(t, err)
 		assert.Equal(t, nested, target)
 		assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(nested, "SKILL.md")))
@@ -162,7 +161,7 @@ func TestInstallSkillsArchiveChecksProjectedNamespace(t *testing.T) {
 	result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	assert.Contains(t, result.preserved, "blaxel-sdk")
-	target, err := filepath.EvalSymlinks(filepath.Join(root, "blaxel-sdk"))
+	target, err := evalSkillLinks(filepath.Join(root, "blaxel-sdk"))
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(external, "sdk"), target)
 	assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(external, "sdk", "SKILL.md")))
