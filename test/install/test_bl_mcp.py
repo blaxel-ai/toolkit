@@ -24,7 +24,9 @@ messages = "\n".join([
     json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}),
     json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}),
 ]) + "\n"
-environment = {**os.environ, "HOME": home, "USERPROFILE": home, "BL_INSTALL_SKILLS": "false"}
+# No BL_* variable (API key, workspace, ...) may log the bridge in or redirect it.
+environment = {key: value for key, value in os.environ.items() if not key.startswith("BL_")}
+environment.update({"HOME": home, "USERPROFILE": home, "BL_INSTALL_SKILLS": "false"})
 result = subprocess.run(command, input=messages, capture_output=True, text=True, timeout=60, env=environment)
 assert result.returncode == 0, result.stderr
 

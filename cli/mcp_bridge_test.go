@@ -497,3 +497,23 @@ func TestBridgeStopsAfterLogout(t *testing.T) {
 	assert.Contains(t, text, mcpLoginInstructions)
 	assert.EqualValues(t, 1, calls.Load(), "the refused call never reaches the server")
 }
+
+// A timeout is reported as a timeout, not as an unreachable server.
+func TestBridgeReportsTimeoutsAsTimeouts(t *testing.T) {
+	call := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"run_sandbox_command"}}`
+
+	b := testBridge(t, http.HandlerFunc(holdUntilClientLeaves))
+	mcpResponseHeaderTimeout = 50 * time.Millisecond
+	t.Cleanup(func() { mcpResponseHeaderTimeout = 30 * time.Second })
+	b.client = newMCPHTTPClient()
+	text, isError := toolText(t, answerFor(t, runBridge(t, b, call), 1))
+	assert.True(t, isError)
+	assert.Contains(t, text, "did not answer within 50ms")
+	assert.NotContains(t, text, "cannot reach")
+
+	b = testBridge(t, http.HandlerFunc(holdUntilClientLeaves))
+	b.requestTimeout = 50 * time.Millisecond
+	text, isError = toolText(t, answerFor(t, runBridge(t, b, call), 1))
+	assert.True(t, isError)
+	assert.Contains(t, text, "timed out")
+}

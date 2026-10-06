@@ -26,11 +26,15 @@ func (e *mcpHTTPError) Error() string {
 	return fmt.Sprintf("Blaxel MCP answered HTTP %d (the call was not replayed)", e.status)
 }
 
+// mcpResponseHeaderTimeout is how long the server may take to start answering.
+// It is a variable so that a test can shorten it.
+var mcpResponseHeaderTimeout = 30 * time.Second
+
 func newMCPHTTPClient() *http.Client {
 	return &http.Client{Transport: &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
 		DialContext:         (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 30 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: mcpResponseHeaderTimeout,
 		IdleConnTimeout: 90 * time.Second, MaxIdleConns: 20, MaxIdleConnsPerHost: 20,
 	}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 }
@@ -88,6 +92,13 @@ func (b *mcpBridge) exchange(ctx context.Context, message []byte, m rpcEnvelope,
 	}
 	response, err := doMCPRequest(b.client, request)
 	if err != nil {
+		var netErr net.Error
+		switch {
+		case errors.Is(ctx.Err(), context.DeadlineExceeded):
+			return errors.New("the Blaxel MCP call timed out (the call was not replayed)")
+		case errors.As(err, &netErr) && netErr.Timeout():
+			return fmt.Errorf("the Blaxel MCP server did not answer within %s (the call was not replayed)", mcpResponseHeaderTimeout)
+		}
 		return errors.New("cannot reach the Blaxel MCP server; retry shortly (the call was not replayed)")
 	}
 	defer func() { _ = response.Body.Close() }()
