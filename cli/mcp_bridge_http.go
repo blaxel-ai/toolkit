@@ -106,7 +106,6 @@ func (b *mcpBridge) exchange(ctx context.Context, message []byte, m rpcEnvelope,
 		return nil
 	}
 	matched := !m.isRequest()
-	var initializeErr error
 	send := func(payload []byte) {
 		if ctx.Err() != nil {
 			return
@@ -117,10 +116,6 @@ func (b *mcpBridge) exchange(ctx context.Context, message []byte, m rpcEnvelope,
 		}
 		if answer.Method == "" && string(answer.ID) == string(m.ID) && (len(answer.Result) > 0 || len(answer.Error) > 0) {
 			matched = true
-			if m.Method == "initialize" && len(answer.Error) > 0 {
-				initializeErr = errors.New("upstream initialize was refused")
-				return
-			}
 		}
 		relay(payload)
 	}
@@ -142,9 +137,6 @@ func (b *mcpBridge) exchange(ctx context.Context, message []byte, m rpcEnvelope,
 			}
 			send(body)
 		}
-	}
-	if initializeErr != nil {
-		return initializeErr
 	}
 	if err != nil && !matched {
 		return fmt.Errorf("%w: %v", errMCPIncomplete, err)

@@ -25,7 +25,7 @@ off (or set DO_NOT_TRACK=1).
 Setup only adds what is missing, and it is safe to run again after
 installing another agent. MCP server entries you configured yourself are left
 unchanged; the hosted blaxel server added by earlier versions is switched to
-bl mcp.
+bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.
 
 ```
 bl setup [flags]

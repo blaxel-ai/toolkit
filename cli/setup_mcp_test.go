@@ -95,12 +95,14 @@ func TestSetupLeavesThePluginServerAlone(t *testing.T) {
 			}
 			hosted := `{"mcpServers":{"blaxel":{"type":"http","url":"https://api.blaxel.ai/v0/mcp"}}}`
 			writeTestFile(t, filepath.Join(root, ".mcp.json"), hosted)
+			recorder := &setupRecorder{}
 			run := func() {
-				options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", skillsInstallEnv: "false"}, &setupRecorder{})
+				options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", skillsInstallEnv: "false"}, recorder)
 				options.agents = []string{agent}
 				require.NoError(t, runSetup(context.Background(), options))
 			}
 			run()
+			assert.Contains(t, recorder.text(t), "docs MCP · Blaxel MCP (Blaxel plugin)")
 			run()
 			target := mcpTargets[agent]
 			e := testMCPEnv(home, map[string]string{}, &[]fakeCommand{}, "", nil)

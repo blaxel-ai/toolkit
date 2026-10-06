@@ -79,7 +79,7 @@ off (or set DO_NOT_TRACK=1).
 Setup only adds what is missing, and it is safe to run again after
 installing another agent. MCP server entries you configured yourself are left
 unchanged; the hosted blaxel server added by earlier versions is switched to
-bl mcp.`,
+bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 		Example: `  # See what setup found, then press Enter to install
   bl setup
 
@@ -225,6 +225,15 @@ type agentStatus struct {
 	has      []string // Blaxel MCP servers it already has
 	missing  []string // Blaxel MCP servers it lacks or has in an outdated form
 	outdated []string // of missing, those an earlier setup wrote
+	plugin   bool     // the Blaxel plugin supplies the blaxel server
+}
+
+// label names a server the agent has, and says when the plugin supplies it.
+func (s agentStatus) label(name string) string {
+	if name == "blaxel" && s.plugin {
+		return mcpLabel(name) + pluginLabelSuffix
+	}
+	return mcpLabel(name)
 }
 
 // complete reports whether the agent has everything setup offers.
@@ -264,6 +273,7 @@ func newSetupPlan(options setupOptions) (setupPlan, error) {
 		if target, ok := mcpTargets[agent.id]; ok {
 			status.mcp = true
 			plugin := target.pluginServes(options.mcp)
+			status.plugin = plugin
 			for _, server := range []mcpServer{options.resourceServer, options.documentsServer} {
 				if !target.takes(server) {
 					continue
@@ -614,7 +624,7 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 				parts = append(parts, "skills")
 			}
 			for _, name := range status.has {
-				parts = append(parts, mcpLabel(name))
+				parts = append(parts, status.label(name))
 			}
 			line.Detail = strings.Join(parts, " · ")
 			summary.Lines = append(summary.Lines, line)
@@ -628,6 +638,9 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 				line.Failed, parts = true, []string{setupError(result.Err)}
 			} else {
 				parts = append(parts, outcome.mcp[agent.id].servers()...)
+				if status.plugin && !slices.Contains(outcome.mcp[agent.id].plugin, "blaxel") {
+					parts = append(parts, status.label("blaxel"))
+				}
 			}
 		}
 		if len(parts) == 0 {
@@ -763,11 +776,18 @@ func (r mcpAgentResult) short() string {
 // servers names the MCP servers the agent now has, for the final screen.
 func (r mcpAgentResult) servers() []string {
 	var names []string
-	for _, name := range slices.Concat(r.added, r.updated, r.existing, r.plugin) {
+	for _, name := range slices.Concat(r.added, r.updated, r.existing) {
 		names = append(names, mcpLabel(name))
+	}
+	for _, name := range r.plugin {
+		names = append(names, mcpLabel(name)+pluginLabelSuffix)
 	}
 	return names
 }
+
+// pluginLabelSuffix tells that the Blaxel plugin supplies a server, which setup
+// leaves as it is.
+const pluginLabelSuffix = " (Blaxel plugin)"
 
 // mcpLabel names an MCP server briefly: Blaxel MCP, docs MCP.
 func mcpLabel(name string) string {

@@ -108,8 +108,10 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 	if err != nil || (a.workspace != "" && len(config.Workspaces) == 0) {
 		// CLI writes are not atomic today. Re-read once, including apparent logout,
 		// but never retain credentials indefinitely after a real logout.
-		if err = waitMCP(ctx, 50*time.Millisecond); err != nil {
-			return mcpCredentials{}, err
+		select {
+		case <-ctx.Done():
+			return mcpCredentials{}, ctx.Err()
+		case <-time.After(50 * time.Millisecond):
 		}
 		config, err = a.loadConfig()
 	}
@@ -366,15 +368,4 @@ func jwtLifetime(token string) (issued, expires time.Time, ok bool) {
 		issued = time.Unix(int64(claims.IssuedAt), 0)
 	}
 	return issued, expires, true
-}
-
-func waitMCP(ctx context.Context, delay time.Duration) error {
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }

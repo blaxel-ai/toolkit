@@ -475,7 +475,7 @@ func TestMCPAgentResultText(t *testing.T) {
 	assert.Equal(t, "added blaxel-docs · blaxel from the Blaxel plugin",
 		mcpAgentResult{added: []string{"blaxel-docs"}, plugin: []string{"blaxel"}}.short())
 	assert.Equal(t, "blaxel and blaxel-docs already set up", mcpAgentResult{existing: []string{"blaxel", "blaxel-docs"}}.short())
-	assert.Equal(t, []string{"docs MCP", "Blaxel MCP"}, mcpAgentResult{added: []string{"blaxel-docs"}, plugin: []string{"blaxel"}}.servers())
+	assert.Equal(t, []string{"docs MCP", "Blaxel MCP (Blaxel plugin)"}, mcpAgentResult{added: []string{"blaxel-docs"}, plugin: []string{"blaxel"}}.servers())
 	assert.Equal(t, filepath.Join("~", ".codex", "config.toml"), displayHomePath("/h", "/h/.codex/config.toml"))
 	assert.Equal(t, "/etc/x", displayHomePath("/h", "/etc/x"))
 }

@@ -153,7 +153,7 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 				return mcpEntryCustom
 			}
 		}
-		if isAbsoluteMCPCommand(command) && e.exists != nil && !e.exists(command) {
+		if filepath.IsAbs(command) && e.exists != nil && !e.exists(command) {
 			return mcpEntryOutdated
 		}
 		return mcpEntryCurrent
@@ -180,10 +180,6 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 		return mcpEntryCustom
 	}
 	return mcpEntryOutdated
-}
-
-func isAbsoluteMCPCommand(path string) bool {
-	return filepath.IsAbs(path) || strings.HasPrefix(path, `\\`) || (len(path) > 2 && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
 }
 
 // entryCommand reads a local server's command and arguments, in the common
