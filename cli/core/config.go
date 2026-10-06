@@ -356,13 +356,22 @@ type Config struct {
 var blaxelTomlWarning string
 
 func readConfigToml(folder string, setDefaultType bool) {
+	_ = readConfigTomlFile(folder, "", setDefaultType) // a parse failure stays a warning
+}
+
+// readConfigTomlFile reads file from folder; an empty file means blaxel.toml.
+// A file that exists but does not parse is stored as a warning and returned as an error.
+func readConfigTomlFile(folder, file string, setDefaultType bool) error {
+	if file == "" {
+		file = "blaxel.toml"
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil
 	}
 
-	content, err := os.ReadFile(filepath.Join(cwd, folder, "blaxel.toml"))
+	content, err := os.ReadFile(filepath.Join(cwd, folder, file))
 	if err != nil {
 		// No blaxel.toml file found
 		config.Functions = []string{"all"}
@@ -372,14 +381,14 @@ func readConfigToml(folder string, setDefaultType bool) {
 		if setDefaultType {
 			config.Type = "agent"
 		}
-		return
+		return nil
 	}
 
 	err = toml.Unmarshal(content, &config)
 	if err != nil {
 		// Store the warning for the caller to handle
 		blaxelTomlWarning = buildBlaxelTomlWarning(err)
-		return
+		return fmt.Errorf("config file %s is not valid: %w", file, err)
 	}
 
 	// Resolve variable interpolation in string fields
@@ -392,6 +401,7 @@ func readConfigToml(folder string, setDefaultType bool) {
 	if config.Workspace != "" {
 		workspace = config.Workspace
 	}
+	return nil
 }
 
 // resolveConfigVars resolves variable interpolation patterns in Config string fields.

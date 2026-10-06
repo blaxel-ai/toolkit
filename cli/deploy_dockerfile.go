@@ -61,28 +61,34 @@ func resolveDeployDockerfile(cwd, folder, flag string, config core.Config, skipB
 }
 
 func resolveProjectDockerfile(projectDir, path string) (string, error) {
+	return resolveProjectFile("Dockerfile", projectDir, path)
+}
+
+// resolveProjectFile validates a user-supplied path to a regular file inside
+// projectDir. kind names the file in error messages.
+func resolveProjectFile(kind, projectDir, path string) (string, error) {
 	// Reject Windows-rooted/volume-qualified paths on every host as well as
 	// native absolute/traversal paths. IsLocal uses path components, not prefixes.
 	if !filepath.IsLocal(path) || strings.HasPrefix(path, "\\") || (len(path) >= 2 && path[1] == ':') {
-		return "", deployInputError("Dockerfile %q must be a relative path inside the project directory", path)
+		return "", deployInputError("%s %q must be a relative path inside the project directory", kind, path)
 	}
 	root, err := filepath.EvalSymlinks(projectDir)
 	if err != nil {
-		return "", deployInputError("Dockerfile %q: cannot resolve project directory %q: %v", path, projectDir, err)
+		return "", deployInputError("%s %q: cannot resolve project directory %q: %v", kind, path, projectDir, err)
 	}
 	resolved, err := filepath.EvalSymlinks(filepath.Join(projectDir, path))
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", deployInputError("Dockerfile %q not found in %s", path, projectDir)
+		return "", deployInputError("%s %q not found in %s", kind, path, projectDir)
 	}
 	if err != nil {
-		return "", deployInputError("Dockerfile %q: %v", path, err)
+		return "", deployInputError("%s %q: %v", kind, path, err)
 	}
 	rel, err := filepath.Rel(root, resolved)
 	if err != nil || !filepath.IsLocal(rel) {
-		return "", deployInputError("Dockerfile %q must be inside the project directory", path)
+		return "", deployInputError("%s %q must be inside the project directory", kind, path)
 	}
 	if info, err := os.Stat(resolved); err != nil || !info.Mode().IsRegular() {
-		return "", deployInputError("Dockerfile %q is not a regular file", path)
+		return "", deployInputError("%s %q is not a regular file", kind, path)
 	}
 	return resolved, nil
 }

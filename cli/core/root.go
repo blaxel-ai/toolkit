@@ -492,6 +492,12 @@ func ReadConfigToml(folder string, setDefaultType bool) {
 	readConfigToml(folder, setDefaultType)
 }
 
+// ReadConfigTomlFile is ReadConfigToml for a config file other than blaxel.toml.
+// It also returns the parse error, which ReadConfigToml leaves as a warning.
+func ReadConfigTomlFile(folder, file string, setDefaultType bool) error {
+	return readConfigTomlFile(folder, file, setDefaultType)
+}
+
 func GetConfig() Config {
 	return config
 }

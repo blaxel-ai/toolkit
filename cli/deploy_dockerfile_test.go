@@ -30,7 +30,7 @@ func writeDockerfileFixture(t *testing.T, root, path, content string) {
 }
 
 // runDeployProcess runs `bl deploy args...` in root as a subprocess against a stub
-// API and returns its output, exit code and the entries left in its private TMPDIR.
+// API and returns its output, exit code (0 on success) and the entries left in its private TMPDIR.
 func runDeployProcess(t *testing.T, root, apiURL string, args ...string) (stdout, stderr string, code int, tmpEntries []os.DirEntry) {
 	t.Helper()
 	home, tmp := t.TempDir(), t.TempDir()
@@ -45,11 +45,14 @@ func runDeployProcess(t *testing.T, root, apiURL string, args ...string) (stdout
 	}
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
-	var exitErr *exec.ExitError
-	require.ErrorAs(t, cmd.Run(), &exitErr, "stdout: %s; stderr: %s", &out, &errOut)
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		require.ErrorAs(t, err, &exitErr, "stdout: %s; stderr: %s", &out, &errOut)
+		code = exitErr.ExitCode()
+	}
 	entries, err := os.ReadDir(tmp)
 	require.NoError(t, err)
-	return out.String(), errOut.String(), exitErr.ExitCode(), entries
+	return out.String(), errOut.String(), code, entries
 }
 
 func TestDeployProcessHelper(t *testing.T) {

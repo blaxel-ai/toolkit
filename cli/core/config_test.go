@@ -479,6 +479,42 @@ workspace = "test-workspace"
 	assert.Equal(t, "my-function", config.Name)
 }
 
+func TestReadConfigTomlFile(t *testing.T) {
+	original := config
+	defer func() { config = original }()
+	defer ClearBlaxelTomlWarning()
+
+	t.Chdir(t.TempDir())
+	for name, content := range map[string]string{
+		"blaxel.toml":    "name = \"default\"\ntype = \"sandbox\"\n",
+		"blaxel-v2.toml": "name = \"v2\"\ntype = \"agent\"\n",
+		"bad.toml":       "name = \"bad\"\ntype = \n",
+	} {
+		require.NoError(t, os.WriteFile(name, []byte(content), 0644))
+	}
+
+	for _, tt := range []struct{ file, name, kind string }{
+		{"", "default", "sandbox"},
+		{"blaxel.toml", "default", "sandbox"},
+		{"blaxel-v2.toml", "v2", "agent"},
+	} {
+		config = Config{}
+		require.NoError(t, readConfigTomlFile("", tt.file, false))
+		assert.Equal(t, tt.name, config.Name, tt.file)
+		assert.Equal(t, tt.kind, config.Type, tt.file)
+	}
+
+	// A file that does not parse is an error naming it.
+	err := readConfigTomlFile("", "bad.toml", false)
+	require.ErrorContains(t, err, "config file bad.toml is not valid: toml:")
+
+	// The default reader keeps its warning-only behaviour for blaxel.toml.
+	require.NoError(t, os.WriteFile("blaxel.toml", []byte("type = \n"), 0644))
+	ClearBlaxelTomlWarning()
+	readConfigToml("", false)
+	assert.Contains(t, GetBlaxelTomlWarning(), "blaxel.toml Configuration Warning")
+}
+
 func TestResourceListExec(t *testing.T) {
 	r := &Resource{Kind: "Agent"}
 	result, err := r.ListExec()
