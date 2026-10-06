@@ -24,6 +24,7 @@ func TestMCPMigrationPreservesCustomAndDisabledEntries(t *testing.T) {
 		{"hosted query", "cursor", `{"mcpServers":{"blaxel":{"url":"https://api.blaxel.ai/v0/mcp?workspace=production"}}}`},
 		{"TOML nested table", "codex", "[mcp_servers.blaxel]\ncommand = \"/old/bin/bl\"\nargs = [\"mcp\"]\n[mcp_servers.blaxel.env]\nBL_ENV = \"dev\"\n\n[mcp_servers.other]\nurl = \"https://example.com\"\n"},
 		{"TOML args", "codex", "[mcp_servers.blaxel]\ncommand = \"C:\\\\old\\\\bl.exe\"\nargs = [\"mcp\", \"--workspace\", \"production\"]\n"},
+		{"TOML inline hosted entry", "codex", "[mcp_servers]\nblaxel = { url = \"https://api.blaxel.ai/v0/mcp\" }\n"},
 		{"TOML disabled", "codex", "[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\nenabled = false\n"},
 	} {
 		t.Run(fixture.name, func(t *testing.T) {

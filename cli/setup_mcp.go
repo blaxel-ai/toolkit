@@ -269,7 +269,13 @@ func addMCPServer(ctx context.Context, e mcpEnv, target mcpTarget, server mcpSer
 	case mcpEntryCurrent, mcpEntryCustom:
 		return mcpUnchanged, nil
 	case mcpEntryOutdated:
-		return mcpReplaced, target.write(ctx, e, server, true)
+		if err := target.write(ctx, e, server, true); err != nil {
+			if errors.Is(err, errMCPServerExists) {
+				return mcpUnchanged, nil // a layout setup cannot rewrite is left as it is
+			}
+			return mcpUnchanged, err
+		}
+		return mcpReplaced, nil
 	}
 	if err := target.write(ctx, e, server, false); err != nil {
 		if errors.Is(err, errMCPServerExists) {
@@ -581,7 +587,8 @@ func replaceCodexMCPServer(file string, server mcpServer) error {
 		}
 	}
 	if start < 0 {
-		return fmt.Errorf("no [mcp_servers.%s] table to replace", server.name)
+		// An inline table or dotted keys: not a layout to rewrite line by line.
+		return errMCPServerExists
 	}
 	table, err := codexServerTable(server)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -376,12 +377,19 @@ func TestBridgeStopsPromptly(t *testing.T) {
 	assert.Less(t, time.Since(start), 5*time.Second)
 }
 
+func exeSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
 // bl mcp must print nothing but JSON-RPC, even on a machine without a login.
 func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the CLI")
 	}
-	binary := filepath.Join(t.TempDir(), "bl")
+	binary := filepath.Join(t.TempDir(), "bl"+exeSuffix())
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	require.NoError(t, exec.CommandContext(ctx, "go", "build", "-o", binary, "..").Run())

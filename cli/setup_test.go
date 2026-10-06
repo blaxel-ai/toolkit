@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,6 +17,9 @@ import (
 )
 
 var testResourceServer = resourceMCPServer("/opt/blaxel/bin/bl")
+
+// movedBl is an absolute path, on any OS, to a bl that is no longer there.
+var movedBl = filepath.Join(os.TempDir(), "old", "bin", "bl")
 
 // testHostedServer is the hosted form setup wrote before bl mcp.
 var testHostedServer = mcpServer{name: "blaxel", url: "https://api.blaxel.ai/v0/mcp", plugin: true}
@@ -250,8 +254,8 @@ func TestClaudeMCPUsesTheClaudeCLI(t *testing.T) {
 func TestClaudeMCPRepairsAMovedBl(t *testing.T) {
 	home := t.TempDir()
 	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": "", "MISSING:/old/bin/bl": "1"}, &commands, "", nil)
-	writeTestFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"blaxel":{"type":"stdio","command":"/old/bin/bl","args":["mcp"],"env":{}}}}`)
+	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": "", "MISSING:" + movedBl: "1"}, &commands, "", nil)
+	writeTestFile(t, filepath.Join(home, ".claude.json"), fmt.Sprintf(`{"mcpServers":{"blaxel":{"type":"stdio","command":%q,"args":["mcp"],"env":{}}}}`, movedBl))
 	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
 	require.NoError(t, err)
 	assert.Equal(t, mcpReplaced, change)
@@ -658,7 +662,7 @@ func TestClaudeMCPLeavesFilesItCannotReadToTheCLI(t *testing.T) {
 }
 
 func TestClassifyMCPEntry(t *testing.T) {
-	env := testMCPEnv(t.TempDir(), map[string]string{"MISSING:/old/bin/bl": "1"}, &[]fakeCommand{}, "", nil)
+	env := testMCPEnv(t.TempDir(), map[string]string{"MISSING:" + movedBl: "1"}, &[]fakeCommand{}, "", nil)
 	for name, test := range map[string]struct {
 		entry map[string]any
 		want  mcpEntryState
@@ -669,9 +673,9 @@ func TestClassifyMCPEntry(t *testing.T) {
 		"bare bl":               {map[string]any{"type": "stdio", "command": "bl", "args": []any{"mcp"}}, mcpEntryCurrent},
 		"Windows bl":            {map[string]any{"command": `C:\Users\me\bin\bl.exe`, "args": []any{"mcp"}}, mcpEntryCurrent},
 		"OpenCode list":         {map[string]any{"type": "local", "command": []any{"/opt/blaxel/bin/bl", "mcp"}, "enabled": true}, mcpEntryCurrent},
-		"bl that moved":         {map[string]any{"command": "/old/bin/bl", "args": []any{"mcp"}}, mcpEntryOutdated},
-		"moved, empty env":      {map[string]any{"type": "stdio", "command": "/old/bin/bl", "args": []any{"mcp"}, "env": map[string]any{}}, mcpEntryOutdated},
-		"moved, custom env":     {map[string]any{"type": "stdio", "command": "/old/bin/bl", "args": []any{"mcp"}, "env": map[string]any{"BL_WORKSPACE": "x"}}, mcpEntryCustom},
+		"bl that moved":         {map[string]any{"command": movedBl, "args": []any{"mcp"}}, mcpEntryOutdated},
+		"moved, empty env":      {map[string]any{"type": "stdio", "command": movedBl, "args": []any{"mcp"}, "env": map[string]any{}}, mcpEntryOutdated},
+		"moved, custom env":     {map[string]any{"type": "stdio", "command": movedBl, "args": []any{"mcp"}, "env": map[string]any{"BL_WORKSPACE": "x"}}, mcpEntryCustom},
 		"hosted, Claude":        {map[string]any{"type": "http", "url": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
 		"hosted, Gemini":        {map[string]any{"httpUrl": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
 		"hosted, OpenCode":      {map[string]any{"type": "remote", "url": "https://api.blaxel.dev/v0/mcp", "enabled": true}, mcpEntryOutdated},
