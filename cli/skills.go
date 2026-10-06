@@ -91,7 +91,13 @@ func skillsInstalledMessage(result skillsInstallResult) string {
 			target, strings.Join(result.skills, ", ")))
 	}
 	if len(result.preserved) > 0 {
-		messages = append(messages, "Kept externally managed Blaxel skills ("+strings.Join(result.preserved, ", ")+"); their links, contents and upstream update records were left unchanged.")
+		messages = append(messages, "Kept externally managed Blaxel skills ("+strings.Join(result.preserved, ", ")+"); their contents and upstream update records were left unchanged.")
+	}
+	if len(result.repaired) > 0 {
+		messages = append(messages, "Automatically linked skill paths to existing copies.")
+	}
+	for _, backup := range result.backups {
+		messages = append(messages, "Previous copy backed up at "+backup)
 	}
 	return strings.Join(messages, "\n")
 }
@@ -103,6 +109,12 @@ func skillsInstallDetail(result skillsInstallResult) string {
 			detail += " · "
 		}
 		detail += "kept externally managed: " + strings.Join(result.preserved, ", ")
+	}
+	if len(result.repaired) > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "skill paths auto-fixed"
 	}
 	return detail
 }

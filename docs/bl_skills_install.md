@@ -14,7 +14,8 @@ Skills go to ~/.agents/skills and to the coding agents detected on this machine
 This explicit command runs even when automatic installation is disabled with
 BL_INSTALL_SKILLS=false or in CI.
 Existing externally managed skill links are kept, not refreshed. Same-name
-skills in other folders are reported before any skill or lock file is changed.
+skills in nested folders are reused automatically. Conflicting copies are
+backed up outside the agents' skills folders and replaced with links.
 
 ```
 bl skills install [flags]

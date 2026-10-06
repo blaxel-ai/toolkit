@@ -15,7 +15,15 @@ type skillInstallPlan struct {
 	skill     archivedSkill
 	canonical string
 	preserved bool
-	links     []string
+	links     []skillLinkPlan
+}
+
+// A repair uses an existing skill rather than the upstream archive. Displaced
+// directories are backed up outside the root, never deleted or left scannable.
+type skillLinkPlan struct {
+	target, destination string
+	root                string
+	repair              bool
 }
 
 func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSkill, selected []skillsAgent) ([]skillInstallPlan, error) {
@@ -73,10 +81,16 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 		if err != nil {
 			return nil, err
 		}
-		for _, existing := range shared[skill.name] {
-			if existing != target {
-				return nil, skillNameConflict(skill.name, existing, canonical)
-			}
+		flatTarget := target
+		source, repairs, err := planExistingSkill(base, canonical, target, shared[skill.name], plan.preserved)
+		if err != nil {
+			return nil, err
+		}
+		if len(repairs) > 0 {
+			plan.preserved = true
+			plan.canonical = source
+			plan.links = append(plan.links, repairs...)
+			target = source
 		}
 		for _, agent := range selected {
 			if agent.universal {
@@ -96,26 +110,129 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
 			}
-			if err == nil && info.Mode()&os.ModeSymlink != 0 && destination != target {
-				return nil, fmt.Errorf("externally managed link %s points to %s, not %s; left unchanged", link, destination, target)
+			managed := info != nil && info.Mode()&os.ModeSymlink != 0
+			if managed && destination != target && destination != flatTarget {
+				manifest, err := os.ReadFile(filepath.Join(link, "SKILL.md"))
+				name, valid := skillManifestName(manifest)
+				if err != nil || !valid || name != skill.name {
+					return nil, fmt.Errorf("externally managed link %s does not contain a valid %s skill; left unchanged", link, skill.name)
+				}
 			}
 			if err == nil && !info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 				return nil, fmt.Errorf("skill destination %s is not a directory; left unchanged", link)
 			}
-			for _, existing := range found[skill.name] {
-				if existing != target && existing != destination {
-					return nil, skillNameConflict(skill.name, existing, link)
-				}
+			// A root shared with ~/.agents/skills has already been reconciled.
+			resolvedRoot, err := resolveSkillPath(root)
+			if err != nil {
+				return nil, err
 			}
-			plan.links = append(plan.links, link)
+			resolvedBase, err := resolveSkillPath(base)
+			if err != nil {
+				return nil, err
+			}
+			if resolvedRoot == resolvedBase {
+				continue
+			}
+			_, repairs, err := planExistingSkill(root, link, destination, found[skill.name], managed)
+			if err != nil {
+				return nil, err
+			}
+			if len(repairs) > 0 {
+				plan.links = append(plan.links, repairs...)
+				continue
+			}
+			if !managed || destination == target || destination == flatTarget {
+				repair := plan.preserved && info != nil && info.IsDir() && destination != target
+				plan.links = append(plan.links, skillLinkPlan{target: plan.canonical, destination: link, root: root, repair: repair})
+			}
 		}
 		plans = append(plans, plan)
 	}
 	return plans, nil
 }
 
-func skillNameConflict(name, existing, destination string) error {
-	return fmt.Errorf("skill %s already exists at %s; no skills were changed. Keep one copy and link %s to it before retrying", name, existing, destination)
+// Prefer a namespaced copy over the installer's flat directory. A flat
+// symlink is already managed, so its target takes precedence instead. Only
+// duplicate directories inside this root may be moved: never rename an
+// externally projected target or replace someone else's symlink.
+func planExistingSkill(root, flat, target string, existing []string, managed bool) (string, []skillLinkPlan, error) {
+	source := target
+	if !managed {
+		for _, folder := range existing {
+			if folder != target {
+				source = folder
+				break
+			}
+		}
+	}
+	resolvedRoot, err := resolveSkillPath(root)
+	if err != nil {
+		return "", nil, err
+	}
+	var repairs []skillLinkPlan
+	for _, folder := range existing {
+		if folder == source || folder == target {
+			continue
+		}
+		relative, err := filepath.Rel(resolvedRoot, folder)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return "", nil, fmt.Errorf("multiple externally managed copies of a skill in %s; left unchanged", root)
+		}
+		repairs = append(repairs, skillLinkPlan{target: source, destination: folder, root: root, repair: true})
+	}
+	if source != target {
+		repairs = append(repairs, skillLinkPlan{target: source, destination: flat, root: root, repair: true})
+	}
+	return source, repairs, nil
+}
+
+// repairSkillLink retains the displaced directory on the same filesystem,
+// outside the scanned root. If linking fails, restore it before returning.
+func repairSkillLink(plan skillLinkPlan) (string, error) {
+	target, err := resolveSkillPath(plan.target)
+	if err != nil {
+		return "", err
+	}
+	destination, err := resolveSkillPath(plan.destination)
+	if err != nil {
+		return "", err
+	}
+	if destination == target {
+		return "", nil
+	}
+	info, err := os.Lstat(plan.destination)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	backup := ""
+	if err == nil {
+		if !info.IsDir() {
+			return "", fmt.Errorf("skill destination %s is not a directory; left unchanged", plan.destination)
+		}
+		root, err := resolveSkillPath(plan.root)
+		if err != nil {
+			return "", err
+		}
+		directory, err := os.MkdirTemp(filepath.Dir(root), ".blaxel-skills-backup-")
+		if err != nil {
+			return "", err
+		}
+		backup = filepath.Join(directory, filepath.Base(plan.destination))
+		if err := os.Rename(plan.destination, backup); err != nil {
+			_ = os.Remove(directory)
+			return "", err
+		}
+	}
+	if err := linkSkillFolder(plan.target, plan.destination, nil); err != nil {
+		if backup != "" {
+			if restoreErr := os.Rename(backup, plan.destination); restoreErr != nil {
+				return backup, fmt.Errorf("%w; previous skill retained at %s (restore failed: %v)", err, backup, restoreErr)
+			}
+			_ = os.Remove(filepath.Dir(backup))
+		}
+		return "", err
+	}
+	return backup, nil
 }
 
 // Resolve existing links even when the final destination does not exist yet.

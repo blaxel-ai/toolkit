@@ -53,6 +53,7 @@ type setupOptions struct {
 	login                           func(ctx context.Context, c *ui.Control, workspace string) (string, error)
 	loginState                      func(workspace string) string
 	trackingConfigured              func() bool
+	trackingEnabled                 func() bool
 	setTracking                     func(bool)
 }
 
@@ -104,6 +105,7 @@ unchanged, and it is safe to run again after installing another agent.`,
 			options.login = setupDeviceLogin
 			options.loginState = setupLoginState
 			options.trackingConfigured = blaxel.IsTrackingConfigured
+			options.trackingEnabled = blaxel.IsTrackingEnabled
 			options.setTracking = blaxel.SetTracking
 			options.mcp = newMCPEnv(home)
 			options.resourceServer, options.documentsServer = resourceMCPServer(), docsMCPServer()
@@ -376,9 +378,12 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 	explicit := strings.EqualFold(strings.TrimSpace(options.env(trackingInstallEnv)), "true")
 	// DO_NOT_TRACK, set either way, is already a choice, as in sdk-go.
 	doNotTrack := strings.TrimSpace(options.env("DO_NOT_TRACK")) != ""
-	if !doNotTrack && !options.trackingConfigured() && (explicit || !ciEnvironment(options.env)) {
-		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster",
-			On: !envDisabled(options.env, trackingInstallEnv)})
+	if !doNotTrack && (explicit || !ciEnvironment(options.env)) {
+		enabled := !envDisabled(options.env, trackingInstallEnv)
+		if strings.TrimSpace(options.env(trackingInstallEnv)) == "" && options.trackingConfigured() {
+			enabled = options.trackingEnabled()
+		}
+		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster", On: enabled})
 	}
 	return items
 }
@@ -388,6 +393,8 @@ type setupOutcome struct {
 	mu        sync.Mutex
 	skills    []string
 	preserved []string
+	repaired  []string
+	backups   []string
 	mcp       map[string]mcpAgentResult
 	workspace string
 	tracking  *bool
@@ -486,6 +493,8 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 			outcome.mu.Lock()
 			outcome.skills = append(append([]string(nil), result.skills...), result.preserved...)
 			outcome.preserved = result.preserved
+			outcome.repaired = result.repaired
+			outcome.backups = result.backups
 			outcome.mu.Unlock()
 			return skillsInstallDetail(result), nil
 		}})
@@ -592,7 +601,17 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: "~/.agents/skills"})
 	}
 	if len(outcome.preserved) > 0 {
-		summary.Lines = append(summary.Lines, ui.Line{Label: "Kept managed", Detail: strings.Join(outcome.preserved, ", ") + " · links and contents unchanged"})
+		detail := "links and contents unchanged"
+		if len(outcome.repaired) > 0 {
+			detail = "existing contents unchanged"
+		}
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Kept managed", Detail: strings.Join(outcome.preserved, ", ") + " · " + detail})
+	}
+	if len(outcome.repaired) > 0 {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Auto-fixed", Detail: "skill paths linked to existing copies"})
+	}
+	for _, backup := range outcome.backups {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Backup", Detail: backup})
 	}
 	if shell := strings.TrimSpace(options.env(installerShellEnv)); shell != "" {
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Shell", Detail: shell})
