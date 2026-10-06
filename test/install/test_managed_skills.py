@@ -104,7 +104,7 @@ def tests(root, binary, server, legacy, loader):
                          "output": run.stdout + run.stderr, "repeat": repeat.stdout + repeat.stderr})
         print(f"PASS {method}: {after['real_copies']}; managed links preserved={not legacy}", flush=True)
 
-    for scenario in ("nested-only", "agent-link", "existing-duplicate"):
+    for scenario in ("nested-only", "agent-link", "existing-duplicate", "one-liner-duplicate"):
         install = Installation(root / scenario, binary, server)
         shared = install.home / ".agents/skills"
         if scenario == "agent-link":
@@ -115,22 +115,37 @@ def tests(root, binary, server, legacy, loader):
             link.symlink_to(target)
         else:
             write(shared / "blaxel/blaxel-sdk/SKILL.md", manifest("blaxel-sdk"))
-            if scenario == "existing-duplicate":
-                write(shared / "blaxel-sdk/SKILL.md", manifest("blaxel-sdk"))
-        run = install.run(("skills", "install"), direct=True, check=False)
+            if scenario in ("existing-duplicate", "one-liner-duplicate"):
+                write(shared / "blaxel-sdk/SKILL.md", manifest("blaxel-sdk") + "Flat customization.\n")
+                write(shared / "blaxel-sdk/custom.txt", "keep me")
+        run = (run_one_liner(install) if scenario == "one-liner-duplicate"
+               else install.run(("skills", "install"), direct=True, check=False))
         if legacy:
             assert run.returncode == 0, run.stderr
             assert (shared / "blaxel-cli/SKILL.md").exists()
         else:
-            assert run.returncode != 0, run.stdout + run.stderr
-            assert not (shared / "blaxel-cli").exists(), "preflight must prevent partial writes"
-            assert not (install.home / ".agents/.skill-lock.json").exists()
+            assert run.returncode == 0, run.stdout + run.stderr
+            assert (shared / "blaxel-cli/SKILL.md").exists()
+            assert (install.home / ".agents/.skill-lock.json").exists()
             if scenario == "agent-link":
                 assert link.is_symlink() and (link / "SKILL.md").read_text() == manifest("blaxel-sdk")
             else:
+                assert (shared / "blaxel-sdk").is_symlink()
+                assert (shared / "blaxel-sdk").resolve() == (shared / "blaxel/blaxel-sdk").resolve()
                 assert (shared / "blaxel/blaxel-sdk/SKILL.md").read_text() == manifest("blaxel-sdk")
+                if scenario in ("existing-duplicate", "one-liner-duplicate"):
+                    backups = list((install.home / ".agents").glob(".blaxel-skills-backup-*/blaxel-sdk"))
+                    assert len(backups) == 1, backups
+                    assert (backups[0] / "custom.txt").read_text() == "keep me"
+                    assert "backed up" in (run.stdout + run.stderr).lower() or "Backup" in run.stdout
+                repeat = install.run(("skills", "install"), direct=True)
+                assert repeat.returncode == 0, repeat.stdout + repeat.stderr
+                state = discovery(install, loader)
+                assert state["real_copies"]["blaxel-sdk"] == 1, state
+                if loader:
+                    assert not state["pi"]["collisions"], state
         evidence.append({"scenario": scenario, "exit_code": run.returncode, "output": run.stdout + run.stderr})
-        print(f"PASS {scenario}: exit={run.returncode}; preflight prevented writes={not legacy}", flush=True)
+        print(f"PASS {scenario}: exit={run.returncode}; existing copies reused={not legacy}", flush=True)
 
     install = Installation(root / "clean", binary, server)
     run = install.run(("skills", "install"), direct=True)

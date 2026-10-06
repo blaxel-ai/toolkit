@@ -37,7 +37,7 @@ func SkillsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(&cobra.Command{
 		Use: "install", Short: "Install or refresh Blaxel skills for coding agents",
-		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.\nExisting externally managed skill links are kept, not refreshed. Same-name\nskills in other folders are reported before any skill or lock file is changed.",
+		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.\nExisting externally managed skill links are kept, not refreshed. Same-name\nskills in nested folders are reused automatically. Conflicting copies are\nbacked up outside the agents' skills folders and replaced with links.",
 		Args:         cobra.NoArgs,
 		RunE:         func(_ *cobra.Command, _ []string) error { return installSkillsOnce() },
 		SilenceUsage: true, SilenceErrors: true,
@@ -49,6 +49,8 @@ func SkillsCmd() *cobra.Command {
 type skillsInstallResult struct {
 	skills    []string
 	preserved []string // externally managed skills used without refreshing or claiming ownership
+	repaired  []string
+	backups   []string
 	agents    []string
 }
 
@@ -400,10 +402,21 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 			result.skills = append(result.skills, plan.skill.name)
 		}
 		for _, link := range plan.links {
-			if err := linkSkillFolder(plan.canonical, link, files); errors.Is(err, errManagedSkillNotLinked) {
+			if link.repair {
+				backup, err := repairSkillLink(link)
+				if err != nil {
+					return skillsInstallResult{}, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
+				}
+				result.repaired = append(result.repaired, link.destination)
+				if backup != "" {
+					result.backups = append(result.backups, backup)
+				}
+				continue
+			}
+			if err := linkSkillFolder(link.target, link.destination, files); errors.Is(err, errManagedSkillNotLinked) {
 				continue // that agent is left unchanged
 			} else if err != nil {
-				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link, err)
+				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
 			}
 		}
 	}

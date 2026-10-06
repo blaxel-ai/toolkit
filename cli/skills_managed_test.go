@@ -79,19 +79,27 @@ func TestInstallSkillsArchivePreservesExternalSkillLink(t *testing.T) {
 	assert.Contains(t, entries, "blaxel-sdk", "unmanaged skills are installed normally")
 }
 
-func TestInstallSkillsArchiveRejectsNestedNameCollisionBeforeWriting(t *testing.T) {
+func TestInstallSkillsArchiveReusesNestedSkill(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory links need developer mode on Windows")
+	}
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
 		t.Run(name, func(t *testing.T) {
 			home := resolvedTempDir(t)
 			root := filepath.Join(home, ".agents", "skills")
 			nested := filepath.Join(root, "blaxel", name)
-			writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest(name))
-			_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
-			require.ErrorContains(t, err, name)
-			assert.Contains(t, err.Error(), nested)
-			assert.NoDirExists(t, filepath.Join(root, "blaxel-cli"))
-			assert.NoDirExists(t, filepath.Join(root, "blaxel-sdk"))
-			assert.NoFileExists(t, skillsLockPath(home, noEnv), "preflight must happen before any skill or lock write")
+			writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest(name)+"Local fork.\n")
+			result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+			require.NoError(t, err)
+			assert.Contains(t, result.preserved, name)
+			assert.Contains(t, result.repaired, filepath.Join(root, name))
+			assert.Empty(t, result.backups)
+			target, err := filepath.EvalSymlinks(filepath.Join(root, name))
+			require.NoError(t, err)
+			assert.Equal(t, nested, target)
+			assert.Equal(t, skillManifest(name)+"Local fork.\n", readTestFile(t, filepath.Join(nested, "SKILL.md")))
+			lock := readLock(t, skillsLockPath(home, noEnv))
+			assert.NotContains(t, lock["skills"], name)
 		})
 	}
 }
@@ -115,40 +123,49 @@ func TestInstallSkillsArchiveRejectsBrokenOrMismatchedManagedLink(t *testing.T) 
 	}
 }
 
-func TestInstallSkillsArchiveRejectsAgentManagedLinkBeforeWriting(t *testing.T) {
+func TestInstallSkillsArchivePreservesAgentManagedLink(t *testing.T) {
 	home, external := t.TempDir(), t.TempDir()
 	writeTestFile(t, filepath.Join(external, "SKILL.md"), skillManifest("blaxel-sdk")+"Agent-specific fork.\n")
 	link := filepath.Join(home, ".claude", "skills", "blaxel-sdk")
 	managedSkillLink(t, external, link)
 	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
-	require.ErrorContains(t, err, "blaxel-sdk")
+	require.NoError(t, err)
 	got, err := os.Readlink(link)
 	require.NoError(t, err)
 	assert.Equal(t, external, got)
-	assert.NoDirExists(t, filepath.Join(home, ".agents", "skills"), "a later skill conflict cannot leave an earlier skill installed")
-	assert.NoFileExists(t, skillsLockPath(home, noEnv))
+	assert.Equal(t, skillManifest("blaxel-sdk")+"Agent-specific fork.\n", readTestFile(t, filepath.Join(link, "SKILL.md")))
+	assert.FileExists(t, filepath.Join(home, ".agents", "skills", "blaxel-sdk", "SKILL.md"))
 }
 
-func TestInstallSkillsArchiveRejectsAgentNestedNameCollision(t *testing.T) {
+func TestInstallSkillsArchiveReusesAgentNestedSkill(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory links need developer mode on Windows")
+	}
 	home := resolvedTempDir(t)
 	nested := filepath.Join(home, ".claude", "skills", "custom", "sdk")
 	writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest("blaxel-sdk"))
-	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
-	require.ErrorContains(t, err, "blaxel-sdk")
-	assert.Contains(t, err.Error(), nested)
-	assert.NoDirExists(t, filepath.Join(home, ".agents", "skills"))
-	assert.NoDirExists(t, filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
+	for range 2 {
+		_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+		require.NoError(t, err)
+		target, err := filepath.EvalSymlinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
+		require.NoError(t, err)
+		assert.Equal(t, nested, target)
+		assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(nested, "SKILL.md")))
+	}
 }
 
 func TestInstallSkillsArchiveChecksProjectedNamespace(t *testing.T) {
-	home, external := t.TempDir(), t.TempDir()
+	home, external := resolvedTempDir(t), resolvedTempDir(t)
 	root := filepath.Join(home, ".agents", "skills")
 	writeTestFile(t, filepath.Join(external, "sdk", "SKILL.md"), skillManifest("blaxel-sdk"))
 	managedSkillLink(t, external, filepath.Join(root, "vendor"))
-	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
-	require.ErrorContains(t, err, "blaxel-sdk")
-	assert.NoDirExists(t, filepath.Join(root, "blaxel-cli"))
-	assert.NoFileExists(t, skillsLockPath(home, noEnv))
+	result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	assert.Contains(t, result.preserved, "blaxel-sdk")
+	target, err := filepath.EvalSymlinks(filepath.Join(root, "blaxel-sdk"))
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(external, "sdk"), target)
+	assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(external, "sdk", "SKILL.md")))
 }
 
 func TestInstallSkillsArchiveDoesNotTraverseNamespaceCycles(t *testing.T) {
