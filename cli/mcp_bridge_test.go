@@ -452,3 +452,48 @@ func TestBridgeOneFailureDoesNotFailOtherCalls(t *testing.T) {
 	assert.Equal(t, "deleted", text)
 	assert.False(t, isError)
 }
+
+// bl logout stops a running bridge: the next call is refused without reaching
+// the server, and tells the agent to log in again.
+func TestBridgeStopsAfterLogout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("BL_API_KEY", "")
+	t.Setenv("BL_CLIENT_CREDENTIALS", "")
+	now := time.Now()
+	require.NoError(t, blaxel.WriteConfig(blaxel.Config{
+		Context: blaxel.ContextConfig{Workspace: "main"},
+		Workspaces: []blaxel.WorkspaceConfig{
+			{Name: "main", Credentials: blaxel.Credentials{AccessToken: bridgeJWT(now, now.Add(2*time.Hour)), RefreshToken: "fake"}},
+			{Name: "other", Credentials: blaxel.Credentials{APIKey: "bl_other"}},
+		},
+	}))
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		calls.Add(1)
+		jsonResult(w, m.ID, `{"content":[{"type":"text","text":"sandboxes"}]}`)
+	}))
+	defer server.Close()
+	a := newBridgeAuth("")
+	a.client, a.baseURL, a.pinnedEnv = server.Client(), server.URL+"/v0", "prod"
+	b := newMCPBridge(a)
+	b.client = server.Client()
+	call := func(id int) map[string]any {
+		answers := runBridge(t, b, fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{"name":"list_sandboxes"}}`, id))
+		return answerFor(t, answers, float64(id))
+	}
+
+	text, isError := toolText(t, call(1))
+	assert.Equal(t, "sandboxes", text)
+	assert.False(t, isError)
+	require.EqualValues(t, 1, calls.Load())
+
+	require.NoError(t, clearCredentials("main"), "what bl logout main does")
+	text, isError = toolText(t, call(2))
+	assert.True(t, isError)
+	assert.Contains(t, text, mcpLoginInstructions)
+	assert.EqualValues(t, 1, calls.Load(), "the refused call never reaches the server")
+}
