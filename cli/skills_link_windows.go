@@ -18,8 +18,11 @@ func createSkillDirectoryLink(target, _ string, link string) (err error) {
 	if err != nil {
 		return err
 	}
-	target = strings.TrimPrefix(target, `\\?\`)
-	substitute, err := windows.UTF16FromString(`\??\` + target)
+	substitutePath := strings.TrimPrefix(target, `\\?\`)
+	if strings.HasPrefix(substitutePath, `\\`) {
+		substitutePath = `UNC\` + strings.TrimPrefix(substitutePath, `\\`)
+	}
+	substitute, err := windows.UTF16FromString(`\??\` + substitutePath)
 	if err != nil {
 		return err
 	}
@@ -65,4 +68,41 @@ func createSkillDirectoryLink(target, _ string, link string) (err error) {
 	defer func() { _ = windows.CloseHandle(handle) }()
 	var returned uint32
 	return windows.DeviceIoControl(handle, windows.FSCTL_SET_REPARSE_POINT, &buffer[0], uint32(len(buffer)), nil, 0, &returned, nil)
+}
+
+// Since Go 1.23, junctions have ModeIrregular rather than ModeSymlink, and
+// filepath.EvalSymlinks does not resolve them. Follow the opened Windows handle
+// instead, including junctions in parent components, without walking cycles.
+func evalSkillLinks(name string) (string, error) {
+	file, err := os.Open(name)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = file.Close() }()
+	buffer := make([]uint16, 256)
+	flags := uint32(0) // Normalized name with a DOS volume name.
+	for {
+		length, err := windows.GetFinalPathNameByHandle(windows.Handle(file.Fd()), &buffer[0], uint32(len(buffer)), flags)
+		if err == windows.ERROR_PATH_NOT_FOUND && flags == 0 {
+			flags = 1 // VOLUME_NAME_GUID, for mounted volumes without a drive letter.
+			continue
+		}
+		if err != nil {
+			return "", &os.PathError{Op: "resolve", Path: name, Err: err}
+		}
+		if length < uint32(len(buffer)) {
+			resolved := windows.UTF16ToString(buffer[:length])
+			if strings.HasPrefix(resolved, `\\?\UNC\`) {
+				return `\\` + strings.TrimPrefix(resolved, `\\?\UNC\`), nil
+			}
+			if strings.HasPrefix(resolved, `\\?\`) && len(resolved) > 6 && resolved[5] == ':' {
+				return resolved[4:], nil
+			}
+			return resolved, nil
+		}
+		if length > 65535 {
+			return "", fmt.Errorf("resolved skill path is too long: %s", name)
+		}
+		buffer = make([]uint16, int(length)+1)
+	}
 }

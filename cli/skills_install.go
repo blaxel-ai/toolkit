@@ -475,7 +475,7 @@ func writeSkillFolder(dir string, files []skillFile) error {
 // replaceSkillFolder swaps in a fresh copy of the skill, so agents never see a
 // half-written skill and a failure leaves the previous version in place.
 func replaceSkillFolder(destination string, files []skillFile) error {
-	if info, err := os.Lstat(destination); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Lstat(destination); err == nil && isSkillLink(destination, info.Mode()) {
 		return fmt.Errorf("externally managed skill link %s was left unchanged", destination)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -484,7 +484,7 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 	if err := os.MkdirAll(parent, 0755); err != nil {
 		return err
 	}
-	if resolved, err := filepath.EvalSymlinks(parent); err == nil {
+	if resolved, err := evalSkillLinks(parent); err == nil {
 		parent = resolved
 		destination = filepath.Join(parent, filepath.Base(destination))
 	}
@@ -530,20 +530,20 @@ func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
 		return err
 	}
-	linkDir, err := filepath.EvalSymlinks(filepath.Dir(linkPath))
+	linkDir, err := evalSkillLinks(filepath.Dir(linkPath))
 	if err != nil {
 		return err
 	}
-	target, err := filepath.EvalSymlinks(canonical)
+	target, err := evalSkillLinks(canonical)
 	if err != nil {
 		return err
 	}
 	linkPath = filepath.Join(linkDir, filepath.Base(linkPath))
 	// Already linked, or the agent's skills folder is itself a link to the shared one.
-	if existing, err := filepath.EvalSymlinks(linkPath); err == nil && existing == target {
+	if existing, err := evalSkillLinks(linkPath); err == nil && existing == target {
 		return nil
 	}
-	if info, err := os.Lstat(linkPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Lstat(linkPath); err == nil && isSkillLink(linkPath, info.Mode()) {
 		return fmt.Errorf("externally managed skill link %s was left unchanged", linkPath)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err

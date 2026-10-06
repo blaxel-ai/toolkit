@@ -41,7 +41,7 @@ func TestInstallSkillsArchiveAutoFixesFlatAndNestedCopies(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
-		target, err := filepath.EvalSymlinks(filepath.Join(root, name))
+		target, err := evalSkillLinks(filepath.Join(root, name))
 		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(root, "blaxel", name), target)
 		assertSkillLink(t, home, claude, name)
@@ -75,7 +75,7 @@ func TestInstallSkillsArchiveReconcilesMultipleNestedCopies(t *testing.T) {
 	require.Len(t, result.backups, 1)
 	assert.Equal(t, skillManifest("blaxel-sdk")+"Second local copy.\n", readTestFile(t, filepath.Join(result.backups[0], "SKILL.md")))
 	for _, path := range []string{second, filepath.Join(root, "blaxel-sdk")} {
-		target, err := filepath.EvalSymlinks(path)
+		target, err := evalSkillLinks(path)
 		require.NoError(t, err)
 		assert.Equal(t, first, target)
 	}

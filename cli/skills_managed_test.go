@@ -16,7 +16,7 @@ import (
 // (C:\Users\RUNNER~1) expanded, matching the resolved paths in error messages.
 func resolvedTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := filepath.EvalSymlinks(t.TempDir())
+	dir, err := evalSkillLinks(t.TempDir())
 	require.NoError(t, err)
 	return dir
 }
@@ -96,7 +96,7 @@ func TestInstallSkillsArchiveReusesNestedSkill(t *testing.T) {
 			assert.Contains(t, result.preserved, name)
 			assert.Contains(t, result.repaired, filepath.Join(root, name))
 			assert.Empty(t, result.backups)
-			target, err := filepath.EvalSymlinks(filepath.Join(root, name))
+			target, err := evalSkillLinks(filepath.Join(root, name))
 			require.NoError(t, err)
 			assert.Equal(t, nested, target)
 			assert.Equal(t, skillManifest(name)+"Local fork.\n", readTestFile(t, filepath.Join(nested, "SKILL.md")))
@@ -146,7 +146,7 @@ func TestInstallSkillsArchiveReusesAgentNestedSkill(t *testing.T) {
 	for range 2 {
 		_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
 		require.NoError(t, err)
-		target, err := filepath.EvalSymlinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
+		target, err := evalSkillLinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
 		require.NoError(t, err)
 		assert.Equal(t, nested, target)
 		assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(nested, "SKILL.md")))
@@ -161,7 +161,7 @@ func TestInstallSkillsArchiveChecksProjectedNamespace(t *testing.T) {
 	result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	assert.Contains(t, result.preserved, "blaxel-sdk")
-	target, err := filepath.EvalSymlinks(filepath.Join(root, "blaxel-sdk"))
+	target, err := evalSkillLinks(filepath.Join(root, "blaxel-sdk"))
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(external, "sdk"), target)
 	assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(external, "sdk", "SKILL.md")))
