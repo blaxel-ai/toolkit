@@ -39,11 +39,12 @@ The CLI automatically detects which authentication method to use:
 - Otherwise, shows interactive menu to choose browser or API key login
 
 Without a terminal (for example when a coding agent runs the command), nothing
-can be asked. With a workspace argument, bl login uses BL_API_KEY when it is set,
-and the browser login otherwise. Without a workspace argument it uses the browser
-login, then your current workspace if the login can use it, or else the first of
-your workspaces by name, and says which one. It prints the login URL on its own
-line and how long it waits for you to confirm in the browser.
+can be asked. With a workspace argument, bl login uses BL_CLIENT_CREDENTIALS or
+BL_API_KEY when one is set, and the browser login otherwise. Without a workspace
+argument it uses the browser login, then your current workspace if the login can
+use it, or else the first of your workspaces by name, and says which one. The
+browser login prints the login URL on its own line and how long it waits for you
+to confirm in the browser.
 
 Credentials are stored securely in your system's credential store and persist
 across sessions. Use 'bl logout' to remove stored credentials.

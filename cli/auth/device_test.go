@@ -245,9 +245,9 @@ func TestLoginWithoutTerminalChoosesTheWorkspace(t *testing.T) {
 			out := captureStdout(t, func() { err = loginWithDevice(tc.named, false) })
 			require.NoError(t, err)
 
-			context, err := blaxel.CurrentContext()
+			current, err := blaxel.CurrentContext()
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, context.Workspace)
+			assert.Equal(t, tc.want, current.Workspace)
 			credentials, err := blaxel.LoadCredentials(tc.want)
 			require.NoError(t, err)
 			assert.Equal(t, "access", credentials.AccessToken)
