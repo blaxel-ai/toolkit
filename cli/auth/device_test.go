@@ -3,11 +3,14 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -109,4 +112,42 @@ func TestPollDeviceTokenStopsWhenCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.Less(t, time.Since(started), time.Second)
 	assert.Less(t, *calls, 10)
+}
+
+// useCurrentWorkspace runs a test in an empty home whose config has the
+// workspace in use set to workspace (none when empty).
+func useCurrentWorkspace(t *testing.T, workspace string) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	if workspace != "" {
+		require.NoError(t, blaxel.SetCurrentWorkspace(workspace))
+	}
+}
+
+func TestCurrentWorkspaceIndex(t *testing.T) {
+	names := []string{"calibrator", "main", "other"}
+	for current, want := range map[string]int{"main": 1, "other": 2, "calibrator": 0, "gone": 0, "": 0} {
+		useCurrentWorkspace(t, current)
+		assert.Equal(t, want, currentWorkspaceIndex(names), "current workspace %q", current)
+	}
+}
+
+func TestAskWorkspaceStartsOnCurrentWorkspace(t *testing.T) {
+	names := []string{"calibrator", "main", "other"}
+	const enter, down = "\r", "\x1b[B"
+	for _, tc := range []struct{ name, current, keys, want string }{
+		{"Enter keeps the current workspace", "main", enter, "main"},
+		{"arrows move from the current workspace", "main", down + enter, "other"},
+		{"a workspace the login cannot use keeps the list order", "gone", enter, "calibrator"},
+		{"no current workspace keeps the list order", "", enter, "calibrator"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useCurrentWorkspace(t, tc.current)
+			got, err := askWorkspace(names, strings.NewReader(tc.keys), io.Discard)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }
