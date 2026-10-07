@@ -186,7 +186,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			if cmd.Flags().Changed("dockerfile") && dockerfile == "" {
-				err := deployInputError("--dockerfile must not be empty")
+				err := deploy.InputError("--dockerfile must not be empty")
 				core.PrintError("Deploy", err)
 				core.ExitWithError(err)
 			}
@@ -261,7 +261,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
 			// Resolve the selection before archive creation or recursive dispatch,
 			// with the type known at this point.
-			deployment.dockerfile, err = resolveDeployDockerfile(cwd, folder, dockerfile, config, skipBuild, recursive)
+			deployment.dockerfile, err = deploy.ResolveDockerfile(cwd, folder, dockerfile, config, deployBuildsSource(config, skipBuild), recursive)
 			if err != nil {
 				core.PrintError("Deploy", err)
 				core.ExitWithError(err)
@@ -295,7 +295,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			if (config.Type == "agent" || config.Type == "function" || config.Type == "application") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
-				if !core.CheckServerEnvUsage(folder, language) && !deployment.dockerfile.usesServerEnv() {
+				if !core.CheckServerEnvUsage(folder, language) && !deployment.dockerfile.UsesServerEnv() {
 					serverEnvWarning := core.BuildServerEnvWarning(language, config.Type)
 					handleConfigWarning(serverEnvWarning, noTTY)
 				}
@@ -392,7 +392,7 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
-	dockerfile             *deployDockerfile
+	dockerfile             *deploy.Dockerfile
 	// uploadMetadata is the object metadata the presigned URL was signed for.
 	// Push and source-building deploys set it explicitly; uploads that do not
 	// start a build, such as volume templates, leave it empty.
@@ -602,7 +602,7 @@ func handleConfigWarning(warning string, noTTY bool) {
 func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	path := filepath.Join(d.cwd, d.folder, "Dockerfile")
 	if d.dockerfile != nil {
-		path = d.dockerfile.path
+		path = d.dockerfile.Path
 	}
 	return validateBuildConfig(d.cwd, d.folder, config, path)
 }
@@ -2610,11 +2610,11 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	}
 
 	if selected != nil {
-		if err := writer.addFile(selected.path, "Dockerfile"); err != nil {
+		if err := writer.addFile(selected.Path, "Dockerfile"); err != nil {
 			return err
 		}
-		if selected.ignorePath != "" {
-			if err := writer.addFile(selected.ignorePath, "Dockerfile.dockerignore"); err != nil {
+		if selected.IgnorePath != "" {
+			if err := writer.addFile(selected.IgnorePath, "Dockerfile.dockerignore"); err != nil {
 				return err
 			}
 		}
