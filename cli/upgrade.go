@@ -46,6 +46,7 @@ MCP servers for detected coding agents without setup screens or login. Existing
 custom MCP entries, plugin-managed servers, and externally managed skills are
 kept. Set BL_INSTALL_SKILLS=false or BL_INSTALL_MCP=false to skip either part.
 Automatic refresh is skipped in CI unless the corresponding setting is true.
+If the requested release does not support headless refresh, setup is left alone.
 
 Examples:
   # Upgrade to the latest version
@@ -189,6 +190,16 @@ func refreshUpgradedSetup(executable string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute+5*time.Second)
 	defer cancel()
+	probeCtx, probeCancel := context.WithTimeout(ctx, 5*time.Second)
+	probe := exec.CommandContext(probeCtx, executable, "setup", "--refresh-check")
+	probe.Env = append(os.Environ(), "BL_INSTALL_SETUP=false", "BL_INSTALL_SKILLS=false", "BL_INSTALL_MCP=false", "DO_NOT_TRACK=1")
+	probe.WaitDelay = time.Second
+	output, probeErr := probe.Output()
+	probeCancel()
+	if probeErr != nil || strings.TrimSpace(string(output)) != setupRefreshCapability {
+		fmt.Fprintln(os.Stderr, "The installed CLI does not support headless setup refresh; setup and consent settings were left unchanged.")
+		return
+	}
 	cmd := exec.CommandContext(ctx, executable, "setup", "--yes", "--skip-login")
 	cmd.Env = append(os.Environ(), setupRefreshEnv+"=true")
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr

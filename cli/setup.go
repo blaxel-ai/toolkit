@@ -59,6 +59,7 @@ type setupOptions struct {
 
 func SetupCmd() *cobra.Command {
 	options := setupOptions{}
+	refreshCheck := false
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Set up Blaxel for your coding agents and log in",
@@ -91,7 +92,7 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 		Args:         cobra.NoArgs,
 		SilenceUsage: true, SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
+			if refreshCheck || strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
 				return nil
 			}
 			if root := cmd.Root(); root != cmd && root.PersistentPreRunE != nil {
@@ -100,6 +101,10 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if refreshCheck {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), setupRefreshCapability)
+				return err
+			}
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return err
@@ -145,6 +150,8 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 	cmd.Flags().BoolVar(&options.skipSkills, "skip-skills", false, "Do not install the Blaxel agent skills")
 	cmd.Flags().BoolVar(&options.skipMCP, "skip-mcp", false, "Do not add the Blaxel MCP servers")
 	cmd.Flags().BoolVar(&options.skipLogin, "skip-login", false, "Do not log in to Blaxel")
+	cmd.Flags().BoolVar(&refreshCheck, "refresh-check", false, "Check the internal refresh contract")
+	_ = cmd.Flags().MarkHidden("refresh-check")
 	_ = cmd.RegisterFlagCompletionFunc("agent", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		ids := make([]string, 0, len(skillsAgents))
 		for _, agent := range setupAgents() {

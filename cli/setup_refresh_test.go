@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -12,6 +13,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRefreshCapabilityCheckHasNoSetupSideEffects(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv(setupRefreshEnv, "")
+	cmd := SetupCmd()
+	var output bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetArgs([]string{"--refresh-check"})
+	require.NoError(t, cmd.Execute())
+	assert.Equal(t, setupRefreshCapability+"\n", output.String())
+	entries, err := os.ReadDir(home)
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+	assert.True(t, cmd.Flags().Lookup("refresh-check").Hidden)
+}
 
 func TestRefreshUpdatesSkillsAndNewAgentsWithoutLogin(t *testing.T) {
 	home := t.TempDir()

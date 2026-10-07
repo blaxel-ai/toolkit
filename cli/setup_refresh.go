@@ -12,6 +12,8 @@ import (
 // Refresh never runs the setup screens, authentication, or tracking tasks.
 const setupRefreshEnv = "BL_INSTALL_REFRESH"
 
+const setupRefreshCapability = "blaxel-setup-refresh-v1"
+
 func automaticSetupOffers(env func(string) string) (skills, mcp bool) {
 	if envDisabled(env, "BL_INSTALL_SETUP") {
 		return false, false
