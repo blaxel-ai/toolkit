@@ -170,9 +170,7 @@ func detectAgents(agents []skillsAgent, home string, env func(string) string) []
 			dirs = append(dirs, gooseConfigDir(paths))
 		}
 		if agent.id == "cline" {
-			if file := strings.TrimSpace(env("CLINE_MCP_SETTINGS_PATH")); file != "" {
-				dirs = append(dirs, file)
-			}
+			dirs = append(dirs, clineMCPSettingsFile(mcpEnv{home: home, env: env}))
 		}
 		if agent.id == "openclaw" {
 			dirs = append(dirs, openclawConfigFile(mcpEnv{home: home, env: env}))

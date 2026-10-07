@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/mcpbridge"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -470,10 +471,9 @@ func TestSkillsUpdaterRunsPeriodicallyWithoutBlockingMCP(t *testing.T) {
 	go func() { defer close(finished); updater.run(ctx, 20*time.Millisecond) }()
 	<-started
 	// Exercise an actual stdio bridge while the skills HTTP fetch is blocked.
-	bridge := newMCPBridge(nil)
 	var output bytes.Buffer
 	input := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}` + "\n")
-	require.NoError(t, bridge.serve(ctx, input, &output))
+	require.NoError(t, mcpbridge.Serve(ctx, "", input, &output))
 	assert.JSONEq(t, `{"jsonrpc":"2.0","id":1,"result":{}}`, strings.TrimSpace(output.String()))
 	close(unblock)
 	require.Eventually(t, func() bool {

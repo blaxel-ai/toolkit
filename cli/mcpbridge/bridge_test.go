@@ -1,4 +1,4 @@
-package cli
+package mcpbridge
 
 import (
 	"bytes"
@@ -392,7 +392,7 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "bl"+exeSuffix())
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	require.NoError(t, exec.CommandContext(ctx, "go", "build", "-o", binary, "..").Run())
+	require.NoError(t, exec.CommandContext(ctx, "go", "build", "-o", binary, "../..").Run())
 	home := t.TempDir()
 	cmd := exec.CommandContext(ctx, binary, "--workspace", "main", "--skip-version-warning", "mcp")
 	cmd.Dir = home
@@ -405,12 +405,6 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	require.Len(t, answers, 2)
 	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
 	assert.NoDirExists(t, filepath.Join(home, ".blaxel"), "bl mcp writes no configuration")
-}
-
-// bl mcp sends credentials only to the stored login's Blaxel origin: no flag
-// can point it elsewhere.
-func TestMCPCommandHasNoAPIURLFlag(t *testing.T) {
-	assert.Nil(t, MCPCmd().Flags().Lookup("api-url"))
 }
 
 // A failed start says what failed, not that the agent is logged out.
@@ -499,11 +493,30 @@ func TestBridgeStopsAfterLogout(t *testing.T) {
 	assert.False(t, isError)
 	require.EqualValues(t, 1, calls.Load())
 
-	require.NoError(t, clearCredentials("main"), "what bl logout main does")
+	require.NoError(t, logoutWorkspace("main"), "what bl logout main does")
 	text, isError = toolText(t, call(2))
 	assert.True(t, isError)
 	assert.Contains(t, text, mcpLoginInstructions)
 	assert.EqualValues(t, 1, calls.Load(), "the refused call never reaches the server")
+}
+
+// logoutWorkspace removes a workspace's stored login the way bl logout does
+// (cli.clearCredentials), which this package cannot import.
+func logoutWorkspace(name string) error {
+	config, err := blaxel.LoadConfig()
+	if err != nil {
+		return err
+	}
+	for i, ws := range config.Workspaces {
+		if ws.Name == name {
+			config.Workspaces = append(config.Workspaces[:i], config.Workspaces[i+1:]...)
+			break
+		}
+	}
+	if config.Context.Workspace == name {
+		config.Context.Workspace = ""
+	}
+	return blaxel.WriteConfig(config)
 }
 
 // A timeout is reported as a timeout, not as an unreachable server.

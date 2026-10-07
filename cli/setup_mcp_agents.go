@@ -41,10 +41,16 @@ func crushMCPTarget() mcpTarget {
 	return target
 }
 
+// clineMCPSettingsFile resolves the file the Cline CLI reads:
+// CLINE_MCP_SETTINGS_PATH, else the data folder from CLINE_DATA_DIR, CLINE_DIR
+// or ~/.cline.
+func clineMCPSettingsFile(e mcpEnv) string {
+	data := e.envOr("CLINE_DATA_DIR", filepath.Join(e.envOr("CLINE_DIR", filepath.Join(e.home, ".cline")), "data"))
+	return e.envOr("CLINE_MCP_SETTINGS_PATH", filepath.Join(data, "settings", "cline_mcp_settings.json"))
+}
+
 func clineMCPTarget() mcpTarget {
-	file := func(e mcpEnv) string {
-		return e.envOr("CLINE_MCP_SETTINGS_PATH", filepath.Join(e.home, ".cline", "data", "settings", "cline_mcp_settings.json"))
-	}
+	file := clineMCPSettingsFile
 	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("", "streamableHttp"))
 	target.entry = func(e mcpEnv, name string) map[string]any {
 		entry := jsonConfigEntry(file(e), "mcpServers", name)
@@ -62,6 +68,16 @@ func continueMCPTarget() mcpTarget {
 	}
 	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("stdio", "http"))
 	owns := func(e mcpEnv, name string) (bool, error) {
+		// A blaxel.json holding a single server is the user's own "blaxel"
+		// server, so setup merges nothing into it.
+		if data, err := os.ReadFile(file(e)); err == nil && singleServerJSON(data) {
+			if name == strings.TrimSuffix(filepath.Base(file(e)), ".json") {
+				return true, nil
+			}
+			return false, fmt.Errorf("%s is your own server file; setup leaves it alone", file(e))
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return false, err
+		}
 		root := filepath.Dir(filepath.Dir(file(e)))
 		// Main and sibling configs belong to the user. A same-name server there
 		// takes ownership, so setup does not create a duplicate in blaxel.json.
@@ -95,6 +111,12 @@ func continueMCPTarget() mcpTarget {
 			}
 			if filepath.Ext(path) == ".json" && !json.Valid(data) {
 				return false, fmt.Errorf("cannot safely inspect %s: not plain JSON", path)
+			}
+			if filepath.Ext(path) == ".json" && filepath.Dir(path) != root && singleServerJSON(data) {
+				if strings.TrimSuffix(filepath.Base(path), ".json") == name {
+					return true, nil
+				}
+				continue
 			}
 			var config struct {
 				Servers any `yaml:"mcpServers"`
@@ -133,6 +155,44 @@ func continueMCPTarget() mcpTarget {
 		return write(ctx, e, s, replace)
 	}
 	return target
+}
+
+// singleServerJSON reports a server written as the whole file, without an
+// mcpServers or projects member. Continue loads it as the server named after
+// the file.
+func singleServerJSON(data []byte) bool {
+	var config map[string]any
+	if json.Unmarshal(data, &config) != nil {
+		return false
+	}
+	if _, ok := config["mcpServers"]; ok {
+		return false
+	}
+	if _, ok := config["projects"]; ok {
+		return false
+	}
+	_, command := config["command"].(string)
+	_, url := config["url"].(string)
+	return command || url
+}
+
+// openclawLegacyOnly reports an install still in a legacy ~/.clawdbot or
+// ~/.moltbot folder. OpenClaw reads only ~/.openclaw, and openclaw doctor moves
+// a legacy folder there only while ~/.openclaw does not exist, so setup must not
+// create it first.
+func openclawLegacyOnly(e mcpEnv) bool {
+	if strings.TrimSpace(e.env("OPENCLAW_CONFIG_PATH")) != "" || strings.TrimSpace(e.env("OPENCLAW_STATE_DIR")) != "" {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(e.home, ".openclaw")); !errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	for _, legacy := range []string{".clawdbot", ".moltbot"} {
+		if _, err := os.Stat(filepath.Join(e.home, legacy)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func openclawConfigFile(e mcpEnv) string {
@@ -201,6 +261,9 @@ func openclawMCPTarget() mcpTarget {
 			return entry
 		},
 		write: func(_ context.Context, e mcpEnv, s mcpServer, replace bool) error {
+			if openclawLegacyOnly(e) {
+				return errors.New("run openclaw doctor to move the legacy OpenClaw folder to ~/.openclaw; setup does not create ~/.openclaw beside it")
+			}
 			root, mcp, err := read(e)
 			if err != nil {
 				return err
