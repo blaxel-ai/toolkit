@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
@@ -27,21 +28,37 @@ func homebrewSkillsLocation(executable string) (prefix, version string) {
 }
 
 func refreshHomebrewSetup() {
-	// Agent handshakes and shell completion must never wait for a download.
-	args := os.Args[1:]
-	// Conservatively defer when a refresh command appears after global flags too.
-	if core.IsShellCompletionRequest(args) {
+	install := homebrewRefreshFor(os.Args[1:], func() { refreshSetup(setupOptions{}) })
+	if install == nil {
 		return
-	}
-	for _, arg := range args {
-		if isMCPBridgeArgs([]string{arg}) || isSkillsCommand([]string{arg}) || arg == "upgrade" {
-			return
-		}
 	}
 	executable, err := os.Executable()
 	if err == nil {
-		setupHomebrewRefresh(executable, func() { refreshSetup(setupOptions{}) })
+		setupHomebrewRefresh(executable, install)
 	}
+}
+
+// homebrewRefreshFor returns what the first command on a new Homebrew keg does
+// about the refresh: nothing yet (nil) for agent handshakes and shell
+// completion, which must never wait for a download, and for bl upgrade; only
+// recording the keg for bl setup and bl skills, which install by themselves;
+// otherwise the refresh. The command is resolved as cobra will, so a flag
+// value or argument such as `bl get mcp` does not count.
+func homebrewRefreshFor(args []string, refresh func()) func() {
+	if core.IsShellCompletionRequest(args) {
+		return nil
+	}
+	if !slices.ContainsFunc(args, func(arg string) bool { return arg == "mcp" || arg == "skills" || arg == "setup" || arg == "upgrade" }) {
+		return refresh
+	}
+	command := core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade")
+	switch {
+	case isMCPBridgeArgs([]string{command}) || command == "upgrade":
+		return nil
+	case isSkillsCommand([]string{command}):
+		return func() {}
+	}
+	return refresh
 }
 
 // isMCPBridgeArgs reports bl mcp, as setup writes it into agent configurations.
