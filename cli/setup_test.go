@@ -322,6 +322,7 @@ func testSetupOptions(t *testing.T, home string, env map[string]string, recorder
 			return cmpOr(workspace, "main"), nil
 		},
 		trackingConfigured: func() bool { return env["TRACKING_SET"] != "" },
+		trackingEnabled:    func() bool { return env["TRACKING_ENABLED"] == "true" },
 		setTracking:        func(enabled bool) { recorder.tracking = append(recorder.tracking, enabled) },
 		loginState:         func(string) string { return env["LOGGED_IN"] },
 		mcp:                testMCPEnv(home, env, &commands, "", nil),
@@ -510,9 +511,9 @@ func TestSetupPlanAndSummary(t *testing.T) {
 		assert.Contains(t, text, expected)
 	}
 
-	// A recorded choice is not asked again; CI never turns reports on.
+	// A recorded choice remains toggleable; CI never turns reports on.
 	env["TRACKING_SET"] = "1"
-	assert.NotContains(t, itemIDs(setupItems(options, plan)), "tracking")
+	assert.Contains(t, itemIDs(setupItems(options, plan)), "tracking")
 	delete(env, "TRACKING_SET")
 	env["CI"] = "true"
 	assert.NotContains(t, itemIDs(setupItems(options, plan)), "tracking")

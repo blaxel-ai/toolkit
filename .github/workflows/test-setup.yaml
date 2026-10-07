@@ -38,6 +38,7 @@ jobs:
         run: |
           go build -o "$RUNNER_TEMP/blaxel" .
           python3 test/install/test_homebrew_skills.py "$RUNNER_TEMP/blaxel"
+          python3 test/install/test_managed_skills.py "$RUNNER_TEMP/blaxel"
 
       - name: Installer under sudo, in a container
         run: sh test/install/test_sudo.sh "$RUNNER_TEMP/blaxel"
@@ -96,3 +97,26 @@ jobs:
           # CI never turns error reports on.
           $config = Join-Path $root ".blaxel\config.yaml"
           if ((Test-Path $config) -and (Select-String -Quiet -Path $config -Pattern '^tracking: true')) { throw "error reports were turned on in CI" }
+
+          # Regression: a later namespaced SDK skill plus a flat duplicate
+          # must be repaired without Developer Mode or symlink privileges.
+          $nestedRoot = Join-Path $env:RUNNER_TEMP "nested-home"
+          $env:USERPROFILE = $nestedRoot
+          $env:HOME = $nestedRoot
+          $nested = Join-Path $nestedRoot ".agents\skills\blaxel\blaxel-sdk"
+          $flat = Join-Path $nestedRoot ".agents\skills\blaxel-sdk"
+          New-Item -ItemType Directory -Force $nested, $flat | Out-Null
+          $manifest = "---`nname: blaxel-sdk`ndescription: Retain local Windows skill.`n---`nLocal fork.`n"
+          Set-Content -Path (Join-Path $nested "SKILL.md") -Value $manifest -NoNewline
+          Set-Content -Path (Join-Path $flat "custom.txt") -Value "keep displaced copy" -NoNewline
+          foreach ($attempt in 1..2) {
+            & "$env:RUNNER_TEMP\bl.exe" setup --yes --skip-mcp --skip-login
+            if ($LASTEXITCODE -ne 0) { throw "nested bl setup exited with $LASTEXITCODE" }
+            if ((Get-Content -Raw (Join-Path $flat "SKILL.md")) -ne $manifest) { throw "local skill contents changed" }
+            $item = Get-Item -Force $flat
+            if ($item.LinkType -ne "Junction") { throw "flat skill is not a junction" }
+          }
+          $backups = @(Get-ChildItem -Directory (Join-Path $nestedRoot ".agents") -Filter ".blaxel-skills-backup-*")
+          if ($backups.Count -ne 1) { throw "expected exactly one retained backup" }
+          $saved = Join-Path $backups[0].FullName "blaxel-sdk\custom.txt"
+          if ((Get-Content -Raw $saved) -ne "keep displaced copy") { throw "duplicate customization was not preserved" }

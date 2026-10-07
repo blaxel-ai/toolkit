@@ -81,7 +81,7 @@ type Options struct {
 	Out *os.File
 	// In answers questions in plain output, when it is a terminal (stdin by default).
 	In *os.File
-	// Interactive shows the plan and waits for Enter at the end.
+	// Interactive shows the plan and waits for Enter before installing.
 	Interactive bool
 	// Yes accepts the plan without showing it and closes when done.
 	Yes bool
