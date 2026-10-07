@@ -151,3 +151,25 @@ func TestIsSkillsCommand(t *testing.T) {
 	assert.False(t, isSkillsCommand([]string{"get", "skills"}))
 	assert.False(t, isSkillsCommand(nil))
 }
+
+func TestHomebrewRefreshFor(t *testing.T) {
+	refreshed := 0
+	refresh := func() { refreshed++ }
+	for _, args := range [][]string{{"mcp"}, {"--workspace", "w", "mcp"}, {"upgrade"}, {"__complete", "get", ""}} {
+		require.Nil(t, homebrewRefreshFor(args, refresh), args)
+	}
+	// bl setup and bl skills install by themselves: record the keg only.
+	for _, args := range [][]string{{"setup"}, {"-w", "mcp", "setup", "--yes"}, {"skills", "install"}} {
+		install := homebrewRefreshFor(args, refresh)
+		require.NotNil(t, install, args)
+		install()
+	}
+	require.Zero(t, refreshed)
+	// A flag value or argument naming those commands is not the command.
+	for _, args := range [][]string{{"get", "mcp"}, {"-w", "upgrade", "get", "agents"}, {"new", "mcp"}, {"get", "agents"}} {
+		install := homebrewRefreshFor(args, refresh)
+		require.NotNil(t, install, args)
+		install()
+	}
+	require.Equal(t, 4, refreshed)
+}
