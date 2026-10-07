@@ -6,9 +6,9 @@
     Downloads the latest (or the given) release of the Blaxel CLI, verifies it
     against the release checksums, installs it to $env:LOCALAPPDATA\blaxel and
     adds that folder to your PATH. It then runs bl setup, which shows the coding
-    agents it found and sets up Blaxel for them, then logs you in. When a coding
-    agent runs it without a terminal, it sets up the agents without screens, then
-    starts the browser login and prints its URL for you to confirm.
+    agents it found and sets up Blaxel for them, then logs you in. When it detects
+    a coding agent without a terminal outside CI, it sets up the agents without
+    screens, then starts any needed browser login and prints its URL to confirm.
     BL_INSTALL_LOGIN=false skips that login.
 
 .PARAMETER Version
@@ -89,9 +89,8 @@ param(
             return $false
         }
 
-        # A coding agent sets one of these in the shell its tools use: Claude Code,
-        # Cursor, Gemini CLI, Codex, OpenCode, Goose, and the AGENT / AI_AGENT
-        # conventions (Amp, Goose, OpenCode, Claude Code). A Docker build sets none.
+        # Recognize coding-agent environment markers. A noninteractive shell
+        # without a marker keeps the install-only behavior.
         function Test-AgentRun {
             foreach ($name in @("CLAUDECODE", "CURSOR_AGENT", "GEMINI_CLI", "CODEX_THREAD_ID", "CODEX_SANDBOX", "OPENCODE", "GOOSE_TERMINAL", "AGENT", "AI_AGENT")) {
                 if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
@@ -300,6 +299,7 @@ public static extern System.IntPtr SendMessageTimeout(
             if ($HoldTracking) { $env:DO_NOT_TRACK = "1" }
             try {
                 & $BlaxelExe @SetupArgs
+                if ($LASTEXITCODE -ne 0) { throw "bl setup exited with $LASTEXITCODE" }
             }
             catch {
                 Write-Step next "bl setup" "to finish setting up"
@@ -320,6 +320,7 @@ public static extern System.IntPtr SendMessageTimeout(
                     if (-not $LoggedIn) {
                         Write-Host ""
                         & $BlaxelExe login
+                        if ($LASTEXITCODE -ne 0) { throw "bl login exited with $LASTEXITCODE" }
                     }
                 }
                 catch {

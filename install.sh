@@ -5,8 +5,8 @@
 #
 # Installs bl (and blaxel) to ~/.local/bin, verified against the release
 # checksums, adds it to your PATH with shell completions, then runs bl setup
-# to set up your coding agents and log you in. When a coding agent runs it
-# without a terminal, it sets up the agents without screens, then prints the
+# to set up your coding agents and log you in. When it detects a coding agent
+# without a terminal outside CI, it sets up the agents, then prints any needed
 # login URL for you to confirm in the browser.
 #
 # Environment:
@@ -114,10 +114,8 @@ is_ci() {
   [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${GITLAB_CI:-}" ] || [ -n "${CIRCLECI:-}" ] || [ -n "${TRAVIS:-}" ] || [ -n "${JENKINS_URL:-}" ] || [ -n "${BUILDKITE:-}" ]
 }
 
-# is_agent reports whether a coding agent runs the installer. Agents set these
-# in the shell their tools use: Claude Code, Cursor, Gemini CLI, Codex,
-# OpenCode, Goose, and the AGENT / AI_AGENT conventions (Amp, Goose, OpenCode,
-# Claude Code). A Docker build or a cron job sets none of them.
+# Recognize coding-agent environment markers. A noninteractive shell without
+# a marker keeps the install-only behavior.
 is_agent() {
   [ -n "${CLAUDECODE:-}" ] || [ -n "${CURSOR_AGENT:-}" ] || [ -n "${GEMINI_CLI:-}" ] || [ -n "${CODEX_THREAD_ID:-}" ] || [ -n "${CODEX_SANDBOX:-}" ] || [ -n "${OPENCODE:-}" ] || [ -n "${GOOSE_TERMINAL:-}" ] || [ -n "${AGENT:-}" ] || [ -n "${AI_AGENT:-}" ]
 }
@@ -461,7 +459,7 @@ agent_login() {
   [ -z "${BL_API_KEY:-}${BL_CLIENT_CREDENTIALS:-}" ] || return 0
   ! run_bl /dev/null token >/dev/null 2>&1 || return 0
   echo
-  run_bl /dev/null login
+  run_bl /dev/null login || next "$(quote "$BINDIR/$BINARY_SHORT_NAME") login" "to log in"
 }
 
 # What bl setup reads from the environment.
@@ -488,7 +486,7 @@ main() {
       DO_NOT_TRACK=1
       export DO_NOT_TRACK
     fi
-    run_setup || true
+    run_setup || next "$(quote "$BINDIR/$BINARY_SHORT_NAME") setup" "to finish setting up"
     [ "$SETUP_MODE" != "agent" ] || agent_login || true
     return 0
   fi

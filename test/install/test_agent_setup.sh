@@ -5,7 +5,7 @@
 #
 #   sh test/install/test_agent_setup.sh
 set -eu
-ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+ROOT=$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 mkdir -p "$WORK/bin" "$WORK/rel" "$WORK/stage"
@@ -14,8 +14,13 @@ mkdir -p "$WORK/bin" "$WORK/rel" "$WORK/stage"
 # token command fails unless FAKE_LOGGED_IN is set, as when nobody has logged in.
 cat > "$WORK/stage/blaxel" <<'BL'
 #!/bin/sh
-echo "$* DO_NOT_TRACK=${DO_NOT_TRACK-unset}" >> "$CALLS"
-[ "$1" != token ] || [ -n "${FAKE_LOGGED_IN:-}" ]
+echo "$* DO_NOT_TRACK=${DO_NOT_TRACK-unset} BL_INSTALL_SKILLS=${BL_INSTALL_SKILLS-unset} BL_INSTALL_MCP=${BL_INSTALL_MCP-unset}" >> "$CALLS"
+case "$*" in
+  'setup --help') [ -z "${FAKE_OLD_CLI:-}" ] ;;
+  'setup --yes') echo 'fixture: setup ran'; exit "${FAKE_SETUP_EXIT:-0}" ;;
+  token) [ -n "${FAKE_LOGGED_IN:-}" ] ;;
+  login) echo 'https://example.invalid/device?code=fixture'; exit "${FAKE_LOGIN_EXIT:-0}" ;;
+esac
 BL
 chmod +x "$WORK/stage/blaxel"
 case "$(uname -s)" in Darwin) os=Darwin ;; *) os=Linux ;; esac
@@ -66,23 +71,39 @@ name="no coding agent, no terminal: nothing new runs"
 run; untouched; pass
 
 name="CI wins over a coding agent"
-run CLAUDECODE=1 CI=true; untouched; pass
-run CURSOR_AGENT=1 GITHUB_ACTIONS=true; untouched; pass
+for marker in CI GITHUB_ACTIONS GITLAB_CI CIRCLECI TRAVIS JENKINS_URL BUILDKITE; do
+  name="$marker wins over a coding agent"
+  run CLAUDECODE=1 "$marker=true"; untouched; pass
+done
+
+name="explicit setup in CI does not start the agent login"
+run CLAUDECODE=1 CI=true BL_INSTALL_SETUP=true; has '^setup --yes'; lacks '^login'; lacks '^token'; pass
 
 name="BL_INSTALL_SETUP=true without an agent runs setup only, as before"
 run BL_INSTALL_SETUP=true; has '^setup --yes'; lacks '^login'; lacks '^token'; pass
 
 name="BL_INSTALL_SETUP=false opts out"
 run CLAUDECODE=1 BL_INSTALL_SETUP=false; untouched; pass
+run CLAUDECODE=1 BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=true; untouched; pass
 
 name="BL_INSTALL_SKILLS=false leaves the agents alone"
 run CLAUDECODE=1 BL_INSTALL_SKILLS=false; untouched; pass
+
+name="explicit setup passes along the skills opt-out"
+run CLAUDECODE=1 BL_INSTALL_SETUP=true BL_INSTALL_SKILLS=false
+has '^setup --yes .*BL_INSTALL_SKILLS=false'; has '^login'; pass
+
+name="the MCP opt-out reaches setup"
+run CLAUDECODE=1 BL_INSTALL_MCP=false; has '^setup --yes .*BL_INSTALL_MCP=false'; pass
 
 name="BL_INSTALL_LOGIN=false sets up without the login"
 run CLAUDECODE=1 BL_INSTALL_LOGIN=false; has '^setup --yes'; lacks '^login'; lacks '^token'; pass
 
 name="an API key is the login"
 run CLAUDECODE=1 BL_API_KEY=key; has '^setup --yes'; lacks '^login'; pass
+
+name="client credentials skip the browser login"
+run CLAUDECODE=1 BL_CLIENT_CREDENTIALS=fixture; has '^setup --yes'; lacks '^login'; lacks '^token'; pass
 
 name="a logged-in user is not logged in again"
 run CLAUDECODE=1 FAKE_LOGGED_IN=1; has '^setup --yes'; has '^token'; lacks '^login'; pass
@@ -91,3 +112,27 @@ name="error reports are left for the first bl in a terminal"
 run CLAUDECODE=1; has '^setup --yes DO_NOT_TRACK=1'; pass
 run CLAUDECODE=1 BL_INSTALL_TRACKING=true; has '^setup --yes DO_NOT_TRACK=unset'; pass
 run CLAUDECODE=1 DO_NOT_TRACK=0; has '^setup --yes DO_NOT_TRACK=0'; pass
+run CLAUDECODE=1 BL_INSTALL_TRACKING=false; has '^setup --yes DO_NOT_TRACK=unset'; pass
+
+name="setup precedes the token check and browser login"
+run CLAUDECODE=1
+test "$(cut -d ' ' -f 1 "$WORK/calls" | tr '\n' ' ')" = 'setup setup token login '
+grep -q '^https://example.invalid/device?code=fixture$' "$WORK/out"; pass
+
+name="failed setup keeps the CLI installed, reports a retry, and starts login"
+run CLAUDECODE=1 FAKE_SETUP_EXIT=1
+has '^login'; grep -q 'setup  .*to finish setting up' "$WORK/out"; pass
+
+name="failed login keeps the CLI installed and reports a retry"
+run CLAUDECODE=1 FAKE_LOGIN_EXIT=1 BINDIR="$WORK/bin with 'quote"
+has '^login'; grep -q 'login  .*to log in' "$WORK/out"
+if grep -Eq 'Successfully logged in|Blaxel is ready' "$WORK/out"; then
+  echo "FAIL $name: misleading success output"; cat "$WORK/out"; exit 1
+fi
+pass
+
+name="a release without setup only suggests login"
+run CLAUDECODE=1 FAKE_OLD_CLI=1
+untouched; grep -q 'login  .*log in to Blaxel' "$WORK/out"; pass
+
+echo "PASS $n isolated installer runs"

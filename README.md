@@ -20,7 +20,7 @@ curl -fsSL https://blaxel.ai/install.sh | sh
 irm https://blaxel.ai/install.ps1 | iex
 ```
 
-The installer verifies the download against the release checksums, puts `bl` on your PATH with shell completions, then runs `bl setup`: it finds your coding agents (Claude Code, Codex, Cursor and more), installs the Blaxel skills and MCP servers into them, and logs you in. Run `bl setup` again any time to set up new agents. When a coding agent runs the installer (no terminal, outside CI), it sets up the agents without screens, then starts the browser login and prints its URL for you to confirm; `BL_INSTALL_LOGIN=false` skips the login. Otherwise, without a terminal or in CI, it only installs the CLI; set `BL_INSTALL_SETUP=true` to run the setup with its defaults, or `BL_INSTALL_SETUP=false` to skip it. `VERSION=v0.1.118` installs a given release and `BINDIR=/usr/local/bin` another location.
+The installer verifies the download against the release checksums, puts `bl` on your PATH with shell completions, then runs `bl setup`: it finds your coding agents (Claude Code, Codex, Cursor and more), installs the Blaxel skills and MCP servers into them, and logs you in. Run `bl setup` again any time to set up new agents. When the installer detects a coding agent through its environment (no terminal, outside CI), it sets up the agents without screens, then starts any needed browser login and prints its URL for you to confirm; `BL_INSTALL_LOGIN=false` skips the login. Otherwise, without a terminal or in CI, it only installs the CLI; set `BL_INSTALL_SETUP=true` to run the setup with its defaults, or `BL_INSTALL_SETUP=false` to skip it. `VERSION=v0.1.118` installs a given release and `BINDIR=/usr/local/bin` another location.
 
 ### Homebrew
 
