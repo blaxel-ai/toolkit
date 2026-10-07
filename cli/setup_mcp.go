@@ -395,6 +395,20 @@ var mcpTargets = map[string]mcpTarget{
 			}
 			return map[string]any{"type": "remote", "url": s.url, "enabled": true}
 		}),
+	"github-copilot": copilotMCPTarget(),
+	"vscode": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(vscodeUserDir(e.paths()), "mcp.json") },
+		"servers", func(s mcpServer) any {
+			if s.local() {
+				return localServerEntry{Type: "stdio", Command: s.command[0], Args: s.command[1:]}
+			}
+			return map[string]string{"type": "http", "url": s.url}
+		}),
+	"amp":   jsonServerTarget(ampConfigFile, "amp.mcpServers", commandOrURL("url")),
+	"goose": gooseMCPTarget(),
+	"kiro-cli": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".kiro", "settings", "mcp.json") },
+		"mcpServers", commandOrURL("url")),
+	"qwen-code": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".qwen", "settings.json") },
+		"mcpServers", commandOrURL("httpUrl")),
 	"windsurf": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".codeium", "windsurf", "mcp_config.json") },
 		"mcpServers", commandOrURL("serverUrl")),
 	"devin": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.config, "devin", "mcp_config.json") },
