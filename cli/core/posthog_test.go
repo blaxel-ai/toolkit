@@ -209,6 +209,26 @@ func TestTrackCLIInstalledSkipsCommandsThatMustStayFast(t *testing.T) {
 	assert.Equal(t, int32(1), requests.Load(), "a normal command must still report")
 }
 
+// bl setup is usually the first command after install, so it must report the
+// install even though it is exempt from the tracking consent prompt.
+func TestTrackCLIInstalledReportsOnSetup(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+
+	os.Args = []string{"bl", "setup"}
+	TrackCLIInstalled("4.1.0")
+	FlushPosthog()
+	assert.Equal(t, int32(1), requests.Load(), "bl setup must report the install")
+}
+
 func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {
 	var requests atomic.Int32
 	var payload map[string]interface{}

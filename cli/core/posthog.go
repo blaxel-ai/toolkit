@@ -205,9 +205,8 @@ func TrackCLIInstalled(cliVersion string) {
 	// Shell completion runs on every TAB press. Since the version is only
 	// marked reported after a successful delivery, tracking here would make
 	// each keypress wait out the flush budget until PostHog accepts the event.
-	// These are the same latency-sensitive, side-effect-free commands already
-	// exempted from the tracking consent prompt.
-	if isTrackingPromptCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
+	// bl setup is not skipped: it is usually the first command after install.
+	if isInstallTrackingCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
 		return
 	}
 

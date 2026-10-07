@@ -643,11 +643,17 @@ func promptForTracking() {
 }
 
 func isTrackingPromptCommandExempt(args []string) bool {
+	// bl setup asks about error reports itself.
+	return isInstallTrackingCommandExempt(args) || (len(args) > 1 && args[1] == "setup")
+}
+
+// isInstallTrackingCommandExempt reports latency-sensitive, side-effect-free
+// commands that must not wait on the telemetry flush at exit.
+func isInstallTrackingCommandExempt(args []string) bool {
 	if len(args) <= 1 {
 		return false
 	}
 
 	cmd := args[1]
-	// bl setup asks about error reports itself.
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup"
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
 }
