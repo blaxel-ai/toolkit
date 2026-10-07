@@ -81,6 +81,26 @@ func writeSkillsUpdateState(home string, state skillsUpdateState) error {
 	return writeConfigFile(skillsUpdateStatePath(home), append(data, '\n'))
 }
 
+// Nonmanifest installs use the same lock but cannot claim a bundle revision.
+func invalidateSkillsBundleRevision(home string, changed []string) error {
+	state, err := readSkillsUpdateState(home)
+	if err != nil {
+		return err
+	}
+	invalidated := false
+	for _, name := range changed {
+		if _, exists := state.InstalledRevisions[name]; exists {
+			delete(state.InstalledRevisions, name)
+			invalidated = true
+		}
+	}
+	if !invalidated {
+		return nil
+	}
+	state.VerifiedRevision, state.Skip = "", ""
+	return writeSkillsUpdateState(home, state)
+}
+
 func skillsUpdateDisabled(state skillsUpdateState, env func(string) string) string {
 	if skillsInstallDisabled(env) {
 		return "disabled by BL_INSTALL_SKILLS or CI"

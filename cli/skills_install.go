@@ -100,7 +100,10 @@ func installSkillsForMode(ctx context.Context, selected []skillsAgent, conservat
 	err = withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
 		result, err = installSkillsArchiveUnlocked(archive, home, os.Getenv, selected, time.Now(), conservative)
-		return err
+		if err != nil {
+			return err
+		}
+		return invalidateSkillsBundleRevision(home, result.skills)
 	})
 	return result, err
 }
@@ -405,7 +408,10 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	err := withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
 		result, err = installSkillsArchiveUnlocked(archive, home, env, selected, now, false)
-		return err
+		if err != nil {
+			return err
+		}
+		return invalidateSkillsBundleRevision(home, result.skills)
 	})
 	return result, err
 }

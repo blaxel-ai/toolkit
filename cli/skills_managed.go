@@ -392,6 +392,13 @@ func existingSkillFolders(root string, wanted map[string]bool) (map[string][]str
 }
 
 func readExistingSkillManifest(name string) ([]byte, error) {
+	info, err := os.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("skill manifest %s must be a regular file", name)
+	}
 	file, err := os.Open(name)
 	if err != nil {
 		return nil, err

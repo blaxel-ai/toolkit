@@ -119,6 +119,40 @@ func TestSkillsUpdaterInstallsVerifiedRevisionAndThrottles(t *testing.T) {
 	assert.EqualValues(t, 1, bundles.Load(), "the same revision is not downloaded again")
 }
 
+func TestSkillsExplicitInstallInvalidatesChangedBundleRevision(t *testing.T) {
+	home := resolvedTempDir(t)
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	manifest := updateManifest(archive, strings.Repeat("a", 40))
+	var bundles atomic.Int32
+	updater := fixtureUpdater(t, home, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(manifest)
+		} else {
+			bundles.Add(1)
+			_, _ = w.Write(archive)
+		}
+	}))
+	require.NoError(t, updater.check(context.Background(), true))
+	explicit := buildSkillsArchive(t, []archiveEntry{
+		{name: "skills/blaxel-cli/SKILL.md", body: skillManifest("blaxel-cli") + "Explicitly refreshed content.\n"},
+	})
+	_, err := installSkillsArchive(explicit, home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	assert.Contains(t, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")), "Explicitly refreshed")
+	state, err := readSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Empty(t, state.InstalledRevisions["blaxel-cli"])
+	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-sdk"], "untouched skill retains its revision")
+	assert.Empty(t, state.VerifiedRevision)
+	updater.now = func() time.Time { return state.LastAttempt.Add(skillsUpdateInterval) }
+	require.NoError(t, updater.check(context.Background(), false))
+	assert.EqualValues(t, 2, bundles.Load(), "a due check reconciles the same channel revision")
+	state, err = readSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-cli"])
+	assert.NotContains(t, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")), "Explicitly refreshed")
+}
+
 func TestSkillsUpdaterFailuresLeaveContentsAndBackOff(t *testing.T) {
 	archive := buildSkillsArchive(t, testSkillsEntries())
 	for _, scenario := range []string{"checksum", "bad archive", "invalid manifest", "oversized manifest", "timeout", "missing manifest", "incompatible", "unknown version", "prerelease", "offline"} {
