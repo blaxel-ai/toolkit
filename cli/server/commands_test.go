@@ -655,6 +655,75 @@ func TestPackageJsonStruct(t *testing.T) {
 	})
 }
 
+func TestRuntimeAvailabilityErrorsAreExpected(t *testing.T) {
+	// Point PATH at an empty directory so runtime/tool lookups fail
+	// deterministically. Missing runtimes are a user-environment problem, so
+	// the resulting errors must be classified as expected and excluded from
+	// Sentry (regression test for CLI-3E).
+	t.Setenv("PATH", t.TempDir())
+
+	t.Run("go not available", func(t *testing.T) {
+		_, err := FindGoExecutable()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "go is not available")
+		assert.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("python not available", func(t *testing.T) {
+		_, err := FindPythonExecutable()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "python is not available")
+		assert.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("node not available", func(t *testing.T) {
+		_, err := FindNodeExecutable()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "node is not available")
+		assert.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("no package manager available", func(t *testing.T) {
+		_, err := FindPackageManagerExecutable()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no package manager found")
+		assert.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("start command tool not available", func(t *testing.T) {
+		// findTSPackageManager defaults to npm when no lock file is present.
+		originalDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(originalDir) }()
+		require.NoError(t, os.Chdir(t.TempDir()))
+
+		_, err = findStartCommand("start")
+		require.Error(t, err)
+		assert.True(t, core.IsExpectedCLIError(err))
+	})
+}
+
+func TestFindJobCommandMissingRuntimeIsExpected(t *testing.T) {
+	// Reproduces the `bl run job --local` path (runSingleTask -> FindJobCommand)
+	// for a Python project when no python runtime is installed. The resulting
+	// error must be classified as expected so it is not reported to Sentry as
+	// an unexpected internal CLI defect (Sentry CLI-3E).
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte("flask"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.py"), []byte("print('hi')"), 0644))
+
+	// Point PATH at an empty directory so the python lookup fails deterministically.
+	t.Setenv("PATH", t.TempDir())
+
+	_, err := FindJobCommand(
+		map[string]interface{}{"name": "task"},
+		dir,
+		core.Config{Workspace: "test"},
+	)
+	require.Error(t, err)
+	assert.True(t, core.IsExpectedCLIError(err))
+}
+
 func TestGetServeCommands(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "serve_cmds_test")
 	require.NoError(t, err)

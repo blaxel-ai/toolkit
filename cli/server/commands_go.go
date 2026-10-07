@@ -16,7 +16,10 @@ func FindGoExecutable() (string, error) {
 	if _, err := exec.LookPath("go"); err == nil {
 		return "go", nil
 	}
-	return "", fmt.Errorf("go is not available on this system")
+	return "", core.MarkExpectedError(
+		fmt.Errorf("go is not available on this system"),
+		core.CLIErrorOperational,
+	)
 }
 
 func StartGoServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
