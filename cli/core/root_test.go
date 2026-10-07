@@ -318,6 +318,9 @@ func TestTrackingPromptCommandExemptions(t *testing.T) {
 	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "--version"}))
 	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "completion"}))
 	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "__complete"}))
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "upgrade"}))
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "--skip-version-warning", "upgrade", "--force"}))
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "--workspace", "upgrade", "get"}))
 
 	assert.False(t, isTrackingPromptCommandExempt([]string{"bl"}))
 	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "-v"}))

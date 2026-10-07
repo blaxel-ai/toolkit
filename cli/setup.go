@@ -90,6 +90,15 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
   bl setup --agent claude-code,codex --skip-login`,
 		Args:         cobra.NoArgs,
 		SilenceUsage: true, SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
+				return nil
+			}
+			if root := cmd.Root(); root != cmd && root.PersistentPreRunE != nil {
+				return root.PersistentPreRunE(cmd, args)
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -97,6 +106,13 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 			}
 			options.home = home
 			options.env = os.Getenv
+			if strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
+				refreshSetup(options)
+				if executable, err := os.Executable(); err == nil {
+					setupHomebrewRefresh(executable, func() {})
+				}
+				return nil
+			}
 			options.out = os.Stdout
 			options.interactive = core.IsTerminalInteractive()
 			options.workspace, _ = explicitWorkspaceFlag(cmd)
