@@ -405,10 +405,11 @@ func resolveConfigVars() {
 		&config.Directory,
 		&config.Image,
 	}
-	// [build] region and cacheDrive name a region and a drive, so they deserve
-	// the same ${VAR} interpolation as the top-level region.
+	// [build] region, cacheDrive and dockerfile name a region, a drive and a
+	// project file, so they deserve the same ${VAR} interpolation as the
+	// top-level region and directory.
 	if config.Build != nil {
-		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive)
+		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive, &config.Build.Dockerfile)
 	}
 	for _, f := range fields {
 		if *f != "" {

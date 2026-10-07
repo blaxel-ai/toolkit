@@ -552,6 +552,14 @@ func TestResolveConfigVars(t *testing.T) {
 		assert.Equal(t, "layer-cache", config.Build.CacheDrive)
 	})
 
+	t.Run("resolves build dockerfile", func(t *testing.T) {
+		secrets = Secrets{}
+		t.Setenv("DOCKERFILE_VARIANT", "blaxel.Dockerfile")
+		config = Config{Build: &BuildConfig{Dockerfile: "${DOCKERFILE_VARIANT}"}}
+		resolveConfigVars()
+		assert.Equal(t, "blaxel.Dockerfile", config.Build.Dockerfile)
+	})
+
 	t.Run("tolerates a missing build section", func(t *testing.T) {
 		secrets = Secrets{}
 		t.Setenv("AGENT_NAME", "prod-agent")
