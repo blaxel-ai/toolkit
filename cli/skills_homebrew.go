@@ -40,9 +40,10 @@ func refreshHomebrewSetup() {
 
 // homebrewRefreshFor returns what the first command on a new Homebrew keg does
 // about the refresh: nothing yet (nil) for agent handshakes and shell
-// completion, which must never wait for a download, and for bl upgrade; only
-// recording the keg for bl setup and bl skills, which install by themselves;
-// otherwise the refresh. The command is resolved as cobra will, so a flag
+// completion, which must never wait for a download, for bl upgrade, and for
+// bl skills, which installs skills only and leaves the MCP refresh pending;
+// only recording the keg for bl setup, which sets up both itself; otherwise
+// the refresh. The command is resolved as cobra will, so a flag
 // value or argument such as `bl get mcp` does not count.
 func homebrewRefreshFor(args []string, refresh func()) func() {
 	if core.IsShellCompletionRequest(args) {
@@ -53,9 +54,9 @@ func homebrewRefreshFor(args []string, refresh func()) func() {
 	}
 	command := core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade")
 	switch {
-	case isMCPBridgeArgs([]string{command}) || command == "upgrade":
+	case isMCPBridgeArgs([]string{command}) || command == "upgrade" || command == "skills":
 		return nil
-	case isSkillsCommand([]string{command}):
+	case command == "setup":
 		return func() {}
 	}
 	return refresh
