@@ -400,11 +400,13 @@ func IsShellCompletionRequest(args []string) bool {
 	if !slices.Contains(args, "__complete") && !slices.Contains(args, "__completeNoDesc") {
 		return false
 	}
-	command := resolveStartupCommand(args, "__complete", "__completeNoDesc")
+	command := ResolveStartupCommand(args, "__complete", "__completeNoDesc")
 	return command == "__complete" || command == "__completeNoDesc"
 }
 
-func resolveStartupCommand(args []string, names ...string) string {
+// ResolveStartupCommand returns which of names args invoke, reading the
+// global flags as normal execution does, without running anything.
+func ResolveStartupCommand(args []string, names ...string) string {
 	resolver := &cobra.Command{Use: "bl", Version: "startup", DisableSuggestions: true}
 	resolver.PersistentFlags().AddFlagSet(rootCmd.PersistentFlags())
 	resolver.InitDefaultHelpFlag()
@@ -665,7 +667,7 @@ func isTrackingPromptCommandExempt(args []string) bool {
 		return true
 	}
 	// Setup owns its consent screen; automatic upgrade refresh never asks.
-	command := resolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade")
+	command := ResolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade")
 	return command != "" && command != "bl"
 }
 
