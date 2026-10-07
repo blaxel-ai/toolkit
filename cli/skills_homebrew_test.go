@@ -155,11 +155,12 @@ func TestIsSkillsCommand(t *testing.T) {
 func TestHomebrewRefreshFor(t *testing.T) {
 	refreshed := 0
 	refresh := func() { refreshed++ }
-	for _, args := range [][]string{{"mcp"}, {"--workspace", "w", "mcp"}, {"upgrade"}, {"__complete", "get", ""}} {
+	// bl skills installs skills only, so the MCP refresh stays pending too.
+	for _, args := range [][]string{{"mcp"}, {"--workspace", "w", "mcp"}, {"upgrade"}, {"__complete", "get", ""}, {"skills", "install"}} {
 		require.Nil(t, homebrewRefreshFor(args, refresh), args)
 	}
-	// bl setup and bl skills install by themselves: record the keg only.
-	for _, args := range [][]string{{"setup"}, {"-w", "mcp", "setup", "--yes"}, {"skills", "install"}} {
+	// bl setup sets up skills and MCP by itself: record the keg only.
+	for _, args := range [][]string{{"setup"}, {"-w", "mcp", "setup", "--yes"}} {
 		install := homebrewRefreshFor(args, refresh)
 		require.NotNil(t, install, args)
 		install()
