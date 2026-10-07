@@ -289,7 +289,7 @@ setup_path() {
     return
   fi
   if [ "${BL_INSTALL_PATH:-}" = "false" ] || { is_ci && [ "${BL_INSTALL_PATH:-}" != "true" ]; } || ! in_home "$RC_FILE"; then
-    RELOAD="export PATH=\"$(display_path "$BINDIR"):\$PATH\""
+    RELOAD="export PATH=\"$BINDIR:\$PATH\""
     return
   fi
   mkdir -p "$(dirname "$RC_FILE")"

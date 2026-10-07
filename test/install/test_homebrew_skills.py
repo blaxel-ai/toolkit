@@ -464,6 +464,13 @@ def install_script_tests(root, binary, server):
             print("PASS install.sh sets up bash through ~/.bashrc", flush=True)
         else:
             assert "export PATH" not in zshrc, zshrc
+            hint = f'export PATH="{bindir}:$PATH"'
+            assert hint in output, output
+            # Run the printed hint in the user's shell: a quoted ~ stays literal in zsh.
+            shell = shutil.which("zsh") or "/bin/sh"
+            resolved = subprocess.run([shell, "-c", hint + "; command -v bl"], env=env,
+                                      capture_output=True, text=True, check=True)
+            assert resolved.stdout.strip() == str(bindir / "bl"), resolved.stdout
             print("PASS install.sh leaves the shell alone with BL_INSTALL_PATH=false", flush=True)
 
 
