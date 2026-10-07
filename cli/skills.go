@@ -85,8 +85,38 @@ func skillsInstalledMessage(result skillsInstallResult) string {
 	if len(result.agents) > 0 {
 		target = "for " + joinSkillsNames(result.agents)
 	}
-	return fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
-		target, strings.Join(result.skills, ", "))
+	var messages []string
+	if len(result.skills) > 0 {
+		messages = append(messages, fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
+			target, strings.Join(result.skills, ", ")))
+	}
+	if len(result.preserved) > 0 {
+		messages = append(messages, "Kept externally managed Blaxel skills ("+strings.Join(result.preserved, ", ")+"); their contents and upstream update records were left unchanged.")
+	}
+	if len(result.repaired) > 0 {
+		messages = append(messages, "Automatically linked skill paths to existing copies.")
+	}
+	for _, backup := range result.backups {
+		messages = append(messages, "Previous copy backed up at "+backup)
+	}
+	return strings.Join(messages, "\n")
+}
+
+func skillsInstallDetail(result skillsInstallResult) string {
+	detail := strings.Join(result.skills, ", ")
+	if len(result.preserved) > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "kept externally managed: " + strings.Join(result.preserved, ", ")
+	}
+	if len(result.repaired) > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "skill paths auto-fixed"
+	}
+	return detail
 }
 
 func joinSkillsNames(names []string) string {
