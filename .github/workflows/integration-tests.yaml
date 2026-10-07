@@ -4,8 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - "mstolarz/eng-*"
-      - "mstolarz/axdx-*"
     paths:
       - "cli/**"
       - "sdk/**"
