@@ -106,7 +106,13 @@ unchanged, and it is safe to run again after installing another agent.`,
 			options.loginState = setupLoginState
 			options.trackingConfigured = blaxel.IsTrackingConfigured
 			options.trackingEnabled = blaxel.IsTrackingEnabled
-			options.setTracking = blaxel.SetTracking
+			options.setTracking = func(enabled bool) {
+				blaxel.SetTracking(enabled)
+				// The install check ran at startup, before this consent existed.
+				if enabled {
+					core.TrackCLIInstalled(core.GetVersion())
+				}
+			}
 			options.mcp = newMCPEnv(home)
 			options.resourceServer, options.documentsServer = resourceMCPServer(), docsMCPServer()
 			err = runSetup(cmd.Context(), options)
