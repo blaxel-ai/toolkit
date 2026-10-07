@@ -29,7 +29,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
-- Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation
+- Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation.
+  Returns once the code is submitted: exit 0 means accepted, not deployed.
+- Non-interactive with --wait: Waits for this build and rollout (up to --timeout)
+  and exits 1 with the cause, failing Dockerfile step, a short log tail and a next
+  command if it fails or times out. Interactive mode always waits.
+
+With --wait and -o json (or yaml), a failure adds resources[].diagnostics (code,
+phase, cause, step, source, logTail, next). An unchanged redeploy creates no new revision:
+--wait reports that in resources[].note and exits 0. If no build starts within 3
+minutes of the upload, --wait stops with DEPLOY_TIMEOUT instead of waiting for --timeout.
 
 Environment Variables and Secrets:
 Use -e to load .env files or -s to pass secrets directly via command line.
@@ -49,8 +58,11 @@ bl deploy [flags]
   # Basic deployment (interactive mode with live logs)
   bl deploy
 
-  # Non-interactive deployment (for CI/CD)
+  # Non-interactive deployment (for CI/CD); returns once submitted
   bl deploy --yes
+
+  # Non-interactive deployment that waits for build and rollout and explains failures
+  bl deploy --yes --wait --timeout 20m
 
   # Deploy with environment variables
   bl deploy -e .env.production
@@ -94,6 +106,7 @@ bl deploy [flags]
       --skip-build                  Skip the build step
       --timeout string              Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h
   -t, --type string                 Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'
+      --wait                        In non-interactive mode, wait for build and rollout, exit 1 on failure and explain it (see --timeout)
   -y, --yes                         Skip interactive mode
 ```
 
