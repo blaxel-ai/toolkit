@@ -10,28 +10,10 @@ import (
 	"testing"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/deploy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestResolveDeployConfig(t *testing.T) {
-	root := t.TempDir()
-	writeDockerfileFixture(t, root, "blaxel-v2.toml", "name = \"v2\"\n")
-	writeDockerfileFixture(t, root, "project/blaxel-v2.toml", "name = \"v2\"\n")
-	writeDockerfileFixture(t, root, "configs/dev.toml", "name = \"dev\"\n")
-
-	require.NoError(t, resolveDeployConfig(root, "", "configs/dev.toml"))
-	require.NoError(t, resolveDeployConfig(root, "project", "blaxel-v2.toml"))
-	for _, tt := range []struct{ folder, path, want string }{
-		{"", "", "--config must not be empty"},
-		{"", "missing.toml", `Config file "missing.toml" not found in `},
-		{"project", "configs/dev.toml", "not found in"}, // relative to -d, not the cwd
-	} {
-		err := resolveDeployConfig(root, tt.folder, tt.path)
-		require.ErrorContains(t, err, tt.want, tt.path)
-		assert.True(t, core.IsExpectedCLIError(err))
-	}
-}
 
 // Two configs and two Dockerfiles share one directory and one build context.
 func TestDeployConfigNamedLayout(t *testing.T) {
@@ -58,7 +40,7 @@ func TestDeployConfigNamedLayout(t *testing.T) {
 			require.NoError(t, core.ReadConfigTomlFile(folder, tt.config, false))
 			cfg := core.GetConfig()
 			assert.Equal(t, tt.name, cfg.Name)
-			selected, err := resolveDeployDockerfile(root, folder, "", cfg, false, false)
+			selected, err := deploy.ResolveDockerfile(root, folder, "", cfg, true, false)
 			require.NoError(t, err)
 			files := dockerfileZipContents(t, &Deployment{cwd: root, folder: folder, dockerfile: selected, configFile: tt.config})
 			assert.Equal(t, []string{fixture[tt.dockerfile]}, files["Dockerfile"], "folder=%q config=%q", folder, tt.config)
