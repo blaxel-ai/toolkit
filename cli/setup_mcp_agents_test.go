@@ -201,3 +201,56 @@ func TestGoosePreservesCommentsAndRejectsAmbiguousYAML(t *testing.T) {
 		assert.Equal(t, original, readTestFile(t, file))
 	}
 }
+
+func TestAmpUsesXDGConfigHome(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{"XDG_CONFIG_HOME": filepath.Join(home, "xdg")}
+	paths := newSkillsAgentPaths(home, func(key string) string { return env[key] })
+	e := testMCPEnv(home, env, &[]fakeCommand{}, "", nil)
+	e.config = paths.config
+	target := mcpTargets["amp"]
+	file := filepath.Join(env["XDG_CONFIG_HOME"], "amp", "settings.json")
+	assert.Equal(t, file, target.file(e))
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".config", "amp"), 0700))
+	assert.Empty(t, detectedSetupAgents(home, paths.env))
+	for _, server := range []mcpServer{testResourceServer, testDocsServer} {
+		change, err := addMCPServer(context.Background(), e, target, server)
+		require.NoError(t, err)
+		assert.Equal(t, mcpAdded, change)
+		assert.NotNil(t, target.entry(e, server.name))
+	}
+	assert.FileExists(t, file)
+	assert.NoFileExists(t, filepath.Join(home, ".config", "amp", "settings.json"))
+	agents := detectedSetupAgents(home, paths.env)
+	require.Len(t, agents, 1)
+	assert.Equal(t, "amp", agents[0].id)
+}
+
+func TestGooseAddsServersToEmptyConfigLayouts(t *testing.T) {
+	for _, original := range []string{
+		"# my settings\n# keep this comment\n",
+		"# my settings\nextensions: # keep this comment\n",
+	} {
+		t.Run(original, func(t *testing.T) {
+			e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+			target := mcpTargets["goose"]
+			file := target.file(e)
+			writeTestFile(t, file, original)
+			for _, server := range []mcpServer{testResourceServer, testDocsServer} {
+				change, err := addMCPServer(context.Background(), e, target, server)
+				require.NoError(t, err)
+				assert.Equal(t, mcpAdded, change)
+				assert.NotNil(t, target.entry(e, server.name))
+			}
+			before := readTestFile(t, file)
+			assert.Contains(t, before, "# my settings")
+			assert.Contains(t, before, "# keep this comment")
+			for _, server := range []mcpServer{testResourceServer, testDocsServer} {
+				change, err := addMCPServer(context.Background(), e, target, server)
+				require.NoError(t, err)
+				assert.Equal(t, mcpUnchanged, change)
+			}
+			assert.Equal(t, before, readTestFile(t, file))
+		})
+	}
+}

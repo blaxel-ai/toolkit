@@ -54,7 +54,7 @@ var skillsAgents = []skillsAgent{
 		return []string{p.envOr("COPILOT_HOME", p.homeDir(".copilot"))}
 	}},
 	{"opencode", "OpenCode", true, func(p skillsAgentPaths) []string { return []string{p.configDir("opencode")} }},
-	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp"), p.homeDir(".config", "amp")} }},
+	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp")} }},
 	{"cline", "Cline", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
 	{"windsurf", "Windsurf", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".codeium", "windsurf")} }},
 	{"goose", "Goose", false, func(p skillsAgentPaths) []string { return []string{p.configDir("goose")} }},
