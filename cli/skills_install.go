@@ -193,6 +193,37 @@ type archivedSkill struct {
 	files        []skillFile
 }
 
+// skillsArchiveReadMax caps the decompressed tarball, tar headers and padding
+// included, even for entries outside skills/ that are ignored. Tests lower it.
+var skillsArchiveReadMax int64 = skillsExtractedMaxBytes + skillsArchiveMaxEntries*1024
+
+var errSkillsArchiveTooLarge = fmt.Errorf("the skills archive expands to more than %d MB", skillsExtractedMaxBytes>>20)
+
+// cappedReader fails once more than left bytes would be read. io.LimitReader
+// ends with io.EOF instead, which tar can take for the end of the archive and
+// then only the skills read so far would be installed.
+type cappedReader struct {
+	r    io.Reader
+	left int64
+}
+
+func (c *cappedReader) Read(p []byte) (int, error) {
+	if c.left <= 0 {
+		// Only a stream that really ends at the cap is complete.
+		var probe [1]byte
+		if n, err := io.ReadFull(c.r, probe[:]); n == 0 {
+			return 0, err
+		}
+		return 0, errSkillsArchiveTooLarge
+	}
+	if int64(len(p)) > c.left {
+		p = p[:c.left]
+	}
+	n, err := c.r.Read(p)
+	c.left -= int64(n)
+	return n, err
+}
+
 // readSkillsArchive returns the skills under skills/<name>/ in a repository tarball.
 func readSkillsArchive(archive []byte) ([]archivedSkill, error) {
 	compressed, err := gzip.NewReader(bytes.NewReader(archive))
@@ -200,9 +231,7 @@ func readSkillsArchive(archive []byte) ([]archivedSkill, error) {
 		return nil, fmt.Errorf("reading the skills archive: %w", err)
 	}
 	defer func() { _ = compressed.Close() }()
-	// Include tar headers/padding in the decompression cap, even for entries
-	// outside skills/ that will be ignored below.
-	reader := tar.NewReader(io.LimitReader(compressed, skillsExtractedMaxBytes+skillsArchiveMaxEntries*1024+1))
+	reader := tar.NewReader(&cappedReader{r: compressed, left: skillsArchiveReadMax})
 	folders := map[string][]skillFile{}
 	var total int64
 	for entries := 0; ; entries++ {
@@ -415,7 +444,7 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	return result, err
 }
 
-func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time, conservative bool) (skillsInstallResult, error) {
+func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time, conservative bool) (result skillsInstallResult, err error) {
 	skills, err := readSkillsArchive(archive)
 	if err != nil {
 		return skillsInstallResult{}, err
@@ -435,8 +464,19 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 		return skillsInstallResult{}, err
 	}
 	_, agentNames := skillsTargets(selected)
-	result := skillsInstallResult{agents: agentNames}
+	result = skillsInstallResult{agents: agentNames}
 	var installed []archivedSkill
+	// Record every swapped skill even when a later one fails. Otherwise the lock
+	// keeps the previous hash, and conservative updates would keep treating the
+	// new copy as a local edit and never refresh it again.
+	defer func() {
+		if len(installed) == 0 {
+			return
+		}
+		if lockErr := recordSkillsLock(home, env, installed, now); lockErr != nil && err == nil {
+			result, err = skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", lockErr)
+		}
+	}()
 	for _, plan := range plans {
 		result.skipped = append(result.skipped, plan.skippedLinks...)
 		files := plan.skill.files
@@ -467,11 +507,6 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 			} else if err != nil {
 				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
 			}
-		}
-	}
-	if len(installed) > 0 {
-		if err := recordSkillsLock(home, env, installed, now); err != nil {
-			return skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", err)
 		}
 	}
 	return result, nil

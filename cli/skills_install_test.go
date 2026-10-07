@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -272,6 +273,68 @@ func TestInstallSkillsArchiveRejectsBadArchives(t *testing.T) {
 	_, err = installSkillsArchive(buildSkillsArchive(t, []archiveEntry{{name: "skills/notes/README.md", body: "x"}}), home, noEnv, nil, time.Now())
 	assert.ErrorContains(t, err, "no skills found")
 	assert.NoDirExists(t, filepath.Join(home, ".agents"), "no skills are written when the archive has no skills")
+}
+
+func TestReadSkillsArchiveFailsWhenCutAtTheCap(t *testing.T) {
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	compressed, err := gzip.NewReader(bytes.NewReader(archive))
+	require.NoError(t, err)
+	expanded, err := io.ReadAll(compressed)
+	require.NoError(t, err)
+	complete, err := readSkillsArchive(archive)
+	require.NoError(t, err)
+
+	previous := skillsArchiveReadMax
+	t.Cleanup(func() { skillsArchiveReadMax = previous })
+	// Wherever the cap lands, including right after a file's data, a cut
+	// archive must fail rather than pass for a complete one with fewer skills.
+	for limit := int64(0); limit < int64(len(expanded)); limit++ {
+		skillsArchiveReadMax = limit
+		_, err := readSkillsArchive(archive)
+		require.ErrorIs(t, err, errSkillsArchiveTooLarge, "cap at byte %d", limit)
+	}
+	skillsArchiveReadMax = int64(len(expanded))
+	skills, err := readSkillsArchive(archive)
+	require.NoError(t, err, "an archive that ends exactly at the cap is complete")
+	assert.Len(t, skills, len(complete))
+}
+
+func TestConservativeUpdateRecordsSkillsReplacedBeforeAFailure(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a folder that can't be moved, which Windows and root don't enforce")
+	}
+	home := resolvedTempDir(t)
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	updated := testSkillsEntries()
+	for i := range updated {
+		if strings.HasSuffix(updated[i].name, "/SKILL.md") {
+			updated[i].body += "\nUpdated.\n"
+		}
+	}
+	archive := buildSkillsArchive(t, updated)
+
+	// Moving a folder to another parent rewrites its "..", so a read-only
+	// blaxel-sdk fails after blaxel-cli has already been replaced.
+	root := filepath.Join(home, ".agents", "skills")
+	sdk := filepath.Join(root, "blaxel-sdk")
+	require.NoError(t, os.Chmod(sdk, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(sdk, 0o755) })
+	_, err = installSkillsArchiveUnlocked(archive, home, noEnv, nil, time.Now(), true)
+	require.ErrorContains(t, err, "installing blaxel-sdk")
+
+	cli := filepath.Join(root, "blaxel-cli")
+	assert.Contains(t, readTestFile(t, filepath.Join(cli, "SKILL.md")), "Updated.")
+	hash, err := localSkillHash(cli)
+	require.NoError(t, err)
+	locked := lockedSkill(t, readLock(t, skillsLockPath(home, noEnv)), "blaxel-cli")
+	assert.Equal(t, hash, locked["blaxelInstalledHash"], "the replaced skill must stay CLI-owned")
+
+	require.NoError(t, os.Chmod(sdk, 0o755))
+	result, err := installSkillsArchiveUnlocked(archive, home, noEnv, nil, time.Now(), true)
+	require.NoError(t, err)
+	assert.Empty(t, result.preserved, "the next update must not mistake the new copy for a local edit")
+	assert.Contains(t, readTestFile(t, filepath.Join(sdk, "SKILL.md")), "Updated.")
 }
 
 func TestSkillsLockLocationAndReset(t *testing.T) {
