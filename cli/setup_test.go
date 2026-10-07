@@ -278,6 +278,22 @@ func TestClaudeMCPWithoutTheCLIEditsClaudeJSON(t *testing.T) {
 		readTestFile(t, filepath.Join(configDir, ".claude.json")))
 }
 
+// CLAUDE_CONFIG_DIR can come from an untrusted place, so a claude binary under
+// it is never run; the config file is edited instead.
+func TestClaudeMCPNeverRunsAClaudeUnderClaudeConfigDir(t *testing.T) {
+	home := t.TempDir()
+	configDir := filepath.Join(home, "repo", "claude-config")
+	var commands []fakeCommand
+	env := testMCPEnv(home, map[string]string{"CLAUDE_CONFIG_DIR": configDir}, &commands, "", nil)
+	writeTestFile(t, filepath.Join(configDir, "local", "claude"), "#!/bin/sh\n")
+
+	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testDocsServer)
+	require.NoError(t, err)
+	assert.Equal(t, mcpAdded, change)
+	assert.Empty(t, commands)
+	assert.Contains(t, readTestFile(t, filepath.Join(configDir, ".claude.json")), `"blaxel-docs"`)
+}
+
 func TestClaudeMCPReportsCLIFailures(t *testing.T) {
 	var commands []fakeCommand
 	env := testMCPEnv(t.TempDir(), map[string]string{"PATH_HAS_claude": ""}, &commands, "MCP server blaxel already exists in user config", errors.New("exit status 1"))
