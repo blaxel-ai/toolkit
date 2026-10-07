@@ -24,6 +24,12 @@ func localSkillHash(root string) (string, error) {
 		if entries > skillsArchiveMaxEntries {
 			return errors.New("installed skill has too many files")
 		}
+		if name != root && generatedSkillFile(entry.Name(), entry.IsDir()) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if entry.IsDir() {
 			return nil
 		}
@@ -66,6 +72,16 @@ func localSkillHash(root string) (string, error) {
 		return "", err
 	}
 	return gitTreeHash(files), nil
+}
+
+// generatedSkillFile reports files that tools create inside a skill folder by
+// themselves (Python caches, Finder and Explorer metadata). They are not local
+// edits, so they must not stop updates; the installer never ships them.
+func generatedSkillFile(name string, dir bool) bool {
+	if dir {
+		return name == "__pycache__"
+	}
+	return name == ".DS_Store" || name == "Thumbs.db" || name == "desktop.ini"
 }
 
 // Automatic and manifest updates never repair or adopt manager-owned paths.
@@ -117,12 +133,19 @@ func preserveEditedSkills(plans []skillInstallPlan, home string, env func(string
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
-			// Keep every existing ordinary agent copy. The shared copy updates
-			// through existing CLI links; managers retain their own projections.
+			// The shared copy updates through existing CLI links, and managers
+			// retain their own projections. An ordinary agent copy is refreshed
+			// only while it still matches what the CLI installed (older CLIs
+			// copied where Windows had no directory links); others are kept.
 			if !link.repair && info == nil {
 				safe = append(safe, link)
 			} else if info != nil && !isSkillLink(link.destination, info.Mode()) {
-				plan.skippedLinks = append(plan.skippedLinks, plan.skill.name+" at "+link.destination+" (ordinary agent copy preserved)")
+				if hash, err := localSkillHash(link.destination); !link.repair && err == nil && locked.Source == skillsRepo && baseline != "" && hash == baseline {
+					link.expectedHash = baseline
+					safe = append(safe, link)
+				} else {
+					plan.skippedLinks = append(plan.skippedLinks, plan.skill.name+" at "+link.destination+" (ordinary agent copy preserved)")
+				}
 			}
 		}
 		plan.links = safe

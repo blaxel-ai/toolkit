@@ -481,6 +481,12 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 				}
 				continue
 			}
+			if link.expectedHash != "" {
+				if hash, err := localSkillHash(link.destination); err != nil || hash != link.expectedHash {
+					result.skipped = append(result.skipped, plan.skill.name+" at "+link.destination+" (agent copy changed during update; left unchanged)")
+					continue
+				}
+			}
 			if err := linkSkillFolder(link.target, link.destination, files); errors.Is(err, errManagedSkillNotLinked) {
 				continue // that agent is left unchanged
 			} else if err != nil {

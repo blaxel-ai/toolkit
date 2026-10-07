@@ -27,6 +27,9 @@ type skillLinkPlan struct {
 	target, destination string
 	root                string
 	repair              bool
+	// expectedHash, when set, is the contents an existing agent copy must
+	// still have for an update to replace it.
+	expectedHash string
 }
 
 func planSkillsInstall(base string, paths SkillsAgentPaths, skills []archivedSkill, selected []SkillsAgent) ([]skillInstallPlan, error) {

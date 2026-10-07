@@ -241,6 +241,47 @@ func TestSkillsUpdaterPreservesEditedOrdinaryAndManagedSkills(t *testing.T) {
 	assert.Equal(t, skillManifest("blaxel-cli")+"agent-specific edits", readTestFile(t, ordinary))
 }
 
+func TestSkillsUpdaterRefreshesUnmodifiedAgentCopiesAndIgnoresGeneratedFiles(t *testing.T) {
+	home := resolvedTempDir(t)
+	root := filepath.Join(home, ".agents", "skills")
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	// Files tools generate by themselves are not local edits.
+	writeTestFile(t, filepath.Join(root, "blaxel-cli", ".DS_Store"), "finder")
+	writeTestFile(t, filepath.Join(root, "blaxel-cli", "scripts", "__pycache__", "x.pyc"), "cache")
+	// An agent copy as older CLIs wrote it where Windows had no directory links.
+	agentCopy := filepath.Join(home, ".claude", "skills", "blaxel-cli")
+	require.NoError(t, filepath.WalkDir(filepath.Join(root, "blaxel-cli"), func(name string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		relative, _ := filepath.Rel(filepath.Join(root, "blaxel-cli"), name)
+		info, err := entry.Info()
+		require.NoError(t, err)
+		writeTestFile(t, filepath.Join(agentCopy, relative), readTestFile(t, name))
+		return os.Chmod(filepath.Join(agentCopy, relative), info.Mode().Perm())
+	}))
+	entries := testSkillsEntries()
+	entries[1].body = skillManifest("blaxel-cli") + "Updated.\n"
+	updated := buildSkillsArchive(t, entries)
+	manifest := updateManifest(updated, strings.Repeat("d", 40))
+	updater := fixtureUpdater(t, home, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(manifest)
+		} else {
+			_, _ = w.Write(updated)
+		}
+	}))
+	require.NoError(t, updater.check(context.Background(), true))
+	state, err := ReadSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Empty(t, state.SkippedSkills)
+	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-cli"])
+	assert.Equal(t, skillManifest("blaxel-cli")+"Updated.\n", readTestFile(t, filepath.Join(root, "blaxel-cli", "SKILL.md")))
+	assert.Equal(t, skillManifest("blaxel-cli")+"Updated.\n", readTestFile(t, filepath.Join(agentCopy, "SKILL.md")))
+}
+
 func TestSkillsUpdaterOptOutAndExplicitRefresh(t *testing.T) {
 	archive := buildSkillsArchive(t, testSkillsEntries())
 	for _, scenario := range []string{"saved", "CI", "BL_INSTALL_SKILLS"} {
