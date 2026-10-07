@@ -38,9 +38,12 @@ func TestDetectVersionAtPathDoesNotExecutePATHBinary(t *testing.T) {
 	pathBinary := filepath.Join(pathDir, "blaxel")
 	marker := filepath.Join(t.TempDir(), "path-binary-ran")
 
-	assert.NoError(t, os.WriteFile(safeBinary, []byte("#!/bin/sh\necho 'Version: 3.2.1'\n"), 0755))
+	assert.NoError(t, os.WriteFile(safeBinary, []byte("#!/bin/sh\n"+
+		"[ \"$DO_NOT_TRACK\" = 1 ] && [ \"$BL_INSTALL_SETUP\" = false ] && [ \"$BL_INSTALL_SKILLS\" = false ] && [ \"$BL_INSTALL_MCP\" = false ] || exit 3\n"+
+		"echo 'Version: 3.2.1'\n"), 0755))
 	assert.NoError(t, os.WriteFile(pathBinary, []byte("#!/bin/sh\ntouch \""+marker+"\"\necho 'Version: malicious'\n"), 0755))
 	t.Setenv("PATH", pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("BL_INSTALL_SETUP", "true")
 
 	assert.Equal(t, "3.2.1", detectVersionAtPath(safeBinary))
 	_, err := os.Stat(marker)

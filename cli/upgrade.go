@@ -214,7 +214,8 @@ func upgradedCLIPath(method string) (string, error) {
 
 func detectVersionAtPath(binaryPath string) string {
 	cmd := exec.Command(binaryPath, "version")
-	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
+	// Reading the version must not start another setup or skills refresh.
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1", "DO_NOT_TRACK=1", "BL_INSTALL_SETUP=false", "BL_INSTALL_SKILLS=false", "BL_INSTALL_MCP=false")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
