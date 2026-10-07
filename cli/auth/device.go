@@ -16,8 +16,9 @@ import (
 
 // DeviceLogin represents a device login request
 type DeviceLogin struct {
-	ClientID string `json:"client_id"`
-	Scope    string `json:"scope"`
+	ClientID  string `json:"client_id"`
+	Scope     string `json:"scope"`
+	Workspace string `json:"workspace,omitempty"`
 }
 
 // DeviceLoginResponse represents the response from device login
@@ -69,10 +70,11 @@ func LoginDevice(workspace string) {
 }
 
 // LoginWithDevice logs in with the browser and saves the credentials. With an
-// empty workspace, the user picks one of their workspaces after signing in.
+// empty workspace, the browser authorizes the account and the terminal selects
+// the current workspace after signing in.
 // Failures are returned, so callers such as bl setup can carry on.
 func LoginWithDevice(workspace string) error {
-	deviceLogin, opened, err := StartDeviceLogin(context.Background())
+	deviceLogin, opened, err := StartDeviceLogin(context.Background(), workspace)
 	if err != nil {
 		return err
 	}
@@ -102,8 +104,8 @@ func LoginWithDevice(workspace string) error {
 // StartDeviceLogin asks for a device login and opens its page in the
 // browser. opened is false where no browser could be opened. Cancelling ctx
 // (such as skipping the login in bl setup) stops the request.
-func StartDeviceLogin(ctx context.Context) (login DeviceLoginResponse, opened bool, err error) {
-	login, err = requestDeviceLogin(ctx, blaxel.BuildOAuthDeviceURL())
+func StartDeviceLogin(ctx context.Context, workspace ...string) (login DeviceLoginResponse, opened bool, err error) {
+	login, err = requestDeviceLogin(ctx, blaxel.BuildOAuthDeviceURL(), workspace...)
 	if err != nil {
 		return login, false, err
 	}
@@ -158,8 +160,12 @@ func SaveDeviceLogin(workspace string, creds blaxel.Credentials) error {
 	return nil
 }
 
-func requestDeviceLogin(ctx context.Context, url string) (DeviceLoginResponse, error) {
-	payloadBytes, err := json.Marshal(DeviceLogin{ClientID: "blaxel", Scope: "offline_access"})
+func requestDeviceLogin(ctx context.Context, url string, workspace ...string) (DeviceLoginResponse, error) {
+	payload := DeviceLogin{ClientID: "blaxel", Scope: "offline_access"}
+	if len(workspace) > 0 {
+		payload.Workspace = workspace[0]
+	}
+	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return DeviceLoginResponse{}, err
 	}
