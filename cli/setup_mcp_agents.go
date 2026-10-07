@@ -3,14 +3,229 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func typedCommandOrURL(localType, remoteType string) func(mcpServer) any {
+	return func(s mcpServer) any {
+		if s.local() {
+			return localServerEntry{Type: localType, Command: s.command[0], Args: s.command[1:]}
+		}
+		return map[string]string{"type": remoteType, "url": s.url}
+	}
+}
+
+func crushConfigDir(p skillsAgentPaths) string {
+	return p.envOr("CRUSH_GLOBAL_CONFIG", p.configDir("crush"))
+}
+
+func crushMCPTarget() mcpTarget {
+	file := func(e mcpEnv) string { return filepath.Join(crushConfigDir(e.paths()), "crush.json") }
+	target := jsonServerTarget(file, "mcp", typedCommandOrURL("stdio", "http"))
+	write := target.write
+	target.write = func(ctx context.Context, e mcpEnv, s mcpServer, replace bool) error {
+		if _, err := os.Stat(filepath.Join(filepath.Dir(file(e)), "crushrc")); !errors.Is(err, os.ErrNotExist) {
+			return errors.New("configure MCP in crushrc; setup cannot safely merge shell configuration")
+		}
+		return write(ctx, e, s, replace)
+	}
+	return target
+}
+
+func clineMCPTarget() mcpTarget {
+	file := func(e mcpEnv) string {
+		return e.envOr("CLINE_MCP_SETTINGS_PATH", filepath.Join(e.home, ".cline", "data", "settings", "cline_mcp_settings.json"))
+	}
+	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("", "streamableHttp"))
+	target.entry = func(e mcpEnv, name string) map[string]any {
+		entry := jsonConfigEntry(file(e), "mcpServers", name)
+		if entry["type"] == "streamableHttp" {
+			entry["type"] = "http"
+		}
+		return entry
+	}
+	return target
+}
+
+func continueMCPTarget() mcpTarget {
+	file := func(e mcpEnv) string {
+		return filepath.Join(e.envOr("CONTINUE_GLOBAL_DIR", filepath.Join(e.home, ".continue")), "mcpServers", "blaxel.json")
+	}
+	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("stdio", "http"))
+	owns := func(e mcpEnv, name string) (bool, error) {
+		root := filepath.Dir(filepath.Dir(file(e)))
+		// Main and sibling configs belong to the user. A same-name server there
+		// takes ownership, so setup does not create a duplicate in blaxel.json.
+		files := []string{filepath.Join(root, "config.yaml"), filepath.Join(root, "config.json")}
+		if err := filepath.WalkDir(filepath.Dir(file(e)), func(path string, d os.DirEntry, err error) error {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && path != file(e) {
+				files = append(files, path)
+			}
+			return nil
+		}); err != nil {
+			return false, err
+		}
+		for _, path := range files {
+			switch filepath.Ext(path) {
+			case ".json", ".yaml", ".yml":
+			default:
+				continue
+			}
+			data, err := os.ReadFile(path)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			if err != nil {
+				return false, err
+			}
+			if filepath.Ext(path) == ".json" && !json.Valid(data) {
+				return false, fmt.Errorf("cannot safely inspect %s: not plain JSON", path)
+			}
+			var config struct {
+				Servers any `yaml:"mcpServers"`
+			}
+			if err := yaml.Unmarshal(data, &config); err != nil {
+				return false, fmt.Errorf("cannot safely inspect %s: %w", path, err)
+			}
+			switch servers := config.Servers.(type) {
+			case map[string]any:
+				if _, ok := servers[name]; ok {
+					return true, nil
+				}
+			case []any:
+				for _, server := range servers {
+					if entry, ok := server.(map[string]any); ok && entry["name"] == name {
+						return true, nil
+					}
+				}
+			}
+		}
+		return false, nil
+	}
+	target.entry = func(e mcpEnv, name string) map[string]any {
+		if exists, err := owns(e, name); err == nil && exists {
+			return map[string]any{}
+		}
+		return jsonConfigEntry(file(e), "mcpServers", name)
+	}
+	write := target.write
+	target.write = func(ctx context.Context, e mcpEnv, s mcpServer, replace bool) error {
+		if exists, err := owns(e, s.name); err != nil {
+			return err
+		} else if exists {
+			return errMCPServerExists
+		}
+		return write(ctx, e, s, replace)
+	}
+	return target
+}
+
+func openclawConfigFile(e mcpEnv) string {
+	path := e.envOr("OPENCLAW_CONFIG_PATH", filepath.Join(e.envOr("OPENCLAW_STATE_DIR", filepath.Join(e.home, ".openclaw")), "openclaw.json"))
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
+		path = filepath.Join(e.home, path[2:])
+	}
+	return path
+}
+
+// OpenClaw's native registry is nested. Leave JSON5 and included settings to
+// the client, and preserve every unrelated JSON member while merging servers.
+func openclawMCPTarget() mcpTarget {
+	read := func(e mcpEnv) ([]jsonMember, []jsonMember, error) {
+		_, root, err := readJSONConfig(openclawConfigFile(e))
+		if err != nil {
+			return nil, nil, err
+		}
+		if findJSONMember(root, "$include") >= 0 {
+			return nil, nil, errors.New("cannot safely edit included MCP settings")
+		}
+		var mcp []jsonMember
+		if i := findJSONMember(root, "mcp"); i >= 0 {
+			mcp, err = parseJSONObject(root[i].value)
+		}
+		if err != nil || findJSONMember(mcp, "$include") >= 0 {
+			return nil, nil, errors.New("cannot safely edit the MCP settings object")
+		}
+		if i := findJSONMember(mcp, "servers"); i >= 0 {
+			servers, err := parseJSONObject(mcp[i].value)
+			if err != nil || findJSONMember(servers, "$include") >= 0 {
+				return nil, nil, errors.New("cannot safely edit the MCP servers object")
+			}
+		}
+		return root, mcp, nil
+	}
+	return mcpTarget{
+		file: openclawConfigFile,
+		entry: func(e mcpEnv, name string) map[string]any {
+			_, mcp, err := read(e)
+			if err != nil {
+				return nil
+			}
+			index := findJSONMember(mcp, "servers")
+			if index < 0 {
+				return nil
+			}
+			servers, err := parseJSONObject(mcp[index].value)
+			if err != nil {
+				return nil
+			}
+			index = findJSONMember(servers, name)
+			if index < 0 {
+				return nil
+			}
+			var entry map[string]any
+			if json.Unmarshal(servers[index].value, &entry) != nil || entry == nil {
+				return map[string]any{}
+			}
+			if transport, ok := entry["transport"]; ok {
+				if _, hasType := entry["type"]; !hasType {
+					entry["type"] = transport
+					delete(entry, "transport")
+				}
+			}
+			return entry
+		},
+		write: func(_ context.Context, e mcpEnv, s mcpServer, replace bool) error {
+			root, mcp, err := read(e)
+			if err != nil {
+				return err
+			}
+			entry := map[string]any{"transport": "streamable-http", "url": s.url}
+			if s.local() {
+				entry = map[string]any{"transport": "stdio", "command": s.command[0], "args": s.command[1:]}
+			}
+			updated, changed, err := mergeJSONServer(mcp, "servers", s.name, entry, replace)
+			if err != nil || !changed {
+				return err
+			}
+			if i := findJSONMember(root, "mcp"); i >= 0 {
+				root[i].value = updated
+			} else {
+				root = append(root, jsonMember{"mcp", updated})
+			}
+			data, err := encodeJSONObject(root)
+			if err != nil {
+				return err
+			}
+			return writeConfigFile(openclawConfigFile(e), data)
+		},
+	}
+}
 
 func copilotConfigFile(e mcpEnv) string {
 	return filepath.Join(e.envOr("COPILOT_HOME", filepath.Join(e.home, ".copilot")), "mcp-config.json")
@@ -33,6 +248,32 @@ func copilotMCPTarget() mcpTarget {
 		}
 		return entry
 	}
+	// Ask Copilot for its resolved registry so disabled and skills-only plugins
+	// are not mistaken for plugins that provide the resource server.
+	target.hasPlugin = func(e mcpEnv) bool {
+		if _, err := e.lookPath("copilot"); err != nil {
+			return false
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		data, err := e.run(ctx, "copilot", "mcp", "list", "--json")
+		if err != nil {
+			return false
+		}
+		var config struct {
+			Servers map[string]struct {
+				SourcePlugin string `json:"sourcePlugin"`
+				Source       string `json:"source"`
+				Enabled      bool   `json:"enabled"`
+			} `json:"mcpServers"`
+		}
+		if json.Unmarshal(data, &config) != nil {
+			return false
+		}
+		server := config.Servers["blaxel"]
+		return server.SourcePlugin == "blaxel" && server.Source == "plugin" && server.Enabled
+	}
+	target.pluginDirs = func(mcpEnv) []string { return nil }
 	return target
 }
 

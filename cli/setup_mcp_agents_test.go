@@ -22,6 +22,13 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 		{"goose", "extensions", "uri", "stdio", "streamable_http"},
 		{"kiro-cli", "mcpServers", "url", "", ""},
 		{"qwen-code", "mcpServers", "httpUrl", "", ""},
+		{"cline", "mcpServers", "url", "", "streamableHttp"},
+		{"continue", "mcpServers", "url", "stdio", "http"},
+		{"junie", "mcpServers", "url", "", ""},
+		{"augment", "mcpServers", "url", "", "http"},
+		{"openhands", "mcpServers", "url", "", ""},
+		{"crush", "mcp", "url", "stdio", "http"},
+		{"openclaw", "servers", "url", "stdio", "streamable-http"},
 	} {
 		t.Run(agent.id, func(t *testing.T) {
 			oldCommand := filepath.Join(t.TempDir(), "old", "bl")
@@ -31,6 +38,9 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 					servers["blaxel"] = entry
 				}
 				config := map[string]any{"theme": "dark", agent.container: servers}
+				if agent.id == "openclaw" {
+					config = map[string]any{"theme": "dark", "mcp": map[string]any{"servers": servers, "setting": "keep"}}
+				}
 				var data []byte
 				var err error
 				if agent.id == "goose" {
@@ -53,6 +63,10 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 					delete(entry, "command")
 					entry["cmd"], entry["name"], entry["enabled"] = command, "blaxel", true
 				}
+				if agent.id == "openclaw" {
+					entry["transport"] = entry["type"]
+					delete(entry, "type")
+				}
 				return entry
 			}
 			hosted := map[string]any{agent.urlKey: "https://api.blaxel.ai/v0/mcp"}
@@ -64,6 +78,10 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 			}
 			if agent.id == "goose" {
 				hosted["name"], hosted["enabled"] = "blaxel", true
+			}
+			if agent.id == "openclaw" {
+				hosted["transport"] = hosted["type"]
+				delete(hosted, "type")
 			}
 			custom := local(oldCommand)
 			custom["args"] = []string{"mcp", "--workspace", "my-workspace"}
@@ -114,7 +132,12 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 						require.NoError(t, json.Unmarshal(data, &config))
 					}
 					assert.Equal(t, "dark", config["theme"])
-					servers := config[agent.container].(map[string]any)
+					container := config
+					if agent.id == "openclaw" {
+						container = config["mcp"].(map[string]any)
+						assert.Equal(t, "keep", container["setting"])
+					}
+					servers := container[agent.container].(map[string]any)
 					assert.Equal(t, map[string]any{"command": "my-server", "setting": "keep"}, servers["other"])
 					assert.Equal(t, docsMCPURL, servers["blaxel-docs"].(map[string]any)[agent.urlKey])
 					if fixture.change != mcpUnchanged {
@@ -132,7 +155,11 @@ func TestAdditionalAgentMCPMerges(t *testing.T) {
 			t.Run("malformed", func(t *testing.T) {
 				e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
 				target := mcpTargets[agent.id]
-				for _, original := range []string{"{broken", `{"` + agent.container + `":[]}`} {
+				badContainer := `{"` + agent.container + `":[]}`
+				if agent.id == "openclaw" {
+					badContainer = `{"mcp":` + badContainer + `}`
+				}
+				for _, original := range []string{"{broken", badContainer} {
 					writeTestFile(t, target.file(e), original)
 					_, err := addMCPServer(context.Background(), e, target, testResourceServer)
 					require.Error(t, err)
@@ -260,6 +287,118 @@ func TestGoosePreservesCommentsInConfigLayouts(t *testing.T) {
 				assert.Equal(t, mcpUnchanged, change)
 			}
 			assert.Equal(t, before, readTestFile(t, file))
+		})
+	}
+}
+
+func TestContinueLeavesServersInOtherConfigsAlone(t *testing.T) {
+	for _, fixture := range []struct{ file, content string }{
+		{"config.yaml", "mcpServers:\n  - name: blaxel\n    command: mine\n"},
+		{"mcpServers/custom.json", `{"mcpServers":{"blaxel":{"url":"https://example.com/mcp"}}}`},
+		{"mcpServers/nested/custom.yaml", "mcpServers:\n  - name: blaxel\n    command: mine\n"},
+	} {
+		t.Run(fixture.file, func(t *testing.T) {
+			e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+			file := filepath.Join(e.home, ".continue", fixture.file)
+			writeTestFile(t, file, fixture.content)
+			result := configureAgentMCP(context.Background(), e, mcpTargets["continue"], []mcpServer{testResourceServer, testDocsServer})
+			require.NoError(t, result.err)
+			assert.Equal(t, []string{"blaxel"}, result.existing)
+			assert.Equal(t, []string{"blaxel-docs"}, result.added)
+			assert.Equal(t, fixture.content, readTestFile(t, file))
+			assert.Nil(t, jsonConfigEntry(mcpTargets["continue"].file(e), "mcpServers", "blaxel"))
+		})
+	}
+}
+
+func TestContinueLeavesUnparseableSiblingConfigsAlone(t *testing.T) {
+	for _, original := range []string{
+		"{ // my servers\n\"mcpServers\": {}\n}",
+		`{"mcpServers":`,
+	} {
+		e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+		file := filepath.Join(e.home, ".continue", "mcpServers", "custom.json")
+		writeTestFile(t, file, original)
+		_, err := addMCPServer(context.Background(), e, mcpTargets["continue"], testResourceServer)
+		require.Error(t, err)
+		assert.Equal(t, original, readTestFile(t, file))
+		assert.NoFileExists(t, mcpTargets["continue"].file(e))
+	}
+}
+
+func TestOpenClawLeavesIncludedAndJSON5ConfigsAlone(t *testing.T) {
+	for _, original := range []string{
+		`{"$include":"other.json"}`,
+		`{"mcp":{"$include":"servers.json"}}`,
+		`{"mcp":{"servers":{"$include":"servers.json"}}}`,
+		"{ // my settings\n\"mcp\": {}\n}",
+	} {
+		e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+		file := openclawConfigFile(e)
+		writeTestFile(t, file, original)
+		_, err := addMCPServer(context.Background(), e, mcpTargets["openclaw"], testResourceServer)
+		require.Error(t, err)
+		assert.Equal(t, original, readTestFile(t, file))
+	}
+}
+
+func TestCrushLeavesShellConfigAlone(t *testing.T) {
+	e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+	file := filepath.Join(crushConfigDir(e.paths()), "crushrc")
+	original := "# my server\nmcp add blaxel --command mine\n"
+	writeTestFile(t, file, original)
+	_, err := addMCPServer(context.Background(), e, mcpTargets["crush"], testResourceServer)
+	require.ErrorContains(t, err, "crushrc")
+	assert.Equal(t, original, readTestFile(t, file))
+	assert.NoFileExists(t, mcpTargets["crush"].file(e))
+}
+
+func TestCopilotLeavesTheEnabledPluginServerAlone(t *testing.T) {
+	for _, fixture := range []struct {
+		name, output string
+		plugin       bool
+	}{
+		{"enabled", `{"mcpServers":{"blaxel":{"sourcePlugin":"blaxel","source":"plugin","enabled":true}}}`, true},
+		{"disabled", `{"mcpServers":{"blaxel":{"sourcePlugin":"blaxel","source":"plugin","enabled":false}}}`, false},
+		{"skills only", `{"mcpServers":{}}`, false},
+		{"user server", `{"mcpServers":{"blaxel":{"source":"user","enabled":true}}}`, false},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			var commands []fakeCommand
+			e := testMCPEnv(t.TempDir(), map[string]string{"PATH_HAS_copilot": "1"}, &commands, fixture.output, nil)
+			target := mcpTargets["github-copilot"]
+			result := configureAgentMCP(context.Background(), e, target, []mcpServer{testResourceServer, testDocsServer})
+			require.NoError(t, result.err)
+			assert.Equal(t, fixture.plugin, len(result.plugin) == 1)
+			assert.Equal(t, fixture.plugin, target.entry(e, "blaxel") == nil)
+			assert.NotNil(t, target.entry(e, "blaxel-docs"))
+			assert.Equal(t, []string{"mcp", "list", "--json"}, commands[0].args)
+		})
+	}
+}
+
+func TestAdditionalConfigOverridesAreDetected(t *testing.T) {
+	for _, fixture := range []struct{ id, variable, relativeFile string }{
+		{"cline", "CLINE_MCP_SETTINGS_PATH", "cline_mcp_settings.json"},
+		{"continue", "CONTINUE_GLOBAL_DIR", "mcpServers/blaxel.json"},
+		{"crush", "CRUSH_GLOBAL_CONFIG", "crush.json"},
+		{"openclaw", "OPENCLAW_STATE_DIR", "openclaw.json"},
+		{"openclaw", "OPENCLAW_CONFIG_PATH", "openclaw.json"},
+	} {
+		t.Run(fixture.variable, func(t *testing.T) {
+			home := t.TempDir()
+			dir := filepath.Join(home, "override")
+			file := filepath.Join(dir, filepath.FromSlash(fixture.relativeFile))
+			env := map[string]string{fixture.variable: dir}
+			if fixture.variable == "CLINE_MCP_SETTINGS_PATH" || fixture.variable == "OPENCLAW_CONFIG_PATH" {
+				env[fixture.variable] = file
+			}
+			e := testMCPEnv(home, env, &[]fakeCommand{}, "", nil)
+			assert.Equal(t, file, mcpTargets[fixture.id].file(e))
+			writeTestFile(t, file, "{}")
+			agents := detectedSetupAgents(home, e.env)
+			require.Len(t, agents, 1)
+			assert.Equal(t, fixture.id, agents[0].id)
 		})
 	}
 }
