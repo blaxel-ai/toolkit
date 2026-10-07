@@ -14,10 +14,10 @@ mkdir -p "$WORK/bin" "$WORK/rel" "$WORK/stage"
 # token command fails unless FAKE_LOGGED_IN is set, as when nobody has logged in.
 cat > "$WORK/stage/blaxel" <<'BL'
 #!/bin/sh
-echo "$* DO_NOT_TRACK=${DO_NOT_TRACK-unset} BL_INSTALL_SKILLS=${BL_INSTALL_SKILLS-unset} BL_INSTALL_MCP=${BL_INSTALL_MCP-unset}" >> "$CALLS"
+echo "$* DO_NOT_TRACK=${DO_NOT_TRACK-unset} BL_INSTALL_SKILLS=${BL_INSTALL_SKILLS-unset} BL_INSTALL_MCP=${BL_INSTALL_MCP-unset} BL_INSTALL_REFRESH=${BL_INSTALL_REFRESH-unset}" >> "$CALLS"
 case "$*" in
   'setup --help') [ -z "${FAKE_OLD_CLI:-}" ] ;;
-  'setup --yes') echo 'fixture: setup ran'; exit "${FAKE_SETUP_EXIT:-0}" ;;
+  'setup --yes'|'setup --yes --skip-login') echo 'fixture: setup ran'; exit "${FAKE_SETUP_EXIT:-0}" ;;
   token) [ -n "${FAKE_LOGGED_IN:-}" ] ;;
   login) echo 'https://example.invalid/device?code=fixture'; exit "${FAKE_LOGIN_EXIT:-0}" ;;
 esac
@@ -50,6 +50,13 @@ run() {
   n=$((n + 1))
   : > "$WORK/calls"
   mkdir -p "$WORK/home$n"
+  for option in "$@"; do
+    if [ "$option" = "FAKE_EXISTING_INSTALL=1" ]; then
+      mkdir -p "$WORK/home$n/.local/bin"
+      printf '#!/bin/sh\nexit 99\n' > "$WORK/home$n/.local/bin/bl"
+      chmod +x "$WORK/home$n/.local/bin/bl"
+    fi
+  done
   env -i HOME="$WORK/home$n" PATH="$WORK/bin:/usr/bin:/bin" SHELL=/bin/sh TMPDIR="$WORK" \
     CALLS="$WORK/calls" REL="$WORK/rel" BL_INSTALL_PATH=false BL_INSTALL_COMPLETION=false "$@" \
     sh "$ROOT/install.sh" > "$WORK/out" 2>&1 < /dev/null || { cat "$WORK/out"; exit 1; }
@@ -134,5 +141,30 @@ pass
 name="a release without setup only suggests login"
 run CLAUDECODE=1 FAKE_OLD_CLI=1
 untouched; grep -q 'login  .*log in to Blaxel' "$WORK/out"; pass
+
+name="an agent reinstall refreshes with the new binary without logging in again"
+run CLAUDECODE=1 FAKE_EXISTING_INSTALL=1
+has '^setup --yes --skip-login .*BL_INSTALL_REFRESH=true'; lacks '^token'; lacks '^login'; pass
+
+name="a non-agent reinstall without a terminal keeps install-only behavior"
+run FAKE_EXISTING_INSTALL=1; untouched; pass
+
+name="a pinned release keeps the previous setup and login hand-off"
+run CLAUDECODE=1 FAKE_EXISTING_INSTALL=1 VERSION=v9.9.9
+has '^setup --yes DO_NOT_TRACK'; has '^login'; lacks 'BL_INSTALL_REFRESH=true'; pass
+
+name="a CI reinstall keeps install-only behavior"
+run CLAUDECODE=1 CI=true FAKE_EXISTING_INSTALL=1; untouched; pass
+
+name="forced setup in a CI reinstall keeps the previous hand-off"
+run FAKE_EXISTING_INSTALL=1 CI=true BL_INSTALL_SETUP=true
+has '^setup --yes DO_NOT_TRACK'; lacks 'BL_INSTALL_REFRESH=true'; lacks '^login'; pass
+
+name="a reinstall preserves the setup opt-out"
+run CLAUDECODE=1 FAKE_EXISTING_INSTALL=1 BL_INSTALL_SETUP=false; untouched; pass
+
+name="a forced reinstall passes the skills and MCP opt-outs to refresh"
+run FAKE_EXISTING_INSTALL=1 BL_INSTALL_SETUP=true BL_INSTALL_SKILLS=false BL_INSTALL_MCP=false
+has '^setup --yes --skip-login .*BL_INSTALL_SKILLS=false BL_INSTALL_MCP=false BL_INSTALL_REFRESH=true'; lacks '^login'; pass
 
 echo "PASS $n isolated installer runs"

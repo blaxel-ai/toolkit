@@ -57,6 +57,9 @@ param(
         $Owner = "blaxel-ai"
         $Repo = "toolkit"
         $Releases = "https://github.com/$Owner/$Repo/releases"
+        # Pinned releases keep the previous hand-off. Publish this installer
+        # after the latest CLI release includes the refresh contract.
+        $RefreshAvailable = (-not $Version) -or ($Version -eq "latest")
 
         # ── Output: styled where the console takes escape codes, plain elsewhere ──
         $Styled = $Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected -and -not $env:NO_COLOR
@@ -214,6 +217,7 @@ param(
             if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
             New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
             $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
+            $ExistingInstall = (Test-Path $BlaxelExe -PathType Leaf) -or (Test-Path (Join-Path $InstallDir "bl.exe") -PathType Leaf)
             # Windows can't overwrite a running program (bl upgrade itself, or bl
             # in another terminal), but it can rename one: move it aside and delete
             # it now, or on the next install once it has exited.
@@ -290,7 +294,12 @@ public static extern System.IntPtr SendMessageTimeout(
         if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup -SkipSkills:$SkipSkills) -and ($Interactive -or $Forced -or $AgentRun)) {
             $SetupArgs = @("setup")
             if ($SkipSkills) { $SetupArgs += "--skip-skills" }
-            if (-not $Interactive) { $SetupArgs += "--yes" }
+            $SavedRefresh = [Environment]::GetEnvironmentVariable("BL_INSTALL_REFRESH", "Process")
+            if ($ExistingInstall -and $RefreshAvailable -and -not (Test-CiEnvironment)) {
+                $env:BL_INSTALL_REFRESH = "true"
+                $SetupArgs += "--yes", "--skip-login"
+            }
+            elseif (-not $Interactive) { $SetupArgs += "--yes" }
             # bl setup shows the shell and what to run next itself, problems included.
             $env:BL_INSTALLER = "1"
             $env:BL_INSTALLER_SHELL = "bl on PATH"
@@ -307,8 +316,9 @@ public static extern System.IntPtr SendMessageTimeout(
             finally {
                 Remove-Item Env:BL_INSTALLER, Env:BL_INSTALLER_SHELL -ErrorAction SilentlyContinue
                 if ($HoldTracking) { Remove-Item Env:DO_NOT_TRACK -ErrorAction SilentlyContinue }
+                [Environment]::SetEnvironmentVariable("BL_INSTALL_REFRESH", $SavedRefresh, "Process")
             }
-            if ($AgentRun -and (([string]$env:BL_INSTALL_LOGIN).Trim() -ne "false") -and -not ($env:BL_API_KEY -or $env:BL_CLIENT_CREDENTIALS)) {
+            if ($AgentRun -and -not ($ExistingInstall -and $RefreshAvailable) -and (([string]$env:BL_INSTALL_LOGIN).Trim() -ne "false") -and -not ($env:BL_API_KEY -or $env:BL_CLIENT_CREDENTIALS)) {
                 # bl login prints the login URL and how long it waits.
                 try {
                     $LoggedIn = $false

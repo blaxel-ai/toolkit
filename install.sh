@@ -25,6 +25,10 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
+# Pinned releases keep the previous hand-off. Publish this installer after
+# the latest CLI release includes the refresh contract.
+REFRESH_AVAILABLE=""
+[ "${VERSION:-latest}" != "latest" ] || REFRESH_AVAILABLE=1
 # Under sudo, set up the user who ran it: their home, their shell, their files.
 SUDO_HOME=""
 if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
@@ -221,6 +225,11 @@ install_cli() {
   esac
   mkdir -p "$BINDIR"
   BINDIR=$(cd "$BINDIR" && pwd)
+  EXISTING_INSTALL=""
+  if { [ -f "$BINDIR/$BINARY$EXE" ] && [ -x "$BINDIR/$BINARY$EXE" ]; } ||
+     { [ -f "$BINDIR/$BINARY_SHORT_NAME$EXE" ] && [ -x "$BINDIR/$BINARY_SHORT_NAME$EXE" ]; }; then
+    EXISTING_INSTALL=1
+  fi
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY$EXE"
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY_SHORT_NAME$EXE"
   rm -rf "$tmp"
@@ -444,7 +453,11 @@ run_bl() {
 # run_setup hands the terminal to bl setup, which shows what it found and
 # installs it. Without a terminal it installs the defaults.
 run_setup() {
-  if [ "$SETUP_MODE" = "interactive" ]; then
+  if [ -n "$EXISTING_INSTALL" ] && [ -n "$REFRESH_AVAILABLE" ] && ! is_ci; then
+    BL_INSTALL_REFRESH=true
+    export BL_INSTALL_REFRESH
+    run_bl /dev/null setup --yes --skip-login
+  elif [ "$SETUP_MODE" = "interactive" ]; then
     run_bl /dev/tty setup
   else
     run_bl /dev/null setup --yes
@@ -463,7 +476,7 @@ agent_login() {
 }
 
 # What bl setup reads from the environment.
-SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING DO_NOT_TRACK BL_WORKSPACE BL_ENV
+SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING BL_INSTALL_REFRESH DO_NOT_TRACK BL_WORKSPACE BL_ENV
   BL_API_KEY BL_CLIENT_CREDENTIALS NO_COLOR CLAUDE_CONFIG_DIR CODEX_HOME XDG_CONFIG_HOME XDG_STATE_HOME
   CI GITHUB_ACTIONS GITLAB_CI CIRCLECI TRAVIS JENKINS_URL BUILDKITE"
 
@@ -487,7 +500,7 @@ main() {
       export DO_NOT_TRACK
     fi
     run_setup || next "$(quote "$BINDIR/$BINARY_SHORT_NAME") setup" "to finish setting up"
-    [ "$SETUP_MODE" != "agent" ] || agent_login || true
+    [ "$SETUP_MODE" != "agent" ] || { [ -n "$EXISTING_INSTALL" ] && [ -n "$REFRESH_AVAILABLE" ]; } || agent_login || true
     return 0
   fi
   [ -n "$SHELL_DONE" ] && ok "Shell" "$SHELL_DONE"
