@@ -395,6 +395,30 @@ var mcpTargets = map[string]mcpTarget{
 			}
 			return map[string]any{"type": "remote", "url": s.url, "enabled": true}
 		}),
+	"github-copilot": copilotMCPTarget(),
+	"vscode": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(vscodeUserDir(e.paths()), "mcp.json") },
+		"servers", func(s mcpServer) any {
+			if s.local() {
+				return localServerEntry{Type: "stdio", Command: s.command[0], Args: s.command[1:]}
+			}
+			return map[string]string{"type": "http", "url": s.url}
+		}),
+	"amp":   jsonServerTarget(ampConfigFile, "amp.mcpServers", commandOrURL("url")),
+	"goose": gooseMCPTarget(),
+	"kiro-cli": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".kiro", "settings", "mcp.json") },
+		"mcpServers", commandOrURL("url")),
+	"qwen-code": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".qwen", "settings.json") },
+		"mcpServers", commandOrURL("httpUrl")),
+	"cline":    clineMCPTarget(),
+	"continue": continueMCPTarget(),
+	"junie": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".junie", "mcp", "mcp.json") },
+		"mcpServers", commandOrURL("url")),
+	"augment": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".augment", "settings.json") },
+		"mcpServers", typedCommandOrURL("", "http")),
+	"openhands": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".openhands", "mcp.json") },
+		"mcpServers", commandOrURL("url")),
+	"crush":    crushMCPTarget(),
+	"openclaw": openclawMCPTarget(),
 	"windsurf": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".codeium", "windsurf", "mcp_config.json") },
 		"mcpServers", commandOrURL("serverUrl")),
 	"devin": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.config, "devin", "mcp_config.json") },
@@ -749,22 +773,31 @@ func upsertJSONConfig(file, container, name string, entry any, replace bool) (bo
 	if err != nil {
 		return false, err
 	}
+	updated, changed, err := mergeJSONServer(members, container, name, entry, replace)
+	if err != nil || !changed {
+		return false, err
+	}
+	return true, writeConfigFile(file, updated)
+}
+
+func mergeJSONServer(members []jsonMember, container, name string, entry any, replace bool) ([]byte, bool, error) {
 	var servers []jsonMember
+	var err error
 	index := findJSONMember(members, container)
 	if index >= 0 {
 		if servers, err = parseJSONObject(members[index].value); err != nil {
-			return false, fmt.Errorf("%q is not a JSON object: %w", container, err)
+			return nil, false, fmt.Errorf("%q is not a JSON object: %w", container, err)
 		}
 	}
 	existing := findJSONMember(servers, name)
 	if existing >= 0 && !replace {
-		return false, nil
+		return nil, false, nil
 	}
 	var value bytes.Buffer
 	encoder := json.NewEncoder(&value)
 	encoder.SetEscapeHTML(false)
 	if err := encoder.Encode(entry); err != nil {
-		return false, err
+		return nil, false, err
 	}
 	if existing >= 0 {
 		// In place, so the servers keep their order.
@@ -774,7 +807,7 @@ func upsertJSONConfig(file, container, name string, entry any, replace bool) (bo
 	}
 	encodedServers, err := encodeJSONObject(servers)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	if index >= 0 {
 		members[index].value = encodedServers
@@ -783,9 +816,9 @@ func upsertJSONConfig(file, container, name string, entry any, replace bool) (bo
 	}
 	updated, err := encodeJSONObject(members)
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
-	return true, writeConfigFile(file, updated)
+	return updated, true, nil
 }
 
 // writeConfigFile replaces a configuration file atomically, keeping its mode.
