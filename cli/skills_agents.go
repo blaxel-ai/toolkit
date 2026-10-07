@@ -55,7 +55,7 @@ var skillsAgents = []skillsAgent{
 	}},
 	{"opencode", "OpenCode", true, func(p skillsAgentPaths) []string { return []string{p.configDir("opencode")} }},
 	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp")} }},
-	{"cline", "Cline", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
+	{"cline", "Cline CLI", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
 	{"windsurf", "Windsurf", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".codeium", "windsurf")} }},
 	{"goose", "Goose", false, func(p skillsAgentPaths) []string { return []string{p.configDir("goose")} }},
 	{"kiro-cli", "Kiro CLI", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".kiro")} }},
@@ -168,6 +168,20 @@ func detectAgents(agents []skillsAgent, home string, env func(string) string) []
 		dirs := agent.homes(paths)
 		if agent.id == "goose" {
 			dirs = append(dirs, gooseConfigDir(paths))
+		}
+		if agent.id == "cline" {
+			if file := strings.TrimSpace(env("CLINE_MCP_SETTINGS_PATH")); file != "" {
+				dirs = append(dirs, file)
+			}
+		}
+		if agent.id == "openclaw" {
+			dirs = append(dirs, openclawConfigFile(mcpEnv{home: home, env: env}))
+		}
+		if agent.id == "continue" {
+			dirs = append(dirs, paths.envOr("CONTINUE_GLOBAL_DIR", paths.homeDir(".continue")))
+		}
+		if agent.id == "crush" {
+			dirs = append(dirs, crushConfigDir(paths))
 		}
 		for _, dir := range dirs {
 			if _, err := os.Stat(dir); err == nil {
