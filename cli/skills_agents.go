@@ -3,6 +3,8 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -70,6 +72,38 @@ var skillsAgents = []skillsAgent{
 	}},
 }
 
+// mcpOnlyAgents take MCP servers but have no skills folder, so setup adds
+// only the MCP servers to them.
+var mcpOnlyAgents = []skillsAgent{
+	{"claude-desktop", "Claude Desktop", false, func(p skillsAgentPaths) []string { return []string{claudeDesktopDir(p)} }},
+}
+
+// claudeDesktopDir is where the Claude Desktop app keeps its configuration.
+func claudeDesktopDir(p skillsAgentPaths) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return p.homeDir("Library", "Application Support", "Claude")
+	case "windows":
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Claude")
+	}
+	return p.configDir("Claude")
+}
+
+func isMCPOnlyAgent(id string) bool {
+	return slices.ContainsFunc(mcpOnlyAgents, func(a skillsAgent) bool { return a.id == id })
+}
+
+// setupAgents is every agent setup knows: those that take skills, then those
+// that take MCP servers only.
+func setupAgents() []skillsAgent {
+	return slices.Concat(skillsAgents, mcpOnlyAgents)
+}
+
+// detectedSetupAgents returns the agents setup finds on this machine.
+func detectedSetupAgents(home string, env func(string) string) []skillsAgent {
+	return detectAgents(setupAgents(), home, env)
+}
+
 // detectSkillsAgents returns the installer's --agent values and the detected
 // agent names. "universal" (~/.agents/skills) is always targeted.
 func detectSkillsAgents(home string, env func(string) string) (targets []string, names []string) {
@@ -97,11 +131,16 @@ func skillsAgentDir(agent skillsAgent, paths skillsAgentPaths) string {
 	return filepath.Join(homes[0], "skills")
 }
 
-// detectedSkillsAgents returns the coding agents configured on this machine.
+// detectedSkillsAgents returns the coding agents configured on this machine
+// that take skills.
 func detectedSkillsAgents(home string, env func(string) string) []skillsAgent {
+	return detectAgents(skillsAgents, home, env)
+}
+
+func detectAgents(agents []skillsAgent, home string, env func(string) string) []skillsAgent {
 	paths := newSkillsAgentPaths(home, env)
 	var detected []skillsAgent
-	for _, agent := range skillsAgents {
+	for _, agent := range agents {
 		for _, dir := range agent.homes(paths) {
 			if _, err := os.Stat(dir); err == nil {
 				detected = append(detected, agent)
@@ -125,7 +164,7 @@ func skillsTargets(agents []skillsAgent) (targets []string, names []string) {
 }
 
 func findSkillsAgent(id string) (skillsAgent, bool) {
-	for _, agent := range skillsAgents {
+	for _, agent := range setupAgents() {
 		if agent.id == id {
 			return agent, true
 		}
