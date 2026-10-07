@@ -195,6 +195,9 @@ func skillsDownloadError(err error) error {
 // Every automatic attempt, including failure, consumes one six-hour slot.
 // Explicit refresh bypasses scheduling and opt-outs, never content protection.
 func (updater skillsUpdater) check(ctx context.Context, manual bool) error {
+	if !manual && skillsInstallDisabled(updater.env) {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(ctx, skillsUpdateTimeout)
 	defer cancel()
 	return withSkillsUpdateLock(ctx, updater.home, manual, func() error {
