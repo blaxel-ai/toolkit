@@ -5,7 +5,9 @@
 #
 # Installs bl (and blaxel) to ~/.local/bin, verified against the release
 # checksums, adds it to your PATH with shell completions, then runs bl setup
-# to set up your coding agents and log you in.
+# to set up your coding agents and log you in. When a coding agent runs it
+# without a terminal, it sets up the agents without screens, then prints the
+# login URL for you to confirm in the browser.
 #
 # Environment:
 #   VERSION=v1.2.3                install that release instead of the latest
@@ -13,6 +15,7 @@
 #   BL_INSTALL_PATH=false         leave your shell configuration alone
 #   BL_INSTALL_COMPLETION=false   skip shell completions
 #   BL_INSTALL_SETUP=false        skip bl setup (=true runs it without a terminal)
+#   BL_INSTALL_LOGIN=false        do not start the browser login when an agent runs it
 #   BL_INSTALL_SKILLS=false       leave your coding agents alone: bl setup is
 #                                 only suggested (bl upgrade before v0.1.119)
 #   NO_COLOR=1                    plain output
@@ -109,6 +112,14 @@ is_command() {
 
 is_ci() {
   [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${GITLAB_CI:-}" ] || [ -n "${CIRCLECI:-}" ] || [ -n "${TRAVIS:-}" ] || [ -n "${JENKINS_URL:-}" ] || [ -n "${BUILDKITE:-}" ]
+}
+
+# is_agent reports whether a coding agent runs the installer. Agents set these
+# in the shell their tools use: Claude Code, Cursor, Gemini CLI, Codex,
+# OpenCode, Goose, and the AGENT / AI_AGENT conventions (Amp, Goose, OpenCode,
+# Claude Code). A Docker build or a cron job sets none of them.
+is_agent() {
+  [ -n "${CLAUDECODE:-}" ] || [ -n "${CURSOR_AGENT:-}" ] || [ -n "${GEMINI_CLI:-}" ] || [ -n "${CODEX_THREAD_ID:-}" ] || [ -n "${CODEX_SANDBOX:-}" ] || [ -n "${OPENCODE:-}" ] || [ -n "${GOOSE_TERMINAL:-}" ] || [ -n "${AGENT:-}" ] || [ -n "${AI_AGENT:-}" ]
 }
 
 detect_platform() {
@@ -380,8 +391,10 @@ in_home() {
 
 # --- Hand-off to bl setup ---------------------------------------------------
 
-# setup_mode decides how bl setup runs: "interactive" on a terminal, "yes"
-# with the defaults when BL_INSTALL_SETUP=true, or "" to only print the next step.
+# setup_mode decides how bl setup runs: "interactive" on a terminal, "agent"
+# when a coding agent runs the installer without one (outside CI: the defaults,
+# then the browser login for the person), "yes" with the defaults when
+# BL_INSTALL_SETUP=true, or "" to only print the next step.
 setup_mode() {
   SETUP_MODE=""
   [ "${BL_INSTALL_SETUP:-}" != "false" ] || return 0
@@ -399,17 +412,19 @@ setup_mode() {
   [ -n "$forced" ] || ! is_ci || return 0
   if [ -t 1 ] && [ -e /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then
     SETUP_MODE=interactive
+  elif is_agent && ! is_ci; then
+    SETUP_MODE=agent
   elif [ -n "$forced" ]; then
     SETUP_MODE=yes
   fi
 }
 
-# run_setup hands the terminal to bl setup, which shows what it found and
-# installs it. As root (sudo), it sets up the real user's agents and login;
-# the command goes through stdin so sudo's login shell does not expand it.
-run_setup() {
-  args="setup" input="/dev/tty"
-  [ "$SETUP_MODE" = "yes" ] && args="setup --yes" input="/dev/null"
+# run_bl INPUT ARG... runs bl with the installer's choices, reading INPUT. As
+# root (sudo), it runs as the real user; the command goes through stdin so
+# sudo's login shell does not expand it.
+run_bl() {
+  input=$1
+  shift
   runner=""
   if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
     runner="sudo -u $SUDO_USER -H -i"
@@ -424,8 +439,29 @@ run_setup() {
       eval "isset=\${$name+x} value=\${$name-}"
       [ -z "$isset" ] || printf 'export %s=%s\n' "$name" "$(quote "$value")"
     done
-    printf 'exec %s %s < %s\n' "$(quote "$BINDIR/$BINARY")" "$args" "$input"
+    printf 'exec %s %s < %s\n' "$(quote "$BINDIR/$BINARY")" "$*" "$input"
   } | $runner sh -s
+}
+
+# run_setup hands the terminal to bl setup, which shows what it found and
+# installs it. Without a terminal it installs the defaults.
+run_setup() {
+  if [ "$SETUP_MODE" = "interactive" ]; then
+    run_bl /dev/tty setup
+  else
+    run_bl /dev/null setup --yes
+  fi
+}
+
+# agent_login starts the browser login for the person who asked the agent to
+# install, unless they are logged in or chose another way. bl login prints the
+# login URL and how long it waits.
+agent_login() {
+  [ "${BL_INSTALL_LOGIN:-}" != "false" ] || return 0
+  [ -z "${BL_API_KEY:-}${BL_CLIENT_CREDENTIALS:-}" ] || return 0
+  ! run_bl /dev/null token >/dev/null 2>&1 || return 0
+  echo
+  run_bl /dev/null login
 }
 
 # What bl setup reads from the environment.
@@ -435,7 +471,7 @@ SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING
 
 main() {
   case "${1:-}" in
-    -h|--help) sed -n '2,17p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
   echo
   install_cli
@@ -447,7 +483,13 @@ main() {
   setup_mode
   # bl setup shows the shell and what to run next itself, problems included.
   if [ -n "$SETUP_MODE" ]; then
+    # Nobody saw the error reports choice: leave it for the first bl in a terminal.
+    if [ "$SETUP_MODE" = "agent" ] && [ -z "${BL_INSTALL_TRACKING:-}${DO_NOT_TRACK:-}" ]; then
+      DO_NOT_TRACK=1
+      export DO_NOT_TRACK
+    fi
     run_setup || true
+    [ "$SETUP_MODE" != "agent" ] || agent_login || true
     return 0
   fi
   [ -n "$SHELL_DONE" ] && ok "Shell" "$SHELL_DONE"

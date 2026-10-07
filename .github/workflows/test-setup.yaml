@@ -34,6 +34,9 @@ jobs:
       - name: Release lookup
         run: sh test/install/test_release_lookup.sh
 
+      - name: Agent runs, CI and Docker builds
+        run: sh test/install/test_agent_setup.sh
+
       - name: Installer and skills, end to end
         run: |
           go build -o "$RUNNER_TEMP/blaxel" .

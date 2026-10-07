@@ -9,16 +9,19 @@ $ast = [System.Management.Automation.Language.Parser]::ParseFile(
 if ($parseErrors.Count -gt 0) {
     throw "Installer parse errors: $($parseErrors -join '; ')"
 }
-$policy = $ast.Find({
-    param($node)
-    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-        $node.Name -eq "Test-SetupEnabled"
-}, $true)
-if ($null -eq $policy) { throw "Setup policy function was not found" }
-. ([scriptblock]::Create($policy.Extent.Text))
+foreach ($name in @("Test-CiEnvironment", "Test-AgentRun", "Test-SetupEnabled")) {
+    $policy = $ast.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq $name
+    }, $true)
+    if ($null -eq $policy) { throw "Setup policy function $name was not found" }
+    . ([scriptblock]::Create($policy.Extent.Text))
+}
 
 $ciMarkers = @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")
-$keys = $ciMarkers + @("BL_INSTALL_SETUP", "BL_INSTALL_SKILLS")
+$agentMarkers = @("CLAUDECODE", "CURSOR_AGENT", "GEMINI_CLI", "CODEX_THREAD_ID", "CODEX_SANDBOX", "OPENCODE", "GOOSE_TERMINAL", "AGENT", "AI_AGENT")
+$keys = $ciMarkers + $agentMarkers + @("BL_INSTALL_SETUP", "BL_INSTALL_SKILLS")
 $saved = @{}
 foreach ($key in $keys) {
     $saved[$key] = [Environment]::GetEnvironmentVariable($key, "Process")
@@ -35,6 +38,14 @@ function Assert-Policy {
 
 try {
     foreach ($key in $keys) { [Environment]::SetEnvironmentVariable($key, $null, "Process") }
+    if (Test-AgentRun) { throw "no coding agent: expected Test-AgentRun to be false" }
+    Write-Host "PASS no coding agent without a marker"
+    foreach ($marker in $agentMarkers) {
+        [Environment]::SetEnvironmentVariable($marker, "1", "Process")
+        if (-not (Test-AgentRun)) { throw "${marker}: expected Test-AgentRun to be true" }
+        [Environment]::SetEnvironmentVariable($marker, $null, "Process")
+        Write-Host "PASS $marker marks a coding agent"
+    }
     Assert-Policy -Expected $true -Label "enabled outside CI"
     Assert-Policy -Expected $false -Label "SkipSetup disables setup" -SkipSetup
     $env:BL_INSTALL_SETUP = " FALSE "
