@@ -27,6 +27,12 @@ func usageTrackingEnabled() bool {
 	return blaxel.IsTrackingEnabled()
 }
 
+// UsageEventsEnabled reports whether this build and the user's consent allow
+// usage events at all, so callers can skip work that only feeds them.
+func UsageEventsEnabled() bool {
+	return PosthogAPIKey != "" && usageTrackingEnabled()
+}
+
 var usageVersion = regexp.MustCompile(`^v?\d{1,6}\.\d{1,6}\.\d{1,6}(?:-(?:alpha|beta|rc)\.?\d{0,6})?$`)
 var usageID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
@@ -145,7 +151,12 @@ func TrackCLIFirstResource(kind string) {
 		delete(pendingCLIEvents, key)
 		if success {
 			state.FirstResource = true
-			saveTelemetryState(state)
+			// Persist only the marker. The cached "cli" can be older than a
+			// version another CLI process recorded since this one loaded, and
+			// writing it back would make that version send "Installed CLI" again.
+			marker := *state
+			marker.CLI = ""
+			saveTelemetryState(&marker)
 		}
 	})
 	if !started {

@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
@@ -161,17 +163,23 @@ func runUpgrade(targetVersion string, force bool) error {
 		markUpgradedHomebrewSkills()
 	}
 
-	// Detect new version after successful upgrade.
+	// Detect new version after successful upgrade, only to report it.
 	// For brew upgrades, the old cellar binary is gone so we must resolve
 	// the symlink again (brew updates the /usr/local/bin symlink to the
 	// new cellar path). For curl upgrades the binary is replaced in-place.
-	newVersion := detectInstalledVersion(method)
-	if newVersion != "" && newVersion != oldVersion {
-		core.TrackCLIUpgraded(oldVersion, newVersion)
+	if core.UsageEventsEnabled() {
+		newVersion := detectInstalledVersion(method)
+		if newVersion != "" && newVersion != oldVersion {
+			core.TrackCLIUpgraded(oldVersion, newVersion)
+		}
 	}
 
 	return nil
 }
+
+// versionProbeTimeout bounds the post-upgrade version read, which runs after
+// the upgrade already succeeded and must never make it look hung.
+var versionProbeTimeout = 5 * time.Second
 
 // detectInstalledVersion runs the upgraded binary at the location controlled
 // by the installation method. It deliberately never resolves the CLI through
@@ -213,7 +221,11 @@ func upgradedCLIPath(method string) (string, error) {
 }
 
 func detectVersionAtPath(binaryPath string) string {
-	cmd := exec.Command(binaryPath, "version")
+	ctx, cancel := context.WithTimeout(context.Background(), versionProbeTimeout)
+	defer cancel()
+	// --skip-version-warning avoids the network update check.
+	cmd := exec.CommandContext(ctx, binaryPath, "version", "--skip-version-warning")
+	cmd.WaitDelay = time.Second
 	// Reading the version must not start another setup or skills refresh.
 	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1", "DO_NOT_TRACK=1", "BL_INSTALL_SETUP=false", "BL_INSTALL_SKILLS=false", "BL_INSTALL_MCP=false")
 	out, err := cmd.Output()

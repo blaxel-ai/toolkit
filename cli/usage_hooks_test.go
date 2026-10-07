@@ -88,4 +88,25 @@ func TestUsageSetupAndRegisteredCreateHooks(t *testing.T) {
 	payload := <-payloads
 	assert.Equal(t, "First Resource CLI", payload["event"])
 	assert.Equal(t, "Sandbox", payload["properties"].(map[string]any)["resource_category"])
+
+	// Skipping the login with Esc, or quitting setup, cancels its context.
+	ctx, cancel := context.WithCancel(context.Background())
+	options.login = func(ctx context.Context, _ *ui.Control, _ string) (string, error) {
+		cancel()
+		<-ctx.Done()
+		return "", ctx.Err()
+	}
+	_ = runSetup(ctx, options)
+	core.FlushPosthog()
+	logins := map[string]map[string]any{}
+	for len(payloads) > 0 {
+		payload := <-payloads
+		props := payload["properties"].(map[string]any)
+		if payload["event"] == "Login CLI" {
+			logins[props["status"].(string)] = props
+		}
+	}
+	require.Contains(t, logins, "cancelled")
+	assert.NotContains(t, logins, "failure", "a skipped login is not a failed one")
+	assert.NotContains(t, logins["cancelled"], "failure_category")
 }

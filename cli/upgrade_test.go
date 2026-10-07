@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -48,6 +49,28 @@ func TestDetectVersionAtPathDoesNotExecutePATHBinary(t *testing.T) {
 	assert.Equal(t, "3.2.1", detectVersionAtPath(safeBinary))
 	_, err := os.Stat(marker)
 	assert.True(t, os.IsNotExist(err), "the same-named PATH binary must not run")
+}
+
+func TestDetectVersionAtPathSkipsUpdateCheckAndTimesOut(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses executable shell scripts")
+	}
+
+	dir := t.TempDir()
+	checked := filepath.Join(dir, "blaxel-checked")
+	assert.NoError(t, os.WriteFile(checked, []byte("#!/bin/sh\n"+
+		"[ \"$2\" = --skip-version-warning ] || exit 3\n"+
+		"echo 'Version: 3.2.1'\n"), 0755))
+	assert.Equal(t, "3.2.1", detectVersionAtPath(checked))
+
+	hung := filepath.Join(dir, "blaxel-hung")
+	assert.NoError(t, os.WriteFile(hung, []byte("#!/bin/sh\nexec sleep 30\n"), 0755))
+	oldTimeout := versionProbeTimeout
+	versionProbeTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { versionProbeTimeout = oldTimeout })
+	started := time.Now()
+	assert.Equal(t, "", detectVersionAtPath(hung))
+	assert.Less(t, time.Since(started), 5*time.Second, "a hung version probe must not hold up the upgrade")
 }
 
 func TestNormalizeUpgradeVersion(t *testing.T) {

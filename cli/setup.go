@@ -580,7 +580,16 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 		tasks = append(tasks, ui.Task{ID: "login", Label: "Log in", After: others, Skippable: true, Run: func(ctx context.Context, c *ui.Control) (string, error) {
 			core.TrackCLILogin("started", nil)
 			workspace, err := options.login(ctx, c, options.workspace)
-			core.TrackCLILogin(map[bool]string{true: "failure", false: "success"}[err != nil], err)
+			switch {
+			case err == nil:
+				core.TrackCLILogin("success", nil)
+			case errors.Is(ctx.Err(), context.Canceled):
+				// Esc skips this task by cancelling its context; quitting setup
+				// does too. Neither is a failed login.
+				core.TrackCLILogin("cancelled", nil)
+			default:
+				core.TrackCLILogin("failure", err)
+			}
 			if err != nil {
 				return "", err
 			}

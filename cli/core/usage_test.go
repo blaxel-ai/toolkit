@@ -164,6 +164,41 @@ func TestUsageFailureCategoryAndFirstResourceDeduplication(t *testing.T) {
 	assert.Contains(t, string(data), `"cli_first_resource": true`)
 }
 
+func TestUsageFirstResourceKeepsNewerCLIVersionFromAnotherProcess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+	path := getTelemetryPath()
+	id := "6f1c0b52-3c4d-4e5f-8a9b-0c1d2e3f4a5b"
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"`+id+`","cli":"1.0.0"}`), 0600))
+	require.Equal(t, "1.0.0", loadTelemetryState().CLI, "precondition: the old version is cached")
+
+	// Another CLI process upgrades and records its version.
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"`+id+`","cli":"2.0.0"}`), 0600))
+
+	TrackCLIFirstResource("Sandbox")
+	FlushPosthog()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(data, &got))
+	assert.Equal(t, true, got["cli_first_resource"])
+	assert.Equal(t, "2.0.0", got["cli"], "the cached version must not roll back the newer one")
+}
+
+func TestUsageEventsEnabledNeedsKeyAndConsent(t *testing.T) {
+	resetPosthogTestState(t, "http://127.0.0.1:1")
+	assert.True(t, UsageEventsEnabled())
+	t.Setenv("DO_NOT_TRACK", "1")
+	assert.False(t, UsageEventsEnabled())
+	t.Setenv("DO_NOT_TRACK", "")
+	PosthogAPIKey = ""
+	assert.False(t, UsageEventsEnabled())
+}
+
 func TestUsageTransportBoundsConcurrencyAndDropsOfflineAttempts(t *testing.T) {
 	release := make(chan struct{})
 	var requests atomic.Int32
