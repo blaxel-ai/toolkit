@@ -37,7 +37,7 @@ func copilotMCPTarget() mcpTarget {
 }
 
 func ampConfigFile(e mcpEnv) string {
-	file := filepath.Join(e.home, ".config", "amp", "settings.json")
+	file := filepath.Join(e.config, "amp", "settings.json")
 	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
 		jsonc := file + "c"
 		if _, err := os.Stat(jsonc); !errors.Is(err, os.ErrNotExist) {
@@ -131,19 +131,22 @@ func readGooseConfig(file string) (*yaml.Node, *yaml.Node, error) {
 	if len(bytes.TrimSpace(data)) > 0 {
 		decoder := yaml.NewDecoder(bytes.NewReader(data))
 		var document yaml.Node
-		if err := decoder.Decode(&document); err != nil {
+		if err := decoder.Decode(&document); errors.Is(err, io.EOF) {
+			root.HeadComment = string(bytes.TrimSpace(data))
+		} else if err != nil {
 			return nil, nil, fmt.Errorf("not valid YAML: %w", err)
-		}
-		if err := decoder.Decode(&yaml.Node{}); err != io.EOF {
-			return nil, nil, errors.New("expected one YAML document")
-		}
-		root = document.Content[0]
-		var config map[string]any
-		if root.Kind != yaml.MappingNode {
-			return nil, nil, errors.New("expected a YAML mapping")
-		}
-		if err := root.Decode(&config); err != nil {
-			return nil, nil, fmt.Errorf("not valid YAML: %w", err)
+		} else {
+			if err := decoder.Decode(&yaml.Node{}); err != io.EOF {
+				return nil, nil, errors.New("expected one YAML document")
+			}
+			root = document.Content[0]
+			var config map[string]any
+			if root.Kind != yaml.MappingNode {
+				return nil, nil, errors.New("expected a YAML mapping")
+			}
+			if err := root.Decode(&config); err != nil {
+				return nil, nil, fmt.Errorf("not valid YAML: %w", err)
+			}
 		}
 	}
 	if yamlMember(root, "<<") >= 0 {
@@ -151,6 +154,9 @@ func readGooseConfig(file string) (*yaml.Node, *yaml.Node, error) {
 	}
 	if index := yamlMember(root, "extensions"); index >= 0 {
 		extensions := root.Content[index+1]
+		if extensions.Kind == yaml.ScalarNode && extensions.Tag == "!!null" {
+			extensions.Kind, extensions.Tag, extensions.Value = yaml.MappingNode, "!!map", ""
+		}
 		if extensions.Kind != yaml.MappingNode {
 			return nil, nil, errors.New("extensions is not a YAML mapping")
 		}
