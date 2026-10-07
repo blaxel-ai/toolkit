@@ -117,6 +117,10 @@ func downloadSkillsArchive(ctx context.Context) ([]byte, error) {
 	if mirror := strings.TrimSpace(os.Getenv(skillsArchiveURLEnv)); mirror != "" {
 		address = mirror
 	}
+	return downloadSkillsArchiveWithClient(ctx, address, http.DefaultClient)
+}
+
+func downloadSkillsArchiveWithClient(ctx context.Context, address string, client *http.Client) ([]byte, error) {
 	var lastErr error
 	for _, wait := range skillsDownloadAttempts {
 		select {
@@ -124,7 +128,7 @@ func downloadSkillsArchive(ctx context.Context) ([]byte, error) {
 			return nil, ctx.Err()
 		case <-time.After(wait):
 		}
-		data, retry, err := fetchSkillsArchive(ctx, address)
+		data, retry, err := fetchSkillsArchiveWithClient(ctx, address, client)
 		if err == nil || !retry {
 			return data, err
 		}
@@ -133,12 +137,7 @@ func downloadSkillsArchive(ctx context.Context) ([]byte, error) {
 	return nil, lastErr
 }
 
-// fetchSkillsArchive downloads the archive once, and reports whether a
-// failure is worth retrying.
-func fetchSkillsArchive(ctx context.Context, address string) (data []byte, retry bool, err error) {
-	return fetchSkillsArchiveWithClient(ctx, address, http.DefaultClient)
-}
-
+// fetchSkillsArchiveWithClient downloads once and reports retryable failures.
 func fetchSkillsArchiveWithClient(ctx context.Context, address string, client *http.Client) (data []byte, retry bool, err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 	if err != nil {
@@ -575,11 +574,7 @@ func replaceSkillFolderChecked(destination string, files []skillFile, check bool
 			if isSkillLink(destination, info.Mode()) || baseline == "" || err != nil || hash != baseline {
 				return errors.New("skill changed during update; left unchanged")
 			}
-			freshHash, err := localSkillHash(fresh)
-			if err != nil {
-				return err
-			}
-			if hash == freshHash {
+			if hash == gitTreeHash(installedSkillFiles(files)) {
 				return nil
 			}
 		} else if baseline != "" {

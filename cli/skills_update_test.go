@@ -151,6 +151,15 @@ func TestSkillsExplicitInstallInvalidatesChangedBundleRevision(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-cli"])
 	assert.NotContains(t, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")), "Explicitly refreshed")
+	// A check that preserved every local edit can verify a revision without
+	// recording any installed revision. Explicit installs must clear that memo too.
+	state.InstalledRevisions = nil
+	require.NoError(t, writeSkillsUpdateState(home, state))
+	_, err = installSkillsArchive(explicit, home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	state, err = readSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Empty(t, state.VerifiedRevision)
 }
 
 func TestSkillsUpdaterFailuresLeaveContentsAndBackOff(t *testing.T) {

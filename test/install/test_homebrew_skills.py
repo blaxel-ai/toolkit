@@ -223,8 +223,7 @@ def fake_tests(root, binary, server):
         answers = [json.loads(line) for line in result.stdout.splitlines()]
         assert len(answers) == 2 and all(answer["jsonrpc"] == "2.0" for answer in answers), answers
         assert install.downloads() == 0 and not install.marker().exists()
-        assert not (install.home / ".blaxel").exists()
-    print("PASS bl mcp skips refresh and keeps stdout JSON-RPC, including global flags", flush=True)
+    print("PASS bl mcp skips setup refresh and keeps stdout JSON-RPC, including global flags", flush=True)
 
     install = installation("upgrade-command")
     # Only these disposable scripts can service brew/git calls. The fake brew
@@ -358,7 +357,7 @@ def fake_tests(root, binary, server):
         assert "login" not in result.stderr and "error reports" not in result.stderr
     install.assert_installs(2)
     assert (install.home / ".cursor/mcp.json").is_file()
-    assert not (install.home / ".blaxel").exists()
+    assert {entry.name for entry in (install.home / ".blaxel").iterdir()} <= {"skills"}, "only update bookkeeping, no authentication or tracking settings"
     print("PASS installer hook refreshes every invocation with one line and no authentication", flush=True)
 
     for name, skipped, enabled in (

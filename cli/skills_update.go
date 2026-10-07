@@ -83,19 +83,18 @@ func writeSkillsUpdateState(home string, state skillsUpdateState) error {
 
 // Nonmanifest installs use the same lock but cannot claim a bundle revision.
 func invalidateSkillsBundleRevision(home string, changed []string) error {
+	if len(changed) == 0 {
+		return nil
+	}
 	state, err := readSkillsUpdateState(home)
 	if err != nil {
 		return err
 	}
-	invalidated := false
-	for _, name := range changed {
-		if _, exists := state.InstalledRevisions[name]; exists {
-			delete(state.InstalledRevisions, name)
-			invalidated = true
-		}
-	}
-	if !invalidated {
+	if state.VerifiedRevision == "" && len(state.InstalledRevisions) == 0 {
 		return nil
+	}
+	for _, name := range changed {
+		delete(state.InstalledRevisions, name)
 	}
 	state.VerifiedRevision, state.Skip = "", ""
 	return writeSkillsUpdateState(home, state)
@@ -245,19 +244,7 @@ func (updater skillsUpdater) apply(ctx context.Context, state *skillsUpdateState
 		state.Skip = "no CLI-managed skills installed; use bl skills install or bl skills update"
 		return nil
 	}
-	var archive []byte
-	for _, delay := range skillsDownloadAttempts {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(delay):
-		}
-		var retry bool
-		archive, retry, err = fetchSkillsArchiveWithClient(ctx, manifest.BundleURL, updater.client)
-		if err == nil || !retry {
-			break
-		}
-	}
+	archive, err := downloadSkillsArchiveWithClient(ctx, manifest.BundleURL, updater.client)
 	if err != nil {
 		return err
 	}
