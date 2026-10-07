@@ -308,7 +308,7 @@ def fake_tests(root, binary, server):
     manual_receipt = install.root / "manual-refresh.json"
     replacement.write_text(replacement.read_text().replace(str(receipt), str(manual_receipt)))
     curl = install.tools / "curl"
-    script = 'cp ' + shlex.quote(str(replacement)) + ' "$BINDIR/blaxel"\n'
+    script = 'cp -f ' + shlex.quote(str(replacement)) + ' "$BINDIR/blaxel"\n'
     curl.write_text(f"#!{sys.executable}\nimport sys\nsys.stdout.write({script!r})\n")
     curl.chmod(0o755)
     (install.tools / "sh").symlink_to("/bin/sh")
