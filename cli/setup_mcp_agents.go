@@ -128,18 +128,19 @@ func readGooseConfig(file string) (*yaml.Node, *yaml.Node, error) {
 		return nil, nil, err
 	}
 	root := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	doc := &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{root}}
 	if len(bytes.TrimSpace(data)) > 0 {
 		decoder := yaml.NewDecoder(bytes.NewReader(data))
 		var document yaml.Node
 		if err := decoder.Decode(&document); errors.Is(err, io.EOF) {
-			root.HeadComment = string(bytes.TrimSpace(data))
+			doc.HeadComment = string(bytes.TrimSpace(data))
 		} else if err != nil {
 			return nil, nil, fmt.Errorf("not valid YAML: %w", err)
 		} else {
 			if err := decoder.Decode(&yaml.Node{}); err != io.EOF {
 				return nil, nil, errors.New("expected one YAML document")
 			}
-			root = document.Content[0]
+			doc, root = &document, document.Content[0]
 			var config map[string]any
 			if root.Kind != yaml.MappingNode {
 				return nil, nil, errors.New("expected a YAML mapping")
@@ -163,11 +164,11 @@ func readGooseConfig(file string) (*yaml.Node, *yaml.Node, error) {
 		if yamlMember(extensions, "<<") >= 0 {
 			return nil, nil, errors.New("cannot safely edit inherited YAML extensions")
 		}
-		return root, extensions, nil
+		return doc, extensions, nil
 	}
 	extensions := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
 	root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "extensions"}, extensions)
-	return root, extensions, nil
+	return doc, extensions, nil
 }
 
 func yamlMember(node *yaml.Node, key string) int {
