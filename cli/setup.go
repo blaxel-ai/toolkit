@@ -70,6 +70,11 @@ manage your workspace resources, and blaxel-docs, to search the Blaxel
 documentation. It then logs you in to Blaxel in your browser. The agents use
 that login through bl mcp, so they need no sign-in of their own.
 
+When logging in without a specified workspace, if your account has no
+workspaces, setup opens the Console so you can create or join one, and waits
+up to five minutes for it to become available.
+
+
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
 terminal, setup installs the same defaults and skips the browser login, so
@@ -188,7 +193,11 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 		return "", err
 	}
 	if workspace == "" {
-		names, err := auth.LoginWorkspaces(creds)
+		c.Progress("checking your workspaces")
+		names, err := auth.WaitForLoginWorkspaces(ctx, creds, func(note string) {
+			c.Progress("waiting for you to create or join a workspace")
+			c.Note(note)
+		})
 		if err != nil {
 			return "", err
 		}
@@ -200,6 +209,9 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 			}
 			workspace = names[index]
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	c.Progress("saving your login")
 	return workspace, auth.SaveDeviceLogin(workspace, creds)
