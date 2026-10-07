@@ -234,5 +234,5 @@ func TestInstallSkillsArchiveRejectsArchiveNameCollision(t *testing.T) {
 	}
 	_, err := installSkillsArchive(buildSkillsArchive(t, entries), home, noEnv, nil, time.Now())
 	require.Error(t, err)
-	assert.Empty(t, dirNames(t, home))
+	assert.NoDirExists(t, filepath.Join(home, ".agents"))
 }

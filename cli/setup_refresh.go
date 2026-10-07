@@ -35,7 +35,7 @@ func refreshSetup(options setupOptions) {
 	options.home, options.env, options.out = home, os.Getenv, os.Stderr
 	options.mcp = newMCPEnv(home)
 	options.resourceServer, options.documentsServer = resourceMCPServer(bl), docsMCPServer()
-	options.installSkills = installSkillsFor
+	options.installSkills = installSkillsForSafely
 	runSetupRefresh(context.Background(), options)
 }
 
@@ -46,6 +46,9 @@ func runSetupRefresh(ctx context.Context, options setupOptions) {
 	defer cancel()
 	agents := detectedSetupAgents(options.home, options.env)
 	skills, mcp := automaticSetupOffers(options.env)
+	if state, err := readSkillsUpdateState(options.home); err != nil || skillsUpdateDisabled(state, options.env) != "" {
+		skills = false
+	}
 	skills = skills && !options.skipSkills
 	mcp = mcp && !options.skipMCP
 	parts := []string{"skills skipped", "MCP skipped"}

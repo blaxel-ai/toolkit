@@ -77,6 +77,9 @@ and token exchanges.`,
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			if updater, err := defaultSkillsUpdater(core.GetVersion()); err == nil {
+				go updater.run(ctx, skillsUpdateInterval)
+			}
 			return newMCPBridge(authenticator).serve(ctx, os.Stdin, os.Stdout)
 		},
 	}

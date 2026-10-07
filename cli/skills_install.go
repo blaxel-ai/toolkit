@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -41,6 +42,7 @@ func SkillsCmd() *cobra.Command {
 		RunE:         func(_ *cobra.Command, _ []string) error { return installSkillsOnce() },
 		SilenceUsage: true, SilenceErrors: true,
 	})
+	cmd.AddCommand(skillsUpdateCommands()...)
 	return cmd
 }
 
@@ -51,6 +53,7 @@ type skillsInstallResult struct {
 	repaired  []string
 	backups   []string
 	agents    []string
+	skipped   []string
 }
 
 const (
@@ -77,6 +80,14 @@ func installDetectedSkills(ctx context.Context) (skillsInstallResult, error) {
 
 // installSkillsFor installs the skills to ~/.agents/skills and the given agents.
 func installSkillsFor(ctx context.Context, selected []skillsAgent) (skillsInstallResult, error) {
+	return installSkillsForMode(ctx, selected, false)
+}
+
+func installSkillsForSafely(ctx context.Context, selected []skillsAgent) (skillsInstallResult, error) {
+	return installSkillsForMode(ctx, selected, true)
+}
+
+func installSkillsForMode(ctx context.Context, selected []skillsAgent, conservative bool) (skillsInstallResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return skillsInstallResult{}, err
@@ -85,7 +96,13 @@ func installSkillsFor(ctx context.Context, selected []skillsAgent) (skillsInstal
 	if err != nil {
 		return skillsInstallResult{}, err
 	}
-	return installSkillsArchive(archive, home, os.Getenv, selected, time.Now())
+	var result skillsInstallResult
+	err = withSkillsUpdateLock(ctx, home, true, func() error {
+		var err error
+		result, err = installSkillsArchiveUnlocked(archive, home, os.Getenv, selected, time.Now(), conservative)
+		return err
+	})
+	return result, err
 }
 
 // skillsDownloadAttempts retries brief network problems, such as a DNS
@@ -116,12 +133,16 @@ func downloadSkillsArchive(ctx context.Context) ([]byte, error) {
 // fetchSkillsArchive downloads the archive once, and reports whether a
 // failure is worth retrying.
 func fetchSkillsArchive(ctx context.Context, address string) (data []byte, retry bool, err error) {
+	return fetchSkillsArchiveWithClient(ctx, address, http.DefaultClient)
+}
+
+func fetchSkillsArchiveWithClient(ctx context.Context, address string, client *http.Client) (data []byte, retry bool, err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 	if err != nil {
 		return nil, false, err
 	}
 	request.Header.Set("User-Agent", "blaxel-cli/"+core.GetVersion())
-	response, err := http.DefaultClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, false, ctx.Err()
@@ -176,7 +197,10 @@ func readSkillsArchive(archive []byte) ([]archivedSkill, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading the skills archive: %w", err)
 	}
-	reader := tar.NewReader(compressed)
+	defer func() { _ = compressed.Close() }()
+	// Include tar headers/padding in the decompression cap, even for entries
+	// outside skills/ that will be ignored below.
+	reader := tar.NewReader(io.LimitReader(compressed, skillsExtractedMaxBytes+skillsArchiveMaxEntries*1024+1))
 	folders := map[string][]skillFile{}
 	var total int64
 	for entries := 0; ; entries++ {
@@ -375,6 +399,18 @@ func skillFileExcluded(name string) bool {
 // `skills add -g` does: one copy in ~/.agents/skills, which most agents read,
 // and a link from each other selected agent's skills folder to that copy.
 func installSkillsArchive(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time) (skillsInstallResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), skillsUpdateTimeout)
+	defer cancel()
+	var result skillsInstallResult
+	err := withSkillsUpdateLock(ctx, home, true, func() error {
+		var err error
+		result, err = installSkillsArchiveUnlocked(archive, home, env, selected, now, false)
+		return err
+	})
+	return result, err
+}
+
+func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time, conservative bool) (skillsInstallResult, error) {
 	skills, err := readSkillsArchive(archive)
 	if err != nil {
 		return skillsInstallResult{}, err
@@ -385,6 +421,11 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	if err != nil {
 		return skillsInstallResult{}, err
 	}
+	if conservative {
+		if err := preserveEditedSkills(plans, home, env); err != nil {
+			return skillsInstallResult{}, err
+		}
+	}
 	if err := preflightSkillRepairs(plans); err != nil {
 		return skillsInstallResult{}, err
 	}
@@ -392,12 +433,13 @@ func installSkillsArchive(archive []byte, home string, env func(string) string, 
 	result := skillsInstallResult{agents: agentNames}
 	var installed []archivedSkill
 	for _, plan := range plans {
+		result.skipped = append(result.skipped, plan.skippedLinks...)
 		files := plan.skill.files
 		if plan.preserved {
 			result.preserved = append(result.preserved, plan.skill.name)
 			files = nil // a failed symlink must never fall back to a copy of the upstream fork
 		} else {
-			if err := replaceSkillFolder(plan.canonical, files); err != nil {
+			if err := replaceSkillFolderChecked(plan.canonical, files, conservative, plan.expectedHash); err != nil {
 				return skillsInstallResult{}, fmt.Errorf("installing %s: %w", plan.skill.name, err)
 			}
 			installed = append(installed, plan.skill)
@@ -437,7 +479,27 @@ func writeSkillFolder(dir string, files []skillFile) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
+	for _, file := range installedSkillFiles(files) {
+		destination := filepath.Join(dir, filepath.FromSlash(file.path))
+		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+			return err
+		}
+		mode := os.FileMode(0644)
+		if file.mode&0o111 != 0 {
+			mode = 0755
+		}
+		if err := os.WriteFile(destination, file.data, mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Use the same normalized representation for installation and the ownership
+// hash. Hashing a destination after installation could adopt concurrent edits.
+func installedSkillFiles(files []skillFile) []skillFile {
 	byPath := map[string]skillFile{}
+	var installed []skillFile
 	for _, file := range files {
 		byPath[file.path] = file
 	}
@@ -457,24 +519,22 @@ func writeSkillFolder(dir string, files []skillFile) error {
 		if resolved.isLink {
 			continue
 		}
-		destination := filepath.Join(dir, filepath.FromSlash(file.path))
-		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
-			return err
+		resolved.path = file.path
+		if runtime.GOOS == "windows" {
+			resolved.mode = 0644
 		}
-		mode := os.FileMode(0644)
-		if resolved.mode&0o111 != 0 {
-			mode = 0755
-		}
-		if err := os.WriteFile(destination, resolved.data, mode); err != nil {
-			return err
-		}
+		installed = append(installed, resolved)
 	}
-	return nil
+	return installed
 }
 
 // replaceSkillFolder swaps in a fresh copy of the skill, so agents never see a
 // half-written skill and a failure leaves the previous version in place.
 func replaceSkillFolder(destination string, files []skillFile) error {
+	return replaceSkillFolderChecked(destination, files, false, "")
+}
+
+func replaceSkillFolderChecked(destination string, files []skillFile, check bool, baseline string) error {
 	if info, err := os.Lstat(destination); err == nil && isSkillLink(destination, info.Mode()) {
 		return fmt.Errorf("externally managed skill link %s was left unchanged", destination)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -498,6 +558,27 @@ func replaceSkillFolder(destination string, files []skillFile) error {
 	fresh := filepath.Join(staging, "new")
 	if err := writeSkillFolder(fresh, files); err != nil {
 		return err
+	}
+	if check {
+		info, err := os.Lstat(destination)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if info != nil {
+			hash, err := localSkillHash(destination)
+			if isSkillLink(destination, info.Mode()) || baseline == "" || err != nil || hash != baseline {
+				return errors.New("skill changed during update; left unchanged")
+			}
+			freshHash, err := localSkillHash(fresh)
+			if err != nil {
+				return err
+			}
+			if hash == freshHash {
+				return nil
+			}
+		} else if baseline != "" {
+			return errors.New("skill removed during update; left unchanged")
+		}
 	}
 	previous := filepath.Join(staging, "previous")
 	hadPrevious := false
@@ -593,6 +674,7 @@ type skillsLockEntry struct {
 	SkillFolderHash string `json:"skillFolderHash"`
 	InstalledAt     string `json:"installedAt"`
 	UpdatedAt       string `json:"updatedAt"`
+	InstalledHash   string `json:"blaxelInstalledHash,omitempty"`
 }
 
 const skillsLockVersion = 3
@@ -625,6 +707,7 @@ func recordSkillsLock(home string, env func(string) string, skills []archivedSki
 			SkillFolderHash: gitTreeHash(skill.files),
 			InstalledAt:     timestamp,
 			UpdatedAt:       timestamp,
+			InstalledHash:   gitTreeHash(installedSkillFiles(skill.files)),
 		}
 		index := findJSONMember(entries, skill.name)
 		if index >= 0 {

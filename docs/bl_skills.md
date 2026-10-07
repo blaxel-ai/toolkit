@@ -25,5 +25,8 @@ Manage Blaxel skills for coding agents
 ### SEE ALSO
 
 * [bl](bl.md)	 - Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
+* [bl skills autoupdate](bl_skills_autoupdate.md)	 - Save this machine's automatic skills update preference
 * [bl skills install](bl_skills_install.md)	 - Install or refresh Blaxel skills for coding agents
+* [bl skills status](bl_skills_status.md)	 - Show skills revisions, update checks, skips and failures
+* [bl skills update](bl_skills_update.md)	 - Refresh skills from the compatible verified release bundle
 

@@ -178,6 +178,9 @@ func TestInstallSkillsArchive(t *testing.T) {
 	assert.Equal(t, "https://github.com/blaxel-ai/agent-skills.git", entry["sourceUrl"])
 	assert.Equal(t, "skills/blaxel-cli/SKILL.md", entry["skillPath"])
 	assert.Regexp(t, "^[0-9a-f]{40}$", entry["skillFolderHash"])
+	installedHash, err := localSkillHash(cli)
+	require.NoError(t, err)
+	assert.Equal(t, installedHash, entry["blaxelInstalledHash"], "ownership hash includes the normalized installed representation")
 	assert.Equal(t, "2026-10-01T12:30:45.123Z", entry["installedAt"])
 	assert.Equal(t, "2026-10-01T12:30:45.123Z", entry["updatedAt"])
 	assert.NotEqual(t, entry["skillFolderHash"], lockedSkill(t, lock, "blaxel-sdk")["skillFolderHash"])
@@ -268,7 +271,7 @@ func TestInstallSkillsArchiveRejectsBadArchives(t *testing.T) {
 
 	_, err = installSkillsArchive(buildSkillsArchive(t, []archiveEntry{{name: "skills/notes/README.md", body: "x"}}), home, noEnv, nil, time.Now())
 	assert.ErrorContains(t, err, "no skills found")
-	assert.Empty(t, dirNames(t, home), "nothing is written when the archive has no skills")
+	assert.NoDirExists(t, filepath.Join(home, ".agents"), "no skills are written when the archive has no skills")
 }
 
 func TestSkillsLockLocationAndReset(t *testing.T) {
