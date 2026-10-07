@@ -203,7 +203,9 @@ func addClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer) (bool, 
 	}
 	claude, err := e.lookPath("claude")
 	if err != nil {
-		for _, candidate := range []string{filepath.Join(e.home, ".local", "bin", "claude"), filepath.Join(claudeConfigDir(e), "local", "claude")} {
+		// Only fixed home locations: never run a binary from a directory an
+		// environment variable such as CLAUDE_CONFIG_DIR selects.
+		for _, candidate := range []string{filepath.Join(e.home, ".local", "bin", "claude"), filepath.Join(e.home, ".claude", "local", "claude")} {
 			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
 				claude, err = candidate, nil
 				break

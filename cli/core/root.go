@@ -251,12 +251,16 @@ var rootCmd = &cobra.Command{
 			checkForUpdates(version)
 		}
 
-		// Load .env file for all commands except serve, deploy, run, and apply cause they use envFiles
+		// Load .env file for all commands except serve, deploy, run, and apply cause they use envFiles.
+		// setup and upgrade configure this machine, not a project, so a project's
+		// .env must not steer them (for example CLAUDE_CONFIG_DIR).
 		excludedCommands := map[string]bool{
-			"serve":  true,
-			"deploy": true,
-			"run":    true,
-			"apply":  true,
+			"serve":   true,
+			"deploy":  true,
+			"run":     true,
+			"apply":   true,
+			"setup":   true,
+			"upgrade": true,
 		}
 		if !excludedCommands[cmd.Name()] {
 			if err := godotenv.Load(); err != nil {
