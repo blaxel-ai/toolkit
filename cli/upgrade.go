@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
@@ -38,9 +41,11 @@ Supported installation methods:
   - Manual installation (install.sh)
   - Direct binary download
 
-After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
-are installed or refreshed globally so coding agents (Claude Code, Codex, Cursor, ...)
-stay up to date. Set BL_INSTALL_SKILLS=false to skip this.
+After upgrading, the newly installed CLI refreshes the Blaxel agent skills and
+MCP servers for detected coding agents without setup screens or login. Existing
+custom MCP entries, plugin-managed servers, and externally managed skills are
+kept. Set BL_INSTALL_SKILLS=false or BL_INSTALL_MCP=false to skip either part.
+Automatic refresh is skipped in CI unless the corresponding setting is true.
 
 Examples:
   # Upgrade to the latest version
@@ -133,6 +138,13 @@ func isInstalledViaHomebrew(execPath string) bool {
 
 // runUpgrade executes the appropriate upgrade command based on installation method
 func runUpgrade(targetVersion string, force bool) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	if resolved, err := filepath.EvalSymlinks(executable); err == nil {
+		executable = resolved
+	}
 	method, err := detectInstallationMethod()
 	if err != nil {
 		return err
@@ -152,11 +164,38 @@ func runUpgrade(targetVersion string, force bool) error {
 		return err
 	}
 
-	installSkills()
-	if method == "brew" {
-		markUpgradedHomebrewSkills()
-	}
+	refreshUpgradedSetup(upgradedExecutable(executable, method))
 	return nil
+}
+
+// Resolve the stable opt link after brew has replaced (and possibly removed)
+// the running keg. Manual upgrades replace blaxel beside the running binary.
+func upgradedExecutable(executable, method string) string {
+	if method == "brew" {
+		if prefix, _ := homebrewSkillsLocation(executable); prefix != "" {
+			return filepath.Join(prefix, "opt", "blaxel", "bin", "blaxel")
+		}
+	}
+	name := "blaxel"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(filepath.Dir(executable), name)
+}
+
+func refreshUpgradedSetup(executable string) {
+	if skills, mcp := automaticSetupOffers(os.Getenv); !skills && !mcp {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute+5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, executable, "setup", "--yes", "--skip-login")
+	cmd.Env = append(os.Environ(), setupRefreshEnv+"=true")
+	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
+	cmd.WaitDelay = time.Second
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Could not refresh Blaxel setup with the upgraded CLI; retry with bl setup.")
+	}
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew
@@ -262,11 +301,11 @@ func upgradeViaCurl(targetVersion string) error {
 }
 
 // buildCurlUpgradeCommand builds the shell command that re-runs install.sh.
-// Skills installation is disabled in the script (BL_INSTALL_SKILLS=false) because
-// runUpgrade handles it itself, so it runs as the current user even when the
+// Setup is disabled in the script because the new binary refreshes it itself,
+// so it runs as the current user even when the
 // script needs sudo.
 func buildCurlUpgradeCommand(installScriptURL, targetVersion, binDir string, needsSudo bool) string {
-	// bl upgrade refreshes the skills itself and never re-runs bl setup.
+	// The installer must not run interactive setup or a second refresh.
 	env := "BL_INSTALL_SETUP=false " + skillsInstallEnv + "=false"
 	if targetVersion != "" {
 		env += " VERSION=" + targetVersion

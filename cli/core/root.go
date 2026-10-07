@@ -396,16 +396,23 @@ func IsShellCompletionRequest(args []string) bool {
 	if !slices.Contains(args, "__complete") && !slices.Contains(args, "__completeNoDesc") {
 		return false
 	}
-	resolver := &cobra.Command{Use: "bl", Version: "completion", DisableSuggestions: true}
+	command := resolveStartupCommand(args, "__complete", "__completeNoDesc")
+	return command == "__complete" || command == "__completeNoDesc"
+}
+
+func resolveStartupCommand(args []string, names ...string) string {
+	resolver := &cobra.Command{Use: "bl", Version: "startup", DisableSuggestions: true}
 	resolver.PersistentFlags().AddFlagSet(rootCmd.PersistentFlags())
 	resolver.InitDefaultHelpFlag()
 	resolver.InitDefaultVersionFlag()
-	resolver.AddCommand(
-		&cobra.Command{Use: "__complete", Args: cobra.ArbitraryArgs},
-		&cobra.Command{Use: "__completeNoDesc", Args: cobra.ArbitraryArgs},
-	)
+	for _, name := range names {
+		resolver.AddCommand(&cobra.Command{Use: name, Args: cobra.ArbitraryArgs})
+	}
 	command, _, err := resolver.Find(args)
-	return err == nil && (command.Name() == "__complete" || command.Name() == "__completeNoDesc")
+	if err != nil {
+		return ""
+	}
+	return command.Name()
 }
 
 // completeWorkspaceNames returns a list of workspace names from the local config for shell completion
@@ -650,9 +657,12 @@ func isTrackingPromptCommandExempt(args []string) bool {
 		return false
 	}
 
-	cmd := args[1]
-	// bl setup asks about error reports itself; bl mcp has no terminal.
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup" || cmd == "mcp"
+	if args[1] == "--version" {
+		return true
+	}
+	// Setup owns its consent screen; automatic upgrade refresh never asks.
+	command := resolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade")
+	return command != "" && command != "bl"
 }
 
 // IsMCPBridgeCommand reports bl mcp, which keeps stdout for JSON-RPC. bl get
