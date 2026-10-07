@@ -296,6 +296,8 @@ func TestContinueLeavesServersInOtherConfigsAlone(t *testing.T) {
 		{"config.yaml", "mcpServers:\n  - name: blaxel\n    command: mine\n"},
 		{"mcpServers/custom.json", `{"mcpServers":{"blaxel":{"url":"https://example.com/mcp"}}}`},
 		{"mcpServers/nested/custom.yaml", "mcpServers:\n  - name: blaxel\n    command: mine\n"},
+		// Continue loads a single-server file as the server named after it.
+		{"mcpServers/nested/blaxel.json", `{"command":"mine","args":["--flag"]}`},
 	} {
 		t.Run(fixture.file, func(t *testing.T) {
 			e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
@@ -309,6 +311,17 @@ func TestContinueLeavesServersInOtherConfigsAlone(t *testing.T) {
 			assert.Nil(t, jsonConfigEntry(mcpTargets["continue"].file(e), "mcpServers", "blaxel"))
 		})
 	}
+}
+
+func TestContinueLeavesASingleServerBlaxelJSONAlone(t *testing.T) {
+	e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+	target := mcpTargets["continue"]
+	original := `{"command":"mine","args":["--flag"],"env":{"TOKEN":"x"}}`
+	writeTestFile(t, target.file(e), original)
+	result := configureAgentMCP(context.Background(), e, target, []mcpServer{testResourceServer, testDocsServer})
+	assert.Equal(t, []string{"blaxel"}, result.existing)
+	require.ErrorContains(t, result.err, "your own server file")
+	assert.Equal(t, original, readTestFile(t, target.file(e)))
 }
 
 func TestContinueLeavesUnparseableSiblingConfigsAlone(t *testing.T) {
@@ -339,6 +352,25 @@ func TestOpenClawLeavesIncludedAndJSON5ConfigsAlone(t *testing.T) {
 		_, err := addMCPServer(context.Background(), e, mcpTargets["openclaw"], testResourceServer)
 		require.Error(t, err)
 		assert.Equal(t, original, readTestFile(t, file))
+	}
+}
+
+// OpenClaw reads only ~/.openclaw, and openclaw doctor moves a legacy folder
+// there only while ~/.openclaw does not exist.
+func TestOpenClawLeavesALegacyOnlyInstallToDoctor(t *testing.T) {
+	for _, legacy := range []string{".clawdbot", ".moltbot"} {
+		t.Run(legacy, func(t *testing.T) {
+			e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
+			require.NoError(t, os.MkdirAll(filepath.Join(e.home, legacy), 0700))
+			_, err := addMCPServer(context.Background(), e, mcpTargets["openclaw"], testResourceServer)
+			require.ErrorContains(t, err, "openclaw doctor")
+			assert.NoDirExists(t, filepath.Join(e.home, ".openclaw"))
+
+			require.NoError(t, os.MkdirAll(filepath.Join(e.home, ".openclaw"), 0700))
+			change, err := addMCPServer(context.Background(), e, mcpTargets["openclaw"], testResourceServer)
+			require.NoError(t, err)
+			assert.Equal(t, mcpAdded, change)
+		})
 	}
 }
 
@@ -380,6 +412,8 @@ func TestCopilotLeavesTheEnabledPluginServerAlone(t *testing.T) {
 func TestAdditionalConfigOverridesAreDetected(t *testing.T) {
 	for _, fixture := range []struct{ id, variable, relativeFile string }{
 		{"cline", "CLINE_MCP_SETTINGS_PATH", "cline_mcp_settings.json"},
+		{"cline", "CLINE_DATA_DIR", "settings/cline_mcp_settings.json"},
+		{"cline", "CLINE_DIR", "data/settings/cline_mcp_settings.json"},
 		{"continue", "CONTINUE_GLOBAL_DIR", "mcpServers/blaxel.json"},
 		{"crush", "CRUSH_GLOBAL_CONFIG", "crush.json"},
 		{"openclaw", "OPENCLAW_STATE_DIR", "openclaw.json"},
