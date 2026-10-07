@@ -24,7 +24,7 @@ const (
 	mcpInstallEnv = "BL_INSTALL_MCP"
 	// loginInstallEnv=false stops setup from logging in by default.
 	loginInstallEnv = "BL_INSTALL_LOGIN"
-	// trackingInstallEnv=false turns the anonymous error reports off.
+	// trackingInstallEnv=false disables usage capture and setup's tracking choice.
 	trackingInstallEnv = "BL_INSTALL_TRACKING"
 	// The installers describe what they already did, for the setup screens.
 	installerShellEnv  = "BL_INSTALLER_SHELL"
@@ -72,8 +72,13 @@ Blaxel documentation. It then logs you in to Blaxel in your browser.
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
 terminal, setup installs the same defaults and skips the browser login, so
-run bl login afterwards. Anonymous error reports are on unless you turn them
-off (or set DO_NOT_TRACK=1).
+run bl login afterwards. The usage and error reports toggle controls the saved
+tracking preference. New setup plans keep reports selected by default; an
+existing saved choice is retained. Anonymous usage capture is disabled in CI,
+by any nonempty DO_NOT_TRACK, or by BL_INSTALL_TRACKING=false. Error reports
+keep the SDK's existing DO_NOT_TRACK semantics.
+
+Events, properties and opt-outs: ` + core.UsageDisclosureURL + `
 
 Setup only adds what is missing. Existing MCP server entries are left
 unchanged, and it is safe to run again after installing another agent.`,
@@ -383,7 +388,7 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 		if strings.TrimSpace(options.env(trackingInstallEnv)) == "" && options.trackingConfigured() {
 			enabled = options.trackingEnabled()
 		}
-		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Error reports", Detail: "anonymous, helps us fix bugs faster", On: enabled})
+		items = append(items, &ui.Item{ID: "tracking", Group: "This machine", Label: "Usage and error reports", Detail: "usage is anonymous; see privacy docs", On: enabled})
 	}
 	return items
 }
@@ -400,13 +405,28 @@ type setupOutcome struct {
 	tracking  *bool
 }
 
-func runSetup(ctx context.Context, options setupOptions) error {
+func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
+	var agents, components []string
+	status := "success"
+	var taskErr error
+	defer func() {
+		if setupErr != nil {
+			status = "failure"
+		}
+		if taskErr == nil {
+			taskErr = setupErr
+		}
+		core.TrackCLISetup(agents, components, status, taskErr)
+	}()
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	plan, err := newSetupPlan(options)
 	if err != nil {
 		return err
+	}
+	for _, agent := range detectedSkillsAgents(options.home, options.env) {
+		agents = append(agents, agent.id)
 	}
 	outcome := &setupOutcome{mcp: map[string]mcpAgentResult{}}
 	setup := &ui.Setup{
@@ -419,11 +439,26 @@ func runSetup(ctx context.Context, options setupOptions) error {
 		chosen = map[string]bool{}
 		for _, item := range setup.Items {
 			chosen[item.ID] = item.On || item.Done != ""
+			if item.On {
+				components = append(components, item.ID)
+			}
+		}
+		ids := make([]string, 0, len(results))
+		for id := range results {
+			ids = append(ids, id)
+		}
+		slices.Sort(ids)
+		for _, id := range ids {
+			if err := results[id].Err; err != nil && !errors.Is(err, ui.ErrSkipped) {
+				taskErr = err
+				break
+			}
 		}
 		return setupSummary(options, plan, chosen, results, outcome)
 	}
 	summary, err := setup.Run(ctx, ui.Options{Out: options.out, Interactive: options.interactive && !options.yes, Yes: options.interactive && options.yes})
 	if errors.Is(err, ui.ErrCancelled) {
+		status = "cancelled"
 		_, _ = fmt.Fprintln(options.out, "  Nothing was changed. Run bl setup to start again.")
 		return nil
 	}
@@ -525,14 +560,14 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 		}})
 	}
 	if enabled, offered := chosen["tracking"]; offered {
-		tasks = append(tasks, ui.Task{ID: "tracking", Label: "Error reports", Run: func(context.Context, *ui.Control) (string, error) {
+		tasks = append(tasks, ui.Task{ID: "tracking", Label: "Usage and error reports", Run: func(context.Context, *ui.Control) (string, error) {
 			// Record the choice either way, so the CLI does not ask again.
 			options.setTracking(enabled)
 			outcome.mu.Lock()
 			outcome.tracking = &enabled
 			outcome.mu.Unlock()
 			if enabled {
-				return "on · anonymous", nil
+				return "on", nil
 			}
 			return "off", nil
 		}})
@@ -543,7 +578,9 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 			others = append(others, task.ID)
 		}
 		tasks = append(tasks, ui.Task{ID: "login", Label: "Log in", After: others, Skippable: true, Run: func(ctx context.Context, c *ui.Control) (string, error) {
+			core.TrackCLILogin("started", nil)
 			workspace, err := options.login(ctx, c, options.workspace)
+			core.TrackCLILogin(map[bool]string{true: "failure", false: "success"}[err != nil], err)
 			if err != nil {
 				return "", err
 			}
@@ -625,7 +662,7 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		account = append(account, "logged in to "+loggedIn)
 	}
 	if outcome.tracking != nil {
-		account = append(account, map[bool]string{true: "error reports on", false: "error reports off"}[*outcome.tracking])
+		account = append(account, map[bool]string{true: "usage and error reports on", false: "usage and error reports off"}[*outcome.tracking])
 	}
 	if len(account) > 0 {
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Blaxel", Detail: strings.Join(account, " · ")})

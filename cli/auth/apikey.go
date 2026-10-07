@@ -10,6 +10,7 @@ import (
 )
 
 func LoginApiKey(workspace string) {
+	core.TrackCLILogin("started", nil)
 	var apiKey string
 	// Check if API key is provided via environment variable
 	if apiKey = os.Getenv("BL_API_KEY"); apiKey != "" {
@@ -42,16 +43,20 @@ func LoginApiKey(workspace string) {
 			core.CLIErrorAuthentication,
 		)
 		core.PrintError("Login", err)
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
 
 	if err := blaxel.SaveCredentials(workspace, creds); err != nil {
 		core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
 	if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
 		core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
+	core.TrackCLILogin("success", nil)
 	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 }

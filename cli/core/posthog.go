@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // PostHog API key injected at build time via ldflags
@@ -20,22 +18,15 @@ var PosthogAPIKey = ""
 // PostHog API endpoint
 var PosthogHost = "https://us.i.posthog.com"
 
-// posthogFlushBudget caps how long telemetry may delay process exit.
-//
-// A successful capture against us.i.posthog.com takes ~250-350ms end to end
-// (DNS + TLS handshake + POST), so a one second budget comfortably covers the
-// happy path. It matters because a version is only marked as reported after a
-// successful delivery: when the endpoint is unreachable, every subsequent
-// command re-sends and pays this budget again. Networks that silently drop
-// traffic rather than refusing it — corporate firewalls, captive portals — hit
-// that path on every invocation, so the bound has to stay imperceptible.
+// posthogFlushBudget caps how long usage telemetry may delay process exit.
 const posthogFlushBudget = 1 * time.Second
 
-// telemetryState stores the last reported versions to deduplicate events
+// telemetryState stores reported versions and the CLI first-resource marker.
 type telemetryState struct {
-	DistinctID string            `json:"distinct_id"`
-	CLI        string            `json:"cli,omitempty"`
-	SDKs       map[string]string `json:"sdks,omitempty"`
+	DistinctID    string            `json:"distinct_id"`
+	CLI           string            `json:"cli,omitempty"`
+	SDKs          map[string]string `json:"sdks,omitempty"`
+	FirstResource bool              `json:"cli_first_resource,omitempty"`
 }
 
 var (
@@ -45,6 +36,7 @@ var (
 	telemetryRaw     map[string]interface{} // preserves unknown fields from disk
 	pendingCLIEvents = make(map[string]struct{})
 	posthogWg        sync.WaitGroup
+	posthogSlots     = make(chan struct{}, 8)
 )
 
 // getTelemetryPath returns the path to the telemetry state file
@@ -113,16 +105,19 @@ func saveTelemetryState(state *telemetryState) {
 	}
 
 	// distinct_id is shared by every writer, so the first one persisted wins.
-	// Replacing it would split the same user across two PostHog identities.
-	if id, _ := merged["distinct_id"].(string); id != "" {
+	// Replacing it would split the same local installation across two IDs.
+	if id, _ := merged["distinct_id"].(string); usageID.MatchString(id) {
 		state.DistinctID = id
 	} else {
 		merged["distinct_id"] = state.DistinctID
 	}
+	if state.FirstResource {
+		merged["cli_first_resource"] = true
+	}
 	if state.CLI != "" {
 		merged["cli"] = state.CLI
 	}
-	// Per-language entries belong to the SDKs; the CLI only ever owns "cli".
+	// Per-language entries belong to the SDKs; the CLI writes its own fields.
 	// Writing back this process's load-time copy of them would roll back a
 	// newer version an SDK recorded after this process started, and that SDK
 	// would then re-send its "Installed" event.
@@ -144,10 +139,13 @@ func getDistinctID() string {
 	defer telemetryMu.Unlock()
 
 	state := loadTelemetryState()
-	if state.DistinctID != "" {
+	if usageID.MatchString(state.DistinctID) {
 		return state.DistinctID
 	}
 	state.DistinctID = generateUUID()
+	if state.DistinctID == "" {
+		return ""
+	}
 	saveTelemetryState(state)
 	return state.DistinctID
 }
@@ -155,12 +153,27 @@ func getDistinctID() string {
 // capturePosthogEvent sends an event to PostHog via HTTP POST. onComplete is
 // called with true only after PostHog accepts the event with a 2xx response.
 // Delivery errors remain silent so telemetry can never cause a user-facing failure.
-func capturePosthogEvent(event string, properties map[string]string, onComplete func(success bool)) bool {
-	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() {
+func capturePosthogEvent(event string, properties map[string]any, onComplete func(success bool)) bool {
+	switch event {
+	case "Installed CLI", "Upgraded CLI", "Setup CLI", "Login CLI", "First Resource CLI":
+	default:
+		return false
+	}
+	if PosthogAPIKey == "" || !usageTrackingEnabled() {
 		return false
 	}
 
+	select {
+	case posthogSlots <- struct{}{}:
+	default:
+		return false
+	}
 	distinctID := getDistinctID()
+	if distinctID == "" {
+		<-posthogSlots
+		return false
+	}
+	properties = usageProperties(event, properties)
 
 	payload := map[string]interface{}{
 		"api_key":     PosthogAPIKey,
@@ -172,16 +185,21 @@ func capturePosthogEvent(event string, properties map[string]string, onComplete 
 
 	data, err := json.Marshal(payload)
 	if err != nil {
+		<-posthogSlots
 		return false
 	}
 
 	posthogWg.Add(1)
 	go func() {
 		defer posthogWg.Done()
+		defer func() { <-posthogSlots }()
 		success := false
 		defer func() { onComplete(success) }()
 
-		client := &http.Client{Timeout: 5 * time.Second}
+		if !usageTrackingEnabled() {
+			return
+		}
+		client := &http.Client{Timeout: posthogFlushBudget}
 		resp, err := client.Post(PosthogHost+"/capture/", "application/json", bytes.NewReader(data))
 		if err != nil {
 			return
@@ -195,7 +213,7 @@ func capturePosthogEvent(event string, properties map[string]string, onComplete 
 // TrackCLIInstalled checks if this CLI version has been reported and sends
 // an "Installed CLI" event if it hasn't.
 func TrackCLIInstalled(cliVersion string) {
-	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
+	if PosthogAPIKey == "" || !usageTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
 		return
 	}
 	// Skip telemetry in subprocess spawned by detectInstalledVersion()
@@ -226,7 +244,7 @@ func TrackCLIInstalled(cliVersion string) {
 	pendingCLIEvents[eventKey] = struct{}{}
 	telemetryMu.Unlock()
 
-	started := capturePosthogEvent("Installed CLI", map[string]string{
+	started := capturePosthogEvent("Installed CLI", map[string]any{
 		"version": cliVersion,
 	}, func(success bool) {
 		telemetryMu.Lock()
@@ -268,7 +286,7 @@ func readOnDiskCLI() string {
 
 // TrackCLIUpgraded sends an "Upgraded CLI" event with old and new versions.
 func TrackCLIUpgraded(oldVersion string, newVersion string) {
-	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() {
+	if PosthogAPIKey == "" || !usageTrackingEnabled() {
 		return
 	}
 	if oldVersion == "" || newVersion == "" || oldVersion == newVersion {
@@ -284,7 +302,7 @@ func TrackCLIUpgraded(oldVersion string, newVersion string) {
 	pendingCLIEvents[eventKey] = struct{}{}
 	telemetryMu.Unlock()
 
-	started := capturePosthogEvent("Upgraded CLI", map[string]string{
+	started := capturePosthogEvent("Upgraded CLI", map[string]any{
 		"old_version": oldVersion,
 		"new_version": newVersion,
 	}, func(success bool) {
@@ -312,7 +330,7 @@ func generateUUID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
-		return "unknown"
+		return ""
 	}
 	b[6] = (b[6] & 0x0f) | 0x40 // version 4
 	b[8] = (b[8] & 0x3f) | 0x80 // variant 10
@@ -321,19 +339,24 @@ func generateUUID() string {
 
 // FlushPosthog waits for all in-flight PostHog requests to complete, giving up
 // after posthogFlushBudget so telemetry can never make the CLI feel hung.
-// Abandoned requests are simply not marked as delivered, so they are retried by
-// a later invocation.
+// Failed version/first-resource captures stay eligible on a later invocation.
+// Setup and login attempts are not queued on disk or replayed.
 func FlushPosthog() {
 	if PosthogAPIKey == "" {
 		return
 	}
-	done := make(chan struct{})
-	go func() {
-		posthogWg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(posthogFlushBudget):
+	deadline := time.NewTimer(posthogFlushBudget)
+	defer deadline.Stop()
+	tick := time.NewTicker(5 * time.Millisecond)
+	defer tick.Stop()
+	// Slots are released after delivery callbacks. Checking the bounded set
+	// avoids leaving a WaitGroup waiter behind when the exit budget expires.
+	for len(posthogSlots) > 0 {
+		select {
+		case <-deadline.C:
+			return
+		case <-tick.C:
+		}
 	}
+	posthogWg.Wait()
 }

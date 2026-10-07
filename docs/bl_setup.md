@@ -18,8 +18,13 @@ Blaxel documentation. It then logs you in to Blaxel in your browser.
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
 terminal, setup installs the same defaults and skips the browser login, so
-run bl login afterwards. Anonymous error reports are on unless you turn them
-off (or set DO_NOT_TRACK=1).
+run bl login afterwards. The usage and error reports toggle controls the saved
+tracking preference. New setup plans keep reports selected by default; an
+existing saved choice is retained. Anonymous usage capture is disabled in CI,
+by any nonempty DO_NOT_TRACK, or by BL_INSTALL_TRACKING=false. Error reports
+keep the SDK's existing DO_NOT_TRACK semantics.
+
+Events, properties and opt-outs: https://docs.blaxel.ai/Security/Data-collection-and-privacy
 
 Setup only adds what is missing. Existing MCP server entries are left
 unchanged, and it is safe to run again after installing another agent.

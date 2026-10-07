@@ -20,7 +20,14 @@ func resetPosthogTestState(t *testing.T, host string) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("DO_NOT_TRACK", "0")
+	t.Setenv("DO_NOT_TRACK", "")
+	t.Setenv("BL_INSTALL_TRACKING", "")
+	t.Setenv("BL_SKIP_TELEMETRY", "")
+	for _, name := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE", "TEAMCITY_VERSION"} {
+		t.Setenv(name, "")
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".blaxel"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".blaxel", "config.yaml"), []byte("tracking: true\n"), 0600))
 
 	oldKey, oldHost := PosthogAPIKey, PosthogHost
 	PosthogAPIKey, PosthogHost = "test-key", host
@@ -31,7 +38,7 @@ func resetPosthogTestState(t *testing.T, host string) {
 	pendingCLIEvents = make(map[string]struct{})
 	telemetryMu.Unlock()
 	t.Cleanup(func() {
-		FlushPosthog()
+		posthogWg.Wait()
 		PosthogAPIKey, PosthogHost = oldKey, oldHost
 		telemetryMu.Lock()
 		telemetryOnce = sync.Once{}
@@ -72,9 +79,7 @@ func TestFlushPosthogStaysWithinLatencyBudgetWhenEndpointHangs(t *testing.T) {
 // permanently unreachable endpoint makes every single command pay the flush
 // budget. Keep that budget small enough to stay imperceptible.
 func TestPosthogFlushBudgetIsImperceptible(t *testing.T) {
-	// Measured round-trip to https://us.i.posthog.com/capture/ is ~250-350ms
-	// including DNS and the TLS handshake. Anything at or under a second keeps
-	// a stalled send from registering as a hang while leaving ample headroom.
+	// Keep the configured exit budget at or under one second.
 	assert.LessOrEqual(t, posthogFlushBudget, time.Second)
 }
 
@@ -111,7 +116,7 @@ func TestSaveTelemetryStateMergesWritesFromOtherProcesses(t *testing.T) {
 	assert.Equal(t, "2.0.0", sdks["typescript"], "another SDK's version must survive")
 }
 
-// Each writer owns exactly one field: the CLI owns "cli", and each SDK owns its
+// The CLI owns its version and first-resource marker; each SDK owns its
 // own language entry. Re-asserting anything else on save would roll back a
 // newer value written by whoever actually owns it, and that owner would then
 // treat its version as unreported and send "Installed" all over again.
@@ -150,7 +155,7 @@ func TestSaveTelemetryStateNeverRollsBackEntriesItDoesNotOwn(t *testing.T) {
 
 // distinct_id is shared by the CLI and both SDKs. If the CLI starts before any
 // id exists and an SDK persists one first, the CLI must adopt it instead of
-// replacing it, or the same user becomes two PostHog identities.
+// replacing it, so the local installation keeps one random ID.
 func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	resetPosthogTestState(t, "http://127.0.0.1:1")
 
@@ -159,7 +164,7 @@ func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(`{"sdks":{}}`), 0o600))
 	loadTelemetryState()
 
-	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"sdk-generated"}`), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"12345678-1234-4234-8234-123456789abc"}`), 0o600))
 
 	used := getDistinctID()
 
@@ -167,8 +172,8 @@ func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	require.NoError(t, err)
 	var got map[string]interface{}
 	require.NoError(t, json.Unmarshal(data, &got))
-	assert.Equal(t, "sdk-generated", got["distinct_id"])
-	assert.Equal(t, "sdk-generated", used)
+	assert.Equal(t, "12345678-1234-4234-8234-123456789abc", got["distinct_id"])
+	assert.Equal(t, "12345678-1234-4234-8234-123456789abc", used)
 }
 
 // Shell completion runs on every TAB press, and the version marker is only

@@ -71,7 +71,11 @@ func LoginDevice(workspace string) {
 // LoginWithDevice logs in with the browser and saves the credentials. With an
 // empty workspace, the user picks one of their workspaces after signing in.
 // Failures are returned, so callers such as bl setup can carry on.
-func LoginWithDevice(workspace string) error {
+func LoginWithDevice(workspace string) (loginErr error) {
+	core.TrackCLILogin("started", nil)
+	defer func() {
+		core.TrackCLILogin(map[bool]string{true: "failure", false: "success"}[loginErr != nil], loginErr)
+	}()
 	deviceLogin, opened, err := StartDeviceLogin(context.Background())
 	if err != nil {
 		return err
