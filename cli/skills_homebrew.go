@@ -6,25 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
-
-// homebrewSkillsLocation recognizes the resolved keg path without invoking brew
-// on every command. It supports custom prefixes and both binary aliases.
-func homebrewSkillsLocation(executable string) (prefix, version string) {
-	executable = filepath.Clean(executable)
-	if !filepath.IsAbs(executable) || (filepath.Base(executable) != "blaxel" && filepath.Base(executable) != "bl") {
-		return "", ""
-	}
-	bin := filepath.Dir(executable)
-	keg := filepath.Dir(bin)
-	rack := filepath.Dir(keg)
-	cellar := filepath.Dir(rack)
-	if filepath.Base(bin) != "bin" || filepath.Base(rack) != "blaxel" || filepath.Base(cellar) != "Cellar" {
-		return "", ""
-	}
-	return filepath.Dir(cellar), filepath.Base(keg)
-}
 
 func refreshHomebrewSetup() {
 	// Agent handshakes and shell completion must never wait for a download.
@@ -65,7 +49,7 @@ func setupHomebrewRefresh(executable string, install func()) {
 	if err != nil {
 		return
 	}
-	_, version := homebrewSkillsLocation(realPath)
+	_, version := agentsetup.HomebrewSkillsLocation(realPath)
 	if version == "" {
 		return
 	}

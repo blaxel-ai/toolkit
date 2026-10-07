@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"errors"
@@ -29,7 +29,7 @@ type skillLinkPlan struct {
 	repair              bool
 }
 
-func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSkill, selected []skillsAgent) ([]skillInstallPlan, error) {
+func planSkillsInstall(base string, paths SkillsAgentPaths, skills []archivedSkill, selected []SkillsAgent) ([]skillInstallPlan, error) {
 	wanted, folders := map[string]bool{}, map[string]bool{}
 	for _, skill := range skills {
 		folder := sanitizeSkillName(skill.name)
@@ -295,7 +295,7 @@ func repairSkillLink(plan skillLinkPlan) (string, error) {
 // Resolve existing links even when the final destination does not exist yet.
 // A dangling skill link can then be compared to its planned canonical target.
 func resolveSkillPath(name string) (string, error) {
-	resolved, err := evalSkillLinks(name)
+	resolved, err := EvalSkillLinks(name)
 	if err == nil {
 		return resolved, nil
 	}
@@ -308,7 +308,7 @@ func resolveSkillPath(name string) (string, error) {
 		}
 		// EvalSymlinks already rejects cycles; a dangling link's target has a
 		// missing component, so resolve only its parent rather than follow it again.
-		parent, err := evalSkillLinks(filepath.Dir(target))
+		parent, err := EvalSkillLinks(filepath.Dir(target))
 		if err == nil {
 			return filepath.Join(parent, filepath.Base(target)), nil
 		}

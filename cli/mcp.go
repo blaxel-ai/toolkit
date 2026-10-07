@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/mcpbridge"
 	"github.com/spf13/cobra"
@@ -56,8 +57,8 @@ and token exchanges.`,
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			if updater, err := defaultSkillsUpdater(core.GetVersion()); err == nil {
-				go updater.run(ctx, skillsUpdateInterval)
+			if updater, err := agentsetup.DefaultSkillsUpdater(core.GetVersion()); err == nil {
+				go updater.Run(ctx, agentsetup.SkillsUpdateInterval)
 			}
 			return mcpbridge.Serve(ctx, workspace, os.Stdin, os.Stdout)
 		},

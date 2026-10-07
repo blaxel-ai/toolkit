@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"encoding/binary"
@@ -13,7 +13,7 @@ import (
 // Directory junctions work without Developer Mode or the symlink privilege.
 // They use absolute targets, so moving the staged junction does not retarget it.
 // Set the mount-point reparse data directly: do not shell out with user paths.
-func createSkillDirectoryLink(target, _ string, link string) (err error) {
+func CreateSkillDirectoryLink(target, _ string, link string) (err error) {
 	target, err = filepath.Abs(target)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func createSkillDirectoryLink(target, _ string, link string) (err error) {
 // Since Go 1.23, junctions have ModeIrregular rather than ModeSymlink, and
 // filepath.EvalSymlinks does not resolve them. Follow the opened Windows handle
 // instead, including junctions in parent components, without walking cycles.
-func evalSkillLinks(name string) (string, error) {
+func EvalSkillLinks(name string) (string, error) {
 	file, err := os.Open(name)
 	if err != nil {
 		return "", err

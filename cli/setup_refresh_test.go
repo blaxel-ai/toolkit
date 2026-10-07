@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,8 +38,8 @@ func TestRefreshUpdatesSkillsAndNewAgentsWithoutLogin(t *testing.T) {
 	recorder := &setupRecorder{}
 	options := testSetupOptions(t, home, map[string]string{}, recorder)
 	archive := buildSkillsArchive(t, testSkillsEntries())
-	options.installSkills = func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-		return installSkillsArchive(archive, home, options.env, agents, time.Now())
+	options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		return agentsetup.InstallSkillsArchive(archive, home, options.env, agents, time.Now())
 	}
 	runSetupRefresh(context.Background(), options)
 	manifest := filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")
@@ -46,10 +47,10 @@ func TestRefreshUpdatesSkillsAndNewAgentsWithoutLogin(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".codex"), 0755))
 	runSetupRefresh(context.Background(), options)
 	assert.Equal(t, skillManifest("blaxel-cli"), readTestFile(t, manifest))
-	command, args := entryCommand(mcpTargets["codex"].entry(options.mcp, "blaxel"))
-	assert.Equal(t, testResourceServer.command[0], command)
+	command, args := agentsetup.EntryCommand(agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel"))
+	assert.Equal(t, testResourceServer.Command[0], command)
 	assert.Equal(t, []string{"mcp"}, args)
-	assert.NotNil(t, mcpTargets["codex"].entry(options.mcp, "blaxel-docs"))
+	assert.NotNil(t, agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel-docs"))
 	assert.Empty(t, recorder.logins)
 	assert.Empty(t, recorder.tracking)
 	assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 2, "one summary per refresh")
@@ -69,14 +70,14 @@ func TestRefreshMigratesOwnedEntriesAndKeepsCustomAndPluginServers(t *testing.T)
 	pluginConfig := `{"mcpServers":{"blaxel":{"url":"https://api.blaxel.ai/v0/mcp"}}}`
 	writeTestFile(t, filepath.Join(plugin, ".mcp.json"), pluginConfig)
 	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{skillsInstallEnv: "false"}, recorder)
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "false"}, recorder)
 	runSetupRefresh(context.Background(), options)
-	command, args := entryCommand(mcpTargets["cursor"].entry(options.mcp, "blaxel"))
-	assert.Equal(t, testResourceServer.command[0], command)
+	command, args := agentsetup.EntryCommand(agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"))
+	assert.Equal(t, testResourceServer.Command[0], command)
 	assert.Equal(t, []string{"mcp"}, args)
-	assert.Equal(t, custom, mcpTargets["gemini-cli"].entry(options.mcp, "blaxel"))
-	assert.Nil(t, mcpTargets["claude-code"].entry(options.mcp, "blaxel"))
-	assert.NotNil(t, mcpTargets["claude-code"].entry(options.mcp, "blaxel-docs"))
+	assert.Equal(t, custom, agentsetup.MCPTargets["gemini-cli"].Entry(options.mcp, "blaxel"))
+	assert.Nil(t, agentsetup.MCPTargets["claude-code"].Entry(options.mcp, "blaxel"))
+	assert.NotNil(t, agentsetup.MCPTargets["claude-code"].Entry(options.mcp, "blaxel-docs"))
 	assert.Contains(t, readTestFile(t, filepath.Join(home, ".cursor", "mcp.json")), `"command": "custom"`)
 	assert.Equal(t, pluginConfig, readTestFile(t, filepath.Join(plugin, ".mcp.json")))
 	assert.Contains(t, recorder.text(t), "1 migrated")
@@ -90,12 +91,12 @@ func TestRefreshHonorsIndependentOptOutsAndCI(t *testing.T) {
 		skills, mcp bool
 	}{
 		{"defaults", nil, true, true},
-		{"skills disabled", map[string]string{skillsInstallEnv: " FALSE "}, false, true},
+		{"skills disabled", map[string]string{agentsetup.SkillsInstallEnv: " FALSE "}, false, true},
 		{"MCP disabled", map[string]string{mcpInstallEnv: "false"}, true, false},
-		{"both disabled", map[string]string{skillsInstallEnv: "false", mcpInstallEnv: "false"}, false, false},
+		{"both disabled", map[string]string{agentsetup.SkillsInstallEnv: "false", mcpInstallEnv: "false"}, false, false},
 		{"setup disabled", map[string]string{"BL_INSTALL_SETUP": "false"}, false, false},
 		{"CI", map[string]string{"CI": "true"}, false, false},
-		{"CI skills forced", map[string]string{"CI": "true", skillsInstallEnv: "true"}, true, false},
+		{"CI skills forced", map[string]string{"CI": "true", agentsetup.SkillsInstallEnv: "true"}, true, false},
 		{"CI MCP forced", map[string]string{"GITHUB_ACTIONS": "true", mcpInstallEnv: "true"}, false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -105,7 +106,7 @@ func TestRefreshHonorsIndependentOptOutsAndCI(t *testing.T) {
 			options := testSetupOptions(t, home, test.env, recorder)
 			runSetupRefresh(context.Background(), options)
 			assert.Equal(t, test.skills, len(recorder.skillsAgents) > 0)
-			assert.Equal(t, test.mcp, mcpTargets["cursor"].entry(options.mcp, "blaxel") != nil)
+			assert.Equal(t, test.mcp, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel") != nil)
 			assert.Empty(t, recorder.logins)
 			assert.Empty(t, recorder.tracking)
 			assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 1)
@@ -128,18 +129,18 @@ func TestRefreshKeepsManagedSkillsAndContinuesAfterDownloadFailure(t *testing.T)
 			recorder := &setupRecorder{}
 			options := testSetupOptions(t, home, env, recorder)
 			if !offline {
-				options.installSkills = func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-					return installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, options.env, agents, time.Now())
+				options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+					return agentsetup.InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, options.env, agents, time.Now())
 				}
 			}
 			runSetupRefresh(context.Background(), options)
 			assert.Equal(t, manifest, readTestFile(t, filepath.Join(external, "SKILL.md")))
-			assert.NotNil(t, mcpTargets["cursor"].entry(options.mcp, "blaxel"))
+			assert.NotNil(t, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"))
 			if offline {
 				assert.Contains(t, recorder.text(t), "1 problem; retry with bl setup")
 			} else {
 				assert.Contains(t, recorder.text(t), "1 externally managed kept")
-				assert.NotContains(t, readTestFile(t, skillsLockPath(home, options.env)), `"blaxel-cli"`)
+				assert.NotContains(t, readTestFile(t, agentsetup.SkillsLockPath(home, options.env)), `"blaxel-cli"`)
 			}
 		})
 	}
@@ -151,10 +152,24 @@ func TestRefreshContinuesAfterAnAgentConfigFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".codex"), 0755))
 	writeTestFile(t, filepath.Join(home, ".claude.json"), "broken configuration")
 	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{skillsInstallEnv: "false"}, recorder)
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "false"}, recorder)
 	runSetupRefresh(context.Background(), options)
 	assert.Equal(t, "broken configuration", readTestFile(t, filepath.Join(home, ".claude.json")))
-	assert.NotNil(t, mcpTargets["codex"].entry(options.mcp, "blaxel"))
+	assert.NotNil(t, agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel"))
 	assert.Contains(t, recorder.text(t), "1 problem; retry with bl setup")
 	assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 1)
+}
+
+func TestSkillsSavedOptOutKeepsAutomaticRefreshMCPIndependent(t *testing.T) {
+	home := resolvedTempDir(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".cursor"), 0755))
+	enabled := false
+	require.NoError(t, agentsetup.WriteSkillsUpdateState(home, agentsetup.SkillsUpdateState{AutoUpdate: &enabled}))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "true"}, recorder)
+	runSetupRefresh(context.Background(), options)
+	assert.Empty(t, recorder.skillsAgents, "saved preference wins over automatic installer refresh")
+	assert.NotNil(t, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"), "MCP refresh remains independent")
+	assert.Empty(t, recorder.logins)
+	assert.Empty(t, recorder.tracking)
 }

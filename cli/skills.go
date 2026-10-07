@@ -1,113 +1,40 @@
 package cli
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"strings"
-	"sync"
-	"time"
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
+	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/spf13/cobra"
 )
 
-var (
-	skillsInstallOnce  sync.Once
-	skillsInstallError error
-)
-
-const (
-	// skillsRepo is the GitHub repository holding the Blaxel agent skills.
-	skillsRepo = "blaxel-ai/agent-skills"
-	// skillsInstallEnv controls skills installation: "false" disables it, "true" forces it.
-	skillsInstallEnv = "BL_INSTALL_SKILLS"
-)
-
-// skillsInstallCommand is the command that installs or refreshes the skills.
-func skillsInstallCommand() string {
-	return "bl skills install"
+func init() {
+	core.RegisterCommand("skills", SkillsCmd)
 }
 
-// skillsInstallDisabled reports whether skills installation should be skipped:
-// BL_INSTALL_SKILLS=false always disables it, and CI environments are skipped
-// unless BL_INSTALL_SKILLS=true (mirrors install.sh / install.ps1).
-func skillsInstallDisabled(env func(string) string) bool {
-	return automaticInstallDisabled(env, skillsInstallEnv)
-}
-
-func automaticInstallDisabled(env func(string) string, setting string) bool {
-	switch strings.ToLower(strings.TrimSpace(env(setting))) {
-	case "false":
-		return true
-	case "true":
-		return false
+func SkillsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "skills", Short: "Manage Blaxel skills for coding agents",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
 	}
-
-	return ciEnvironment(env)
-}
-
-func installSkillsOnce() error {
-	skillsInstallOnce.Do(func() { skillsInstallError = runSkillsInstall() })
-	return skillsInstallError
-}
-
-func runSkillsInstall() error {
-	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents...")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	result, err := installDetectedSkills(ctx)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(os.Stderr, skillsInstalledMessage(result))
-	return nil
-}
-
-func skillsInstalledMessage(result skillsInstallResult) string {
-	target := "to ~/.agents/skills"
-	if len(result.agents) > 0 {
-		target = "for " + joinSkillsNames(result.agents)
-	}
-	var messages []string
-	if len(result.skills) > 0 {
-		messages = append(messages, fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
-			target, strings.Join(result.skills, ", ")))
-	}
-	if len(result.preserved) > 0 {
-		messages = append(messages, "Kept externally managed Blaxel skills ("+strings.Join(result.preserved, ", ")+"); their contents and upstream update records were left unchanged.")
-	}
-	if len(result.repaired) > 0 {
-		messages = append(messages, "Automatically linked skill paths to existing copies.")
-	}
-	for _, backup := range result.backups {
-		messages = append(messages, "Previous copy backed up at "+backup)
-	}
-	return strings.Join(messages, "\n")
-}
-
-func skillsInstallDetail(result skillsInstallResult) string {
-	detail := strings.Join(result.skills, ", ")
-	if len(result.preserved) > 0 {
-		if detail != "" {
-			detail += " · "
-		}
-		detail += "kept externally managed: " + strings.Join(result.preserved, ", ")
-	}
-	if len(result.repaired) > 0 {
-		if detail != "" {
-			detail += " · "
-		}
-		detail += "skill paths auto-fixed"
-	}
-	return detail
-}
-
-func joinSkillsNames(names []string) string {
-	switch len(names) {
-	case 0:
-		return ""
-	case 1:
-		return names[0]
-	case 2:
-		return names[0] + " and " + names[1]
-	}
-	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	cmd.AddCommand(&cobra.Command{
+		Use: "install", Short: "Install or refresh Blaxel skills for coding agents",
+		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.\nExisting externally managed skill links are kept, not refreshed. Same-name\nskills in nested folders are reused automatically. Conflicting copies are\nbacked up outside the agents' skills folders and replaced with links.",
+		Args:         cobra.NoArgs,
+		RunE:         func(_ *cobra.Command, _ []string) error { return agentsetup.InstallSkillsOnce() },
+		SilenceUsage: true, SilenceErrors: true,
+	})
+	cmd.AddCommand(&cobra.Command{Use: "status", Short: "Show skills revisions, update checks, skips and failures", Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return agentsetup.WriteSkillsUpdateStatus(cmd.OutOrStdout())
+		}})
+	cmd.AddCommand(&cobra.Command{Use: "update", Short: "Refresh skills from the compatible verified release bundle",
+		Long: "Check the trusted Blaxel skills manifest and install its compatible checksum-verified bundle.\nModified folders, manager links and plugin copies are preserved. This command\nignores automatic update opt-outs. Restart your coding agent to load changes.\nUntil the first bundle is published, use bl skills install for initial installation.",
+		Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			return agentsetup.UpdateSkills(cmd.Context(), cmd.OutOrStdout())
+		}})
+	cmd.AddCommand(&cobra.Command{Use: "autoupdate [on|off]", Short: "Save this machine's automatic skills update preference",
+		Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs), ValidArgs: []string{"on", "off"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return agentsetup.SetSkillsAutoUpdate(cmd.Context(), args[0] == "on")
+		}})
+	return cmd
 }

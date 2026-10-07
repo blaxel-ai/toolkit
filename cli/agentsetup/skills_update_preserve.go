@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"encoding/json"
@@ -72,7 +72,7 @@ func localSkillHash(root string) (string, error) {
 // An older skills lock can prove ownership only when its raw Git hash matches
 // the actual installed contents. Otherwise an explicit install is needed.
 func preserveEditedSkills(plans []skillInstallPlan, home string, env func(string) string) error {
-	data, err := os.ReadFile(skillsLockPath(home, env))
+	data, err := os.ReadFile(SkillsLockPath(home, env))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

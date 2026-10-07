@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"archive/tar"
@@ -22,37 +22,16 @@ import (
 	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-func init() {
-	core.RegisterCommand("skills", SkillsCmd)
-}
-
-func SkillsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "skills", Short: "Manage Blaxel skills for coding agents",
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
-	}
-	cmd.AddCommand(&cobra.Command{
-		Use: "install", Short: "Install or refresh Blaxel skills for coding agents",
-		Long:         "Install the latest Blaxel agent skills globally from github.com/blaxel-ai/agent-skills.\nSkills go to ~/.agents/skills and to the coding agents detected on this machine\n(Claude Code, Codex, Cursor, ...). Nothing else needs to be installed first.\nThis explicit command runs even when automatic installation is disabled with\nBL_INSTALL_SKILLS=false or in CI.\nExisting externally managed skill links are kept, not refreshed. Same-name\nskills in nested folders are reused automatically. Conflicting copies are\nbacked up outside the agents' skills folders and replaced with links.",
-		Args:         cobra.NoArgs,
-		RunE:         func(_ *cobra.Command, _ []string) error { return installSkillsOnce() },
-		SilenceUsage: true, SilenceErrors: true,
-	})
-	cmd.AddCommand(skillsUpdateCommands()...)
-	return cmd
-}
-
-// skillsInstallResult summarizes a successful installation for the user.
-type skillsInstallResult struct {
-	skills    []string
-	preserved []string // externally managed skills used without refreshing or claiming ownership
-	repaired  []string
-	backups   []string
-	agents    []string
+// SkillsInstallResult summarizes a successful installation for the user.
+type SkillsInstallResult struct {
+	Skills    []string
+	Preserved []string // externally managed skills used without refreshing or claiming ownership
+	Repaired  []string
+	Backups   []string
+	Agents    []string
 	skipped   []string
 }
 
@@ -70,40 +49,40 @@ const (
 // skillsArchiveSource downloads the skills archive. Tests replace it.
 var skillsArchiveSource = downloadSkillsArchive
 
-func installDetectedSkills(ctx context.Context) (skillsInstallResult, error) {
+func installDetectedSkills(ctx context.Context) (SkillsInstallResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
-	return installSkillsFor(ctx, detectedSkillsAgents(home, os.Getenv))
+	return InstallSkillsFor(ctx, detectedSkillsAgents(home, os.Getenv))
 }
 
-// installSkillsFor installs the skills to ~/.agents/skills and the given agents.
-func installSkillsFor(ctx context.Context, selected []skillsAgent) (skillsInstallResult, error) {
+// InstallSkillsFor installs the skills to ~/.agents/skills and the given agents.
+func InstallSkillsFor(ctx context.Context, selected []SkillsAgent) (SkillsInstallResult, error) {
 	return installSkillsForMode(ctx, selected, false)
 }
 
-func installSkillsForSafely(ctx context.Context, selected []skillsAgent) (skillsInstallResult, error) {
+func InstallSkillsForSafely(ctx context.Context, selected []SkillsAgent) (SkillsInstallResult, error) {
 	return installSkillsForMode(ctx, selected, true)
 }
 
-func installSkillsForMode(ctx context.Context, selected []skillsAgent, conservative bool) (skillsInstallResult, error) {
+func installSkillsForMode(ctx context.Context, selected []SkillsAgent, conservative bool) (SkillsInstallResult, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
 	archive, err := skillsArchiveSource(ctx)
 	if err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
-	var result skillsInstallResult
+	var result SkillsInstallResult
 	err = withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
 		result, err = installSkillsArchiveUnlocked(archive, home, os.Getenv, selected, time.Now(), conservative)
 		if err != nil {
 			return err
 		}
-		return invalidateSkillsBundleRevision(home, result.skills)
+		return invalidateSkillsBundleRevision(home, result.Skills)
 	})
 	return result, err
 }
@@ -426,45 +405,45 @@ func skillFileExcluded(name string) bool {
 	return path.Base(name) == "metadata.json"
 }
 
-// installSkillsArchive installs every skill in the archive the way
+// InstallSkillsArchive installs every skill in the archive the way
 // `skills add -g` does: one copy in ~/.agents/skills, which most agents read,
 // and a link from each other selected agent's skills folder to that copy.
-func installSkillsArchive(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time) (skillsInstallResult, error) {
+func InstallSkillsArchive(archive []byte, home string, env func(string) string, selected []SkillsAgent, now time.Time) (SkillsInstallResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), skillsUpdateTimeout)
 	defer cancel()
-	var result skillsInstallResult
+	var result SkillsInstallResult
 	err := withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
 		result, err = installSkillsArchiveUnlocked(archive, home, env, selected, now, false)
 		if err != nil {
 			return err
 		}
-		return invalidateSkillsBundleRevision(home, result.skills)
+		return invalidateSkillsBundleRevision(home, result.Skills)
 	})
 	return result, err
 }
 
-func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) string, selected []skillsAgent, now time.Time, conservative bool) (result skillsInstallResult, err error) {
+func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) string, selected []SkillsAgent, now time.Time, conservative bool) (result SkillsInstallResult, err error) {
 	skills, err := readSkillsArchive(archive)
 	if err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
-	paths := newSkillsAgentPaths(home, env)
+	paths := NewSkillsAgentPaths(home, env)
 	canonicalBase := filepath.Join(home, ".agents", "skills")
 	plans, err := planSkillsInstall(canonicalBase, paths, skills, selected)
 	if err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
 	if conservative {
 		if err := preserveEditedSkills(plans, home, env); err != nil {
-			return skillsInstallResult{}, err
+			return SkillsInstallResult{}, err
 		}
 	}
 	if err := preflightSkillRepairs(plans); err != nil {
-		return skillsInstallResult{}, err
+		return SkillsInstallResult{}, err
 	}
-	_, agentNames := skillsTargets(selected)
-	result = skillsInstallResult{agents: agentNames}
+	_, agentNames := SkillsTargets(selected)
+	result = SkillsInstallResult{Agents: agentNames}
 	var installed []archivedSkill
 	// Record every swapped skill even when a later one fails. Otherwise the lock
 	// keeps the previous hash, and conservative updates would keep treating the
@@ -474,38 +453,38 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 			return
 		}
 		if lockErr := recordSkillsLock(home, env, installed, now); lockErr != nil && err == nil {
-			result, err = skillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", lockErr)
+			result, err = SkillsInstallResult{}, fmt.Errorf("recording the skills in the skills lock file: %w", lockErr)
 		}
 	}()
 	for _, plan := range plans {
 		result.skipped = append(result.skipped, plan.skippedLinks...)
 		files := plan.skill.files
 		if plan.preserved {
-			result.preserved = append(result.preserved, plan.skill.name)
+			result.Preserved = append(result.Preserved, plan.skill.name)
 			files = nil // a failed symlink must never fall back to a copy of the upstream fork
 		} else {
 			if err := replaceSkillFolderChecked(plan.canonical, files, conservative, plan.expectedHash); err != nil {
-				return skillsInstallResult{}, fmt.Errorf("installing %s: %w", plan.skill.name, err)
+				return SkillsInstallResult{}, fmt.Errorf("installing %s: %w", plan.skill.name, err)
 			}
 			installed = append(installed, plan.skill)
-			result.skills = append(result.skills, plan.skill.name)
+			result.Skills = append(result.Skills, plan.skill.name)
 		}
 		for _, link := range plan.links {
 			if link.repair {
 				backup, err := repairSkillLink(link)
 				if err != nil {
-					return skillsInstallResult{}, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
+					return SkillsInstallResult{}, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
 				}
-				result.repaired = append(result.repaired, link.destination)
+				result.Repaired = append(result.Repaired, link.destination)
 				if backup != "" {
-					result.backups = append(result.backups, backup)
+					result.Backups = append(result.Backups, backup)
 				}
 				continue
 			}
 			if err := linkSkillFolder(link.target, link.destination, files); errors.Is(err, errManagedSkillNotLinked) {
 				continue // that agent is left unchanged
 			} else if err != nil {
-				return skillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
+				return SkillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
 			}
 		}
 	}
@@ -584,7 +563,7 @@ func replaceSkillFolderChecked(destination string, files []skillFile, check bool
 	if err := os.MkdirAll(parent, 0755); err != nil {
 		return err
 	}
-	if resolved, err := evalSkillLinks(parent); err == nil {
+	if resolved, err := EvalSkillLinks(parent); err == nil {
 		parent = resolved
 		destination = filepath.Join(parent, filepath.Base(destination))
 	}
@@ -641,23 +620,23 @@ func replaceSkillFolderChecked(destination string, files []skillFile, check bool
 // is substituted; that agent's folder is left unchanged.
 var errManagedSkillNotLinked = errors.New("externally managed skill not linked")
 
-var skillDirectoryLink = createSkillDirectoryLink
+var skillDirectoryLink = CreateSkillDirectoryLink
 
 func linkSkillFolder(canonical, linkPath string, files []skillFile) error {
 	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
 		return err
 	}
-	linkDir, err := evalSkillLinks(filepath.Dir(linkPath))
+	linkDir, err := EvalSkillLinks(filepath.Dir(linkPath))
 	if err != nil {
 		return err
 	}
-	target, err := evalSkillLinks(canonical)
+	target, err := EvalSkillLinks(canonical)
 	if err != nil {
 		return err
 	}
 	linkPath = filepath.Join(linkDir, filepath.Base(linkPath))
 	// Already linked, or the agent's skills folder is itself a link to the shared one.
-	if existing, err := evalSkillLinks(linkPath); err == nil && existing == target {
+	if existing, err := EvalSkillLinks(linkPath); err == nil && existing == target {
 		return nil
 	}
 	if info, err := os.Lstat(linkPath); err == nil && isSkillLink(linkPath, info.Mode()) {
@@ -715,8 +694,8 @@ type skillsLockEntry struct {
 
 const skillsLockVersion = 3
 
-// skillsLockPath is where the skills CLI keeps its global lock file.
-func skillsLockPath(home string, env func(string) string) string {
+// SkillsLockPath is where the skills CLI keeps its global lock file.
+func SkillsLockPath(home string, env func(string) string) string {
 	if state := env("XDG_STATE_HOME"); state != "" {
 		return filepath.Join(state, "skills", ".skill-lock.json")
 	}
@@ -727,7 +706,7 @@ func skillsLockPath(home string, env func(string) string) string {
 // every other entry and their order, so `npx skills list -g`, `check` and
 // `update` know them.
 func recordSkillsLock(home string, env func(string) string, skills []archivedSkill, now time.Time) error {
-	file := skillsLockPath(home, env)
+	file := SkillsLockPath(home, env)
 	data, err := os.ReadFile(file)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -799,9 +778,9 @@ func readSkillsLock(data []byte) (lock, entries []jsonMember) {
 	return lock, entries
 }
 
-// installedBlaxelSkills lists the Blaxel skills recorded in the skills lock file.
-func installedBlaxelSkills(home string, env func(string) string) []string {
-	data, err := os.ReadFile(skillsLockPath(home, env))
+// InstalledBlaxelSkills lists the Blaxel skills recorded in the skills lock file.
+func InstalledBlaxelSkills(home string, env func(string) string) []string {
+	data, err := os.ReadFile(SkillsLockPath(home, env))
 	if err != nil {
 		return nil
 	}
@@ -818,14 +797,14 @@ func installedBlaxelSkills(home string, env func(string) string) []string {
 	return names
 }
 
-// skillsInstalledFor reports whether the agent sees every installed Blaxel skill.
-func skillsInstalledFor(agent skillsAgent, home string, env func(string) string, skills []string) bool {
+// SkillsInstalledFor reports whether the agent sees every installed Blaxel skill.
+func SkillsInstalledFor(agent SkillsAgent, home string, env func(string) string, skills []string) bool {
 	if len(skills) == 0 {
 		return false
 	}
 	dir := filepath.Join(home, ".agents", "skills")
 	if !agent.universal {
-		dir = skillsAgentDir(agent, newSkillsAgentPaths(home, env))
+		dir = skillsAgentDir(agent, NewSkillsAgentPaths(home, env))
 	}
 	for _, name := range skills {
 		if _, err := os.Stat(filepath.Join(dir, sanitizeSkillName(name), "SKILL.md")); err != nil {

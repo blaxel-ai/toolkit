@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"context"
@@ -17,12 +17,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/blaxel-ai/toolkit/cli/core"
-	"github.com/spf13/cobra"
 )
 
 const (
 	skillsManifestURL      = "https://raw.githubusercontent.com/" + skillsRepo + "/main/releases/skills-manifest.json"
-	skillsUpdateInterval   = 6 * time.Hour
+	SkillsUpdateInterval   = 6 * time.Hour
 	skillsUpdateTimeout    = 30 * time.Second
 	skillsManifestMaxBytes = 16 << 10
 )
@@ -36,7 +35,7 @@ type skillsUpdateManifest struct {
 	MinimumCLI string `json:"minimumCli"`
 }
 
-type skillsUpdateState struct {
+type SkillsUpdateState struct {
 	AutoUpdate          *bool             `json:"autoupdate,omitempty"`
 	Revision            string            `json:"revision,omitempty"`
 	VerifiedRevision    string            `json:"verifiedRevision,omitempty"`
@@ -52,8 +51,8 @@ func skillsUpdateStatePath(home string) string {
 	return filepath.Join(skillsUpdateDir(home), "state.json")
 }
 
-func readSkillsUpdateState(home string) (skillsUpdateState, error) {
-	var state skillsUpdateState
+func ReadSkillsUpdateState(home string) (SkillsUpdateState, error) {
+	var state SkillsUpdateState
 	file, err := os.Open(skillsUpdateStatePath(home))
 	if errors.Is(err, os.ErrNotExist) {
 		return state, nil
@@ -73,7 +72,7 @@ func readSkillsUpdateState(home string) (skillsUpdateState, error) {
 	return state, err
 }
 
-func writeSkillsUpdateState(home string, state skillsUpdateState) error {
+func WriteSkillsUpdateState(home string, state SkillsUpdateState) error {
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
@@ -86,7 +85,7 @@ func invalidateSkillsBundleRevision(home string, changed []string) error {
 	if len(changed) == 0 {
 		return nil
 	}
-	state, err := readSkillsUpdateState(home)
+	state, err := ReadSkillsUpdateState(home)
 	if err != nil {
 		return err
 	}
@@ -97,11 +96,11 @@ func invalidateSkillsBundleRevision(home string, changed []string) error {
 		delete(state.InstalledRevisions, name)
 	}
 	state.VerifiedRevision, state.Skip = "", ""
-	return writeSkillsUpdateState(home, state)
+	return WriteSkillsUpdateState(home, state)
 }
 
-func skillsUpdateDisabled(state skillsUpdateState, env func(string) string) string {
-	if skillsInstallDisabled(env) {
+func SkillsUpdateDisabled(state SkillsUpdateState, env func(string) string) string {
+	if SkillsInstallDisabled(env) {
 		return "disabled by BL_INSTALL_SKILLS or CI"
 	}
 	if state.AutoUpdate != nil && !*state.AutoUpdate {
@@ -140,19 +139,19 @@ func (manifest skillsUpdateManifest) validate() error {
 	return nil
 }
 
-type skillsUpdater struct {
+type SkillsUpdater struct {
 	home, version string
 	env           func(string) string
 	client        *http.Client
 	now           func() time.Time
 }
 
-func defaultSkillsUpdater(version string) (skillsUpdater, error) {
+func DefaultSkillsUpdater(version string) (SkillsUpdater, error) {
 	home, err := os.UserHomeDir()
-	return skillsUpdater{home: home, version: version, env: os.Getenv, client: newSkillsUpdateClient(), now: time.Now}, err
+	return SkillsUpdater{home: home, version: version, env: os.Getenv, client: newSkillsUpdateClient(), now: time.Now}, err
 }
 
-func (updater skillsUpdater) manifest(ctx context.Context) (skillsUpdateManifest, error) {
+func (updater SkillsUpdater) manifest(ctx context.Context) (skillsUpdateManifest, error) {
 	var manifest skillsUpdateManifest
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, skillsManifestURL, nil)
 	if err != nil {
@@ -194,23 +193,23 @@ func skillsDownloadError(err error) error {
 
 // Every automatic attempt, including failure, consumes one six-hour slot.
 // Explicit refresh bypasses scheduling and opt-outs, never content protection.
-func (updater skillsUpdater) check(ctx context.Context, manual bool) error {
-	if !manual && skillsInstallDisabled(updater.env) {
+func (updater SkillsUpdater) check(ctx context.Context, manual bool) error {
+	if !manual && SkillsInstallDisabled(updater.env) {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, skillsUpdateTimeout)
 	defer cancel()
 	return withSkillsUpdateLock(ctx, updater.home, manual, func() error {
-		state, err := readSkillsUpdateState(updater.home)
+		state, err := ReadSkillsUpdateState(updater.home)
 		if err != nil {
 			return err
 		}
 		now := updater.now().UTC()
-		if !manual && (skillsUpdateDisabled(state, updater.env) != "" || !state.LastAttempt.IsZero() && now.Sub(state.LastAttempt) < skillsUpdateInterval) {
+		if !manual && (SkillsUpdateDisabled(state, updater.env) != "" || !state.LastAttempt.IsZero() && now.Sub(state.LastAttempt) < SkillsUpdateInterval) {
 			return nil
 		}
 		state.LastAttempt, state.Skip, state.Failure = now, "", ""
-		if err := writeSkillsUpdateState(updater.home, state); err != nil {
+		if err := WriteSkillsUpdateState(updater.home, state); err != nil {
 			return err
 		}
 		err = updater.apply(ctx, &state, manual)
@@ -219,11 +218,11 @@ func (updater skillsUpdater) check(ctx context.Context, manual bool) error {
 		} else {
 			state.LastSuccessfulCheck = updater.now().UTC()
 		}
-		return errors.Join(err, writeSkillsUpdateState(updater.home, state))
+		return errors.Join(err, WriteSkillsUpdateState(updater.home, state))
 	})
 }
 
-func (updater skillsUpdater) apply(ctx context.Context, state *skillsUpdateState, manual bool) error {
+func (updater SkillsUpdater) apply(ctx context.Context, state *SkillsUpdateState, manual bool) error {
 	manifest, err := updater.manifest(ctx)
 	if errors.Is(err, os.ErrNotExist) {
 		state.Skip = "manifest not published yet"
@@ -243,7 +242,7 @@ func (updater skillsUpdater) apply(ctx context.Context, state *skillsUpdateState
 		state.Skip = "revision already checked; restart your coding agent to load changed skills"
 		return nil
 	}
-	if !manual && len(installedBlaxelSkills(updater.home, updater.env)) == 0 {
+	if !manual && len(InstalledBlaxelSkills(updater.home, updater.env)) == 0 {
 		state.Skip = "no CLI-managed skills installed; use bl skills install or bl skills update"
 		return nil
 	}
@@ -260,11 +259,11 @@ func (updater skillsUpdater) apply(ctx context.Context, state *skillsUpdateState
 		return err
 	}
 	state.VerifiedRevision = manifest.Revision
-	state.SkippedSkills = append(result.preserved, result.skipped...)
+	state.SkippedSkills = append(result.Preserved, result.skipped...)
 	if state.InstalledRevisions == nil {
 		state.InstalledRevisions = map[string]string{}
 	}
-	for _, name := range result.skills {
+	for _, name := range result.Skills {
 		state.InstalledRevisions[name] = manifest.Revision
 	}
 	state.Skip = "restart your coding agent to load changed skills"
@@ -274,59 +273,57 @@ func (updater skillsUpdater) apply(ctx context.Context, state *skillsUpdateState
 	return nil
 }
 
-func skillsUpdateCommands() []*cobra.Command {
-	status := &cobra.Command{Use: "status", Short: "Show skills revisions, update checks, skips and failures", Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			updater, err := defaultSkillsUpdater(core.GetVersion())
-			if err != nil {
-				return err
-			}
-			state, err := readSkillsUpdateState(updater.home)
-			if err != nil {
-				return err
-			}
-			return json.NewEncoder(cmd.OutOrStdout()).Encode(struct {
-				skillsUpdateState
-				StatePath        string `json:"statePath"`
-				AutomaticUpdates bool   `json:"automaticUpdates"`
-				DisabledReason   string `json:"disabledReason,omitempty"`
-			}{state, skillsUpdateStatePath(updater.home), skillsUpdateDisabled(state, updater.env) == "", skillsUpdateDisabled(state, updater.env)})
-		}}
-	update := &cobra.Command{Use: "update", Short: "Refresh skills from the compatible verified release bundle",
-		Long: "Check the trusted Blaxel skills manifest and install its compatible checksum-verified bundle.\nModified folders, manager links and plugin copies are preserved. This command\nignores automatic update opt-outs. Restart your coding agent to load changes.\nUntil the first bundle is published, use bl skills install for initial installation.",
-		Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-			updater, err := defaultSkillsUpdater(core.GetVersion())
-			if err != nil {
-				return err
-			}
-			if err := updater.check(cmd.Context(), true); err != nil {
-				return err
-			}
-			state, err := readSkillsUpdateState(updater.home)
-			if err != nil {
-				return err
-			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), state.Skip)
+// WriteSkillsUpdateStatus writes the skills revisions, update checks, skips
+// and failures as JSON.
+func WriteSkillsUpdateStatus(out io.Writer) error {
+	updater, err := DefaultSkillsUpdater(core.GetVersion())
+	if err != nil {
+		return err
+	}
+	state, err := ReadSkillsUpdateState(updater.home)
+	if err != nil {
+		return err
+	}
+	return json.NewEncoder(out).Encode(struct {
+		SkillsUpdateState
+		StatePath        string `json:"statePath"`
+		AutomaticUpdates bool   `json:"automaticUpdates"`
+		DisabledReason   string `json:"disabledReason,omitempty"`
+	}{state, skillsUpdateStatePath(updater.home), SkillsUpdateDisabled(state, updater.env) == "", SkillsUpdateDisabled(state, updater.env)})
+}
+
+// UpdateSkills refreshes the skills from the verified release bundle now,
+// ignoring automatic update opt-outs, and writes the outcome.
+func UpdateSkills(ctx context.Context, out io.Writer) error {
+	updater, err := DefaultSkillsUpdater(core.GetVersion())
+	if err != nil {
+		return err
+	}
+	if err := updater.check(ctx, true); err != nil {
+		return err
+	}
+	state, err := ReadSkillsUpdateState(updater.home)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(out, state.Skip)
+	return err
+}
+
+// SetSkillsAutoUpdate saves this machine's automatic skills update preference.
+func SetSkillsAutoUpdate(ctx context.Context, enabled bool) error {
+	updater, err := DefaultSkillsUpdater(core.GetVersion())
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, skillsUpdateTimeout)
+	defer cancel()
+	return withSkillsUpdateLock(ctx, updater.home, true, func() error {
+		state, err := ReadSkillsUpdateState(updater.home)
+		if err != nil {
 			return err
-		}}
-	autoupdate := &cobra.Command{Use: "autoupdate [on|off]", Short: "Save this machine's automatic skills update preference",
-		Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs), ValidArgs: []string{"on", "off"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			updater, err := defaultSkillsUpdater(core.GetVersion())
-			if err != nil {
-				return err
-			}
-			ctx, cancel := context.WithTimeout(cmd.Context(), skillsUpdateTimeout)
-			defer cancel()
-			return withSkillsUpdateLock(ctx, updater.home, true, func() error {
-				state, err := readSkillsUpdateState(updater.home)
-				if err != nil {
-					return err
-				}
-				enabled := args[0] == "on"
-				state.AutoUpdate = &enabled
-				return writeSkillsUpdateState(updater.home, state)
-			})
-		}}
-	return []*cobra.Command{status, update, autoupdate}
+		}
+		state.AutoUpdate = &enabled
+		return WriteSkillsUpdateState(updater.home, state)
+	})
 }

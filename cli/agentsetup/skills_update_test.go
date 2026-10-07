@@ -1,11 +1,9 @@
-package cli
+package agentsetup
 
 import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -26,31 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The fixture entrypoint exercises Execute/MCPCmd on macOS without changing
-// system trust. Only the test binary injects its local CA into the HTTP client.
-// The finite worker inherits SSL_CERT_FILE and uses the same entrypoint.
-func TestMain(tests *testing.M) {
-	if os.Getenv("BL_TEST_SKILLS_ENTRYPOINT") == "1" || os.Getenv(skillsUpdateWorkerEnv) == "1" {
-		certificate, err := os.ReadFile(os.Getenv("SSL_CERT_FILE"))
-		if err != nil {
-			panic(err)
-		}
-		roots := x509.NewCertPool()
-		if !roots.AppendCertsFromPEM(certificate) {
-			panic("invalid fixture certificate")
-		}
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
-		http.DefaultTransport = transport
-		if err := Execute("0.1.121", "fixture", "fixture"); err != nil {
-			_, _ = io.WriteString(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-	os.Exit(tests.Run())
-}
-
 type skillsRoundTripper func(*http.Request) (*http.Response, error)
 
 func (transport skillsRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -62,11 +35,11 @@ func updateManifest(archive []byte, revision string) skillsUpdateManifest {
 	return skillsUpdateManifest{revision, "https://github.com/" + skillsRepo + "/releases/download/skills-" + revision + "/skills.tar.gz", hex.EncodeToString(hash[:]), "0.1.121"}
 }
 
-func fixtureUpdater(t *testing.T, home string, handler http.Handler) skillsUpdater {
+func fixtureUpdater(t *testing.T, home string, handler http.Handler) SkillsUpdater {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	updater := skillsUpdater{home: home, version: "0.1.121", env: noEnv, now: time.Now, client: newSkillsUpdateClient()}
+	updater := SkillsUpdater{home: home, version: "0.1.121", env: noEnv, now: time.Now, client: newSkillsUpdateClient()}
 	updater.client.Transport = fixtureSkillsTransport(server.URL)
 	return updater
 }
@@ -105,7 +78,7 @@ func TestSkillsUpdaterInstallsVerifiedRevisionAndThrottles(t *testing.T) {
 		}
 	}))
 	require.NoError(t, updater.check(context.Background(), true))
-	state, err := readSkillsUpdateState(home)
+	state, err := ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-cli"])
 	assert.Equal(t, manifest.Revision, state.VerifiedRevision)
@@ -113,8 +86,8 @@ func TestSkillsUpdaterInstallsVerifiedRevisionAndThrottles(t *testing.T) {
 	assert.FileExists(t, filepath.Join(home, ".agents", "skills", "blaxel-sdk", "SKILL.md"))
 	require.NoError(t, updater.check(context.Background(), false))
 	assert.EqualValues(t, 1, manifests.Load())
-	state.LastAttempt = time.Now().Add(-skillsUpdateInterval)
-	require.NoError(t, writeSkillsUpdateState(home, state))
+	state.LastAttempt = time.Now().Add(-SkillsUpdateInterval)
+	require.NoError(t, WriteSkillsUpdateState(home, state))
 	require.NoError(t, updater.check(context.Background(), false))
 	assert.EqualValues(t, 2, manifests.Load())
 	assert.EqualValues(t, 1, bundles.Load(), "the same revision is not downloaded again")
@@ -137,28 +110,28 @@ func TestSkillsExplicitInstallInvalidatesChangedBundleRevision(t *testing.T) {
 	explicit := buildSkillsArchive(t, []archiveEntry{
 		{name: "skills/blaxel-cli/SKILL.md", body: skillManifest("blaxel-cli") + "Explicitly refreshed content.\n"},
 	})
-	_, err := installSkillsArchive(explicit, home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(explicit, home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	assert.Contains(t, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")), "Explicitly refreshed")
-	state, err := readSkillsUpdateState(home)
+	state, err := ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.Empty(t, state.InstalledRevisions["blaxel-cli"])
 	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-sdk"], "untouched skill retains its revision")
 	assert.Empty(t, state.VerifiedRevision)
-	updater.now = func() time.Time { return state.LastAttempt.Add(skillsUpdateInterval) }
+	updater.now = func() time.Time { return state.LastAttempt.Add(SkillsUpdateInterval) }
 	require.NoError(t, updater.check(context.Background(), false))
 	assert.EqualValues(t, 2, bundles.Load(), "a due check reconciles the same channel revision")
-	state, err = readSkillsUpdateState(home)
+	state, err = ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.Equal(t, manifest.Revision, state.InstalledRevisions["blaxel-cli"])
 	assert.NotContains(t, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")), "Explicitly refreshed")
 	// A check that preserved every local edit can verify a revision without
 	// recording any installed revision. Explicit installs must clear that memo too.
 	state.InstalledRevisions = nil
-	require.NoError(t, writeSkillsUpdateState(home, state))
-	_, err = installSkillsArchive(explicit, home, noEnv, nil, time.Now())
+	require.NoError(t, WriteSkillsUpdateState(home, state))
+	_, err = InstallSkillsArchive(explicit, home, noEnv, nil, time.Now())
 	require.NoError(t, err)
-	state, err = readSkillsUpdateState(home)
+	state, err = ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.Empty(t, state.VerifiedRevision)
 }
@@ -168,10 +141,10 @@ func TestSkillsUpdaterFailuresLeaveContentsAndBackOff(t *testing.T) {
 	for _, scenario := range []string{"checksum", "bad archive", "invalid manifest", "oversized manifest", "timeout", "missing manifest", "incompatible", "unknown version", "prerelease", "offline"} {
 		t.Run(scenario, func(t *testing.T) {
 			home := resolvedTempDir(t)
-			_, err := installSkillsArchive(archive, home, noEnv, nil, time.Now())
+			_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
 			require.NoError(t, err)
 			before := readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md"))
-			lock := readTestFile(t, skillsLockPath(home, noEnv))
+			lock := readTestFile(t, SkillsLockPath(home, noEnv))
 			bundle := archive
 			if scenario == "bad archive" {
 				bundle = []byte("not tar")
@@ -219,7 +192,7 @@ func TestSkillsUpdaterFailuresLeaveContentsAndBackOff(t *testing.T) {
 			} else {
 				require.Error(t, err)
 			}
-			state, err := readSkillsUpdateState(home)
+			state, err := ReadSkillsUpdateState(home)
 			require.NoError(t, err)
 			assert.False(t, state.LastAttempt.IsZero())
 			assert.Empty(t, state.VerifiedRevision)
@@ -227,7 +200,7 @@ func TestSkillsUpdaterFailuresLeaveContentsAndBackOff(t *testing.T) {
 			require.NoError(t, updater.check(context.Background(), false))
 			assert.LessOrEqual(t, requests.Load(), int32(2), "one attempt, without retrying a failed manifest")
 			assert.Equal(t, before, readTestFile(t, filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")))
-			assert.Equal(t, lock, readTestFile(t, skillsLockPath(home, noEnv)))
+			assert.Equal(t, lock, readTestFile(t, SkillsLockPath(home, noEnv)))
 		})
 	}
 }
@@ -236,7 +209,7 @@ func TestSkillsUpdaterPreservesEditedOrdinaryAndManagedSkills(t *testing.T) {
 	home := resolvedTempDir(t)
 	root := filepath.Join(home, ".agents", "skills")
 	archive := buildSkillsArchive(t, testSkillsEntries())
-	_, err := installSkillsArchive(archive, home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	writeTestFile(t, filepath.Join(root, "blaxel-cli", "local.txt"), "local changes")
 	require.NoError(t, os.RemoveAll(filepath.Join(root, "blaxel-sdk")))
@@ -247,7 +220,7 @@ func TestSkillsUpdaterPreservesEditedOrdinaryAndManagedSkills(t *testing.T) {
 	writeTestFile(t, plugin, "plugin-owned")
 	ordinary := filepath.Join(home, ".claude", "skills", "blaxel-cli", "SKILL.md")
 	writeTestFile(t, ordinary, skillManifest("blaxel-cli")+"agent-specific edits")
-	beforeLock := readTestFile(t, skillsLockPath(home, noEnv))
+	beforeLock := readTestFile(t, SkillsLockPath(home, noEnv))
 	manifest := updateManifest(archive, strings.Repeat("c", 40))
 	updater := fixtureUpdater(t, home, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/manifest" {
@@ -257,12 +230,12 @@ func TestSkillsUpdaterPreservesEditedOrdinaryAndManagedSkills(t *testing.T) {
 		}
 	}))
 	require.NoError(t, updater.check(context.Background(), true))
-	state, err := readSkillsUpdateState(home)
+	state, err := ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"blaxel-cli", "blaxel-sdk"}, state.SkippedSkills)
 	assert.Empty(t, state.InstalledRevisions)
 	assert.Equal(t, "local changes", readTestFile(t, filepath.Join(root, "blaxel-cli", "local.txt")))
-	assert.Equal(t, beforeLock, readTestFile(t, skillsLockPath(home, noEnv)))
+	assert.Equal(t, beforeLock, readTestFile(t, SkillsLockPath(home, noEnv)))
 	assert.Equal(t, skillManifest("blaxel-sdk")+"external fork", readTestFile(t, filepath.Join(external, "SKILL.md")))
 	assert.Equal(t, "plugin-owned", readTestFile(t, plugin))
 	assert.Equal(t, skillManifest("blaxel-cli")+"agent-specific edits", readTestFile(t, ordinary))
@@ -284,7 +257,7 @@ func TestSkillsUpdaterOptOutAndExplicitRefresh(t *testing.T) {
 			}))
 			enabled := false
 			if scenario == "saved" {
-				require.NoError(t, writeSkillsUpdateState(home, skillsUpdateState{AutoUpdate: &enabled}))
+				require.NoError(t, WriteSkillsUpdateState(home, SkillsUpdateState{AutoUpdate: &enabled}))
 			} else {
 				updater.env = func(key string) string {
 					if key == scenario {
@@ -300,7 +273,7 @@ func TestSkillsUpdaterOptOutAndExplicitRefresh(t *testing.T) {
 			assert.Zero(t, requests.Load())
 			require.NoError(t, updater.check(context.Background(), true))
 			assert.EqualValues(t, 2, requests.Load())
-			state, err := readSkillsUpdateState(home)
+			state, err := ReadSkillsUpdateState(home)
 			require.NoError(t, err)
 			if scenario == "saved" {
 				require.NotNil(t, state.AutoUpdate)
@@ -308,20 +281,6 @@ func TestSkillsUpdaterOptOutAndExplicitRefresh(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestSkillsSavedOptOutKeepsAutomaticRefreshMCPIndependent(t *testing.T) {
-	home := resolvedTempDir(t)
-	require.NoError(t, os.MkdirAll(filepath.Join(home, ".cursor"), 0755))
-	enabled := false
-	require.NoError(t, writeSkillsUpdateState(home, skillsUpdateState{AutoUpdate: &enabled}))
-	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{skillsInstallEnv: "true"}, recorder)
-	runSetupRefresh(context.Background(), options)
-	assert.Empty(t, recorder.skillsAgents, "saved preference wins over automatic installer refresh")
-	assert.NotNil(t, mcpTargets["cursor"].entry(options.mcp, "blaxel"), "MCP refresh remains independent")
-	assert.Empty(t, recorder.logins)
-	assert.Empty(t, recorder.tracking)
 }
 
 func TestSkillsManifestTrustAndRedirects(t *testing.T) {
@@ -351,7 +310,7 @@ func TestSkillsUpdateProcess(t *testing.T) {
 	if address == "" {
 		t.Skip("subprocess helper")
 	}
-	updater := skillsUpdater{home: os.Getenv("BL_TEST_SKILLS_HOME"), version: "0.1.121", env: noEnv, now: time.Now, client: newSkillsUpdateClient()}
+	updater := SkillsUpdater{home: os.Getenv("BL_TEST_SKILLS_HOME"), version: "0.1.121", env: noEnv, now: time.Now, client: newSkillsUpdateClient()}
 	updater.client.Transport = fixtureSkillsTransport(address)
 	err := updater.check(context.Background(), false)
 	if err != nil && err != errSkillsUpdateBusy {
@@ -362,7 +321,7 @@ func TestSkillsUpdateProcess(t *testing.T) {
 func TestSkillsUpdaterCoordinatesProcesses(t *testing.T) {
 	home := resolvedTempDir(t)
 	archive := buildSkillsArchive(t, testSkillsEntries())
-	_, err := installSkillsArchive(archive, home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -386,7 +345,7 @@ func TestSkillsUpdaterCoordinatesProcesses(t *testing.T) {
 		require.NoError(t, process.Wait())
 	}
 	assert.EqualValues(t, 2, requests.Load(), "one manifest and one bundle across all processes")
-	state, err := readSkillsUpdateState(home)
+	state, err := ReadSkillsUpdateState(home)
 	require.NoError(t, err)
 	assert.NotEmpty(t, state.VerifiedRevision)
 }
@@ -443,7 +402,7 @@ func TestSkillsUpdateSwapRechecksLocalContents(t *testing.T) {
 func TestSkillsUpdaterRunsPeriodicallyWithoutBlockingMCP(t *testing.T) {
 	home := resolvedTempDir(t)
 	archive := buildSkillsArchive(t, testSkillsEntries())
-	_, err := installSkillsArchive(archive, home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	var clock atomic.Int64
 	clock.Store(time.Now().Unix())
@@ -468,7 +427,7 @@ func TestSkillsUpdaterRunsPeriodicallyWithoutBlockingMCP(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	finished := make(chan struct{})
-	go func() { defer close(finished); updater.run(ctx, 20*time.Millisecond) }()
+	go func() { defer close(finished); updater.Run(ctx, 20*time.Millisecond) }()
 	<-started
 	// Exercise an actual stdio bridge while the skills HTTP fetch is blocked.
 	var output bytes.Buffer
@@ -477,10 +436,10 @@ func TestSkillsUpdaterRunsPeriodicallyWithoutBlockingMCP(t *testing.T) {
 	assert.JSONEq(t, `{"jsonrpc":"2.0","id":1,"result":{}}`, strings.TrimSpace(output.String()))
 	close(unblock)
 	require.Eventually(t, func() bool {
-		state, err := readSkillsUpdateState(home)
+		state, err := ReadSkillsUpdateState(home)
 		return err == nil && state.VerifiedRevision != ""
 	}, 3*time.Second, 10*time.Millisecond)
-	clock.Add(int64(skillsUpdateInterval.Seconds()))
+	clock.Add(int64(SkillsUpdateInterval.Seconds()))
 	require.Eventually(t, func() bool { return manifests.Load() == 2 }, 3*time.Second, 10*time.Millisecond)
 	cancel()
 	select {
