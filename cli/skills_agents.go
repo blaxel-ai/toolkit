@@ -50,9 +50,11 @@ var skillsAgents = []skillsAgent{
 	}},
 	{"cursor", "Cursor", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cursor")} }},
 	{"gemini-cli", "Gemini CLI", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".gemini")} }},
-	{"github-copilot", "GitHub Copilot", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".copilot")} }},
+	{"github-copilot", "GitHub Copilot", true, func(p skillsAgentPaths) []string {
+		return []string{p.envOr("COPILOT_HOME", p.homeDir(".copilot"))}
+	}},
 	{"opencode", "OpenCode", true, func(p skillsAgentPaths) []string { return []string{p.configDir("opencode")} }},
-	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp")} }},
+	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp"), p.homeDir(".config", "amp")} }},
 	{"cline", "Cline", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
 	{"windsurf", "Windsurf", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".codeium", "windsurf")} }},
 	{"goose", "Goose", false, func(p skillsAgentPaths) []string { return []string{p.configDir("goose")} }},
@@ -70,12 +72,34 @@ var skillsAgents = []skillsAgent{
 	{"openclaw", "OpenClaw", false, func(p skillsAgentPaths) []string {
 		return []string{p.homeDir(".openclaw"), p.homeDir(".clawdbot"), p.homeDir(".moltbot")}
 	}},
+	{"vscode", "GitHub Copilot (VS Code)", true, func(p skillsAgentPaths) []string { return []string{vscodeUserDir(p)} }},
 }
 
 // mcpOnlyAgents take MCP servers but have no skills folder, so setup adds
 // only the MCP servers to them.
 var mcpOnlyAgents = []skillsAgent{
 	{"claude-desktop", "Claude Desktop", false, func(p skillsAgentPaths) []string { return []string{claudeDesktopDir(p)} }},
+}
+
+// vscodeUserDir is the default VS Code profile's user configuration folder.
+func vscodeUserDir(p skillsAgentPaths) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return p.homeDir("Library", "Application Support", "Code", "User")
+	case "windows":
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Code", "User")
+	}
+	return p.configDir("Code", "User")
+}
+
+func gooseConfigDir(p skillsAgentPaths) string {
+	if root := strings.TrimSpace(p.env("GOOSE_PATH_ROOT")); filepath.IsAbs(root) {
+		return filepath.Join(root, "config")
+	}
+	if runtime.GOOS == "windows" {
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Block", "goose", "config")
+	}
+	return p.configDir("goose")
 }
 
 // claudeDesktopDir is where the Claude Desktop app keeps its configuration.
@@ -141,7 +165,11 @@ func detectAgents(agents []skillsAgent, home string, env func(string) string) []
 	paths := newSkillsAgentPaths(home, env)
 	var detected []skillsAgent
 	for _, agent := range agents {
-		for _, dir := range agent.homes(paths) {
+		dirs := agent.homes(paths)
+		if agent.id == "goose" {
+			dirs = append(dirs, gooseConfigDir(paths))
+		}
+		for _, dir := range dirs {
 			if _, err := os.Stat(dir); err == nil {
 				detected = append(detected, agent)
 				break
