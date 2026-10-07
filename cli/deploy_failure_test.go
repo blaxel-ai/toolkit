@@ -16,9 +16,12 @@ import (
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/deploy"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+const noSpecificCause = "No more specific cause was returned."
 
 const badRunDeployMessage = `#5 [2/2] RUN echo BAD_RUN >&2; exit 42
 #5 0.064 BAD_RUN
@@ -66,7 +69,7 @@ func deployTestClient(t *testing.T, handler http.HandlerFunc) {
 
 func deployEventJSON(t *testing.T, eventType, revision, message string, at time.Time) json.RawMessage {
 	t.Helper()
-	data, err := json.Marshal([]failureEvent{{Type: "ai.blaxel.controlplane." + eventType, Revision: revision, Status: "FAILED", Message: message, Time: at.UTC().Format(time.RFC3339Nano)}})
+	data, err := json.Marshal([]deploy.Event{{Type: "ai.blaxel.controlplane." + eventType, Revision: revision, Status: "FAILED", Message: message, Time: at.UTC().Format(time.RFC3339Nano)}})
 	require.NoError(t, err)
 	return data
 }
@@ -185,8 +188,8 @@ func TestDeployWaitReportsEachResourceAndPreservesTimeout(t *testing.T) {
 	var result struct {
 		Success   bool `json:"success"`
 		Resources []struct {
-			Status      string            `json:"status"`
-			Diagnostics deployDiagnostics `json:"diagnostics"`
+			Status      string             `json:"status"`
+			Diagnostics deploy.Diagnostics `json:"diagnostics"`
 		} `json:"resources"`
 	}
 	output := captureDeployStdout(t, func() { d.printStructuredOutput("json", time.Now(), true, err) })
@@ -199,7 +202,7 @@ func TestDeployWaitReportsEachResourceAndPreservesTimeout(t *testing.T) {
 	require.Equal(t, "DEPLOYING", result.Resources[1].Status, "a timeout keeps the last observed status")
 	require.Equal(t, "DEPLOY_TIMEOUT", result.Resources[1].Diagnostics.Code)
 	var yamlResult struct {
-		Resources []struct{ Diagnostics deployDiagnostics } `yaml:"resources"`
+		Resources []struct{ Diagnostics deploy.Diagnostics } `yaml:"resources"`
 	}
 	require.NoError(t, yaml.Unmarshal([]byte(captureDeployStdout(t, func() { d.printStructuredOutput("yaml", time.Now(), true, err) })), &yamlResult))
 	require.Equal(t, "BUILD_FAILED", yamlResult.Resources[0].Diagnostics.Code)
@@ -208,62 +211,28 @@ func TestDeployWaitReportsEachResourceAndPreservesTimeout(t *testing.T) {
 // A failure is this deploy's when it is new since the apply, whatever this
 // machine's clock says.
 func TestDeployFailureIsJudgedByEventsNotTheClock(t *testing.T) {
-	event := failureEvent{Type: "ai.blaxel.controlplane.buildimage.failed", Status: "FAILED", Time: time.Now().UTC().Format(time.RFC3339Nano), Message: "boom"}
-	raw, err := json.Marshal([]failureEvent{event})
+	event := deploy.Event{Type: "ai.blaxel.controlplane.buildimage.failed", Status: "FAILED", Time: time.Now().UTC().Format(time.RFC3339Nano), Message: "boom"}
+	raw, err := json.Marshal([]deploy.Event{event})
 	require.NoError(t, err)
-	o := deployObservation{started: time.Now().Add(time.Hour), rollout: resourceRollout{Events: raw}, baselineEvents: map[failureEvent]struct{}{}}
+	o := deployObservation{started: time.Now().Add(time.Hour), rollout: resourceRollout{Events: raw}, baselineEvents: map[deploy.Event]struct{}{}}
 	require.True(t, o.failureIsCurrent(), "new since the baseline, although this clock is an hour ahead")
 	o.baselineEvents[event] = struct{}{}
 	require.False(t, o.failureIsCurrent(), "already in the baseline")
-}
-
-func TestDeployEvidenceSanitizationAndBounds(t *testing.T) {
-	message := "\x1b[31m" + badRunDeployMessage + "\x1b[0m\x00\r\x1b]8;;https://evil.test\a"
-	// Infrastructure/URL filtering still wins over terminal sanitization: the line
-	// holding the link is dropped, not the whole message.
-	_, _, kept := failureEvidence(deployEventJSON(t, "buildimage.failed", "r1", message, time.Now()))
-	require.NotContains(t, kept, "evil.test")
-	require.Contains(t, kept, "Dockerfile:2")
-	message = "\x1b[31m" + badRunDeployMessage + "\x1b[0m\x00\r\u202e"
-	_, _, clean := failureEvidence(deployEventJSON(t, "buildimage.failed", "r1", message, time.Now()))
-	require.Contains(t, clean, "Dockerfile:2")
-	for _, control := range []string{"\x1b", "\x00", "\r", "\u202e"} {
-		require.NotContains(t, clean, control)
-	}
-	tail := deployEvidenceTail(strings.Repeat("line\n", 100) + strings.Repeat("界", 9000))
-	require.LessOrEqual(t, len(tail), 20)
-	require.LessOrEqual(t, len(strings.Join(tail, "\n")), deployEvidenceBytes)
-	require.NotContains(t, strings.Join(deployEvidenceTail("hello\nAWS private\nlast"), "\n"), "AWS")
-	for _, private := range []string{"AWS unavailable", "https://private.test/path", "gateway 10.0.0.1 unavailable", "arn:aws:lambda:x"} {
-		_, _, kept := failureEvidence(deployEventJSON(t, "buildimage.failed", "r1", private, time.Now()))
-		require.Empty(t, kept)
-	}
 }
 
 func TestDeployLatestAttemptSelection(t *testing.T) {
 	started := time.Now()
 	old := deployEventJSON(t, "buildimage.failed", "r0", "old failure", started.Add(-time.Minute))
 	newest := deployEventJSON(t, "buildimage.failed", "r1", badRunDeployMessage, started.Add(time.Second))
-	unsorted := append(append(append(json.RawMessage{}, newest[:len(newest)-1]...), ','), old[1:]...)
-	_, _, message := failureEvidence(unsorted)
-	require.Equal(t, badRunDeployMessage, message)
 	o := deployObservation{started: started, baseline: rolloutBaseline{revision: "r0", deployedRevision: "deployed-old", known: true}, rollout: resourceRollout{Events: old}}
 	require.False(t, o.failureIsCurrent())
 	o.rollout.Events = deployEventJSON(t, "deployment.failed", "deployed-old", "in-flight old failure", started.Add(time.Second))
 	require.False(t, o.failureIsCurrent(), "a failure of a pre-existing revision is not this deploy's")
 	o.rollout.Events = newest
 	require.True(t, o.failureIsCurrent())
-	// An empty newest failure or a newer attempt never borrows older cause.
-	for _, event := range []failureEvent{{Type: "buildimage.failed", Time: started.Add(2 * time.Second).Format(time.RFC3339Nano)}, {Type: "buildimage.created", Time: started.Add(2 * time.Second).Format(time.RFC3339Nano)}} {
-		data, err := json.Marshal([]failureEvent{event, {Type: "buildimage.failed", Time: started.Format(time.RFC3339Nano), Message: "old"}})
-		require.NoError(t, err)
-		_, _, message := failureEvidence(data)
-		require.Empty(t, message)
-	}
 }
 
 func TestDeployNextCommandsDoNotReplaySecrets(t *testing.T) {
 	d := Deployment{nextType: "agent", nextName: "explicit-name", folder: "svc"}
 	require.Equal(t, []string{"bl", "deploy", "--yes", "--wait", "-w", "ws", "-t", "agent", "-n", "explicit-name", "-d", "svc"}, d.redeployCommand("ws"))
-	require.Equal(t, "bl logs agent 'a; touch /tmp/nope'", deployCommandText([]string{"bl", "logs", "agent", "a; touch /tmp/nope"}))
 }
