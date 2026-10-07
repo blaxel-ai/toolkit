@@ -127,3 +127,15 @@ jobs:
           if ($backups.Count -ne 1) { throw "expected exactly one retained backup" }
           $saved = Join-Path $backups[0].FullName "blaxel-sdk\custom.txt"
           if ((Get-Content -Raw $saved) -ne "keep displaced copy") { throw "duplicate customization was not preserved" }
+
+      - name: Additional coding agent MCP targets (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: python3 test/install/test_setup_mcp_agents.py "$RUNNER_TEMP/bl"
+
+      - name: Additional coding agent MCP targets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python test/install/test_setup_mcp_agents.py "$env:RUNNER_TEMP\bl.exe"
+          if ($LASTEXITCODE -ne 0) { throw "coding agent MCP setup tests failed" }
