@@ -237,6 +237,12 @@ var rootCmd = &cobra.Command{
 		// Command paths contain only registered command names, never user args.
 		SetSentryTag("command.class", cmd.CommandPath())
 
+		// bl mcp speaks JSON-RPC on stdout to a coding agent: nothing else may
+		// print there. It reads the login itself, for every request.
+		if IsMCPBridgeCommand(cmd) {
+			return nil
+		}
+
 		// Skip version warning for specific commands/conditions
 		shouldSkipWarning := skipVersionWarning || cmd.Name() == "setup" ||
 			cmd.Name() == "__complete" ||
@@ -643,8 +649,8 @@ func promptForTracking() {
 }
 
 func isTrackingPromptCommandExempt(args []string) bool {
-	// bl setup asks about error reports itself.
-	return isInstallTrackingCommandExempt(args) || (len(args) > 1 && args[1] == "setup")
+	// bl setup asks about error reports itself; bl mcp has no terminal.
+	return isInstallTrackingCommandExempt(args) || (len(args) > 1 && (args[1] == "setup" || args[1] == "mcp"))
 }
 
 // isInstallTrackingCommandExempt reports latency-sensitive, side-effect-free
@@ -656,4 +662,10 @@ func isInstallTrackingCommandExempt(args []string) bool {
 
 	cmd := args[1]
 	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
+}
+
+// IsMCPBridgeCommand reports bl mcp, which keeps stdout for JSON-RPC. bl get
+// mcp is an alias of functions and does not match.
+func IsMCPBridgeCommand(cmd *cobra.Command) bool {
+	return cmd.Name() == "mcp" && cmd.Parent() == cmd.Root()
 }
