@@ -267,6 +267,7 @@ def fake_tests(root, binary, server):
     replacement.write_text(
         f"#!{sys.executable}\n"
         "import json, os, pathlib, sys\n"
+        "if sys.argv[1:] == ['setup', '--refresh-check']:\n    print('blaxel-setup-refresh-v1')\n    sys.exit(0)\n"
         f"pathlib.Path({str(receipt)!r}).write_text(json.dumps({{'args': sys.argv[1:], 'refresh': os.getenv('BL_INSTALL_REFRESH'), 'skills': os.getenv('BL_INSTALL_SKILLS'), 'mcp': os.getenv('BL_INSTALL_MCP'), 'input': sys.stdin.read()}}))\n"
     )
     replacement.chmod(0o755)
@@ -321,6 +322,29 @@ def fake_tests(root, binary, server):
         "skills": "true", "mcp": "false", "input": "",
     }
     print("PASS curl upgrade invokes the replacement binary with the original opt-outs", flush=True)
+
+    # A pre-contract CLI would interpret the old handoff as ordinary setup.
+    # Its unknown-flag response must stop the caller before that side effect.
+    for probe_output in ("", "ordinary setup"):
+        shutil.copy2(binary, bindir / "blaxel")
+        manual_receipt.unlink()
+        replacement.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, pathlib, sys\n"
+            "if sys.argv[1:] == ['setup', '--refresh-check']:\n"
+            f"    print({probe_output!r})\n    sys.exit({0 if probe_output else 2})\n"
+            f"pathlib.Path({str(manual_receipt)!r}).write_text('ordinary setup enabled tracking')\n"
+        )
+        result = subprocess.run([str(bindir / "blaxel"), "upgrade", "--version", "1.2.3"],
+                                cwd=install.cwd, env={**install.env, "BL_INSTALL_SKILLS": "true", "BL_INSTALL_MCP": "false"},
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "does not support headless setup refresh" in result.stderr, result.stderr
+        assert not manual_receipt.exists(), "unsupported CLI must never run ordinary setup"
+        assert not (install.home / ".blaxel").exists(), "unsupported upgrade must leave consent and login state alone"
+        # Keep unlinking uniform on the second iteration.
+        manual_receipt.write_text("fixture")
+    print("PASS unsupported replacement binaries leave setup and consent unchanged", flush=True)
 
     install = installation("installer-refresh")
     (install.home / ".cursor").mkdir()
