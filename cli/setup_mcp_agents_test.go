@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -226,10 +227,13 @@ func TestAmpUsesXDGConfigHome(t *testing.T) {
 	assert.Equal(t, "amp", agents[0].id)
 }
 
-func TestGooseAddsServersToEmptyConfigLayouts(t *testing.T) {
+func TestGoosePreservesCommentsInConfigLayouts(t *testing.T) {
 	for _, original := range []string{
 		"# my settings\n# keep this comment\n",
 		"# my settings\nextensions: # keep this comment\n",
+		"# my settings\n# keep this comment\n\ntheme: dark\nextensions: {}\n",
+		"theme: dark\nextensions: {}\n\n# my settings\n# keep this comment\n",
+		"# my settings\n\n# keep this comment\n",
 	} {
 		t.Run(original, func(t *testing.T) {
 			e := testMCPEnv(t.TempDir(), map[string]string{}, &[]fakeCommand{}, "", nil)
@@ -243,8 +247,13 @@ func TestGooseAddsServersToEmptyConfigLayouts(t *testing.T) {
 				assert.NotNil(t, target.entry(e, server.name))
 			}
 			before := readTestFile(t, file)
-			assert.Contains(t, before, "# my settings")
+			for _, line := range strings.Split(original, "\n") {
+				if line != "" && !strings.HasPrefix(line, "extensions:") {
+					assert.Equal(t, 1, strings.Count(before, line+"\n"), "lost or duplicated line: %s", line)
+				}
+			}
 			assert.Contains(t, before, "# keep this comment")
+			assert.GreaterOrEqual(t, strings.Count(before, "\n\n"), strings.Count(original, "\n\n"))
 			for _, server := range []mcpServer{testResourceServer, testDocsServer} {
 				change, err := addMCPServer(context.Background(), e, target, server)
 				require.NoError(t, err)
