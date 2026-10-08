@@ -15,7 +15,7 @@ the CLI in the correct location to avoid version conflicts.
 
 Supported installation methods:
   - Homebrew (brew)
-  - Manual installation (install.sh)
+  - Manual installation (install.sh, or install.ps1 on Windows)
   - Direct binary download
 
 After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)

@@ -11,9 +11,10 @@ Set up Blaxel for your coding agents and log in
 Set up everything Blaxel needs on this machine, then log in.
 
 For the coding agents found on this machine (Claude Code, Codex, Cursor, ...),
-setup installs the Blaxel agent skills and adds two hosted MCP servers:
-blaxel, to manage your workspace resources, and blaxel-docs, to search the
-Blaxel documentation. It then logs you in to Blaxel in your browser.
+setup installs the Blaxel agent skills and adds two MCP servers: blaxel, to
+manage your workspace resources, and blaxel-docs, to search the Blaxel
+documentation. It then logs you in to Blaxel in your browser. The agents use
+that login through bl mcp, so they need no sign-in of their own.
 
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
@@ -21,8 +22,10 @@ terminal, setup installs the same defaults and skips the browser login, so
 run bl login afterwards. Anonymous error reports are on unless you turn them
 off (or set DO_NOT_TRACK=1).
 
-Setup only adds what is missing. Existing MCP server entries are left
-unchanged, and it is safe to run again after installing another agent.
+Setup only adds what is missing, and it is safe to run again after
+installing another agent. MCP server entries you configured yourself are left
+unchanged; the hosted blaxel server added by earlier versions is switched to
+bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.
 
 ```
 bl setup [flags]

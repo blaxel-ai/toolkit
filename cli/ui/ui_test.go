@@ -130,12 +130,85 @@ func TestPlainOutputAsksOnTheTerminal(t *testing.T) {
 }
 
 func TestWrapBreaksLongWords(t *testing.T) {
-	lines := wrap("Open https://app.blaxel.ai/device?code=ABCDEFGHIJKLMNOPQRSTUVWXYZ now", 20)
+	lines := wrap("Open ABCDEFGHIJKLMNOPQRSTABCDEFGHIJKLMNOPQRST now", 20, 80, false)
 	for _, line := range lines {
 		assert.LessOrEqual(t, lipgloss.Width(line), 20, line)
 	}
 	assert.Equal(t, "Open", lines[0])
 	assert.Equal(t, "now", lines[len(lines)-1])
+}
+
+func TestWrapKeepsURLsWhole(t *testing.T) {
+	const url = "https://app.blaxel.ai/device?code=ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	text := "Confirm the login in your browser. Not open? " + url
+
+	// A URL longer than the column runs past it on a line of its own.
+	assert.Equal(t, []string{"Confirm the login in your", "browser. Not open?", url}, wrap(text, 25, 80, false))
+	assert.Equal(t, []string{"Open", url, "now"}, wrap("Open "+url+" now", 20, 80, false))
+
+	// As a hyperlink, the text is still the whole URL.
+	link := "\x1b]8;;" + url + "\x1b\\" + url + "\x1b]8;;\x1b\\"
+	assert.Equal(t, []string{"Open", link, "now"}, wrap("Open "+url+" now", 20, 80, true))
+	assert.Equal(t, len(url), lipgloss.Width(link))
+
+	// Wider than the terminal, a URL breaks like any word, and is no hyperlink:
+	// a link to a piece would open the wrong page.
+	lines := wrap("Open "+url, 20, 30, true)
+	assert.Equal(t, []string{"Open", url[:20], url[20:40], url[40:]}, lines)
+}
+
+func TestAppKeepsTheLoginLinkWhole(t *testing.T) {
+	const url = "https://api.blaxel.ai/v0/login/device/finalize?user_code=ABCDEF"
+	require.Equal(t, 63, len(url), "one more than the 62 cells of the column")
+	ansi := regexp.MustCompile("\x1b\\[[0-9;]*m")
+	for _, size := range [][2]int{{80, 24}, {110, 42}, {63, 24}} {
+		for _, links := range []bool{false, true} {
+			m := testModel(t, termenv.TrueColor)
+			m.links = links
+			m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+			m.phase = running
+			m.notes = []string{"Confirm the login in your browser. Not open? " + url}
+			view := m.View()
+			var found []string
+			for _, line := range strings.Split(view, "\n") {
+				assert.LessOrEqual(t, lipgloss.Width(line), size[0], "size %v: %q", size, line)
+				if strings.Contains(line, "https://") {
+					found = append(found, strings.TrimSpace(ansi.ReplaceAllString(line, "")))
+				}
+			}
+			label := fmt.Sprintf("size %v links %v", size, links)
+			if links {
+				assert.Equal(t, []string{"\x1b]8;;" + url + "\x1b\\" + url + "\x1b]8;;\x1b\\"}, found, label)
+			} else {
+				assert.Equal(t, []string{url}, found, label)
+				assert.NotContains(t, view, "\x1b]8", label)
+			}
+		}
+	}
+
+	// On a terminal narrower than the URL it breaks into pieces of the column,
+	// without losing a character, and no hyperlink points at a piece.
+	for _, columns := range []int{24, 30, 32, 40} {
+		m := testModel(t, termenv.TrueColor)
+		m.links = true
+		m.Update(tea.WindowSizeMsg{Width: columns, Height: 24})
+		m.phase = running
+		m.notes = []string{"Open this page to log in: " + url}
+		view := ansi.ReplaceAllString(m.View(), "")
+		assert.NotContains(t, view, "\x1b]8")
+		var pieces string
+		for _, line := range strings.Split(view, "\n") {
+			line = strings.TrimSpace(line)
+			if pieces != "" && line == "" {
+				break
+			}
+			if pieces != "" || strings.Contains(line, "https://") {
+				assert.LessOrEqual(t, len(line), columns-2, "columns %d: %q", columns, line)
+				pieces += line
+			}
+		}
+		assert.Equal(t, url, pieces, "columns %d", columns)
+	}
 }
 
 func testModel(t *testing.T, profile termenv.Profile) *model {
