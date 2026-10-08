@@ -631,8 +631,8 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	return validateBuildConfig(d.cwd, d.folder, config, path)
 }
 
-// ValidateBuildConfig checks if the project has proper configuration for building.
-// Used by both deploy and push commands.
+// ValidateBuildConfig checks if the project has proper configuration for building
+// with its default Dockerfile; deploy and push use validateBuildConfig with the selected one.
 // Returns a warning message if configuration is missing, empty string if all is good.
 func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	return validateBuildConfig(cwd, folder, config, filepath.Join(cwd, folder, "Dockerfile"))
