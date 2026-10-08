@@ -89,11 +89,11 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 			}
 
 			switch loginMethod(workspace, os.Getenv, core.IsTerminalInteractive()) {
-			case "clientcredentials":
+			case loginMethodClientCredentials:
 				auth.LoginClientCredentials(workspace, os.Getenv("BL_CLIENT_CREDENTIALS"))
-			case "apikey":
+			case loginMethodAPIKey:
 				auth.LoginApiKey(workspace)
-			case "browser":
+			case loginMethodBrowser:
 				auth.LoginDevice(workspace)
 			default:
 				showLoginMenu(workspace)
@@ -103,21 +103,29 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 	return cmd
 }
 
-// loginMethod is how bl login authenticates: "clientcredentials" or "apikey"
-// from the environment, "browser" without a workspace or without a terminal
-// to ask in, and "menu" to ask which one otherwise.
+// Login methods, as returned by loginMethod and offered by the login menu.
+const (
+	loginMethodBrowser           = "browser"
+	loginMethodAPIKey            = "apikey"
+	loginMethodClientCredentials = "clientcredentials"
+	loginMethodMenu              = "menu"
+)
+
+// loginMethod is how bl login authenticates: client credentials or an API key
+// from the environment, the browser without a workspace or without a terminal
+// to ask in, and the menu to ask which one otherwise.
 func loginMethod(workspace string, getenv func(string) string, interactive bool) string {
 	switch {
 	case workspace == "":
-		return "browser"
+		return loginMethodBrowser
 	case getenv("BL_CLIENT_CREDENTIALS") != "":
-		return "clientcredentials"
+		return loginMethodClientCredentials
 	case getenv("BL_API_KEY") != "":
-		return "apikey"
+		return loginMethodAPIKey
 	case !interactive:
-		return "browser"
+		return loginMethodBrowser
 	}
-	return "menu"
+	return loginMethodMenu
 }
 
 func resolveLoginWorkspace(cmd *cobra.Command, args []string) (string, string, error) {
@@ -166,8 +174,8 @@ func showLoginMenu(workspace string) {
 				Title("Choose a login method").
 				Description("Select how you want to authenticate with Blaxel").
 				Options(
-					huh.NewOption("Login with your browser", "browser"),
-					huh.NewOption("Login with API key", "apikey"),
+					huh.NewOption("Login with your browser", loginMethodBrowser),
+					huh.NewOption("Login with API key", loginMethodAPIKey),
 				).
 				Value(&selectedMethod),
 		),
@@ -182,9 +190,9 @@ func showLoginMenu(workspace string) {
 	}
 
 	switch selectedMethod {
-	case "browser":
+	case loginMethodBrowser:
 		auth.LoginDevice(workspace)
-	case "apikey":
+	case loginMethodAPIKey:
 		auth.LoginApiKey(workspace)
 	}
 }
