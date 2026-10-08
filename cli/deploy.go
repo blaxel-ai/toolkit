@@ -51,6 +51,7 @@ func DeployCmd() *cobra.Command {
 	var dockerfile string
 	var timeoutStr string
 	var buildEnvPath string
+	var wait bool
 
 	cmd := &cobra.Command{
 		Use:     "deploy",
@@ -85,7 +86,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 Interactive vs Non-Interactive:
 - Interactive (default): Shows live logs and deployment progress with TUI
-- Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation
+- Non-interactive (--yes or CI): Runs without interactive UI, suitable for automation.
+  Returns once the code is submitted: exit 0 means accepted, not deployed.
+- Non-interactive with --wait: Waits for this build and rollout (up to --timeout)
+  and exits 1 with the cause, failing Dockerfile step, a short log tail and a next
+  command if it fails or times out. Interactive mode always waits.
+
+With --wait and -o json (or yaml), a failure adds resources[].diagnostics (code,
+phase, cause, step, source, logTail, next). An unchanged redeploy creates no new revision:
+--wait reports that in resources[].note and exits 0. If no build starts within 3
+minutes of the upload, --wait stops with DEPLOY_TIMEOUT instead of waiting for --timeout.
 
 Environment Variables and Secrets:
 Use -e to load .env files or -s to pass secrets directly via command line.
@@ -97,8 +107,11 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 		Example: `  # Basic deployment (interactive mode with live logs)
   bl deploy
 
-  # Non-interactive deployment (for CI/CD)
+  # Non-interactive deployment (for CI/CD); returns once submitted
   bl deploy --yes
+
+  # Non-interactive deployment that waits for build and rollout and explains failures
+  bl deploy --yes --wait --timeout 20m
 
   # Deploy using a custom Dockerfile
   bl deploy --dockerfile blaxel.Dockerfile
@@ -243,6 +256,10 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
 				skipBuild:        skipBuild,
+				nextType:         resourceType,
+			}
+			if config.Name == "" && cmd.Flags().Changed("name") {
+				deployment.nextName = name
 			}
 
 			// Check for blaxel.toml validation warnings first
@@ -302,7 +319,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			}
 
 			if recursive {
-				if deployPackage(dryRun, name) {
+				if deployPackage(dryRun, name, wait, timeoutStr) {
 					return
 				}
 			}
@@ -338,14 +355,16 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			if !noTTY {
 				err = deployment.ApplyInteractive()
 			} else {
-				err = deployment.Apply()
+				err = deployment.applyNonInteractive(wait)
 			}
 
 			deployFailed := err != nil
 			if deployFailed {
 				err = fmt.Errorf("error applying blaxel deployment: %w", err)
 				if !isStructured {
-					core.PrintError("Deploy", err)
+					if !deployment.printFailureDiagnostics() {
+						core.PrintError("Deploy", err)
+					}
 					core.ExitWithError(err)
 				}
 			}
@@ -369,6 +388,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVarP(&skipBuild, "skip-build", "", false, "Skip the build step")
 	cmd.Flags().StringVarP(&resourceType, "type", "t", "", "Resource type (sandbox, agent, function, job, application). Defaults to blaxel.toml type or 'sandbox'")
 	cmd.Flags().BoolVarP(&noTTY, "yes", "y", false, "Skip interactive mode")
+	cmd.Flags().BoolVar(&wait, "wait", false, "In non-interactive mode, wait for build and rollout, exit 1 on failure and explain it (see --timeout)")
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
@@ -400,6 +420,10 @@ type Deployment struct {
 	timeout         time.Duration
 	timeoutExplicit bool
 	skipBuild       bool
+	wait            bool // bl deploy --wait; everything that differs from a plain submission is gated on it
+	observations    []deployObservation
+	nextType        string
+	nextName        string
 }
 
 // buildLabels turns blaxel.toml's [build] section into resource labels.
@@ -1059,6 +1083,7 @@ func getResourceStatusDetails(resourceType, name string) (string, string, error)
 type resourceRollout struct {
 	Status  string
 	Message string
+	Events  json.RawMessage
 	// LatestRevision is the revision of the most recent event that carries one,
 	// i.e. the rollout the resource is currently on, finished or not.
 	LatestRevision string
@@ -1124,7 +1149,10 @@ func eventRevisions(raw json.RawMessage) (latest, deployed string) {
 }
 
 func getResourceRollout(resourceType, name string) (resourceRollout, error) {
-	ctx := context.Background()
+	return getResourceRolloutContext(context.Background(), resourceType, name)
+}
+
+func getResourceRolloutContext(ctx context.Context, resourceType, name string) (resourceRollout, error) {
 	client := core.GetClient()
 
 	var result interface{}
@@ -1164,7 +1192,7 @@ func getResourceRollout(resourceType, name string) (resourceRollout, error) {
 	if err := json.Unmarshal(jsonData, &resource); err != nil {
 		return resourceRollout{}, err
 	}
-	rollout := resourceRollout{Status: "UNKNOWN"}
+	rollout := resourceRollout{Status: "UNKNOWN", Events: resource.Events}
 	rollout.LatestRevision, rollout.DeployedRevision = eventRevisions(resource.Events)
 	if resource.Status != "" {
 		rollout.Status = resource.Status
@@ -1173,6 +1201,329 @@ func getResourceRollout(resourceType, name string) (resourceRollout, error) {
 		}
 	}
 	return rollout, nil
+}
+
+// deployNoBuildGrace bounds how long --wait waits for the build pipeline to
+// react to an upload. Every submission that builds is answered within seconds
+// by a build event (started, failed, or an identical build reused). A variable
+// so tests can shorten it.
+var deployNoBuildGrace = 3 * time.Minute
+
+// deployFinalGrace bounds how long --wait holds a DEPLOYED resource for the
+// platform's final "deployment.succeeded" event, which came 5 to 115 seconds
+// after it in practice. A variable so tests can shorten it.
+var deployFinalGrace = time.Minute
+
+// deployObservation is local to this invocation, not the resource's history.
+type deployObservation struct {
+	kind, name    string
+	autoGenerated bool
+	baseline      rolloutBaseline
+	// baselineEvents are the events the resource had before the apply, or nil
+	// when unreadable; any other event is new.
+	baselineEvents map[deploy.Event]struct{}
+	initialStatus  string
+	started        time.Time
+	rollout        resourceRollout
+	sawRollout     bool
+	done           bool
+	err            error
+	diagnostics    *deploy.Diagnostics
+	// reusedAt is set when the platform answered this submission by reusing an
+	// identical image build, in which case no new revision follows.
+	reusedAt time.Time
+	// noBuild is set when no build event followed the upload in time.
+	noBuild bool
+	// notice is a clear, successful, non-default outcome worth reporting.
+	notice string
+	// settleBy is when to stop holding a DEPLOYED resource for the final event.
+	settleBy time.Time
+}
+
+func needsDeployMonitoring(kind string) bool {
+	switch strings.ToLower(kind) {
+	case "agent", "function", "job", "sandbox", "application":
+		return true
+	}
+	return false
+}
+
+// applyNonInteractive submits the deployment. Without wait it returns once the
+// code is submitted, exactly as a plain `bl deploy --yes` always has. With wait
+// it also follows this submission's build and rollout to a verdict.
+func (d *Deployment) applyNonInteractive(wait bool) error {
+	d.wait = wait
+	if !wait {
+		return d.Apply()
+	}
+
+	for _, manifest := range d.blaxelDeployments {
+		kind := strings.ToLower(manifest.Kind)
+		metadata, _ := manifest.Metadata.(map[string]interface{})
+		name, _ := metadata["name"].(string)
+		if !needsDeployMonitoring(kind) || name == "" {
+			continue
+		}
+		observation := deployObservation{kind: kind, name: name}
+		if labels, ok := metadata["labels"].(map[string]interface{}); ok {
+			observation.autoGenerated = labels["x-blaxel-auto-generated"] == "true" || labels["x-blaxel-auto-generated"] == true
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rollout, err := getResourceRolloutContext(ctx, kind, name)
+		cancel()
+		if err == nil {
+			observation.initialStatus = rollout.Status
+			observation.baseline = rolloutBaseline{revision: rollout.LatestRevision, deployedRevision: rollout.DeployedRevision, known: true}
+			var events []deploy.Event
+			if json.Unmarshal(rollout.Events, &events) == nil {
+				observation.baselineEvents = make(map[deploy.Event]struct{}, len(events))
+				for _, e := range events {
+					observation.baselineEvents[e] = struct{}{}
+				}
+			}
+		}
+		// Capture time immediately before applying, after the baseline read.
+		observation.started = time.Now()
+		d.observations = append(d.observations, observation)
+	}
+	if err := d.Apply(); err != nil {
+		d.observations = nil // nothing to wait for: report a plain submission error
+		return err
+	}
+
+	timeout := d.timeout
+	if timeout <= 0 {
+		timeout = time.Hour
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return d.waitForRollouts(ctx, 3*time.Second)
+}
+
+// Poll all resources under one monitoring deadline. API calls inherit it, so a
+// slow read cannot silently extend --timeout. Upload/apply retain their existing
+// behavior; as in the TUI, --timeout covers build and rollout monitoring.
+func (d *Deployment) waitForRollouts(ctx context.Context, interval time.Duration) error {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	waitStart := time.Now()
+	for {
+		pending := false
+		for i := range d.observations {
+			o := &d.observations[i]
+			if o.done {
+				continue
+			}
+			if ctx.Err() != nil {
+				o.done = true
+				o.err = core.MarkExpectedError(fmt.Errorf("deployment timed out waiting for %s/%s", o.kind, o.name), core.CLIErrorOperational)
+				o.diagnostics = d.failureDiagnostics(*o, "DEPLOY_TIMEOUT")
+				continue
+			}
+			rollout, err := getResourceRolloutContext(ctx, o.kind, o.name)
+			if err == nil {
+				o.rollout = rollout
+				o.observeReusedBuild()
+				switch rollout.Status {
+				case "BUILDING", "DEPLOYING":
+					o.sawRollout = true
+				case "DEPLOYED":
+					if !o.reusedAt.IsZero() {
+						o.done = o.deployedSinceReuse()
+					} else {
+						o.done = deployedStatusIsFinal(o.autoGenerated, o.sawRollout, o.baseline, rollout.DeployedRevision)
+					}
+					// DEPLOYED is reported once one cluster is ready. The rollout is
+					// finished at the platform's "deployment.succeeded" event, and an
+					// update submitted before it can be silently dropped, so hold for
+					// it, but not for long.
+					if o.done && o.rolloutInProgress() {
+						if o.settleBy.IsZero() {
+							o.settleBy = time.Now().Add(deployFinalGrace)
+						}
+						o.done = time.Now().After(o.settleBy)
+					}
+					if o.done {
+						o.notice = o.reusedNotice()
+					}
+				case "FAILED":
+					if o.failureIsCurrent() {
+						o.done = true
+						o.diagnostics = d.failureDiagnostics(*o, "")
+						o.err = core.MarkExpectedError(failureError("resource deployment failed", o.diagnostics.Cause), core.CLIErrorOperational)
+					}
+				case "DEACTIVATED", "DEACTIVATING", "DELETING":
+					o.done = true
+					o.err = core.MarkExpectedError(fmt.Errorf("resource is being deactivated or deleted"), core.CLIErrorOperational)
+					o.diagnostics = d.failureDiagnostics(*o, "ROLLOUT_FAILED")
+				}
+				if !o.done && o.buildNotPickedUp(time.Since(waitStart)) {
+					o.done, o.noBuild = true, true
+					o.err = core.MarkExpectedError(fmt.Errorf("no build started for %s/%s after the upload", o.kind, o.name), core.CLIErrorOperational)
+					o.diagnostics = d.failureDiagnostics(*o, "DEPLOY_TIMEOUT")
+				}
+			}
+			pending = pending || !o.done
+		}
+		if !pending {
+			for _, o := range d.observations {
+				if o.err != nil {
+					return o.err
+				}
+			}
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			// Mark every pending resource with timeout, preserving its last status.
+		case <-ticker.C:
+		}
+	}
+}
+
+func (o deployObservation) failureIsCurrent() bool {
+	event, ok := deploy.LatestEvent(o.rollout.Events, "")
+	if !ok {
+		// Without usable events, retain the TUI's stale-FAILED grace period, but
+		// never borrow a cause from an older event.
+		return o.initialStatus != "FAILED" || o.sawRollout || time.Since(o.started) >= 15*time.Second
+	}
+	if !strings.EqualFold(event.Status, "failed") && !strings.HasSuffix(event.Type, ".failed") {
+		return false
+	}
+	if o.baselineEvents != nil {
+		// Events seen before the apply are old; this machine's clock is not used.
+		if _, old := o.baselineEvents[event]; old {
+			return false
+		}
+		// The platform re-applied an existing revision for this submission, so a
+		// failure of that revision is this deploy's failure.
+		if !o.reusedAt.IsZero() {
+			return true
+		}
+	} else if timestamp, err := time.Parse(time.RFC3339Nano, event.Time); err != nil || timestamp.Before(o.started) {
+		return false
+	}
+	return event.Revision == "" || !o.baseline.known || !o.baseline.includes(event.Revision)
+}
+
+// newEvents returns the events emitted since the apply, and false when they
+// cannot be told apart from older ones. Comparing events rather than clocks
+// keeps this independent of this machine's time.
+func (o deployObservation) newEvents() ([]deploy.Event, bool) {
+	var events, fresh []deploy.Event
+	if o.baselineEvents == nil || json.Unmarshal(o.rollout.Events, &events) != nil {
+		return nil, false
+	}
+	for _, e := range events {
+		if _, old := o.baselineEvents[e]; !old {
+			fresh = append(fresh, e)
+		}
+	}
+	return fresh, true
+}
+
+func isBuildEvent(e deploy.Event) bool { return strings.Contains(e.Type, ".buildimage.") }
+
+// observeReusedBuild records the platform's answer to a submission whose source
+// is identical to an earlier build: the image is reused, no build runs, and the
+// current revision is re-applied instead of a new one being created. Without a
+// readable baseline it concludes nothing and the wait falls back to the
+// revision rule and, at worst, a timeout that names this case.
+func (o *deployObservation) observeReusedBuild() {
+	events, _ := o.newEvents()
+	for _, e := range events {
+		if !o.reusedAt.IsZero() || !strings.HasSuffix(e.Type, ".buildimage.succeeded") || !strings.Contains(strings.ToLower(e.Message), "identical image") {
+			continue
+		}
+		if at, err := time.Parse(time.RFC3339Nano, e.Time); err == nil {
+			o.reusedAt = at
+		}
+	}
+}
+
+// deployedSinceReuse reports a DEPLOYED event that is new since this apply and
+// later than the reuse event, so a previous rollout's events cannot satisfy it.
+func (o deployObservation) deployedSinceReuse() bool {
+	events, _ := o.newEvents()
+	for _, e := range events {
+		if at, err := time.Parse(time.RFC3339Nano, e.Time); err == nil && strings.EqualFold(e.Status, "DEPLOYED") && at.After(o.reusedAt) {
+			return true
+		}
+	}
+	return false
+}
+
+// reusedNotice explains an unchanged redeploy. The build cache is shared across
+// the workspace, so a reused build alone proves nothing (rolling back to an
+// earlier version reuses one too, with a new revision): it is only "unchanged"
+// when the revision now deployed already existed before this apply.
+func (o deployObservation) reusedNotice() string {
+	revision := o.rollout.DeployedRevision
+	if o.reusedAt.IsZero() || !o.baseline.known || !o.baseline.includes(revision) {
+		return ""
+	}
+	return fmt.Sprintf("No new revision: the source is unchanged, so the platform reused the identical image build and re-applied revision %s of %s/%s.", revision, o.kind, o.name)
+}
+
+// rolloutInProgress reports that the newest event is a rollout step that is not
+// the final "deployment.succeeded".
+func (o deployObservation) rolloutInProgress() bool {
+	event, ok := deploy.LatestEvent(o.rollout.Events, "")
+	return ok && strings.Contains(event.Type, ".deployment.") && !strings.HasSuffix(event.Type, ".succeeded")
+}
+
+// buildNotPickedUp reports an uploaded source build that was never answered: no
+// build event has appeared since the apply. This is what the platform shows when
+// it drops an update, e.g. one submitted while the previous rollout was still in
+// flight.
+func (o deployObservation) buildNotPickedUp(waited time.Duration) bool {
+	events, ok := o.newEvents()
+	if !ok || !o.autoGenerated || !o.reusedAt.IsZero() || waited < deployNoBuildGrace {
+		return false
+	}
+	for _, e := range events {
+		if isBuildEvent(e) {
+			return false
+		}
+	}
+	return true
+}
+
+func (d *Deployment) failureDiagnostics(o deployObservation, code string) *deploy.Diagnostics {
+	var noBuildWithin time.Duration
+	if o.noBuild {
+		noBuildWithin = deployNoBuildGrace
+	}
+	return deploy.FailureDiagnostics(o.kind, o.name, code, o.rollout.Events, o.started, noBuildWithin, d.redeployCommand)
+}
+
+// Only replay identity/context flags, never secrets, registry credentials, or
+// arbitrary original argv. TOML-defined identities need no redundant flags.
+func (d *Deployment) redeployCommand(workspace string) []string {
+	command := []string{"bl", "deploy", "--yes", "--wait", "-w", workspace}
+	if d.nextType != "" {
+		command = append(command, "-t", d.nextType)
+	}
+	if d.nextName != "" {
+		command = append(command, "-n", d.nextName)
+	}
+	if d.folder != "" {
+		command = append(command, "-d", d.folder)
+	}
+	return command
+}
+
+func (d *Deployment) printFailureDiagnostics() bool {
+	printed := false
+	for _, o := range d.observations {
+		if o.diagnostics == nil {
+			continue
+		}
+		printed = true
+		o.diagnostics.Print(o.kind, o.name)
+	}
+	return printed
 }
 
 func (d *Deployment) Apply() error {
@@ -1216,6 +1567,17 @@ func (d *Deployment) Apply() error {
 	}
 
 	for _, result := range applyResults {
+		if result.Result.UploadURL == "" || core.GetConfig().Image != "" {
+			// No source build was submitted by this invocation. Use the
+			// existing non-built-resource completion semantics, rather than
+			// waiting forever for a revision that this apply won't create.
+			for i := range d.observations {
+				o := &d.observations[i]
+				if o.kind == strings.ToLower(result.Kind) && o.name == result.Name {
+					o.autoGenerated = false
+				}
+			}
+		}
 		if result.Result.UploadURL != "" && core.GetConfig().Image == "" {
 			if !isStructured {
 				config := core.GetConfig()
@@ -1973,11 +2335,15 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 	duration := time.Since(startTime).Round(time.Second).String()
 
 	type deployResourceResult struct {
-		Kind   string `json:"kind"`
-		Name   string `json:"name"`
-		Status string `json:"status"`
-		URL    string `json:"url,omitempty"`
-		Error  string `json:"error,omitempty"`
+		Kind        string              `json:"kind"`
+		Name        string              `json:"name"`
+		Status      string              `json:"status"`
+		URL         string              `json:"url,omitempty"`
+		Error       string              `json:"error,omitempty"`
+		Diagnostics *deploy.Diagnostics `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
+		// Note is a human-readable remark about the outcome, e.g. that a
+		// submission has not finished. Optional; absent from older output.
+		Note string `json:"note,omitempty" yaml:"note,omitempty"`
 	}
 
 	type deployResult struct {
@@ -1992,15 +2358,24 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 	}
 
 	var resourceStatus string
-	if failed {
-		resourceStatus = "FAILED"
-	} else {
-		// Wait briefly for the backend to update the resource status
-		time.Sleep(200 * time.Millisecond)
-		if status, err := getResourceStatus(config.Type, d.name); err == nil {
-			resourceStatus = status
+	for _, o := range d.observations {
+		if o.kind == config.Type && o.name == d.name {
+			resourceStatus = o.rollout.Status
+			break
+		}
+	}
+	// Keep the waited-for snapshot; a plain submission reads the status itself.
+	if resourceStatus == "" {
+		if failed {
+			resourceStatus = "FAILED"
 		} else {
-			resourceStatus = "DEPLOYING"
+			// Wait briefly for the backend to update the resource status
+			time.Sleep(200 * time.Millisecond)
+			if status, err := getResourceStatus(config.Type, d.name); err == nil {
+				resourceStatus = status
+			} else {
+				resourceStatus = "DEPLOYING"
+			}
 		}
 	}
 
@@ -2015,7 +2390,27 @@ func (d *Deployment) printStructuredOutput(outputFmt string, startTime time.Time
 	if failed && deployErr != nil {
 		res.Error = deployErr.Error()
 	}
-	result.Resources = append(result.Resources, res)
+	if !failed && !d.wait && needsDeployMonitoring(config.Type) {
+		res.Note = deploy.SubmittedNote(config.Type, d.name)
+	}
+	for _, o := range d.observations {
+		observed := deployResourceResult{Kind: o.kind, Name: o.name, Status: o.rollout.Status, Diagnostics: o.diagnostics, Note: o.notice}
+		if observed.Status == "" {
+			observed.Status = "DEPLOYING"
+		}
+		if o.err != nil {
+			observed.Error = o.err.Error()
+		}
+		if o.kind == config.Type && o.name == d.name {
+			res.Status, res.Diagnostics, res.Note = observed.Status, observed.Diagnostics, observed.Note
+			if o.err == nil {
+				res.Error = ""
+			}
+		} else {
+			result.Resources = append(result.Resources, observed)
+		}
+	}
+	result.Resources = append([]deployResourceResult{res}, result.Resources...)
 
 	switch outputFmt {
 	case "json":
@@ -2153,6 +2548,14 @@ func (d *Deployment) Ready() {
 	consoleUrl := fmt.Sprintf("%s/%s/global-agentic-network/%s/%s", appUrl, currentWorkspace, config.Type, d.name)
 
 	core.PrintSuccess("Deployment applied successfully")
+	if !d.wait && needsDeployMonitoring(config.Type) {
+		core.PrintInfo(deploy.SubmittedNote(config.Type, d.name))
+	}
+	for _, o := range d.observations {
+		if o.notice != "" {
+			core.PrintInfo(o.notice)
+		}
+	}
 	fmt.Println()
 	core.PrintInfoWithCommand("Console:", consoleUrl)
 	core.PrintInfoWithCommand("Status: ", fmt.Sprintf("bl get %s %s --watch", config.Type, d.name))
@@ -2874,7 +3277,7 @@ func (d *Deployment) PrintTar() error {
 	return nil
 }
 
-func deployPackage(dryRun bool, name string) bool {
+func deployPackage(dryRun bool, name string, wait bool, timeout string) bool {
 	commands, err := getDeployCommands(dryRun, name)
 	if err != nil {
 		err = fmt.Errorf("failed to get package commands: %w", err)
@@ -2886,8 +3289,23 @@ func deployPackage(dryRun bool, name string) bool {
 		return false
 	}
 
+	forwardWaitFlags(commands, wait, timeout)
 	server.RunCommands(commands, true)
 	return true
+}
+
+// forwardWaitFlags passes --wait (and --timeout, which only matters with it) to
+// each per-package deploy. Without --wait the packages deploy exactly as before.
+func forwardWaitFlags(commands []server.PackageCommand, wait bool, timeout string) {
+	if !wait {
+		return
+	}
+	for i := range commands {
+		commands[i].Args = append(commands[i].Args, "--wait")
+		if timeout != "" {
+			commands[i].Args = append(commands[i].Args, "--timeout", timeout)
+		}
+	}
 }
 
 func getDeployCommands(dryRun bool, defaultName string) ([]server.PackageCommand, error) {

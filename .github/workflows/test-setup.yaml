@@ -78,6 +78,8 @@ jobs:
           grep -q '"blaxel"' "$home/.claude.json"
           # CI never turns error reports on.
           ! grep -qs '^tracking: true' "$home/.blaxel/config.yaml"
+          # The agents start bl mcp from their configuration.
+          python3 test/install/test_bl_mcp.py "$home"
 
       - name: bl setup (Windows)
         if: runner.os == 'Windows'
@@ -97,6 +99,9 @@ jobs:
           # CI never turns error reports on.
           $config = Join-Path $root ".blaxel\config.yaml"
           if ((Test-Path $config) -and (Select-String -Quiet -Path $config -Pattern '^tracking: true')) { throw "error reports were turned on in CI" }
+          # The agents start bl mcp from their configuration (here a Windows path in JSON).
+          python test/install/test_bl_mcp.py $root
+          if ($LASTEXITCODE -ne 0) { throw "bl mcp did not answer" }
 
           # Regression: a later namespaced SDK skill plus a flat duplicate
           # must be repaired without Developer Mode or symlink privileges.
@@ -120,3 +125,15 @@ jobs:
           if ($backups.Count -ne 1) { throw "expected exactly one retained backup" }
           $saved = Join-Path $backups[0].FullName "blaxel-sdk\custom.txt"
           if ((Get-Content -Raw $saved) -ne "keep displaced copy") { throw "duplicate customization was not preserved" }
+
+      - name: Additional coding agent MCP targets (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: python3 test/install/test_setup_mcp_agents.py "$RUNNER_TEMP/bl"
+
+      - name: Additional coding agent MCP targets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python test/install/test_setup_mcp_agents.py "$env:RUNNER_TEMP\bl.exe"
+          if ($LASTEXITCODE -ne 0) { throw "coding agent MCP setup tests failed" }

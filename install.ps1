@@ -11,6 +11,10 @@
 .PARAMETER Version
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
 
+.PARAMETER InstallDir
+    The folder to install bl.exe and blaxel.exe into. Defaults to
+    $env:LOCALAPPDATA\blaxel; bl upgrade passes the folder it runs from.
+
 .PARAMETER SkipSkills
     Leave your coding agents alone: bl setup is only suggested, unless
     BL_INSTALL_SETUP=true runs it without the skills. BL_INSTALL_SKILLS=false does the same.
@@ -28,6 +32,7 @@
 
 param(
     [string]$Version = "",
+    [string]$InstallDir = "",
     [switch]$SkipSkills,
     [switch]$SkipSetup
 )
@@ -37,7 +42,7 @@ param(
 # were, and nothing calls exit, which would close their window. Run as a file,
 # the exit code still reports a failure.
 & {
-    param([string]$Version, [switch]$SkipSkills, [switch]$SkipSetup)
+    param([string]$Version, [string]$InstallDir, [switch]$SkipSkills, [switch]$SkipSetup)
 
     try {
         $ErrorActionPreference = "Stop"
@@ -153,7 +158,7 @@ param(
         $ZipName = "blaxel_Windows_${Arch}.zip"
         $Temp = Join-Path ([System.IO.Path]::GetTempPath()) "blaxel-install-$([System.IO.Path]::GetRandomFileName())"
         New-Item -ItemType Directory -Path $Temp -Force | Out-Null
-        $InstallDir = Join-Path $env:LOCALAPPDATA "blaxel"
+        if (-not $InstallDir) { $InstallDir = Join-Path $env:LOCALAPPDATA "blaxel" }
         try {
             $Zip = Join-Path $Temp $ZipName
             try {
@@ -172,18 +177,45 @@ param(
             }
             $line = Get-Content $Checksums | Where-Object { $_ -match "\s$([regex]::Escape($ZipName))$" } | Select-Object -First 1
             if (-not $line) { Stop-Install "Checksum" "$ZipName is not listed in the release checksums" }
+            # .NET rather than Get-FileHash and Expand-Archive: those come from
+            # script modules, which PowerShell 7 can't load under a Restricted
+            # execution policy and Windows PowerShell can miss when started from
+            # PowerShell 7.
+            $Sha256 = [System.Security.Cryptography.SHA256]::Create()
+            $Stream = [System.IO.File]::OpenRead($Zip)
+            try { $Hash = [BitConverter]::ToString($Sha256.ComputeHash($Stream)) -replace "-", "" }
+            finally { $Stream.Dispose(); $Sha256.Dispose() }
             # Hashes compare without regard to case.
-            if ((Get-FileHash -Path $Zip -Algorithm SHA256).Hash -ne ($line -split "\s+")[0]) {
+            if ($Hash -ne ($line -split "\s+")[0]) {
                 Stop-Install "Checksum" "the download does not match the release checksums; try again"
             }
 
-            Expand-Archive -Path $Zip -DestinationPath (Join-Path $Temp "release") -Force
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, (Join-Path $Temp "release"))
             $Extracted = Join-Path $Temp "release\blaxel.exe"
             if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
             New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
             $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
-            Copy-Item -Path $Extracted -Destination $BlaxelExe -Force
-            Copy-Item -Path $Extracted -Destination (Join-Path $InstallDir "bl.exe") -Force
+            # Windows can't overwrite a running program (bl upgrade itself, or bl
+            # in another terminal), but it can rename one: move it aside and delete
+            # it now, or on the next install once it has exited.
+            Get-ChildItem -LiteralPath $InstallDir -File | Where-Object { $_.Name -like "bl.exe.*.old" -or $_.Name -like "blaxel.exe.*.old" } |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+            foreach ($Target in $BlaxelExe, (Join-Path $InstallDir "bl.exe")) {
+                $Aside = $null
+                if (Test-Path -LiteralPath $Target) {
+                    $Aside = "$Target.$([System.IO.Path]::GetRandomFileName()).old"
+                    Move-Item -LiteralPath $Target -Destination $Aside -Force
+                }
+                try {
+                    Copy-Item -LiteralPath $Extracted -Destination $Target -Force
+                }
+                catch {
+                    if ($Aside) { Move-Item -LiteralPath $Aside -Destination $Target -Force -ErrorAction SilentlyContinue }
+                    throw
+                }
+                if ($Aside) { Remove-Item -LiteralPath $Aside -Force -ErrorAction SilentlyContinue }
+            }
         }
         finally {
             Remove-Item -Path $Temp -Recurse -Force -ErrorAction SilentlyContinue
@@ -275,6 +307,6 @@ public static extern System.IntPtr SendMessageTimeout(
         }
         $global:LASTEXITCODE = 1
     }
-} $Version $SkipSkills $SkipSetup
+} -Version $Version -InstallDir $InstallDir -SkipSkills:$SkipSkills -SkipSetup:$SkipSetup
 
 if ($MyInvocation.MyCommand.CommandType -eq "ExternalScript") { exit $global:LASTEXITCODE }

@@ -27,7 +27,8 @@ func homebrewSkillsLocation(executable string) (prefix, version string) {
 }
 
 func installHomebrewSkills() {
-	if skillsInstallDisabled(os.Getenv) || core.IsShellCompletionRequest(os.Args[1:]) {
+	// bl mcp is started by coding agents, which give it seconds to answer.
+	if skillsInstallDisabled(os.Getenv) || core.IsShellCompletionRequest(os.Args[1:]) || isMCPBridgeArgs(os.Args[1:]) {
 		return
 	}
 	executable, err := os.Executable()
@@ -50,6 +51,11 @@ func installHomebrewSkills() {
 }
 
 const homebrewSetupHint = "Finish setting up Blaxel (MCP servers for your coding agents, then login) with: bl setup"
+
+// isMCPBridgeArgs reports bl mcp, as setup writes it into agent configurations.
+func isMCPBridgeArgs(args []string) bool {
+	return len(args) > 0 && args[0] == "mcp"
+}
 
 func isLoginCommand(args []string) bool {
 	return len(args) > 0 && args[0] == "login"
