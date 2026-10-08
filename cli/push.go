@@ -136,6 +136,7 @@ func PushCmd() *cobra.Command {
 	var buildEnvPath string
 	var skipBuild bool
 	var dockerfile string
+	var configFile string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -171,6 +172,11 @@ directory) and must stay inside it. The build context is unchanged, so COPY path
 are unaffected. A custom Dockerfile needs a source build, not an image import.
 It and its adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
 
+Use --config to read a config file other than blaxel.toml, such as
+blaxel-v2.toml. The path is relative to the source directory (-d, or the current
+directory), and the file must exist and parse. A source build uploads it as
+blaxel.toml, so the build reads it too.
+
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
@@ -186,6 +192,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
   # Build with a custom Dockerfile
   bl push --dockerfile blaxel.Dockerfile
+
+  # Build a variant from its own config file (which can set build.dockerfile)
+  bl push --config blaxel-v2.toml
 
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
@@ -210,11 +219,25 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 			}
 
-			// When --image is provided, blaxel.toml is optional
-			if folder != "" {
-				core.ReadConfigToml(folder, false)
-			} else {
-				core.ReadConfigToml("", false)
+			cwd, err := os.Getwd()
+			if err != nil {
+				core.PrintError("Push", fmt.Errorf("failed to get current working directory: %w", err))
+				core.ExitWithError(err)
+			}
+
+			// An explicit config file must exist and parse. Otherwise blaxel.toml is
+			// optional (--image needs none) and a parse failure stays a warning.
+			explicitConfig := cmd.Flags().Changed("config")
+			if explicitConfig {
+				if err := deploy.ResolveConfigFile(cwd, folder, configFile); err != nil {
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
+			}
+			if err := core.ReadConfigTomlFile(folder, configFile, false); err != nil && explicitConfig {
+				err = core.MarkExpectedError(err, core.CLIErrorValidation)
+				core.PrintError("Push", err)
+				core.ExitWithError(err)
 			}
 
 			config := core.GetConfig()
@@ -294,12 +317,6 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			// Determine name: flag > config > image ref > directory
 			if name == "" {
 				name = config.Name
-			}
-
-			cwd, err := os.Getwd()
-			if err != nil {
-				core.PrintError("Push", fmt.Errorf("failed to get current working directory: %w", err))
-				core.ExitWithError(err)
 			}
 
 			// Resolve the Dockerfile before any API call or upload. Only a source
@@ -396,11 +413,15 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 				// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
 				config.Type = resourceType
-				dockerfilePath := filepath.Join(cwd, folder, "Dockerfile")
-				if selectedDockerfile != nil {
-					dockerfilePath = selectedDockerfile.Path
+				deployment := Deployment{
+					folder:           folder,
+					name:             name,
+					cwd:              cwd,
+					dockerConfigJSON: dockerConfigJSON,
+					dockerfile:       selectedDockerfile,
+					configFile:       configFile,
 				}
-				validationWarning := validateBuildConfig(cwd, folder, config, dockerfilePath)
+				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
 				}
@@ -421,14 +442,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					fmt.Printf("Build args: %d variable(s) detected\n", buildArgCount)
 				}
 
-				deployment := Deployment{
-					folder:           folder,
-					name:             name,
-					cwd:              cwd,
-					dockerConfigJSON: dockerConfigJSON,
-					buildEnvContent:  buildEnvContent,
-					dockerfile:       selectedDockerfile,
-				}
+				deployment.buildEnvContent = buildEnvContent
 
 				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
 				err = deployment.Zip()
@@ -520,6 +534,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 	cmd.Flags().StringVar(&dockerfile, "dockerfile", "", "Dockerfile path relative to the source directory (overrides build.dockerfile in blaxel.toml)")
+	cmd.Flags().StringVar(&configFile, "config", "", "Config file relative to the source directory (default blaxel.toml)")
 
 	return cmd
 }
