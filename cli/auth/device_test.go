@@ -110,3 +110,22 @@ func TestPollDeviceTokenStopsWhenCancelled(t *testing.T) {
 	assert.Less(t, time.Since(started), time.Second)
 	assert.Less(t, *calls, 10)
 }
+
+func TestRequestDeviceLoginPreservesCLITarget(t *testing.T) {
+	for _, workspace := range []string{"", "requested-workspace"} {
+		t.Run(workspace, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload map[string]string
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+				assert.Equal(t, workspace, payload["workspace"])
+				if workspace == "" {
+					assert.NotContains(t, payload, "workspace")
+				}
+				_, _ = w.Write([]byte(`{"device_code":"device-code","verification_uri_complete":"https://app.blaxel.dev/device"}`))
+			}))
+			defer server.Close()
+			_, err := requestDeviceLogin(context.Background(), server.URL, workspace)
+			require.NoError(t, err)
+		})
+	}
+}
