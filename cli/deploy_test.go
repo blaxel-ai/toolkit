@@ -1550,10 +1550,16 @@ func writeDockerfileFixture(t *testing.T, root, path, content string) {
 // API and returns its output, exit code and the entries left in its private TMPDIR.
 func runDeployProcess(t *testing.T, root, apiURL string, args ...string) (stdout, stderr string, code int, tmpEntries []os.DirEntry) {
 	t.Helper()
+	return runCLIProcess(t, root, apiURL, "deploy", args...)
+}
+
+// runCLIProcess runs `bl command args...` like runDeployProcess; it must exit non-zero.
+func runCLIProcess(t *testing.T, root, apiURL, command string, args ...string) (stdout, stderr string, code int, tmpEntries []os.DirEntry) {
+	t.Helper()
 	home, tmp := t.TempDir(), t.TempDir()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestDeployProcessHelper$", "--", "deploy", "--yes", "--skip-version-warning", "-w", "test-workspace", "-o", "json"}, args...)...)
+	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestDeployProcessHelper$", "--", command, "--yes", "--skip-version-warning", "-w", "test-workspace", "-o", "json"}, args...)...)
 	cmd.Dir = root
 	cmd.Env = []string{
 		"BLAXEL_TEST_DEPLOY_PROCESS=1", "HOME=" + home, "USERPROFILE=" + home,

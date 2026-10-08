@@ -2875,8 +2875,8 @@ func (t *tarArchiveWriter) close() error {
 func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	config := core.GetConfig()
 
-	// Aliases are deploy-only and already nil for non-source builds; push and
-	// unselected deploys keep their archive membership, including legacy -d injections.
+	// The selection is nil for non-source builds; deploys and pushes without one
+	// keep their archive membership, including legacy -d injections.
 	// A volume template picked interactively after the selection was resolved has no Dockerfile.
 	selected := d.dockerfile
 	if core.IsVolumeTemplate(config.Type) {
