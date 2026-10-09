@@ -361,8 +361,11 @@ func readConfigToml(folder string, setDefaultType bool) {
 
 // readConfigTomlFile reads file from folder; an empty file means blaxel.toml.
 // A file that exists but does not parse is stored as a warning and returned as an error.
+// A missing default blaxel.toml falls back to the defaults, but a file that was
+// asked for by name and cannot be read is an error.
 func readConfigTomlFile(folder, file string, setDefaultType bool) error {
-	if file == "" {
+	explicit := file != ""
+	if !explicit {
 		file = "blaxel.toml"
 	}
 	cwd, err := os.Getwd()
@@ -373,6 +376,9 @@ func readConfigTomlFile(folder, file string, setDefaultType bool) error {
 
 	content, err := os.ReadFile(filepath.Join(cwd, folder, file))
 	if err != nil {
+		if explicit {
+			return fmt.Errorf("cannot read config file %s: %w", file, err)
+		}
 		// No blaxel.toml file found
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}

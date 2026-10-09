@@ -508,6 +508,14 @@ func TestReadConfigTomlFile(t *testing.T) {
 	err := readConfigTomlFile("", "bad.toml", false)
 	require.ErrorContains(t, err, "config file bad.toml is not valid: toml:")
 
+	// A file that was asked for by name and cannot be read is an error, not a
+	// silent fall back to the defaults. A directory cannot be read as a file.
+	require.NoError(t, os.Mkdir("unreadable.toml", 0755))
+	config = Config{}
+	require.ErrorContains(t, readConfigTomlFile("", "unreadable.toml", false), "cannot read config file unreadable.toml")
+	require.ErrorContains(t, readConfigTomlFile("", "missing.toml", false), "cannot read config file missing.toml")
+	assert.Empty(t, config.Functions)
+
 	// The default reader keeps its warning-only behaviour for blaxel.toml.
 	require.NoError(t, os.WriteFile("blaxel.toml", []byte("type = \n"), 0644))
 	ClearBlaxelTomlWarning()
