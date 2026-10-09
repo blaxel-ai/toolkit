@@ -5,7 +5,9 @@
 #
 # Installs bl (and blaxel) to ~/.local/bin, verified against the release
 # checksums, adds it to your PATH with shell completions, then runs bl setup
-# to set up your coding agents and log you in.
+# to set up your coding agents and log you in. When it detects a coding agent
+# without a terminal outside CI, it sets up the agents, then prints any needed
+# login URL for you to confirm in the browser.
 #
 # Environment:
 #   VERSION=v1.2.3                install that release instead of the latest
@@ -13,6 +15,7 @@
 #   BL_INSTALL_PATH=false         leave your shell configuration alone
 #   BL_INSTALL_COMPLETION=false   skip shell completions
 #   BL_INSTALL_SETUP=false        skip bl setup (=true runs it without a terminal)
+#   BL_INSTALL_LOGIN=false        do not start the browser login when an agent runs it
 #   BL_INSTALL_SKILLS=false       leave your coding agents alone: bl setup is
 #                                 only suggested (bl upgrade before v0.1.119)
 #   NO_COLOR=1                    plain output
@@ -22,6 +25,10 @@ OWNER=blaxel-ai
 REPO=toolkit
 BINARY=blaxel
 BINARY_SHORT_NAME=bl
+# Pinned releases keep the previous hand-off. Publish this installer after
+# the latest CLI release includes the refresh contract.
+REFRESH_AVAILABLE=""
+[ "${VERSION:-latest}" != "latest" ] || REFRESH_AVAILABLE=1
 # Under sudo, set up the user who ran it: their home, their shell, their files.
 SUDO_HOME=""
 if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
@@ -109,6 +116,12 @@ is_command() {
 
 is_ci() {
   [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ] || [ -n "${GITLAB_CI:-}" ] || [ -n "${CIRCLECI:-}" ] || [ -n "${TRAVIS:-}" ] || [ -n "${JENKINS_URL:-}" ] || [ -n "${BUILDKITE:-}" ]
+}
+
+# Recognize coding-agent environment markers. A noninteractive shell without
+# a marker keeps the install-only behavior.
+is_agent() {
+  [ -n "${CLAUDECODE:-}" ] || [ -n "${CURSOR_AGENT:-}" ] || [ -n "${GEMINI_CLI:-}" ] || [ -n "${CODEX_THREAD_ID:-}" ] || [ -n "${CODEX_SANDBOX:-}" ] || [ -n "${OPENCODE:-}" ] || [ -n "${GOOSE_TERMINAL:-}" ] || [ -n "${AGENT:-}" ] || [ -n "${AI_AGENT:-}" ]
 }
 
 detect_platform() {
@@ -212,6 +225,11 @@ install_cli() {
   esac
   mkdir -p "$BINDIR"
   BINDIR=$(cd "$BINDIR" && pwd)
+  EXISTING_INSTALL=""
+  if { [ -f "$BINDIR/$BINARY$EXE" ] && [ -x "$BINDIR/$BINARY$EXE" ]; } ||
+     { [ -f "$BINDIR/$BINARY_SHORT_NAME$EXE" ] && [ -x "$BINDIR/$BINARY_SHORT_NAME$EXE" ]; }; then
+    EXISTING_INSTALL=1
+  fi
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY$EXE"
   install "$tmp/$BINARY$EXE" "$BINDIR/$BINARY_SHORT_NAME$EXE"
   rm -rf "$tmp"
@@ -271,7 +289,7 @@ setup_path() {
     return
   fi
   if [ "${BL_INSTALL_PATH:-}" = "false" ] || { is_ci && [ "${BL_INSTALL_PATH:-}" != "true" ]; } || ! in_home "$RC_FILE"; then
-    RELOAD="export PATH=\"$(display_path "$BINDIR"):\$PATH\""
+    RELOAD="export PATH=\"$BINDIR:\$PATH\""
     return
   fi
   mkdir -p "$(dirname "$RC_FILE")"
@@ -380,8 +398,10 @@ in_home() {
 
 # --- Hand-off to bl setup ---------------------------------------------------
 
-# setup_mode decides how bl setup runs: "interactive" on a terminal, "yes"
-# with the defaults when BL_INSTALL_SETUP=true, or "" to only print the next step.
+# setup_mode decides how bl setup runs: "interactive" on a terminal, "agent"
+# when a coding agent runs the installer without one (outside CI: the defaults,
+# then the browser login for the person), "yes" with the defaults when
+# BL_INSTALL_SETUP=true, or "" to only print the next step.
 setup_mode() {
   SETUP_MODE=""
   [ "${BL_INSTALL_SETUP:-}" != "false" ] || return 0
@@ -399,17 +419,19 @@ setup_mode() {
   [ -n "$forced" ] || ! is_ci || return 0
   if [ -t 1 ] && [ -e /dev/tty ] && ( : < /dev/tty ) 2>/dev/null; then
     SETUP_MODE=interactive
+  elif is_agent && ! is_ci; then
+    SETUP_MODE=agent
   elif [ -n "$forced" ]; then
     SETUP_MODE=yes
   fi
 }
 
-# run_setup hands the terminal to bl setup, which shows what it found and
-# installs it. As root (sudo), it sets up the real user's agents and login;
-# the command goes through stdin so sudo's login shell does not expand it.
-run_setup() {
-  args="setup" input="/dev/tty"
-  [ "$SETUP_MODE" = "yes" ] && args="setup --yes" input="/dev/null"
+# run_bl INPUT ARG... runs bl with the installer's choices, reading INPUT. As
+# root (sudo), it runs as the real user; the command goes through stdin so
+# sudo's login shell does not expand it.
+run_bl() {
+  input=$1
+  shift
   runner=""
   if [ "$(id -u)" = "0" ] && [ -n "${SUDO_USER:-}" ] && is_command sudo; then
     runner="sudo -u $SUDO_USER -H -i"
@@ -424,18 +446,43 @@ run_setup() {
       eval "isset=\${$name+x} value=\${$name-}"
       [ -z "$isset" ] || printf 'export %s=%s\n' "$name" "$(quote "$value")"
     done
-    printf 'exec %s %s < %s\n' "$(quote "$BINDIR/$BINARY")" "$args" "$input"
+    printf 'exec %s %s < %s\n' "$(quote "$BINDIR/$BINARY")" "$*" "$input"
   } | $runner sh -s
 }
 
+# run_setup hands the terminal to bl setup, which shows what it found and
+# installs it. Without a terminal it installs the defaults.
+run_setup() {
+  if [ -n "$EXISTING_INSTALL" ] && [ -n "$REFRESH_AVAILABLE" ] && ! is_ci; then
+    BL_INSTALL_REFRESH=true
+    export BL_INSTALL_REFRESH
+    run_bl /dev/null setup --yes --skip-login
+  elif [ "$SETUP_MODE" = "interactive" ]; then
+    run_bl /dev/tty setup
+  else
+    run_bl /dev/null setup --yes
+  fi
+}
+
+# agent_login starts the browser login for the person who asked the agent to
+# install, unless they are logged in or chose another way. bl login prints the
+# login URL and how long it waits.
+agent_login() {
+  [ "${BL_INSTALL_LOGIN:-}" != "false" ] || return 0
+  [ -z "${BL_API_KEY:-}${BL_CLIENT_CREDENTIALS:-}" ] || return 0
+  ! run_bl /dev/null token >/dev/null 2>&1 || return 0
+  echo
+  run_bl /dev/null login || next "$(quote "$BINDIR/$BINARY_SHORT_NAME") login" "to log in"
+}
+
 # What bl setup reads from the environment.
-SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING DO_NOT_TRACK BL_WORKSPACE BL_ENV
+SETUP_ENV="BL_INSTALL_SKILLS BL_INSTALL_MCP BL_INSTALL_LOGIN BL_INSTALL_TRACKING BL_INSTALL_REFRESH DO_NOT_TRACK BL_WORKSPACE BL_ENV
   BL_API_KEY BL_CLIENT_CREDENTIALS NO_COLOR CLAUDE_CONFIG_DIR CODEX_HOME XDG_CONFIG_HOME XDG_STATE_HOME
   CI GITHUB_ACTIONS GITLAB_CI CIRCLECI TRAVIS JENKINS_URL BUILDKITE"
 
 main() {
   case "${1:-}" in
-    -h|--help) sed -n '2,17p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//'; exit 0 ;;
   esac
   echo
   install_cli
@@ -447,7 +494,13 @@ main() {
   setup_mode
   # bl setup shows the shell and what to run next itself, problems included.
   if [ -n "$SETUP_MODE" ]; then
-    run_setup || true
+    # Nobody saw the error reports choice: leave it for the first bl in a terminal.
+    if [ "$SETUP_MODE" = "agent" ] && [ -z "${BL_INSTALL_TRACKING:-}${DO_NOT_TRACK:-}" ]; then
+      DO_NOT_TRACK=1
+      export DO_NOT_TRACK
+    fi
+    run_setup || next "$(quote "$BINDIR/$BINARY_SHORT_NAME") setup" "to finish setting up"
+    [ "$SETUP_MODE" != "agent" ] || { [ -n "$EXISTING_INSTALL" ] && [ -n "$REFRESH_AVAILABLE" ]; } || agent_login || true
     return 0
   fi
   [ -n "$SHELL_DONE" ] && ok "Shell" "$SHELL_DONE"

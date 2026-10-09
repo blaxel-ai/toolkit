@@ -287,9 +287,9 @@ func TestClaudeMCPNeverRunsAClaudeUnderClaudeConfigDir(t *testing.T) {
 	env := testMCPEnv(home, map[string]string{"CLAUDE_CONFIG_DIR": configDir}, &commands, "", nil)
 	writeTestFile(t, filepath.Join(configDir, "local", "claude"), "#!/bin/sh\n")
 
-	added, err := mcpTargets["claude-code"].add(context.Background(), env, testDocsServer)
+	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testDocsServer)
 	require.NoError(t, err)
-	assert.True(t, added)
+	assert.Equal(t, mcpAdded, change)
 	assert.Empty(t, commands)
 	assert.Contains(t, readTestFile(t, filepath.Join(configDir, ".claude.json")), `"blaxel-docs"`)
 }
