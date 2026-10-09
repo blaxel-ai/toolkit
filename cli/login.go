@@ -38,6 +38,14 @@ The CLI automatically detects which authentication method to use:
 - If BL_API_KEY is set, uses API key authentication
 - Otherwise, shows interactive menu to choose browser or API key login
 
+Without a terminal (for example when a coding agent runs the command), nothing
+can be asked. With a workspace argument, bl login uses BL_CLIENT_CREDENTIALS or
+BL_API_KEY when one is set, and the browser login otherwise. Without a workspace
+argument it uses the browser login, then your current workspace if the login can
+use it, or else the first of your workspaces by name, and says which one. The
+browser login prints the login URL on its own line and how long it waits for you
+to confirm in the browser.
+
 Credentials are stored securely in your system's credential store and persist
 across sessions. Use 'bl logout' to remove stored credentials.
 
@@ -73,27 +81,36 @@ Override with --workspace flag: bl get agents --workspace other-workspace`,
 				return
 			}
 
-			if workspace == "" {
-				auth.LoginDevice(workspace)
-				return
-			}
-
-			// Check for environment variables first
-			if os.Getenv("BL_CLIENT_CREDENTIALS") != "" {
+			switch loginMethod(workspace, os.Getenv, core.IsTerminalInteractive()) {
+			case "clientcredentials":
 				auth.LoginClientCredentials(workspace, os.Getenv("BL_CLIENT_CREDENTIALS"))
-				return
-			}
-
-			if os.Getenv("BL_API_KEY") != "" {
+			case "apikey":
 				auth.LoginApiKey(workspace)
-				return
+			case "browser":
+				auth.LoginDevice(workspace)
+			default:
+				showLoginMenu(workspace)
 			}
-
-			// Show interactive menu
-			showLoginMenu(workspace)
 		},
 	}
 	return cmd
+}
+
+// loginMethod is how bl login authenticates: "clientcredentials" or "apikey"
+// from the environment, "browser" without a workspace or without a terminal
+// to ask in, and "menu" to ask which one otherwise.
+func loginMethod(workspace string, getenv func(string) string, interactive bool) string {
+	switch {
+	case workspace == "":
+		return "browser"
+	case getenv("BL_CLIENT_CREDENTIALS") != "":
+		return "clientcredentials"
+	case getenv("BL_API_KEY") != "":
+		return "apikey"
+	case !interactive:
+		return "browser"
+	}
+	return "menu"
 }
 
 func resolveLoginWorkspace(cmd *cobra.Command, args []string) (string, string, error) {
