@@ -35,6 +35,7 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl new](bl_new.md)	 - Scaffold a new project from a template (agent, app, mcp, sandbox, job, volume-template)
 * [bl push](bl_push.md)	 - Build and push a container image to the Blaxel registry
 * [bl run](bl_run.md)	 - Execute a resource (agent, model, job, function, sandbox)
+* [bl secret](bl_secret.md)	 - Manage workspace secrets
 * [bl serve](bl_serve.md)	 - Start a local development server for your project
 * [bl setup](bl_setup.md)	 - Set up Blaxel for your coding agents and log in
 * [bl share](bl_share.md)	 - Share a resource with another workspace
