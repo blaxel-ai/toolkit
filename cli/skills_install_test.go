@@ -422,6 +422,41 @@ func TestSkillsAgentDir(t *testing.T) {
 	assert.Equal(t, filepath.Join(home, "claude", "skills"), skillsAgentDir(claude, paths))
 }
 
+// An agent that detection finds only in a folder its settings point to keeps
+// its skills there, where the agent reads them, rather than under the default home.
+func TestSkillsAgentDirFollowsDetectedConfigDirs(t *testing.T) {
+	home := t.TempDir()
+	root := func(name string) string { return filepath.Join(home, name) }
+	env := map[string]string{
+		"GOOSE_PATH_ROOT":     root("goose-root"),
+		"CONTINUE_GLOBAL_DIR": root("continue-dir"),
+		"CRUSH_GLOBAL_CONFIG": root("crush-dir"),
+		"OPENCLAW_STATE_DIR":  root("claw-state"),
+		"XDG_CONFIG_HOME":     root("xdg"),
+	}
+	lookup := func(key string) string { return env[key] }
+	paths := newSkillsAgentPaths(home, lookup)
+	expected := map[string]string{
+		"goose":    filepath.Join(root("goose-root"), "config", "skills"),
+		"continue": filepath.Join(root("continue-dir"), "skills"),
+		"crush":    filepath.Join(root("crush-dir"), "skills"),
+		"openclaw": filepath.Join(root("claw-state"), "skills"),
+	}
+	for id, skills := range expected {
+		agent, ok := findSkillsAgent(id)
+		require.True(t, ok, id)
+		// Without any folder, the default home is used.
+		assert.Equal(t, filepath.Join(agent.homes(paths)[0], "skills"), skillsAgentDir(agent, paths), id)
+		require.NoError(t, os.MkdirAll(filepath.Dir(skills), 0755))
+		assert.Equal(t, skills, skillsAgentDir(agent, paths), id)
+		detected := detectAgents([]skillsAgent{agent}, home, lookup)
+		require.Len(t, detected, 1, id)
+		// A default home that exists still comes first.
+		require.NoError(t, os.MkdirAll(agent.homes(paths)[0], 0755))
+		assert.Equal(t, filepath.Join(agent.homes(paths)[0], "skills"), skillsAgentDir(agent, paths), id)
+	}
+}
+
 func TestDetectSkillsAgents(t *testing.T) {
 	home := t.TempDir()
 	env := map[string]string{}

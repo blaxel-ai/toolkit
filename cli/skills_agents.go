@@ -145,9 +145,13 @@ func newSkillsAgentPaths(home string, env func(string) string) skillsAgentPaths 
 // skillsAgentDir is the global skills folder of an agent that does not read
 // ~/.agents/skills: the skills folder of its first existing home, as in the
 // skills package (for example ~/.claude/skills or ~/.pi/agent/skills).
+//
+// Where detection finds an agent in a folder its settings point to (such as
+// Goose's APPDATA folder on Windows or CONTINUE_GLOBAL_DIR), that folder holds
+// its skills too, so it is tried after the default homes.
 func skillsAgentDir(agent skillsAgent, paths skillsAgentPaths) string {
 	homes := agent.homes(paths)
-	for _, dir := range homes {
+	for _, dir := range slices.Concat(homes, agentConfigDirs(agent, paths)) {
 		if _, err := os.Stat(dir); err == nil {
 			return filepath.Join(dir, "skills")
 		}
@@ -161,25 +165,34 @@ func detectedSkillsAgents(home string, env func(string) string) []skillsAgent {
 	return detectAgents(skillsAgents, home, env)
 }
 
+// agentConfigDirs are folders, beyond homes, that the agent's own settings or
+// environment point to. Detection and the skills folder both use them.
+func agentConfigDirs(agent skillsAgent, p skillsAgentPaths) []string {
+	switch agent.id {
+	case "goose":
+		return []string{gooseConfigDir(p)}
+	case "continue":
+		return []string{p.envOr("CONTINUE_GLOBAL_DIR", p.homeDir(".continue"))}
+	case "crush":
+		return []string{crushConfigDir(p)}
+	case "openclaw":
+		if state := strings.TrimSpace(p.env("OPENCLAW_STATE_DIR")); state != "" {
+			return []string{state}
+		}
+	}
+	return nil
+}
+
 func detectAgents(agents []skillsAgent, home string, env func(string) string) []skillsAgent {
 	paths := newSkillsAgentPaths(home, env)
 	var detected []skillsAgent
 	for _, agent := range agents {
-		dirs := agent.homes(paths)
-		if agent.id == "goose" {
-			dirs = append(dirs, gooseConfigDir(paths))
-		}
+		dirs := slices.Concat(agent.homes(paths), agentConfigDirs(agent, paths))
 		if agent.id == "cline" {
 			dirs = append(dirs, clineMCPSettingsFile(mcpEnv{home: home, env: env}))
 		}
 		if agent.id == "openclaw" {
 			dirs = append(dirs, openclawConfigFile(mcpEnv{home: home, env: env}))
-		}
-		if agent.id == "continue" {
-			dirs = append(dirs, paths.envOr("CONTINUE_GLOBAL_DIR", paths.homeDir(".continue")))
-		}
-		if agent.id == "crush" {
-			dirs = append(dirs, crushConfigDir(paths))
 		}
 		for _, dir := range dirs {
 			if _, err := os.Stat(dir); err == nil {
