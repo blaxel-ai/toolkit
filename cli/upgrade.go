@@ -39,7 +39,7 @@ the CLI in the correct location to avoid version conflicts.
 
 Supported installation methods:
   - Homebrew (brew)
-  - Manual installation (install.sh)
+  - Manual installation (install.sh, or install.ps1 on Windows)
   - Direct binary download
 
 After upgrading, the newly installed CLI refreshes the Blaxel agent skills and
@@ -279,6 +279,9 @@ func upgradeViaCurl(targetVersion string) error {
 	}
 
 	binDir := filepath.Dir(realPath)
+	if runtime.GOOS == "windows" {
+		return upgradeViaPowerShell(targetVersion, binDir)
+	}
 
 	// Check if we need sudo (if binary is in a system directory)
 	needsSudo := needsSudoForPath(binDir)
@@ -359,4 +362,54 @@ func needsSudoForPath(path string) bool {
 	}
 
 	return false
+}
+
+// installPS1URL is the install script bl upgrade runs on Windows. Test builds
+// can point it elsewhere with -ldflags "-X github.com/blaxel-ai/toolkit/cli.installPS1URL=...".
+var installPS1URL = "https://raw.githubusercontent.com/blaxel-ai/toolkit/main/install.ps1"
+
+// upgradeViaPowerShell re-runs install.ps1, since Windows has no sh. The script
+// installs into the folder bl runs from and moves the running bl.exe aside, so
+// it can be replaced; runUpgrade refreshes the skills itself.
+func upgradeViaPowerShell(targetVersion, binDir string) error {
+	if targetVersion != "" {
+		core.PrintInfo(fmt.Sprintf("Upgrading to version %s...", targetVersion))
+	} else {
+		core.PrintInfo("Upgrading to latest version...")
+	}
+
+	// Windows PowerShell comes with every Windows, and the script needs nothing newer.
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", buildPowerShellUpgradeCommand(installPS1URL, targetVersion, binDir))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("upgrade failed: %w", err)
+	}
+
+	core.PrintSuccess("Blaxel CLI upgraded successfully")
+	return nil
+}
+
+// buildPowerShellUpgradeCommand builds the PowerShell command that runs
+// install.ps1 with parameters, which irm | iex can't pass. bl upgrade never
+// re-runs bl setup. Stop makes a failed download fail the command.
+func buildPowerShellUpgradeCommand(scriptURL, targetVersion, binDir string) string {
+	command := "$ErrorActionPreference = 'Stop'; " +
+		"[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; " +
+		fmt.Sprintf("& ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri %s))) -InstallDir %s -SkipSetup", powerShellQuote(scriptURL), powerShellQuote(binDir))
+	if targetVersion != "" {
+		command += " -Version " + powerShellQuote(targetVersion)
+	}
+	// The script reports a failure through LASTEXITCODE.
+	return command + "; exit $LASTEXITCODE"
+}
+
+// powerShellQuote quotes s as a PowerShell string literal. PowerShell also
+// reads the typographic single quotes as quotes, so those are doubled too.
+var powerShellQuoteEscaper = strings.NewReplacer("'", "''", "\u2018", "\u2018\u2018", "\u2019", "\u2019\u2019", "\u201a", "\u201a\u201a", "\u201b", "\u201b\u201b")
+
+func powerShellQuote(s string) string {
+	return "'" + powerShellQuoteEscaper.Replace(s) + "'"
 }

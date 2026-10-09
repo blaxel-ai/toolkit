@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "install.ps1"
+      - "cli/upgrade.go"
       - "test/install/test_setup_policy.ps1"
       - "test/install/test_release_lookup.ps1"
       - ".github/workflows/test-install-ps1.yaml"
@@ -119,3 +120,52 @@ jobs:
             exit 1
           }
           Write-Host "Login + workspace listing succeeded."
+
+      - name: Run install.ps1 with -SkipSetup
+        shell: powershell
+        run: |
+          # The switch must reach the installer even when BL_INSTALL_SETUP=true.
+          $env:BL_INSTALL_SETUP = "true"
+          $output = powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -SkipSetup 2>&1 | Out-String
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited with $LASTEXITCODE" }
+          if ($output -match "Blaxel setup") { throw "-SkipSetup was ignored: bl setup ran" }
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+
+      - name: bl upgrade replaces the running bl.exe
+        shell: pwsh
+        run: |
+          # An old bl from this branch, upgraded with this branch's install.ps1.
+          $bl = Join-Path $env:LOCALAPPDATA "blaxel\bl.exe"
+          $script = "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.pull_request.head.sha }}/install.ps1"
+          go build -ldflags "-X main.version=0.0.1 -X github.com/blaxel-ai/toolkit/cli.installPS1URL=$script" -o $bl .
+          if ($LASTEXITCODE -ne 0) { throw "go build failed" }
+          & $bl upgrade
+          if ($LASTEXITCODE -ne 0) { throw "bl upgrade exited with $LASTEXITCODE" }
+          $version = & $bl version | Out-String
+          Write-Host $version
+          if ($version -notmatch "Version:\s*\d" -or $version -match "0\.0\.1") { throw "bl upgrade did not replace bl.exe" }
+
+      # Client Windows defaults to the Restricted execution policy, which irm | iex must not need.
+      - name: Install through irm | iex under a Restricted execution policy
+        shell: powershell
+        run: |
+          $script = "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.pull_request.head.sha }}/install.ps1"
+          try {
+            foreach ($shell in "powershell", "pwsh") {
+              & $shell -NoProfile -Command "Set-ExecutionPolicy -Scope CurrentUser Restricted -Force"
+              $output = & $shell -NoProfile -Command "Get-ExecutionPolicy; irm $script | iex; 'session still open'" 2>&1 | Out-String
+              Write-Host $output
+              if ($output -notmatch "Restricted") { throw "$shell did not run under the Restricted policy" }
+              if ($output -match "Blaxel install failed" -or $output -notmatch "session still open") { throw "install.ps1 failed in $shell under the Restricted policy" }
+            }
+          }
+          finally {
+            foreach ($shell in "powershell", "pwsh") { & $shell -NoProfile -Command "Set-ExecutionPolicy -Scope CurrentUser Undefined -Force" }
+          }

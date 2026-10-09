@@ -235,3 +235,14 @@ func TestBuildCurlUpgradeCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildPowerShellUpgradeCommand(t *testing.T) {
+	const prefix = "$ErrorActionPreference = 'Stop'; [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; "
+	assert.Equal(t,
+		prefix+`& ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri 'https://example.com/install.ps1'))) -InstallDir 'C:\Users\Ann\AppData\Local\blaxel' -SkipSetup; exit $LASTEXITCODE`,
+		buildPowerShellUpgradeCommand("https://example.com/install.ps1", "", `C:\Users\Ann\AppData\Local\blaxel`))
+	assert.Equal(t,
+		prefix+`& ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri 'https://example.com/install.ps1'))) -InstallDir 'C:\Users\O''Brien (Work)\bin' -SkipSetup -Version 'v1.2.3'; exit $LASTEXITCODE`,
+		buildPowerShellUpgradeCommand("https://example.com/install.ps1", "v1.2.3", `C:\Users\O'Brien (Work)\bin`))
+	assert.Equal(t, "'C:\\Users\\O\u2019\u2019Brien'", powerShellQuote("C:\\Users\\O\u2019Brien"))
+}

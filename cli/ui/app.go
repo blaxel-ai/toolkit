@@ -52,6 +52,7 @@ type model struct {
 	glyph glyphs
 
 	width, height int
+	links         bool // link URLs with OSC 8; off on the Linux console
 	phase         phase
 	cursor        int // index in toggles; len(toggles) is the button
 	toggles       []*Item
@@ -72,7 +73,11 @@ type model struct {
 
 func (s *Setup) runApp(ctx context.Context, out *os.File, options Options) (Summary, error) {
 	renderer := lipgloss.NewRenderer(out)
-	m := newModel(s, renderer, os.Getenv("TERM") != "linux")
+	// runApp only runs on a color terminal. The Linux console may not skip an
+	// OSC 8 sequence it does not know, so it gets plain text.
+	console := os.Getenv("TERM") == "linux"
+	m := newModel(s, renderer, !console)
+	m.links = !console
 	m.ctx, m.cancel = context.WithCancel(ctx)
 	defer m.cancel()
 	if options.Yes {
@@ -398,12 +403,19 @@ func (m *model) compose(header, body, pinned []string, footer string, width int)
 	if len(pinned) > 0 {
 		lines = append(append(lines, ""), pinned...)
 	}
+	// A line with a URL may run past the column, to the edge of the terminal.
+	limit := func(line string) int {
+		if hasURL(line) {
+			return max(m.width, width)
+		}
+		return width
+	}
 	column := 0
 	for _, line := range lines {
-		column = max(column, min(lipgloss.Width(line), width))
+		column = max(column, min(lipgloss.Width(line), limit(line)))
 	}
 	for i, line := range lines {
-		lines[i] = padRight(truncateStyled(line, column), column)
+		lines[i] = padRight(truncateStyled(line, min(column, limit(line))), column)
 	}
 	parts := header
 	if len(parts) > 0 {
@@ -501,7 +513,7 @@ func (m *model) planLines(width int) (lines []string, cursorLine int) {
 				}
 				lines = append(lines, strings.TrimRight(strings.Join(cells, ""), " "))
 			}
-			for _, part := range wrap(legend(group), width-2) {
+			for _, part := range wrap(legend(group), width-2, width-2, false) {
 				lines = append(lines, "  "+m.st.muted.Render(part))
 			}
 			continue
@@ -716,7 +728,7 @@ func (m *model) runningLines(width int) (lines []string, anchor int) {
 	}
 	for _, note := range m.notes {
 		lines = append(lines, "")
-		for _, part := range wrap(note, width) {
+		for _, part := range wrap(note, width, m.width, m.links) {
 			lines = append(lines, m.st.muted.Render(part))
 		}
 	}
@@ -822,19 +834,29 @@ func truncateStyled(text string, width int) string {
 }
 
 // wrap breaks text into lines of at most width cells at spaces, and breaks
-// words longer than a line, such as URLs.
-func wrap(text string, width int) []string {
+// words longer than a line. A URL that fits in room cells, the width of the
+// terminal, is kept whole so that it stays clickable, and one wider than that
+// breaks like any word. A whole URL is a hyperlink when links is set, with the
+// URL as its text, so that a terminal that ignores hyperlinks still shows it.
+func wrap(text string, width, room int, links bool) []string {
 	var lines []string
 	line := ""
 	for _, word := range strings.Fields(text) {
-		for width > 0 && lipgloss.Width(word) > width {
+		limit := width
+		if isURL(word) && lipgloss.Width(word) <= max(room, width) {
+			limit = max(room, width)
+			if links {
+				word = "\x1b]8;;" + word + "\x1b\\" + word + "\x1b]8;;\x1b\\"
+			}
+		}
+		for limit > 0 && lipgloss.Width(word) > limit {
 			if line != "" {
 				lines = append(lines, line)
 				line = ""
 			}
 			runes := []rune(word)
-			lines = append(lines, string(runes[:width]))
-			word = string(runes[width:])
+			lines = append(lines, string(runes[:limit]))
+			word = string(runes[limit:])
 		}
 		switch {
 		case line == "":
@@ -847,4 +869,12 @@ func wrap(text string, width int) []string {
 		}
 	}
 	return append(lines, line)
+}
+
+func isURL(word string) bool {
+	return strings.HasPrefix(word, "https://") || strings.HasPrefix(word, "http://")
+}
+
+func hasURL(line string) bool {
+	return strings.Contains(line, "https://") || strings.Contains(line, "http://")
 }
