@@ -6,7 +6,10 @@
     Downloads the latest (or the given) release of the Blaxel CLI, verifies it
     against the release checksums, installs it to $env:LOCALAPPDATA\blaxel and
     adds that folder to your PATH. It then runs bl setup, which shows the coding
-    agents it found and sets up Blaxel for them, then logs you in.
+    agents it found and sets up Blaxel for them, then logs you in. When it detects
+    a coding agent without a terminal outside CI, it sets up the agents without
+    screens, then starts any needed browser login and prints its URL to confirm.
+    BL_INSTALL_LOGIN=false skips that login.
 
 .PARAMETER Version
     The release tag to install (e.g. "v0.1.21"). Defaults to the latest release.
@@ -54,6 +57,9 @@ param(
         $Owner = "blaxel-ai"
         $Repo = "toolkit"
         $Releases = "https://github.com/$Owner/$Repo/releases"
+        # Pinned releases keep the previous hand-off. Publish this installer
+        # after the latest CLI release includes the refresh contract.
+        $RefreshAvailable = (-not $Version) -or ($Version -eq "latest")
 
         # ── Output: styled where the console takes escape codes, plain elsewhere ──
         $Styled = $Host.UI.SupportsVirtualTerminal -and -not [Console]::IsOutputRedirected -and -not $env:NO_COLOR
@@ -77,6 +83,26 @@ param(
             throw [System.OperationCanceledException]::new("blaxel-install-stopped")
         }
 
+        function Test-CiEnvironment {
+            foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
+                if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
+                    return $true
+                }
+            }
+            return $false
+        }
+
+        # Recognize coding-agent environment markers. A noninteractive shell
+        # without a marker keeps the install-only behavior.
+        function Test-AgentRun {
+            foreach ($name in @("CLAUDECODE", "CURSOR_AGENT", "GEMINI_CLI", "CODEX_THREAD_ID", "CODEX_SANDBOX", "OPENCODE", "GOOSE_TERMINAL", "AGENT", "AI_AGENT")) {
+                if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
+                    return $true
+                }
+            }
+            return $false
+        }
+
         # bl setup runs by default outside CI. BL_INSTALL_SETUP=true (or the previous
         # BL_INSTALL_SKILLS=true) forces it, BL_INSTALL_SETUP=false or -SkipSetup disables it.
         function Test-SetupEnabled {
@@ -91,12 +117,7 @@ param(
             if ($SkipSkills -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "false")) { return $false }
             if (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true") { return $true }
 
-            foreach ($name in @("CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE")) {
-                if (-not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($name, "Process"))) {
-                    return $false
-                }
-            }
-            return $true
+            return -not (Test-CiEnvironment)
         }
 
         function Get-BlaxelArch {
@@ -196,6 +217,7 @@ param(
             if (-not (Test-Path $Extracted)) { Stop-Install "Blaxel CLI" "blaxel.exe is missing from the release archive" }
             New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
             $BlaxelExe = Join-Path $InstallDir "blaxel.exe"
+            $ExistingInstall = (Test-Path $BlaxelExe -PathType Leaf) -or (Test-Path (Join-Path $InstallDir "bl.exe") -PathType Leaf)
             # Windows can't overwrite a running program (bl upgrade itself, or bl
             # in another terminal), but it can rename one: move it aside and delete
             # it now, or on the next install once it has exited.
@@ -266,21 +288,54 @@ public static extern System.IntPtr SendMessageTimeout(
 
         $Interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected
         $Forced = (([string]$env:BL_INSTALL_SETUP).Trim() -eq "true") -or (([string]$env:BL_INSTALL_SKILLS).Trim() -eq "true")
-        if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup -SkipSkills:$SkipSkills) -and ($Interactive -or $Forced)) {
+        # A coding agent without a terminal, outside CI: the defaults, then the
+        # browser login for the person.
+        $AgentRun = (-not $Interactive) -and (Test-AgentRun) -and (-not (Test-CiEnvironment))
+        if ($SetupAvailable -and (Test-SetupEnabled -SkipSetup:$SkipSetup -SkipSkills:$SkipSkills) -and ($Interactive -or $Forced -or $AgentRun)) {
             $SetupArgs = @("setup")
             if ($SkipSkills) { $SetupArgs += "--skip-skills" }
-            if (-not $Interactive) { $SetupArgs += "--yes" }
+            $SavedRefresh = [Environment]::GetEnvironmentVariable("BL_INSTALL_REFRESH", "Process")
+            if ($ExistingInstall -and $RefreshAvailable -and -not (Test-CiEnvironment)) {
+                $env:BL_INSTALL_REFRESH = "true"
+                $SetupArgs += "--yes", "--skip-login"
+            }
+            elseif (-not $Interactive) { $SetupArgs += "--yes" }
             # bl setup shows the shell and what to run next itself, problems included.
             $env:BL_INSTALLER = "1"
             $env:BL_INSTALLER_SHELL = "bl on PATH"
+            # Nobody saw the error reports choice: leave it for the first bl in a terminal.
+            $HoldTracking = $AgentRun -and [string]::IsNullOrEmpty("$env:BL_INSTALL_TRACKING$env:DO_NOT_TRACK")
+            if ($HoldTracking) { $env:DO_NOT_TRACK = "1" }
             try {
                 & $BlaxelExe @SetupArgs
+                if ($LASTEXITCODE -ne 0) { throw "bl setup exited with $LASTEXITCODE" }
             }
             catch {
                 Write-Step next "bl setup" "to finish setting up"
             }
             finally {
                 Remove-Item Env:BL_INSTALLER, Env:BL_INSTALLER_SHELL -ErrorAction SilentlyContinue
+                if ($HoldTracking) { Remove-Item Env:DO_NOT_TRACK -ErrorAction SilentlyContinue }
+                [Environment]::SetEnvironmentVariable("BL_INSTALL_REFRESH", $SavedRefresh, "Process")
+            }
+            if ($AgentRun -and -not ($ExistingInstall -and $RefreshAvailable) -and (([string]$env:BL_INSTALL_LOGIN).Trim() -ne "false") -and -not ($env:BL_API_KEY -or $env:BL_CLIENT_CREDENTIALS)) {
+                # bl login prints the login URL and how long it waits.
+                try {
+                    $LoggedIn = $false
+                    try {
+                        & $BlaxelExe token *> $null
+                        $LoggedIn = ($LASTEXITCODE -eq 0)
+                    }
+                    catch { $LoggedIn = $false }
+                    if (-not $LoggedIn) {
+                        Write-Host ""
+                        & $BlaxelExe login
+                        if ($LASTEXITCODE -ne 0) { throw "bl login exited with $LASTEXITCODE" }
+                    }
+                }
+                catch {
+                    Write-Step next "bl login" "to log in"
+                }
             }
             # bl is installed: setup has shown its own problems, and leaves the
             # install a success, as install.sh does.

@@ -10,6 +10,7 @@ on:
       - "go.mod"
       - "go.sum"
       - "install.sh"
+      - "install.ps1"
       - "test/install/**"
       - ".github/workflows/test-setup.yaml"
 
@@ -80,6 +81,17 @@ jobs:
           ! grep -qs '^tracking: true' "$home/.blaxel/config.yaml"
           # The agents start bl mcp from their configuration.
           python3 test/install/test_bl_mcp.py "$home"
+
+      - name: Agent installer hand-off (macOS, Linux)
+        if: runner.os != 'Windows'
+        run: sh test/install/test_agent_setup.sh
+
+      - name: Agent installer hand-off (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File test/install/test_agent_setup.ps1
+          powershell -NoProfile -File test/install/test_agent_setup.ps1
 
       - name: bl setup (Windows)
         if: runner.os == 'Windows'
