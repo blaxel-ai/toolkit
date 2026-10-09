@@ -65,28 +65,34 @@ func ResolveDockerfile(cwd, folder, flag string, config core.Config, buildsSourc
 }
 
 func resolveProjectDockerfile(projectDir, path string) (string, error) {
+	return resolveProjectFile("Dockerfile", projectDir, path)
+}
+
+// resolveProjectFile validates a user-supplied path to a regular file inside
+// projectDir. kind names the file in error messages.
+func resolveProjectFile(kind, projectDir, path string) (string, error) {
 	// Reject Windows-rooted/volume-qualified paths on every host as well as
 	// native absolute/traversal paths. IsLocal uses path components, not prefixes.
 	if !filepath.IsLocal(path) || strings.HasPrefix(path, "\\") || (len(path) >= 2 && path[1] == ':') {
-		return "", InputError("Dockerfile %q must be a relative path inside the project directory", path)
+		return "", InputError("%s %q must be a relative path inside the project directory", kind, path)
 	}
 	root, err := filepath.EvalSymlinks(projectDir)
 	if err != nil {
-		return "", InputError("Dockerfile %q: cannot resolve project directory %q: %v", path, projectDir, err)
+		return "", InputError("%s %q: cannot resolve project directory %q: %v", kind, path, projectDir, err)
 	}
 	resolved, err := filepath.EvalSymlinks(filepath.Join(projectDir, path))
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", InputError("Dockerfile %q not found in %s", path, projectDir)
+		return "", InputError("%s %q not found in %s", kind, path, projectDir)
 	}
 	if err != nil {
-		return "", InputError("Dockerfile %q: %v", path, err)
+		return "", InputError("%s %q: %v", kind, path, err)
 	}
 	rel, err := filepath.Rel(root, resolved)
 	if err != nil || !filepath.IsLocal(rel) {
-		return "", InputError("Dockerfile %q must be inside the project directory", path)
+		return "", InputError("%s %q must be inside the project directory", kind, path)
 	}
 	if info, err := os.Stat(resolved); err != nil || !info.Mode().IsRegular() {
-		return "", InputError("Dockerfile %q is not a regular file", path)
+		return "", InputError("%s %q is not a regular file", kind, path)
 	}
 	return resolved, nil
 }
