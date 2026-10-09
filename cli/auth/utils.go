@@ -106,11 +106,15 @@ func ListWorkspaces(credentials blaxel.Credentials) ([]blaxel.Workspace, error) 
 
 // listWorkspacesWithFactory lists workspaces using a custom client factory
 func listWorkspacesWithFactory(credentials blaxel.Credentials, factory ClientFactory) ([]blaxel.Workspace, error) {
+	return listWorkspacesWithContext(context.Background(), credentials, factory)
+}
+
+func listWorkspacesWithContext(ctx context.Context, credentials blaxel.Credentials, factory ClientFactory) ([]blaxel.Workspace, error) {
 	opts := BuildClientOptions("", credentials)
 	client := factory(opts...)
 
 	// Try to make a simple API call to validate
-	workspaces, err := client.List(context.Background())
+	workspaces, err := client.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve workspaces: %w", err)
 	}

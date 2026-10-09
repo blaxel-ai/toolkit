@@ -8,7 +8,8 @@ import (
 )
 
 // openBrowser opens a URL in the default browser without waiting for it.
-func openBrowser(url string) error {
+// Tests replace it.
+var openBrowser = func(url string) error {
 	cmd, err := browserCommand(runtime.GOOS, url, exec.LookPath, os.Getenv)
 	if err != nil {
 		return err

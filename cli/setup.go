@@ -65,6 +65,10 @@ func SetupCmd() *cobra.Command {
 		Short: "Set up Blaxel for your coding agents and log in",
 		Long: `Set up everything Blaxel needs on this machine, then log in.
 
+When logging in without a specified workspace, if your account has no
+workspaces, setup opens the Console so you can create or join one, and waits
+up to five minutes for it to become available.
+
 For the coding agents found on this machine (Claude Code, Codex, Cursor, ...),
 setup installs the Blaxel agent skills and adds two MCP servers: blaxel, to
 manage your workspace resources, and blaxel-docs, to search the Blaxel
@@ -211,7 +215,11 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 		return "", err
 	}
 	if workspace == "" {
-		names, err := auth.LoginWorkspaces(creds)
+		c.Progress("checking your workspaces")
+		names, err := auth.WaitForLoginWorkspaces(ctx, creds, func(note string) {
+			c.Progress("waiting for you to create or join a workspace")
+			c.Note(note)
+		})
 		if err != nil {
 			return "", err
 		}
@@ -223,6 +231,9 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 			}
 			workspace = names[index]
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	c.Progress("saving your login")
 	return workspace, auth.SaveDeviceLogin(workspace, creds)
