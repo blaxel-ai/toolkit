@@ -3,6 +3,8 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -36,9 +38,9 @@ func (p skillsAgentPaths) envOr(key string, fallback string) string {
 	return fallback
 }
 
-// Detection mirrors the pinned skills package (cli/skillsinstaller). Passing an
-// explicit agent list prevents its fallback of writing into every one of its
-// ~80 supported agent directories when it detects none.
+// Detection and folders mirror the skills package (npx skills), so both
+// installers put the skills in the same places. Only detected or chosen agents
+// are set up, never every agent the skills package knows.
 var skillsAgents = []skillsAgent{
 	{"claude-code", "Claude Code", false, func(p skillsAgentPaths) []string {
 		return []string{p.envOr("CLAUDE_CONFIG_DIR", p.homeDir(".claude"))}
@@ -48,10 +50,12 @@ var skillsAgents = []skillsAgent{
 	}},
 	{"cursor", "Cursor", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cursor")} }},
 	{"gemini-cli", "Gemini CLI", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".gemini")} }},
-	{"github-copilot", "GitHub Copilot", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".copilot")} }},
+	{"github-copilot", "GitHub Copilot", true, func(p skillsAgentPaths) []string {
+		return []string{p.envOr("COPILOT_HOME", p.homeDir(".copilot"))}
+	}},
 	{"opencode", "OpenCode", true, func(p skillsAgentPaths) []string { return []string{p.configDir("opencode")} }},
 	{"amp", "Amp", true, func(p skillsAgentPaths) []string { return []string{p.configDir("amp")} }},
-	{"cline", "Cline", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
+	{"cline", "Cline CLI", true, func(p skillsAgentPaths) []string { return []string{p.homeDir(".cline")} }},
 	{"windsurf", "Windsurf", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".codeium", "windsurf")} }},
 	{"goose", "Goose", false, func(p skillsAgentPaths) []string { return []string{p.configDir("goose")} }},
 	{"kiro-cli", "Kiro CLI", false, func(p skillsAgentPaths) []string { return []string{p.homeDir(".kiro")} }},
@@ -68,26 +72,142 @@ var skillsAgents = []skillsAgent{
 	{"openclaw", "OpenClaw", false, func(p skillsAgentPaths) []string {
 		return []string{p.homeDir(".openclaw"), p.homeDir(".clawdbot"), p.homeDir(".moltbot")}
 	}},
+	{"vscode", "GitHub Copilot (VS Code)", true, func(p skillsAgentPaths) []string { return []string{vscodeUserDir(p)} }},
+}
+
+// mcpOnlyAgents take MCP servers but have no skills folder, so setup adds
+// only the MCP servers to them.
+var mcpOnlyAgents = []skillsAgent{
+	{"claude-desktop", "Claude Desktop", false, func(p skillsAgentPaths) []string { return []string{claudeDesktopDir(p)} }},
+}
+
+// vscodeUserDir is the default VS Code profile's user configuration folder.
+func vscodeUserDir(p skillsAgentPaths) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return p.homeDir("Library", "Application Support", "Code", "User")
+	case "windows":
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Code", "User")
+	}
+	return p.configDir("Code", "User")
+}
+
+func gooseConfigDir(p skillsAgentPaths) string {
+	if root := strings.TrimSpace(p.env("GOOSE_PATH_ROOT")); filepath.IsAbs(root) {
+		return filepath.Join(root, "config")
+	}
+	if runtime.GOOS == "windows" {
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Block", "goose", "config")
+	}
+	return p.configDir("goose")
+}
+
+// claudeDesktopDir is where the Claude Desktop app keeps its configuration.
+func claudeDesktopDir(p skillsAgentPaths) string {
+	switch runtime.GOOS {
+	case "darwin":
+		return p.homeDir("Library", "Application Support", "Claude")
+	case "windows":
+		return filepath.Join(p.envOr("APPDATA", p.homeDir("AppData", "Roaming")), "Claude")
+	}
+	return p.configDir("Claude")
+}
+
+func isMCPOnlyAgent(id string) bool {
+	return slices.ContainsFunc(mcpOnlyAgents, func(a skillsAgent) bool { return a.id == id })
+}
+
+// setupAgents is every agent setup knows: those that take skills, then those
+// that take MCP servers only.
+func setupAgents() []skillsAgent {
+	return slices.Concat(skillsAgents, mcpOnlyAgents)
+}
+
+// detectedSetupAgents returns the agents setup finds on this machine.
+func detectedSetupAgents(home string, env func(string) string) []skillsAgent {
+	return detectAgents(setupAgents(), home, env)
 }
 
 // detectSkillsAgents returns the installer's --agent values and the detected
 // agent names. "universal" (~/.agents/skills) is always targeted.
 func detectSkillsAgents(home string, env func(string) string) (targets []string, names []string) {
+	return skillsTargets(detectedSkillsAgents(home, env))
+}
+
+func newSkillsAgentPaths(home string, env func(string) string) skillsAgentPaths {
 	paths := skillsAgentPaths{home: home, config: filepath.Join(home, ".config"), env: env}
 	if xdg := strings.TrimSpace(env("XDG_CONFIG_HOME")); xdg != "" {
 		paths.config = xdg
 	}
-	targets = []string{"universal"}
-	for _, agent := range skillsAgents {
-		for _, dir := range agent.homes(paths) {
+	return paths
+}
+
+// skillsAgentDir is the global skills folder of an agent that does not read
+// ~/.agents/skills: the skills folder of its first existing home, as in the
+// skills package (for example ~/.claude/skills or ~/.pi/agent/skills).
+func skillsAgentDir(agent skillsAgent, paths skillsAgentPaths) string {
+	homes := agent.homes(paths)
+	for _, dir := range homes {
+		if _, err := os.Stat(dir); err == nil {
+			return filepath.Join(dir, "skills")
+		}
+	}
+	return filepath.Join(homes[0], "skills")
+}
+
+// detectedSkillsAgents returns the coding agents configured on this machine
+// that take skills.
+func detectedSkillsAgents(home string, env func(string) string) []skillsAgent {
+	return detectAgents(skillsAgents, home, env)
+}
+
+func detectAgents(agents []skillsAgent, home string, env func(string) string) []skillsAgent {
+	paths := newSkillsAgentPaths(home, env)
+	var detected []skillsAgent
+	for _, agent := range agents {
+		dirs := agent.homes(paths)
+		if agent.id == "goose" {
+			dirs = append(dirs, gooseConfigDir(paths))
+		}
+		if agent.id == "cline" {
+			dirs = append(dirs, clineMCPSettingsFile(mcpEnv{home: home, env: env}))
+		}
+		if agent.id == "openclaw" {
+			dirs = append(dirs, openclawConfigFile(mcpEnv{home: home, env: env}))
+		}
+		if agent.id == "continue" {
+			dirs = append(dirs, paths.envOr("CONTINUE_GLOBAL_DIR", paths.homeDir(".continue")))
+		}
+		if agent.id == "crush" {
+			dirs = append(dirs, crushConfigDir(paths))
+		}
+		for _, dir := range dirs {
 			if _, err := os.Stat(dir); err == nil {
-				if !agent.universal {
-					targets = append(targets, agent.id)
-				}
-				names = append(names, agent.name)
+				detected = append(detected, agent)
 				break
 			}
 		}
 	}
+	return detected
+}
+
+// skillsTargets returns the installer's --agent values for the given agents.
+func skillsTargets(agents []skillsAgent) (targets []string, names []string) {
+	targets = []string{"universal"}
+	for _, agent := range agents {
+		if !agent.universal {
+			targets = append(targets, agent.id)
+		}
+		names = append(names, agent.name)
+	}
 	return targets, names
+}
+
+func findSkillsAgent(id string) (skillsAgent, bool) {
+	for _, agent := range setupAgents() {
+		if agent.id == id {
+			return agent, true
+		}
+	}
+	return skillsAgent{}, false
 }

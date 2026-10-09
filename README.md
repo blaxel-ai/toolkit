@@ -8,16 +8,29 @@ Blaxel is a platform for deploying production-ready AI agents, MCP servers, sand
 
 ## Installation
 
-### macOS (Homebrew)
+### macOS and Linux
+
+```bash
+curl -fsSL https://blaxel.ai/install.sh | sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://blaxel.ai/install.ps1 | iex
+```
+
+The installer verifies the download against the release checksums, puts `bl` on your PATH with shell completions, then runs `bl setup`: it finds your coding agents (Claude Code, Codex, Cursor and more), installs the Blaxel skills and MCP servers into them, and logs you in. Run `bl setup` again any time to set up new agents. On a fresh install, when the installer detects a coding agent through its environment (no terminal, outside CI), it sets up the agents without screens, then starts any needed browser login and prints its URL for you to confirm; `BL_INSTALL_LOGIN=false` skips the login. Otherwise, without a terminal or in CI, it only installs the CLI; set `BL_INSTALL_SETUP=true` to run the setup with its defaults, or `BL_INSTALL_SETUP=false` to skip it. When setup would otherwise run, reinstalling the latest release outside CI refreshes skills and MCP without repeating setup screens or browser login. Pinned releases retain their previous setup behavior. `VERSION=v0.1.118` installs a given release and `BINDIR=/usr/local/bin` another location.
+
+### Homebrew
 
 ```bash
 brew tap blaxel-ai/blaxel
 brew install blaxel
+bl setup
 ```
 
-### Other Platforms
-
-Download the latest release from [GitHub Releases](https://github.com/blaxel-ai/toolkit/releases) or see [docs.blaxel.ai](https://docs.blaxel.ai/cli-reference/introduction) for detailed installation instructions.
+Releases are also on [GitHub](https://github.com/blaxel-ai/toolkit/releases); see [docs.blaxel.ai](https://docs.blaxel.ai/cli-reference/introduction) for more.
 
 ## Quick Start
 

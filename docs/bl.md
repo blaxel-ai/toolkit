@@ -31,10 +31,12 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl login](bl_login.md)	 - Login to Blaxel
 * [bl logout](bl_logout.md)	 - Logout from Blaxel
 * [bl logs](bl_logs.md)	 - View and stream logs for agents, jobs, sandboxes, and functions
+* [bl mcp](bl_mcp.md)	 - Serve the Blaxel MCP server to a coding agent, signed in with your bl login
 * [bl new](bl_new.md)	 - Scaffold a new project from a template (agent, app, mcp, sandbox, job, volume-template)
 * [bl push](bl_push.md)	 - Build and push a container image to the Blaxel registry
 * [bl run](bl_run.md)	 - Execute a resource (agent, model, job, function, sandbox)
 * [bl serve](bl_serve.md)	 - Start a local development server for your project
+* [bl setup](bl_setup.md)	 - Set up Blaxel for your coding agents and log in
 * [bl share](bl_share.md)	 - Share a resource with another workspace
 * [bl skills](bl_skills.md)	 - Manage Blaxel skills for coding agents
 * [bl token](bl_token.md)	 - Retrieve authentication token for a workspace

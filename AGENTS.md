@@ -50,6 +50,10 @@ contrib/             # zsh-blaxel-prompt plugin
 definition.yml       # OpenAPI-derived spec driving generated SDK operations
 ```
 
+Keep the root of `cli/` for top-level command files only. Put any other new
+code (helpers, shared logic, a new subsystem) in a package inside `cli/`, not
+in a new root-level file.
+
 ## Command architecture
 
 Each command file registers itself in an `init()` via the registry, then builds

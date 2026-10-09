@@ -5,17 +5,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -24,190 +20,406 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSkillsInstallerLock(t *testing.T) {
-	var lock struct {
-		Packages map[string]struct {
-			Version   string `json:"version"`
-			Resolved  string `json:"resolved"`
-			Integrity string `json:"integrity"`
-		} `json:"packages"`
+// archiveEntry is one entry of a test repository tarball.
+type archiveEntry struct {
+	name, body, link string
+	mode             int64
+}
+
+const testSkillManifest = "---\nname: %s\ndescription: Use the %s.\n---\n\n# %s\n"
+
+func skillManifest(name string) string {
+	return strings.ReplaceAll(testSkillManifest, "%s", name)
+}
+
+// testSkillsEntries mirrors the agent-skills repository layout, with the edge
+// cases the installer must handle.
+func testSkillsEntries() []archiveEntry {
+	return []archiveEntry{
+		{name: "README.md", body: "# Agent skills\n"},
+		{name: "skills/blaxel-cli/SKILL.md", body: skillManifest("blaxel-cli")},
+		{name: "skills/blaxel-cli/metadata.json", body: `{"version":"1"}`},
+		{name: "skills/blaxel-cli/references/login.md", body: "# bl login\n"},
+		{name: "skills/blaxel-cli/references/alias.md", link: "login.md"},
+		{name: "skills/blaxel-cli/outside.md", link: "../../README.md"},
+		{name: "skills/blaxel-cli/scripts/generate.sh", body: "#!/bin/sh\necho docs\n", mode: 0o775},
+		{name: "skills/blaxel-cli/__pycache__/cache.pyc", body: "cache"},
+		{name: "skills/blaxel-sdk/SKILL.md", body: skillManifest("blaxel-sdk")},
+		{name: "skills/blaxel-sdk/references/sdk-python.md", body: "# Python\n"},
+		{name: "skills/internal-tool/SKILL.md", body: "---\nname: internal-tool\ndescription: Internal.\nmetadata:\n  internal: true\n---\n"},
+		{name: "skills/broken/SKILL.md", body: "---\nname: broken\n---\n"},
+		{name: "skills/notes/README.md", body: "no skill here"},
+		{name: "skills/../../escape/SKILL.md", body: skillManifest("escape")},
+		{name: "prompts/SKILL.md", body: skillManifest("prompt")},
 	}
-	require.NoError(t, json.Unmarshal(skillsPackageLock, &lock))
-	require.Len(t, lock.Packages, 9)
-	for name, pkg := range lock.Packages {
-		if name == "" {
+}
+
+func buildSkillsArchive(t *testing.T, entries []archiveEntry) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	compressed := gzip.NewWriter(&buffer)
+	writer := tar.NewWriter(compressed)
+	// GitHub archives start with the commit as a global header.
+	require.NoError(t, writer.WriteHeader(&tar.Header{Typeflag: tar.TypeXGlobalHeader, Name: "pax_global_header",
+		PAXRecords: map[string]string{"comment": "0123456789abcdef0123456789abcdef01234567"}}))
+	require.NoError(t, writer.WriteHeader(&tar.Header{Typeflag: tar.TypeDir, Name: "agent-skills-HEAD/", Mode: 0o775}))
+	for _, entry := range entries {
+		header := &tar.Header{Name: "agent-skills-HEAD/" + entry.name, Mode: 0o664, Size: int64(len(entry.body)), Typeflag: tar.TypeReg}
+		if entry.mode != 0 {
+			header.Mode = entry.mode
+		}
+		if entry.link != "" {
+			header.Typeflag, header.Linkname, header.Size, header.Mode = tar.TypeSymlink, entry.link, 0, 0o777
+		}
+		require.NoError(t, writer.WriteHeader(header))
+		if entry.link == "" {
+			_, err := writer.Write([]byte(entry.body))
+			require.NoError(t, err)
+		}
+	}
+	require.NoError(t, writer.Close())
+	require.NoError(t, compressed.Close())
+	return buffer.Bytes()
+}
+
+func noEnv(string) string { return "" }
+
+func readLock(t *testing.T, file string) map[string]any {
+	t.Helper()
+	var lock map[string]any
+	require.NoError(t, json.Unmarshal([]byte(readTestFile(t, file)), &lock))
+	return lock
+}
+
+func lockedSkill(t *testing.T, lock map[string]any, name string) map[string]any {
+	t.Helper()
+	skills, ok := lock["skills"].(map[string]any)
+	require.True(t, ok, lock)
+	entry, ok := skills[name].(map[string]any)
+	require.True(t, ok, "%s is not in the lock file: %v", name, skills)
+	return entry
+}
+
+func dirNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name())
+	}
+	return names
+}
+
+// assertSkillLink checks an agent's skill folder shows the shared copy: a
+// relative link where links work, and a full copy on Windows.
+func assertSkillLink(t *testing.T, home, agentDir, skill string) {
+	t.Helper()
+	path := filepath.Join(agentDir, skill)
+	assert.Equal(t, readTestFile(t, filepath.Join(home, ".agents", "skills", skill, "SKILL.md")), readTestFile(t, filepath.Join(path, "SKILL.md")))
+	if runtime.GOOS == "windows" {
+		return
+	}
+	target, err := os.Readlink(path)
+	require.NoError(t, err, "%s should be a link", path)
+	assert.False(t, filepath.IsAbs(target), "links stay valid when the home moves: %s", target)
+	resolved, err := filepath.EvalSymlinks(path)
+	require.NoError(t, err)
+	canonical, err := filepath.EvalSymlinks(filepath.Join(home, ".agents", "skills", skill))
+	require.NoError(t, err)
+	assert.Equal(t, canonical, resolved)
+}
+
+func TestInstallSkillsArchive(t *testing.T) {
+	home := t.TempDir()
+	for _, dir := range []string{".claude", ".codex", ".pi/agent"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(home, dir), 0755))
+	}
+	now := time.Date(2026, 10, 1, 12, 30, 45, 123456789, time.UTC)
+	result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), now)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"blaxel-cli", "blaxel-sdk"}, result.skills)
+	assert.Equal(t, []string{"Claude Code", "Codex", "Pi"}, result.agents)
+
+	skills := filepath.Join(home, ".agents", "skills")
+	assert.ElementsMatch(t, []string{"blaxel-cli", "blaxel-sdk"}, dirNames(t, skills), "only valid, public skills are installed")
+	cli := filepath.Join(skills, "blaxel-cli")
+	assert.Equal(t, skillManifest("blaxel-cli"), readTestFile(t, filepath.Join(cli, "SKILL.md")))
+	assert.Equal(t, "# bl login\n", readTestFile(t, filepath.Join(cli, "references", "alias.md")), "links inside a skill are copied as files")
+	assert.NoFileExists(t, filepath.Join(cli, "outside.md"), "links leaving the skill are skipped")
+	assert.NoFileExists(t, filepath.Join(cli, "metadata.json"))
+	assert.NoDirExists(t, filepath.Join(cli, "__pycache__"))
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(filepath.Join(cli, "scripts", "generate.sh"))
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+		info, err = os.Stat(filepath.Join(cli, "SKILL.md"))
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+	}
+
+	// Agents that do not read ~/.agents/skills get a link to the shared copy.
+	for _, skill := range []string{"blaxel-cli", "blaxel-sdk"} {
+		assertSkillLink(t, home, filepath.Join(home, ".claude", "skills"), skill)
+		assertSkillLink(t, home, filepath.Join(home, ".pi", "agent", "skills"), skill)
+	}
+	assert.NoDirExists(t, filepath.Join(home, ".codex", "skills"), "Codex reads ~/.agents/skills")
+	// Nothing is left over from staging.
+	assert.ElementsMatch(t, []string{".skill-lock.json", "skills"}, dirNames(t, filepath.Join(home, ".agents")))
+	assert.ElementsMatch(t, []string{"skills"}, dirNames(t, filepath.Join(home, ".claude")))
+	assert.ElementsMatch(t, []string{"blaxel-cli", "blaxel-sdk"}, dirNames(t, filepath.Join(home, ".claude", "skills")))
+
+	lock := readLock(t, filepath.Join(home, ".agents", ".skill-lock.json"))
+	assert.Equal(t, float64(3), lock["version"])
+	assert.Equal(t, map[string]any{}, lock["dismissed"])
+	entry := lockedSkill(t, lock, "blaxel-cli")
+	assert.Equal(t, "blaxel-ai/agent-skills", entry["source"])
+	assert.Equal(t, "github", entry["sourceType"])
+	assert.Equal(t, "https://github.com/blaxel-ai/agent-skills.git", entry["sourceUrl"])
+	assert.Equal(t, "skills/blaxel-cli/SKILL.md", entry["skillPath"])
+	assert.Regexp(t, "^[0-9a-f]{40}$", entry["skillFolderHash"])
+	assert.Equal(t, "2026-10-01T12:30:45.123Z", entry["installedAt"])
+	assert.Equal(t, "2026-10-01T12:30:45.123Z", entry["updatedAt"])
+	assert.NotEqual(t, entry["skillFolderHash"], lockedSkill(t, lock, "blaxel-sdk")["skillFolderHash"])
+}
+
+func TestInstallSkillsArchiveRefreshesAndKeepsOtherSkills(t *testing.T) {
+	home := t.TempDir()
+	skills := filepath.Join(home, ".agents", "skills")
+	writeTestFile(t, filepath.Join(skills, "blaxel-cli", "removed-upstream.md"), "stale")
+	writeTestFile(t, filepath.Join(skills, "my-skill", "SKILL.md"), skillManifest("my-skill"))
+	writeTestFile(t, filepath.Join(home, ".claude", "skills", "blaxel-sdk", "SKILL.md"), "an old copy")
+	writeTestFile(t, filepath.Join(home, ".claude", "skills", "mine", "SKILL.md"), skillManifest("mine"))
+	lockFile := filepath.Join(home, ".agents", ".skill-lock.json")
+	writeTestFile(t, lockFile, `{"version": 3, "skills": {"my-skill": {"source": "me/skills", "skillFolderHash": "abc"},`+
+		` "blaxel-cli": {"source": "blaxel-ai/agent-skills", "installedAt": "2026-01-01T00:00:00.000Z"}},`+
+		` "dismissed": {"findSkillsPrompt": true}, "lastSelectedAgents": ["claude-code"]}`)
+
+	agents := detectedSkillsAgents(home, noEnv)
+	now := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, agents, now)
+	require.NoError(t, err)
+
+	assert.NoFileExists(t, filepath.Join(skills, "blaxel-cli", "removed-upstream.md"), "a refresh replaces the whole skill")
+	assert.FileExists(t, filepath.Join(skills, "my-skill", "SKILL.md"), "other skills are left alone")
+	assert.FileExists(t, filepath.Join(home, ".claude", "skills", "mine", "SKILL.md"))
+	assertSkillLink(t, home, filepath.Join(home, ".claude", "skills"), "blaxel-sdk")
+
+	data := readTestFile(t, lockFile)
+	lock := readLock(t, lockFile)
+	assert.Equal(t, map[string]any{"source": "me/skills", "skillFolderHash": "abc"}, lockedSkill(t, lock, "my-skill"))
+	cli := lockedSkill(t, lock, "blaxel-cli")
+	assert.Equal(t, "2026-01-01T00:00:00.000Z", cli["installedAt"], "the first install time is kept")
+	assert.Equal(t, "2026-10-02T00:00:00.000Z", cli["updatedAt"])
+	assert.Equal(t, map[string]any{"findSkillsPrompt": true}, lock["dismissed"])
+	assert.Equal(t, []any{"claude-code"}, lock["lastSelectedAgents"])
+	assert.Less(t, strings.Index(data, `"version"`), strings.Index(data, `"lastSelectedAgents"`), "key order is kept")
+	assert.Less(t, strings.Index(data, `"my-skill"`), strings.Index(data, `"blaxel-sdk"`))
+
+	// Running again with the same skills changes only the update time.
+	before := readTestFile(t, filepath.Join(skills, "blaxel-cli", "SKILL.md"))
+	_, err = installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, agents, now.Add(time.Hour))
+	require.NoError(t, err)
+	assert.Equal(t, before, readTestFile(t, filepath.Join(skills, "blaxel-cli", "SKILL.md")))
+	assert.Equal(t, cli["skillFolderHash"], lockedSkill(t, readLock(t, lockFile), "blaxel-cli")["skillFolderHash"])
+	assertSkillLink(t, home, filepath.Join(home, ".claude", "skills"), "blaxel-cli")
+}
+
+func TestInstallSkillsArchiveAgentFolderLinkedToSharedFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory links need developer mode on Windows")
+	}
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".agents", "skills"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
+	require.NoError(t, os.Symlink(filepath.Join(home, ".agents", "skills"), filepath.Join(home, ".claude", "skills")))
+
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+	require.NoError(t, err)
+	info, err := os.Lstat(filepath.Join(home, ".agents", "skills", "blaxel-cli"))
+	require.NoError(t, err)
+	assert.True(t, info.IsDir(), "the shared copy must not be replaced by a link to itself")
+	assert.FileExists(t, filepath.Join(home, ".claude", "skills", "blaxel-cli", "SKILL.md"))
+}
+
+func TestInstallSkillsArchiveSymlinkedSharedFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("directory links need developer mode on Windows")
+	}
+	// Dotfile setups often link ~/.agents/skills to a repository.
+	home, dotfiles := t.TempDir(), t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".agents"), 0755))
+	require.NoError(t, os.Symlink(dotfiles, filepath.Join(home, ".agents", "skills")))
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
+
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dotfiles, "blaxel-cli", "SKILL.md"))
+	assert.ElementsMatch(t, []string{"blaxel-cli", "blaxel-sdk"}, dirNames(t, dotfiles))
+	assertSkillLink(t, home, filepath.Join(home, ".claude", "skills"), "blaxel-cli")
+	_, err = os.Readlink(filepath.Join(home, ".agents", "skills"))
+	assert.NoError(t, err, "the user's link is kept")
+}
+
+func TestInstallSkillsArchiveRejectsBadArchives(t *testing.T) {
+	home := t.TempDir()
+	_, err := installSkillsArchive([]byte("<html>rate limited</html>"), home, noEnv, nil, time.Now())
+	assert.ErrorContains(t, err, "reading the skills archive")
+
+	_, err = installSkillsArchive(buildSkillsArchive(t, []archiveEntry{{name: "skills/notes/README.md", body: "x"}}), home, noEnv, nil, time.Now())
+	assert.ErrorContains(t, err, "no skills found")
+	assert.Empty(t, dirNames(t, home), "nothing is written when the archive has no skills")
+}
+
+func TestSkillsLockLocationAndReset(t *testing.T) {
+	home, state := t.TempDir(), t.TempDir()
+	env := func(key string) string {
+		if key == "XDG_STATE_HOME" {
+			return state
+		}
+		return ""
+	}
+	lockFile := filepath.Join(state, "skills", ".skill-lock.json")
+	writeTestFile(t, lockFile, `{"version": 2, "skills": {"old": {}}}`)
+	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, env, nil, time.Now())
+	require.NoError(t, err)
+	assert.NoFileExists(t, filepath.Join(home, ".agents", ".skill-lock.json"))
+	lock := readLock(t, lockFile)
+	skills, _ := lock["skills"].(map[string]any)
+	assert.NotContains(t, skills, "old", "like the skills CLI, an outdated lock file starts over")
+	assert.Contains(t, skills, "blaxel-cli")
+
+	for _, broken := range []string{"not json", `{"version": 3, "skills": null}`, `[]`} {
+		writeTestFile(t, lockFile, broken)
+		_, err = installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, env, nil, time.Now())
+		require.NoError(t, err, broken)
+		lockedSkill(t, readLock(t, lockFile), "blaxel-sdk")
+	}
+}
+
+// The lock file records Git tree IDs, which the skills CLI compares with
+// GitHub to find updates. Check them against Git itself.
+func TestSkillsFolderHashMatchesGit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fixture has symlinks")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git is not installed")
+	}
+	repository := t.TempDir()
+	for _, entry := range testSkillsEntries() {
+		if strings.Contains(entry.name, "..") {
 			continue
 		}
-		assert.Regexp(t, regexp.MustCompile(`^\d+\.\d+\.\d+$`), pkg.Version, name)
-		assert.True(t, strings.HasPrefix(pkg.Resolved, "https://registry.npmjs.org/"), name)
-		require.True(t, strings.HasPrefix(pkg.Integrity, "sha512-"), name)
-		digest, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(pkg.Integrity, "sha512-"))
-		require.NoError(t, err)
-		assert.Len(t, digest, 64, name)
+		path := filepath.Join(repository, filepath.FromSlash(entry.name))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+		if entry.link != "" {
+			require.NoError(t, os.Symlink(entry.link, path))
+			continue
+		}
+		mode := os.FileMode(0644)
+		if entry.mode&0o111 != 0 {
+			mode = 0755
+		}
+		require.NoError(t, os.WriteFile(path, []byte(entry.body), mode))
 	}
-	assert.Equal(t, "1.7.0", lock.Packages["node_modules/skills"].Version)
-	assert.Equal(t, "sha512-OfePnDft+Xt9/tCoHdCUe5fkM8i+Q3QOSQO53hm7mKtsXyvc+CKOAAliVWZ484HS3cWx+6r+ob0AArixs3jYXw==", lock.Packages["node_modules/skills"].Integrity)
+	git := func(args ...string) string {
+		command := exec.Command(gitPath, append([]string{"-C", repository, "-c", "core.fileMode=true", "-c", "core.symlinks=true"}, args...)...)
+		command.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
+		output, err := command.CombinedOutput()
+		require.NoError(t, err, string(output))
+		return strings.TrimSpace(string(output))
+	}
+	git("init", "-q")
+	git("add", "-A")
+	tree := git("write-tree")
+
+	home := t.TempDir()
+	_, err = installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	lock := readLock(t, filepath.Join(home, ".agents", ".skill-lock.json"))
+	for _, skill := range []string{"blaxel-cli", "blaxel-sdk"} {
+		assert.Equal(t, git("rev-parse", tree+":skills/"+skill), lockedSkill(t, lock, skill)["skillFolderHash"], skill)
+	}
 }
 
-func TestSkillsInstallerEnvironment(t *testing.T) {
-	assert.Equal(t, []string{"HOME=/home/user", "PATH=/bin", "CODEX_HOME=/skills"}, skillsInstallerEnvironment([]string{
-		"HOME=/home/user", "NODE_OPTIONS=--require=/tmp/inject.js", "node_path=/tmp/modules",
-		"NPM_CONFIG_IGNORE_SCRIPTS=false", "npm_config_registry=https://evil.invalid", "PATH=/bin", "CODEX_HOME=/skills",
+func TestDownloadSkillsArchive(t *testing.T) {
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	var userAgent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userAgent = r.Header.Get("User-Agent")
+		if r.URL.Path == "/missing" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(archive)
 	}))
-}
-
-func TestPinnedSkillsCommands(t *testing.T) {
-	var output bytes.Buffer
-	var commands []*exec.Cmd
-	npm := filepath.Join(t.TempDir(), "npm")
-	var directory string
-	report, err := runPinnedSkills(context.Background(), "/trusted/node", npm, []string{"universal", "claude-code"}, &output, func(cmd *exec.Cmd) error {
-		commands = append(commands, cmd)
-		assert.Empty(t, cmd.Dir, "preserve caller directory for version-manager shims")
-		if directory == "" {
-			directory = skillsTestPrefix(t, cmd.Args)
-		}
-		data, err := os.ReadFile(filepath.Join(directory, "package-lock.json"))
-		require.NoError(t, err)
-		assert.Equal(t, skillsPackageLock, data)
-		assert.Same(t, &output, cmd.Stderr)
-		if len(commands) == 1 {
-			assert.Same(t, &output, cmd.Stdout)
-		} else {
-			assert.NotSame(t, &output, cmd.Stdout, "the JSON report is captured separately")
-			_, _ = cmd.Stdout.Write([]byte(`[{"name":"blaxel-cli","status":"installed"}]`))
-		}
-		assert.Nil(t, cmd.Stdin)
-		return nil
-	})
-	require.NoError(t, err)
-	assert.JSONEq(t, `[{"name":"blaxel-cli","status":"installed"}]`, string(report))
-	require.Len(t, commands, 2)
-	assert.Equal(t, []string{npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--engine-strict", "--registry=https://registry.npmjs.org"}, commands[0].Args[:7])
-	assert.Equal(t, []string{"/trusted/node", filepath.Join(directory, "node_modules", "skills", "bin", "cli.mjs"), "add", skillsRepo, "-g", "-y", "--skill", "*", "--json", "--agent", "universal", "claude-code"}, commands[1].Args)
-	assert.Equal(t, commands[0].Dir, commands[1].Dir)
-	_, err = os.Stat(directory)
-	assert.True(t, os.IsNotExist(err), "temporary package tree must be removed")
-}
-
-func TestPinnedSkillsPreparationFailureStopsExecution(t *testing.T) {
-	calls := 0
-	_, err := runPinnedSkills(context.Background(), "node", "npm-cli.js", []string{"universal"}, &bytes.Buffer{}, func(_ *exec.Cmd) error {
-		calls++
-		return errors.New("EINTEGRITY")
-	})
-	assert.ErrorContains(t, err, "EINTEGRITY")
-	assert.Equal(t, 1, calls)
-}
-
-func TestSkillsNPMCommandWindowsLayout(t *testing.T) {
-	directory := t.TempDir()
-	wrapper := filepath.Join(directory, "npm.cmd")
-	cli := filepath.Join(directory, "node_modules", "npm", "bin", "npm-cli.js")
-	require.NoError(t, os.MkdirAll(filepath.Dir(cli), 0700))
-	require.NoError(t, os.WriteFile(wrapper, []byte("@echo off"), 0600))
-	require.NoError(t, os.WriteFile(cli, []byte("// npm"), 0600))
-	actual, err := skillsNPMCommand("node", wrapper)
-	require.NoError(t, err)
-	resolved, err := filepath.EvalSymlinks(cli)
-	require.NoError(t, err)
-	assert.Equal(t, []string{"node", resolved}, actual)
-}
-
-// Exercise npm's actual integrity enforcement using a local tarball server.
-// No external registry or installed agent directory is used by this test.
-func TestPinnedSkillsRejectsChangedTarball(t *testing.T) {
-	node, err := exec.LookPath("node")
-	if err != nil {
-		t.Skip("node is unavailable")
-	}
-	npm, err := exec.LookPath("npm")
-	if err != nil {
-		t.Skip("npm is unavailable")
-	}
-	var archive bytes.Buffer
-	gz := gzip.NewWriter(&archive)
-	tarball := tar.NewWriter(gz)
-	manifest := []byte(`{"name":"skills","version":"1.7.0"}`)
-	require.NoError(t, tarball.WriteHeader(&tar.Header{Name: "package/package.json", Mode: 0600, Size: int64(len(manifest))}))
-	_, err = tarball.Write(manifest)
-	require.NoError(t, err)
-	require.NoError(t, tarball.Close())
-	require.NoError(t, gz.Close())
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(archive.Bytes()) }))
 	defer server.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	var output bytes.Buffer
-	calls := 0
-	_, err = runPinnedSkills(ctx, node, npm, []string{"universal"}, &output, func(cmd *exec.Cmd) error {
-		calls++
-		require.Equal(t, 1, calls, "installer must never run after an integrity mismatch")
-		fixture := map[string]any{
-			"name": "blaxel-skills-installer", "version": "1.0.0", "lockfileVersion": 3,
-			"packages": map[string]any{
-				"":                    map[string]any{"name": "blaxel-skills-installer", "version": "1.0.0", "dependencies": map[string]string{"skills": "1.7.0"}},
-				"node_modules/skills": map[string]string{"version": "1.7.0", "resolved": server.URL + "/skills.tgz", "integrity": "sha512-" + base64.StdEncoding.EncodeToString(make([]byte, 64))},
-			},
-		}
-		data, marshalErr := json.Marshal(fixture)
-		require.NoError(t, marshalErr)
-		require.NoError(t, os.WriteFile(filepath.Join(skillsTestPrefix(t, cmd.Args), "package-lock.json"), data, 0600))
-		cmd.Args = append(cmd.Args, "--fetch-retries=0")
-		return cmd.Run()
-	})
-	require.Error(t, err)
-	assert.Equal(t, 1, calls)
-	assert.Contains(t, output.String(), "EINTEGRITY")
+
+	t.Setenv(skillsArchiveURLEnv, server.URL+"/archive.tar.gz")
+	data, err := downloadSkillsArchive(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, archive, data)
+	assert.True(t, strings.HasPrefix(userAgent, "blaxel-cli/"), userAgent)
+
+	t.Setenv(skillsArchiveURLEnv, server.URL+"/missing")
+	_, err = downloadSkillsArchive(context.Background())
+	assert.ErrorContains(t, err, "404")
 }
 
-func skillsTestPrefix(t *testing.T, args []string) string {
-	t.Helper()
-	for _, arg := range args {
-		if prefix, found := strings.CutPrefix(arg, "--prefix="); found {
-			return prefix
-		}
+func TestSkillManifestName(t *testing.T) {
+	for manifest, expected := range map[string]string{
+		skillManifest("blaxel-cli"):                                                     "blaxel-cli",
+		"---\r\nname: Windows\r\ndescription: CRLF.\r\n---\r\n":                         "Windows",
+		"---\nname: quoted\ndescription: \"a: b\"\nmetadata:\n  internal: false\n---\n": "quoted",
+		"---\nname: internal\ndescription: x\nmetadata:\n  internal: true\n---\n":       "",
+		"---\nname: no-description\n---\n":                                              "",
+		"---\nname: [a]\ndescription: not a string name\n---\n":                         "",
+		"---\nname: unterminated\ndescription: x\n":                                     "",
+		"# No frontmatter\n":                                                            "",
+		"---\nname: : :\n---\n":                                                         "",
+	} {
+		name, ok := skillManifestName([]byte(manifest))
+		assert.Equal(t, expected, name, manifest)
+		assert.Equal(t, expected != "", ok, manifest)
 	}
-	t.Fatal("npm command is missing its isolated prefix")
-	return ""
 }
 
-func TestSkillsNPMCommandNativeExecutable(t *testing.T) {
-	// The Go test executable stands in for native version-manager launchers.
-	executable, err := os.Executable()
-	require.NoError(t, err)
-	command, err := skillsNPMCommand("unused-node", executable)
-	require.NoError(t, err)
-	require.Equal(t, []string{executable}, command)
-	output, err := exec.Command(command[0], "-test.run=^$").CombinedOutput()
-	require.NoError(t, err, string(output))
-	command, err = skillsNPMCommand("unused-node", filepath.Join(t.TempDir(), "npm.exe"))
-	require.NoError(t, err)
-	require.Len(t, command, 1, "native Windows shims must not be interpreted as JavaScript")
-}
-
-func TestPinnedSkillsExecutesShellShim(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell shim")
+func TestSanitizeSkillName(t *testing.T) {
+	for name, expected := range map[string]string{
+		"blaxel-cli": "blaxel-cli", "Blaxel SDK": "blaxel-sdk", "../../etc": "etc", "a/b": "a-b",
+		"--x--": "x", "...": "unnamed-skill", "v1.2_beta": "v1.2_beta", strings.Repeat("a", 300): strings.Repeat("a", 255),
+	} {
+		assert.Equal(t, expected, sanitizeSkillName(name), name)
 	}
-	directory := t.TempDir()
-	shim := filepath.Join(directory, "npm-shim")
-	require.NoError(t, os.WriteFile(shim, []byte("#!/bin/sh\nprintf 'shim:%s' \"$1\"\n"), 0700))
-	alias := filepath.Join(directory, "npm")
-	require.NoError(t, os.Symlink(shim, alias))
-	var output bytes.Buffer
-	calls := 0
-	_, err := runPinnedSkills(context.Background(), "unused-node", alias, []string{"universal"}, &output, func(cmd *exec.Cmd) error {
-		calls++
-		if calls == 1 {
-			assert.Equal(t, alias, cmd.Path, "preserve shim symlink invocation")
-			return cmd.Run()
+}
+
+// The folders match the global skills folders of the skills package.
+func TestSkillsAgentDir(t *testing.T) {
+	home := t.TempDir()
+	env := map[string]string{"XDG_CONFIG_HOME": filepath.Join(home, "xdg")}
+	paths := newSkillsAgentPaths(home, func(key string) string { return env[key] })
+	expected := map[string]string{
+		"claude-code": ".claude/skills", "windsurf": ".codeium/windsurf/skills", "goose": "xdg/goose/skills",
+		"kiro-cli": ".kiro/skills", "roo": ".roo/skills", "continue": ".continue/skills", "augment": ".augment/skills",
+		"junie": ".junie/skills", "trae": ".trae/skills", "qwen-code": ".qwen/skills", "openhands": ".openhands/skills",
+		"pi": ".pi/agent/skills", "crush": ".config/crush/skills", "devin": "xdg/devin/skills", "openclaw": ".openclaw/skills",
+	}
+	for _, agent := range skillsAgents {
+		if agent.universal {
+			continue
 		}
-		return nil
-	})
-	require.NoError(t, err)
-	assert.Equal(t, "shim:ci", output.String())
-	assert.Equal(t, 2, calls)
+		relative, ok := expected[agent.id]
+		require.True(t, ok, "add %s to this test", agent.id)
+		assert.Equal(t, filepath.Join(home, filepath.FromSlash(relative)), skillsAgentDir(agent, paths), agent.id)
+	}
+	openclaw, _ := findSkillsAgent("openclaw")
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".clawdbot"), 0755))
+	assert.Equal(t, filepath.Join(home, ".clawdbot", "skills"), skillsAgentDir(openclaw, paths))
+	env["CLAUDE_CONFIG_DIR"] = filepath.Join(home, "claude")
+	claude, _ := findSkillsAgent("claude-code")
+	assert.Equal(t, filepath.Join(home, "claude", "skills"), skillsAgentDir(claude, paths))
 }
 
 func TestDetectSkillsAgents(t *testing.T) {
@@ -241,46 +453,6 @@ func TestDetectSkillsAgents(t *testing.T) {
 	assert.Equal(t, []string{"Claude Code", "Codex", "Cursor", "OpenCode"}, names)
 }
 
-func TestSkillsNodeVersionSupported(t *testing.T) {
-	for version, supported := range map[string]bool{
-		"v22.20.0": true, "v22.21.1": true, "v23.0.0": true, "v26.3.0": true, "v22.20.0-nightly": true,
-		"v22.19.9": false, "v20.11.0": false, "v18.0.0": false, "": false, "garbage": false,
-	} {
-		assert.Equal(t, supported, skillsNodeVersionSupported(version), version)
-	}
-}
-
-func TestParseSkillsResult(t *testing.T) {
-	skills, err := parseSkillsResult([]byte(`[{"name":"blaxel-cli","status":"installed"},{"name":"blaxel-sdk","status":"installed"}]` + "\n"))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"blaxel-cli", "blaxel-sdk"}, skills)
-
-	skills, err = parseSkillsResult([]byte("Update available: skills 1.8.0\n" + `[{"name":"blaxel-cli","status":"installed"}]`))
-	require.NoError(t, err)
-	assert.Equal(t, []string{"blaxel-cli"}, skills)
-
-	_, err = parseSkillsResult([]byte(`[{"name":"blaxel-cli","status":"failed","error":"boom"}]`))
-	assert.ErrorContains(t, err, "blaxel-cli: boom")
-	_, err = parseSkillsResult([]byte(`[]`))
-	assert.ErrorContains(t, err, "no skills were installed")
-	_, err = parseSkillsResult([]byte("not json"))
-	assert.ErrorContains(t, err, "unexpected installer output")
-}
-
-func TestWithSkillsLog(t *testing.T) {
-	var log strings.Builder
-	for i := 0; i < 30; i++ {
-		log.WriteString("\x1b[32mline " + strconv.Itoa(i) + "\x1b[0m\n│\n")
-	}
-	err := withSkillsLog(errors.New("installing skills: exit status 1"), []byte(log.String()))
-	message := err.Error()
-	assert.True(t, strings.HasPrefix(message, "installing skills: exit status 1\n"))
-	assert.Contains(t, message, "line 29")
-	assert.NotContains(t, message, "line 14\n")
-	assert.NotContains(t, message, "\x1b")
-	assert.Equal(t, errors.New("x").Error(), withSkillsLog(errors.New("x"), nil).Error())
-}
-
 func TestSkillsInstalledMessage(t *testing.T) {
 	skills := []string{"blaxel-cli", "blaxel-sdk"}
 	assert.Equal(t, "Blaxel skills installed to ~/.agents/skills (blaxel-cli, blaxel-sdk). Restart your coding agent to load them.",
@@ -295,4 +467,41 @@ func TestIsSkillsCommand(t *testing.T) {
 	assert.True(t, isSkillsCommand([]string{"skills", "install"}))
 	assert.False(t, isSkillsCommand([]string{"get", "skills"}))
 	assert.False(t, isSkillsCommand(nil))
+}
+
+func TestDownloadSkillsArchiveRetriesBriefProblems(t *testing.T) {
+	previous := skillsDownloadAttempts
+	skillsDownloadAttempts = []time.Duration{0, time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { skillsDownloadAttempts = previous })
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.URL.Path == "/flaky" && calls < 3 {
+			w.WriteHeader(http.StatusBadGateway)
+			return
+		}
+		if r.URL.Path == "/gone" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(archive)
+	}))
+	defer server.Close()
+
+	t.Setenv(skillsArchiveURLEnv, server.URL+"/flaky")
+	data, err := downloadSkillsArchive(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, archive, data)
+	assert.Equal(t, 3, calls)
+
+	calls = 0
+	t.Setenv(skillsArchiveURLEnv, server.URL+"/gone")
+	_, err = downloadSkillsArchive(context.Background())
+	assert.ErrorContains(t, err, "404")
+	assert.Equal(t, 1, calls, "a missing archive is not retried")
+
+	t.Setenv(skillsArchiveURLEnv, "http://127.0.0.1:1/unreachable")
+	_, err = downloadSkillsArchive(context.Background())
+	assert.EqualError(t, err, "couldn't reach 127.0.0.1:1 · check your connection")
 }

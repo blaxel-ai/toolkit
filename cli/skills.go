@@ -22,7 +22,7 @@ const (
 	skillsInstallEnv = "BL_INSTALL_SKILLS"
 )
 
-// skillsInstallCommand is the shared, integrity-checked installation entry point.
+// skillsInstallCommand is the command that installs or refreshes the skills.
 func skillsInstallCommand() string {
 	return "bl skills install"
 }
@@ -53,7 +53,7 @@ func installSkills() {
 		return
 	}
 	// A first invocation of `bl upgrade` also passes through startup setup.
-	// Both paths use the same installer, but only one npm process is needed.
+	// Both paths use the same installer, but only one download is needed.
 	if err := installSkillsOnce(); err != nil {
 		// Startup setup and bl upgrade can share one failed attempt; report it once.
 		skillsReportOnce.Do(func() {
@@ -72,7 +72,7 @@ func runSkillsInstall() error {
 	fmt.Fprintln(os.Stderr, "Installing Blaxel skills for coding agents...")
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	result, err := installPinnedSkills(ctx)
+	result, err := installDetectedSkills(ctx)
 	if err != nil {
 		return err
 	}
@@ -85,8 +85,38 @@ func skillsInstalledMessage(result skillsInstallResult) string {
 	if len(result.agents) > 0 {
 		target = "for " + joinSkillsNames(result.agents)
 	}
-	return fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
-		target, strings.Join(result.skills, ", "))
+	var messages []string
+	if len(result.skills) > 0 {
+		messages = append(messages, fmt.Sprintf("Blaxel skills installed %s (%s). Restart your coding agent to load them.",
+			target, strings.Join(result.skills, ", ")))
+	}
+	if len(result.preserved) > 0 {
+		messages = append(messages, "Kept externally managed Blaxel skills ("+strings.Join(result.preserved, ", ")+"); their contents and upstream update records were left unchanged.")
+	}
+	if len(result.repaired) > 0 {
+		messages = append(messages, "Automatically linked skill paths to existing copies.")
+	}
+	for _, backup := range result.backups {
+		messages = append(messages, "Previous copy backed up at "+backup)
+	}
+	return strings.Join(messages, "\n")
+}
+
+func skillsInstallDetail(result skillsInstallResult) string {
+	detail := strings.Join(result.skills, ", ")
+	if len(result.preserved) > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "kept externally managed: " + strings.Join(result.preserved, ", ")
+	}
+	if len(result.repaired) > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "skill paths auto-fixed"
+	}
+	return detail
 }
 
 func joinSkillsNames(names []string) string {

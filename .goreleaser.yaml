@@ -65,12 +65,12 @@ brews:
     caveats: |
       Blaxel is a tool to ship AI agents that never slack.
 
-      Blaxel skills for coding agents (Claude Code, Codex, Cursor, ...) are installed
-      the first time you run any bl command after installation or upgrade, into
-      ~/.agents/skills and the agents detected on this machine.
-      Requires Node.js 22.20+, npm and git. Set BL_INSTALL_SKILLS=false to skip.
-      To install or retry manually:
-        bl skills install
+      Finish setting up Blaxel: install the skills and MCP servers for your
+      coding agents (Claude Code, Codex, Cursor, ...) and log in:
+        bl setup
+
+      Otherwise the Blaxel skills are installed the first time you run any bl
+      command after installation or upgrade (BL_INSTALL_SKILLS=false skips them).
       bl upgrade also refreshes the skills. Installation failures never block the CLI.
     homepage: "https://www.blaxel.ai"
     skip_upload: auto
