@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
 	"slices"
 	"time"
 
@@ -75,11 +77,13 @@ func LoginDevice(workspace string) {
 // asked: the workspace is chosen for them and the login URL is printed on its
 // own line. Failures are returned, so callers such as bl setup can carry on.
 func LoginWithDevice(workspace string) error {
-	return loginWithDevice(workspace, core.IsTerminalInteractive())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	return loginWithDevice(ctx, workspace, core.IsTerminalInteractive())
 }
 
-func loginWithDevice(workspace string, interactive bool) error {
-	deviceLogin, opened, err := StartDeviceLogin(context.Background())
+func loginWithDevice(ctx context.Context, workspace string, interactive bool) error {
+	deviceLogin, opened, err := StartDeviceLogin(ctx)
 	if err != nil {
 		return err
 	}
@@ -100,14 +104,21 @@ func loginWithDevice(workspace string, interactive bool) error {
 		core.PrintInfo("Waiting for you to confirm the login in your browser...")
 	}
 
-	creds, err := WaitForDeviceLogin(context.Background(), deviceLogin.DeviceCode)
+	creds, err := WaitForDeviceLogin(ctx, deviceLogin.DeviceCode)
 	if err != nil {
 		return err
 	}
 	if workspace == "" {
-		if workspace, err = chooseWorkspace(creds, interactive); err != nil {
+		names, err := WaitForLoginWorkspaces(ctx, creds, func(note string) { core.Print(note) })
+		if err != nil {
 			return err
 		}
+		if workspace, err = chooseWorkspace(names, interactive); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if err := SaveDeviceLogin(workspace, creds); err != nil {
 		return err
@@ -284,11 +295,7 @@ func currentWorkspaceIndex(names []string) int {
 
 // chooseWorkspace returns the user's only workspace, or asks which one to use.
 // Without a terminal it chooses one and says how to use another.
-func chooseWorkspace(creds blaxel.Credentials, interactive bool) (string, error) {
-	workspaces, err := LoginWorkspaces(creds)
-	if err != nil {
-		return "", err
-	}
+func chooseWorkspace(workspaces []string, interactive bool) (string, error) {
 	if len(workspaces) == 1 {
 		return workspaces[0], nil
 	}

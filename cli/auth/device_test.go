@@ -140,6 +140,7 @@ func TestCurrentWorkspaceIndex(t *testing.T) {
 }
 
 func TestAskWorkspaceStartsOnCurrentWorkspace(t *testing.T) {
+	t.Setenv("TERM", "xterm-256color")
 	names := []string{"alpha", "beta", "gamma"}
 	const enter, down = "\r", "\x1b[B"
 	for _, tc := range []struct{ name, current, keys, want string }{
@@ -242,7 +243,7 @@ func TestLoginWithoutTerminalChoosesTheWorkspace(t *testing.T) {
 			useCurrentWorkspace(t, tc.current)
 			loginServer(t, tc.workspaces...)
 			var err error
-			out := captureStdout(t, func() { err = loginWithDevice(tc.named, false) })
+			out := captureStdout(t, func() { err = loginWithDevice(context.Background(), tc.named, false) })
 			require.NoError(t, err)
 
 			current, err := blaxel.CurrentContext()
@@ -285,7 +286,7 @@ func TestDeviceLoginMessages(t *testing.T) {
 				return errors.New("no browser")
 			}
 			var err error
-			out := captureStdout(t, func() { err = loginWithDevice("", tc.interactive) })
+			out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "", tc.interactive) })
 			require.NoError(t, err)
 			assert.True(t, strings.HasPrefix(out, tc.want), "output starts with %q, got %q", tc.want, out)
 			assert.Equal(t, !tc.interactive, waiting.MatchString(out), "only without a terminal does it say how long it waits")

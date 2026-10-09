@@ -10,6 +10,10 @@ Set up Blaxel for your coding agents and log in
 
 Set up everything Blaxel needs on this machine, then log in.
 
+When logging in without a specified workspace, if your account has no
+workspaces, setup opens the Console so you can create or join one, and waits
+up to five minutes for it to become available.
+
 For the coding agents found on this machine (Claude Code, Codex, Cursor, ...),
 setup installs the Blaxel agent skills and adds two MCP servers: blaxel, to
 manage your workspace resources, and blaxel-docs, to search the Blaxel
