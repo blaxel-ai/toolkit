@@ -45,6 +45,7 @@ func usageProperties(event string, input map[string]any) map[string]any {
 		"os":                      allowedValue(runtime.GOOS, "darwin", "linux", "windows"),
 		"architecture":            allowedValue(runtime.GOARCH, "amd64", "arm64", "386", "arm"),
 		"install_method":          usageInstallMethod(),
+		"environment":             usageEnvironment(),
 	}
 	if usageVersion.MatchString(GetVersion()) {
 		properties["cli_version"] = GetVersion()
@@ -70,6 +71,13 @@ func usageProperties(event string, input map[string]any) map[string]any {
 		properties["resource_category"] = allowedValue(kind, "Agent", "Function", "Sandbox", "Job", "Model", "Volume", "Drive")
 	}
 	return properties
+}
+
+// usageEnvironment is the Blaxel environment the CLI is pointed at (BL_ENV or
+// the workspace's environment), so dev and prod events can be told apart in
+// one analytics project. Anything outside the known environments is "unknown".
+func usageEnvironment() string {
+	return allowedValue(string(blaxel.GetEnvironment()), string(blaxel.EnvProduction), string(blaxel.EnvDevelopment), string(blaxel.EnvLocal))
 }
 
 func allowedValue(value string, allowed ...string) string {

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -80,7 +81,7 @@ func TestUsagePayloadAllowlistAndRandomLocalID(t *testing.T) {
 		assert.Regexp(t, usageID, id)
 		assert.Equal(t, getDistinctID(), id)
 		props := payload["properties"].(map[string]any)
-		keys := []string{"$process_person_profile", "$geoip_disable", "os", "architecture", "install_method", "cli_version"}
+		keys := []string{"$process_person_profile", "$geoip_disable", "os", "architecture", "install_method", "environment", "cli_version"}
 		switch event {
 		case "Installed CLI":
 			keys = append(keys, "version")
@@ -101,6 +102,7 @@ func TestUsagePayloadAllowlistAndRandomLocalID(t *testing.T) {
 		slices.Sort(actualKeys)
 		assert.Equal(t, keys, actualKeys)
 		assert.Equal(t, "1.2.3", props["cli_version"])
+		assert.Equal(t, "prod", props["environment"])
 		assert.Equal(t, false, props["$process_person_profile"])
 		assert.Equal(t, true, props["$geoip_disable"])
 		assert.NotContains(t, props, "workspace")
@@ -224,4 +226,17 @@ func TestUsageTransportBoundsConcurrencyAndDropsOfflineAttempts(t *testing.T) {
 	assert.Zero(t, successes.Load())
 	assert.LessOrEqual(t, requests.Load(), int32(cap(posthogSlots)))
 	assert.Empty(t, posthogSlots)
+}
+
+func TestUsageEnvironmentSeparatesDevFromProd(t *testing.T) {
+	original := blaxel.GetEnvironment()
+	t.Cleanup(func() { blaxel.SetEnvironment(original) })
+	for environment, want := range map[blaxel.Environment]string{
+		blaxel.EnvProduction:  "prod",
+		blaxel.EnvDevelopment: "dev",
+		blaxel.EnvLocal:       "local",
+	} {
+		blaxel.SetEnvironment(environment)
+		assert.Equal(t, want, usageProperties("Login CLI", nil)["environment"])
+	}
 }
