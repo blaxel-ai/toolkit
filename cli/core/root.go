@@ -237,6 +237,12 @@ var rootCmd = &cobra.Command{
 		// Command paths contain only registered command names, never user args.
 		SetSentryTag("command.class", cmd.CommandPath())
 
+		// bl mcp speaks JSON-RPC on stdout to a coding agent: nothing else may
+		// print there. It reads the login itself, for every request.
+		if IsMCPBridgeCommand(cmd) {
+			return nil
+		}
+
 		// Skip version warning for specific commands/conditions
 		shouldSkipWarning := skipVersionWarning || cmd.Name() == "setup" ||
 			cmd.Name() == "__complete" ||
@@ -251,12 +257,16 @@ var rootCmd = &cobra.Command{
 			checkForUpdates(version)
 		}
 
-		// Load .env file for all commands except serve, deploy, run, and apply cause they use envFiles
+		// Load .env file for all commands except serve, deploy, run, and apply cause they use envFiles.
+		// setup and upgrade configure this machine, not a project, so a project's
+		// .env must not steer them (for example CLAUDE_CONFIG_DIR).
 		excludedCommands := map[string]bool{
-			"serve":  true,
-			"deploy": true,
-			"run":    true,
-			"apply":  true,
+			"serve":   true,
+			"deploy":  true,
+			"run":     true,
+			"apply":   true,
+			"setup":   true,
+			"upgrade": true,
 		}
 		if !excludedCommands[cmd.Name()] {
 			if err := godotenv.Load(); err != nil {
@@ -649,6 +659,12 @@ func isTrackingPromptCommandExempt(args []string) bool {
 	}
 
 	cmd := args[1]
-	// bl setup asks about error reports itself.
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup"
+	// bl setup asks about error reports itself; bl mcp has no terminal.
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup" || cmd == "mcp"
+}
+
+// IsMCPBridgeCommand reports bl mcp, which keeps stdout for JSON-RPC. bl get
+// mcp is an alias of functions and does not match.
+func IsMCPBridgeCommand(cmd *cobra.Command) bool {
+	return cmd.Name() == "mcp" && cmd.Parent() == cmd.Root()
 }

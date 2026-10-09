@@ -111,3 +111,26 @@ func executeLoginWorkspaceResolver(t *testing.T, args []string) (string, string,
 
 	return workspace, suggestion, resolveErr
 }
+
+func TestLoginMethod(t *testing.T) {
+	tests := []struct {
+		name        string
+		workspace   string
+		env         map[string]string
+		interactive bool
+		want        string
+	}{
+		{"no workspace uses the browser", "", nil, true, loginMethodBrowser},
+		{"no workspace and no terminal uses the browser", "", map[string]string{"BL_API_KEY": "key"}, false, loginMethodBrowser},
+		{"client credentials come first", "ws", map[string]string{"BL_CLIENT_CREDENTIALS": "creds", "BL_API_KEY": "key"}, true, loginMethodClientCredentials},
+		{"API key from the environment", "ws", map[string]string{"BL_API_KEY": "key"}, true, loginMethodAPIKey},
+		{"API key from the environment without a terminal", "ws", map[string]string{"BL_API_KEY": "key"}, false, loginMethodAPIKey},
+		{"a terminal asks which method", "ws", nil, true, loginMethodMenu},
+		{"no terminal skips the menu", "ws", nil, false, loginMethodBrowser},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, loginMethod(tc.workspace, func(key string) string { return tc.env[key] }, tc.interactive))
+		})
+	}
+}

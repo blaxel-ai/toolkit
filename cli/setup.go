@@ -64,10 +64,15 @@ func SetupCmd() *cobra.Command {
 		Short: "Set up Blaxel for your coding agents and log in",
 		Long: `Set up everything Blaxel needs on this machine, then log in.
 
+When logging in without a specified workspace, if your account has no
+workspaces, setup opens the Console so you can create or join one, and waits
+up to five minutes for it to become available.
+
 For the coding agents found on this machine (Claude Code, Codex, Cursor, ...),
-setup installs the Blaxel agent skills and adds two hosted MCP servers:
-blaxel, to manage your workspace resources, and blaxel-docs, to search the
-Blaxel documentation. It then logs you in to Blaxel in your browser.
+setup installs the Blaxel agent skills and adds two MCP servers: blaxel, to
+manage your workspace resources, and blaxel-docs, to search the Blaxel
+documentation. It then logs you in to Blaxel in your browser. The agents use
+that login through bl mcp, so they need no sign-in of their own.
 
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
@@ -80,8 +85,10 @@ keep the SDK's existing DO_NOT_TRACK semantics.
 
 Events, properties and opt-outs: ` + core.UsageDisclosureURL + `
 
-Setup only adds what is missing. Existing MCP server entries are left
-unchanged, and it is safe to run again after installing another agent.`,
+Setup only adds what is missing, and it is safe to run again after
+installing another agent. MCP server entries you configured yourself are left
+unchanged; the hosted blaxel server added by earlier versions is switched to
+bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 		Example: `  # See what setup found, then press Enter to install
   bl setup
 
@@ -113,7 +120,11 @@ unchanged, and it is safe to run again after installing another agent.`,
 			options.trackingEnabled = blaxel.IsTrackingEnabled
 			options.setTracking = blaxel.SetTracking
 			options.mcp = newMCPEnv(home)
-			options.resourceServer, options.documentsServer = resourceMCPServer(), docsMCPServer()
+			bl, pathErr := blCommandPath(os.Executable)
+			if pathErr != nil {
+				return pathErr
+			}
+			options.resourceServer, options.documentsServer = resourceMCPServer(bl), docsMCPServer()
 			err = runSetup(cmd.Context(), options)
 			var problems setupProblems
 			if errors.As(err, &problems) {
@@ -129,7 +140,7 @@ unchanged, and it is safe to run again after installing another agent.`,
 	cmd.Flags().BoolVar(&options.skipLogin, "skip-login", false, "Do not log in to Blaxel")
 	_ = cmd.RegisterFlagCompletionFunc("agent", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		ids := make([]string, 0, len(skillsAgents))
-		for _, agent := range skillsAgents {
+		for _, agent := range setupAgents() {
 			ids = append(ids, agent.id+"\t"+agent.name)
 		}
 		return ids, cobra.ShellCompDirectiveNoFileComp
@@ -186,7 +197,11 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 		return "", err
 	}
 	if workspace == "" {
-		names, err := auth.LoginWorkspaces(creds)
+		c.Progress("checking your workspaces")
+		names, err := auth.WaitForLoginWorkspaces(ctx, creds, func(note string) {
+			c.Progress("waiting for you to create or join a workspace")
+			c.Note(note)
+		})
 		if err != nil {
 			return "", err
 		}
@@ -198,6 +213,9 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 			}
 			workspace = names[index]
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	c.Progress("saving your login")
 	return workspace, auth.SaveDeviceLogin(workspace, creds)
@@ -217,19 +235,32 @@ type setupPlan struct {
 
 // agentStatus is what an agent already has from an earlier setup.
 type agentStatus struct {
-	skills  bool
-	mcp     bool     // the agent takes MCP servers
-	has     []string // Blaxel MCP servers it already has
-	missing []string // Blaxel MCP servers it lacks
+	skills   bool
+	noSkills bool     // the agent takes MCP servers only (Claude Desktop)
+	mcp      bool     // the agent takes MCP servers
+	has      []string // Blaxel MCP servers it already has
+	missing  []string // Blaxel MCP servers it lacks or has in an outdated form
+	outdated []string // of missing, those an earlier setup wrote
+	plugin   bool     // the Blaxel plugin supplies the blaxel server
+}
+
+// label names a server the agent has, and says when the plugin supplies it.
+func (s agentStatus) label(name string) string {
+	if name == "blaxel" && s.plugin {
+		return mcpLabel(name) + pluginLabelSuffix
+	}
+	return mcpLabel(name)
 }
 
 // complete reports whether the agent has everything setup offers.
 func (s agentStatus) complete(skills, mcp bool) bool {
-	return (!skills || s.skills) && (!mcp || !s.mcp || len(s.missing) == 0)
+	return (!skills || s.skills || s.noSkills) && (!mcp || !s.mcp || len(s.missing) == 0)
 }
 
 // fresh reports whether an earlier setup left nothing in the agent.
-func (s agentStatus) fresh() bool { return !s.skills && len(s.has) == 0 }
+func (s agentStatus) fresh() bool {
+	return (s.noSkills || !s.skills) && len(s.has) == 0 && len(s.outdated) == 0
+}
 
 func newSetupPlan(options setupOptions) (setupPlan, error) {
 	plan := setupPlan{}
@@ -245,20 +276,32 @@ func newSetupPlan(options setupOptions) (setupPlan, error) {
 			}
 		}
 	} else {
-		plan.agents = detectedSkillsAgents(options.home, options.env)
+		plan.agents = detectedSetupAgents(options.home, options.env)
 	}
 	plan.loggedIn = options.loginState(options.workspace)
 	plan.skills = installedBlaxelSkills(options.home, options.env)
 	plan.status = map[string]agentStatus{}
 	for _, agent := range plan.agents {
-		status := agentStatus{skills: skillsInstalledFor(agent, options.home, options.env, plan.skills)}
+		status := agentStatus{noSkills: isMCPOnlyAgent(agent.id)}
+		if !status.noSkills {
+			status.skills = skillsInstalledFor(agent, options.home, options.env, plan.skills)
+		}
 		if target, ok := mcpTargets[agent.id]; ok {
 			status.mcp = true
-			plugin := target.hasPlugin != nil && target.hasPlugin(options.mcp)
+			plugin := target.pluginServes(options.mcp)
+			status.plugin = plugin
 			for _, server := range []mcpServer{options.resourceServer, options.documentsServer} {
-				if (server.plugin && plugin) || (target.has != nil && target.has(options.mcp, server.name)) {
+				if !target.takes(server) {
+					continue
+				}
+				state := classifyMCPEntry(options.mcp, server, target.entry(options.mcp, server.name))
+				switch {
+				case server.plugin && plugin, state == mcpEntryCurrent, state == mcpEntryCustom:
 					status.has = append(status.has, server.name)
-				} else {
+				case state == mcpEntryOutdated:
+					status.missing = append(status.missing, server.name)
+					status.outdated = append(status.outdated, server.name)
+				default:
 					status.missing = append(status.missing, server.name)
 				}
 			}
@@ -270,7 +313,7 @@ func newSetupPlan(options setupOptions) (setupPlan, error) {
 
 func skillsAgentIDs() []string {
 	ids := make([]string, 0, len(skillsAgents))
-	for _, agent := range skillsAgents {
+	for _, agent := range setupAgents() {
 		ids = append(ids, agent.id)
 	}
 	return ids
@@ -302,7 +345,10 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 		status := plan.status[agent.id]
 		firstRun = firstRun && status.fresh()
 		capabilities := "skills"
-		if status.mcp && offerMCP {
+		switch {
+		case status.noSkills:
+			capabilities = "MCP"
+		case status.mcp && offerMCP:
 			capabilities = "skills · MCP"
 		}
 		if status.complete(offerSkills, offerMCP) {
@@ -315,18 +361,33 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 		toSetUp++
 		detail := capabilities
 		if !status.fresh() {
-			var missing []string
-			if offerSkills && !status.skills {
-				missing = append(missing, "skills")
+			var add, update []string
+			if offerSkills && !status.skills && !status.noSkills {
+				add = append(add, "skills")
 			}
-			if offerMCP && len(status.missing) == 2 {
-				missing = append(missing, "MCP")
-			} else if offerMCP {
+			if offerMCP {
+				var adds []string
 				for _, name := range status.missing {
-					missing = append(missing, name+" MCP")
+					if slices.Contains(status.outdated, name) {
+						update = append(update, mcpLabel(name))
+					} else {
+						adds = append(adds, mcpLabel(name))
+					}
 				}
+				if len(adds) == 2 {
+					adds = []string{"MCP"}
+				}
+				add = append(add, adds...)
 			}
-			detail = "add " + strings.Join(missing, ", ")
+			var parts []string
+			if len(add) > 0 {
+				parts = append(parts, "add "+strings.Join(add, ", "))
+			}
+			if len(update) > 0 {
+				// The hosted server from before bl mcp: no more sign-ins.
+				parts = append(parts, "switch "+strings.Join(update, ", ")+" to your bl login")
+			}
+			detail = strings.Join(parts, " · ")
 		}
 		for _, name := range status.missing {
 			needs[name]++
@@ -511,7 +572,7 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 	// where links are unavailable (Windows), their folders are copies.
 	var skillsAgents []skillsAgent
 	for _, agent := range plan.agents {
-		if chosen["agent:"+agent.id] || plan.status[agent.id].skills {
+		if (chosen["agent:"+agent.id] || plan.status[agent.id].skills) && !plan.status[agent.id].noSkills {
 			skillsAgents = append(skillsAgents, agent)
 		}
 	}
@@ -543,7 +604,7 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 	}
 	for _, agent := range agents {
 		target, ok := mcpTargets[agent.id]
-		if !ok || len(servers) == 0 {
+		if !ok || !slices.ContainsFunc(servers, target.takes) {
 			continue
 		}
 		tasks = append(tasks, ui.Task{ID: "mcp:" + agent.id, Label: agent.name, Group: "MCP servers", Run: func(ctx context.Context, c *ui.Control) (string, error) {
@@ -615,15 +676,18 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		status := plan.status[agent.id]
 		_, ran := results["mcp:"+agent.id]
 		if offerSkills, offerMCP := setupOffers(options); !ran && status.complete(offerSkills, offerMCP) {
-			parts = append(parts, "already set up", "skills")
+			parts = append(parts, "already set up")
+			if !status.noSkills {
+				parts = append(parts, "skills")
+			}
 			for _, name := range status.has {
-				parts = append(parts, mcpLabel(name))
+				parts = append(parts, status.label(name))
 			}
 			line.Detail = strings.Join(parts, " · ")
 			summary.Lines = append(summary.Lines, line)
 			continue
 		}
-		if chosen["skills"] && skillsFailed == nil && len(outcome.skills) > 0 {
+		if chosen["skills"] && skillsFailed == nil && len(outcome.skills) > 0 && !status.noSkills {
 			parts = append(parts, "skills")
 		}
 		if result, ok := results["mcp:"+agent.id]; ok {
@@ -631,6 +695,9 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 				line.Failed, parts = true, []string{setupError(result.Err)}
 			} else {
 				parts = append(parts, outcome.mcp[agent.id].servers()...)
+				if status.plugin && !slices.Contains(outcome.mcp[agent.id].plugin, "blaxel") {
+					parts = append(parts, status.label("blaxel"))
+				}
 			}
 		}
 		if len(parts) == 0 {
@@ -702,19 +769,8 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 	if loggedIn == "" && !options.skipLogin && !envDisabled(options.env, loginInstallEnv) {
 		summary.Next = append(summary.Next, [2]string{"bl login", "log in to Blaxel"})
 	}
-	// The hosted Blaxel MCP server signs each agent in once, with OAuth.
-	var signIns [][2]string
-	for _, agent := range agents {
-		target, ok := mcpTargets[agent.id]
-		if result, added := outcome.mcp[agent.id]; added && result.needsSignIn && ok && target.signIn != "" {
-			signIns = append(signIns, [2]string{agent.name, target.signIn})
-		}
-	}
-	switch {
-	case len(signIns) > 0:
-		summary.Next = append(summary.Next, [2]string{"Restart your agents", "and sign each in to Blaxel MCP:"})
-		summary.Next = append(summary.Next, signIns...)
-	case len(summary.Lines) > 0 && len(agents) > 0:
+	// The agents sign in through bl mcp with the bl login: no sign-in each.
+	if len(summary.Lines) > 0 && len(agents) > 0 {
 		summary.Next = append(summary.Next, [2]string{"Restart your agents", `and ask: "Create a Blaxel sandbox"`})
 	}
 	if summary.Problems > 0 {
@@ -724,30 +780,33 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 }
 
 type mcpAgentResult struct {
-	added, existing, plugin []string
-	needsSignIn             bool
-	err                     error
+	added, updated, existing, plugin []string
+	err                              error
 }
 
 func configureAgentMCP(ctx context.Context, env mcpEnv, target mcpTarget, servers []mcpServer) mcpAgentResult {
 	result := mcpAgentResult{}
+	plugin := target.pluginServes(env)
 	for _, server := range servers {
-		if server.plugin && target.hasPlugin != nil && target.hasPlugin(env) {
+		if !target.takes(server) {
+			continue
+		}
+		if server.plugin && plugin {
 			result.plugin = append(result.plugin, server.name)
 			continue
 		}
-		added, err := target.add(ctx, env, server)
+		change, err := addMCPServer(ctx, env, target, server)
 		if err != nil {
 			result.err = err
 			return result
 		}
-		if added {
+		switch change {
+		case mcpAdded:
 			result.added = append(result.added, server.name)
-		} else {
+		case mcpReplaced:
+			result.updated = append(result.updated, server.name)
+		default:
 			result.existing = append(result.existing, server.name)
-		}
-		if server.plugin {
-			result.needsSignIn = added
 		}
 	}
 	return result
@@ -758,6 +817,9 @@ func (r mcpAgentResult) short() string {
 	var parts []string
 	if len(r.added) > 0 {
 		parts = append(parts, "added "+joinSkillsNames(r.added))
+	}
+	if len(r.updated) > 0 {
+		parts = append(parts, "switched "+joinSkillsNames(r.updated)+" to bl mcp")
 	}
 	if len(r.existing) > 0 {
 		parts = append(parts, joinSkillsNames(r.existing)+" already set up")
@@ -771,11 +833,18 @@ func (r mcpAgentResult) short() string {
 // servers names the MCP servers the agent now has, for the final screen.
 func (r mcpAgentResult) servers() []string {
 	var names []string
-	for _, name := range slices.Concat(r.added, r.existing, r.plugin) {
+	for _, name := range slices.Concat(r.added, r.updated, r.existing) {
 		names = append(names, mcpLabel(name))
+	}
+	for _, name := range r.plugin {
+		names = append(names, mcpLabel(name)+pluginLabelSuffix)
 	}
 	return names
 }
+
+// pluginLabelSuffix tells that the Blaxel plugin supplies a server, which setup
+// leaves as it is.
+const pluginLabelSuffix = " (Blaxel plugin)"
 
 // mcpLabel names an MCP server briefly: Blaxel MCP, docs MCP.
 func mcpLabel(name string) string {

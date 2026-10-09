@@ -302,7 +302,12 @@ func NewLogFetcher(client *blaxel.Client, workspace, resourceType, resourceName 
 
 // FetchLogs fetches logs for the configured time range
 func (lf *LogFetcher) FetchLogs() ([]LogEntry, error) {
-	return lf.fetchLogsFromAPI(context.Background(), 0)
+	return lf.FetchLogsContext(context.Background())
+}
+
+// FetchLogsContext is FetchLogs bounded by ctx.
+func (lf *LogFetcher) FetchLogsContext(ctx context.Context) ([]LogEntry, error) {
+	return lf.fetchLogsFromAPI(ctx, 0)
 }
 
 // fetchLogsFromAPI fetches logs from the Blaxel API
