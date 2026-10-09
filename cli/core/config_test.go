@@ -11,6 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBuildDockerfileParsing(t *testing.T) {
+	var cfg Config
+	require.NoError(t, toml.Unmarshal([]byte("[build]\ndockerfile = \"nested dir/blaxel.Dockerfile\"\n"), &cfg))
+	assert.Equal(t, "nested dir/blaxel.Dockerfile", cfg.Build.Dockerfile)
+	require.NoError(t, toml.Unmarshal([]byte("[build]\nexperimental = true\n"), &cfg))
+	assert.Equal(t, "nested dir/blaxel.Dockerfile", cfg.Build.Dockerfile, "unrelated [build] keys leave it alone")
+}
+
 func TestConfigParsing(t *testing.T) {
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "config_test")

@@ -16,6 +16,7 @@ import (
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -134,6 +135,7 @@ func PushCmd() *cobra.Command {
 	var timeoutStr string
 	var buildEnvPath string
 	var skipBuild bool
+	var dockerfile string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -163,6 +165,12 @@ These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
 Omitting both uses project settings or platform defaults; --volume 0 requests
 memory-backed scratch. These settings do not change runtime resources.
 
+Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
+(the flag wins). Paths are relative to the source directory (-d, or the current
+directory) and must stay inside it. The build context is unchanged, so COPY paths
+are unaffected. A custom Dockerfile needs a source build, not an image import.
+It and its adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
+
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
@@ -175,6 +183,9 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
   # Push specifying a resource type
   bl push --type agent
+
+  # Build with a custom Dockerfile
+  bl push --dockerfile blaxel.Dockerfile
 
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
@@ -291,6 +302,19 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				core.ExitWithError(err)
 			}
 
+			// Resolve the Dockerfile before any API call or upload. Only a source
+			// build uses one; an image import rejects the flag and ignores the TOML.
+			if cmd.Flags().Changed("dockerfile") && dockerfile == "" {
+				err := deploy.InputError("--dockerfile must not be empty")
+				core.PrintError("Push", err)
+				core.ExitWithError(err)
+			}
+			selectedDockerfile, err := deploy.ResolveDockerfile(cwd, folder, dockerfile, config, config.Image == "", false)
+			if err != nil {
+				core.PrintError("Push", err)
+				core.ExitWithError(err)
+			}
+
 			if name == "" && config.Image != "" {
 				name = imageRefToName(config.Image)
 			}
@@ -372,7 +396,11 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 				// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
 				config.Type = resourceType
-				validationWarning := ValidateBuildConfig(cwd, folder, config)
+				dockerfilePath := filepath.Join(cwd, folder, "Dockerfile")
+				if selectedDockerfile != nil {
+					dockerfilePath = selectedDockerfile.Path
+				}
+				validationWarning := validateBuildConfig(cwd, folder, config, dockerfilePath)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
 				}
@@ -399,6 +427,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					cwd:              cwd,
 					dockerConfigJSON: dockerConfigJSON,
 					buildEnvContent:  buildEnvContent,
+					dockerfile:       selectedDockerfile,
 				}
 
 				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
@@ -490,6 +519,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
+	cmd.Flags().StringVar(&dockerfile, "dockerfile", "", "Dockerfile path relative to the source directory (overrides build.dockerfile in blaxel.toml)")
 
 	return cmd
 }

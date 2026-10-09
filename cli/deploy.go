@@ -48,6 +48,7 @@ func DeployCmd() *cobra.Command {
 	var resourceType string
 	var registryCreds []string
 	var dockerConfigPath string
+	var dockerfile string
 	var timeoutStr string
 	var buildEnvPath string
 	var wait bool
@@ -71,6 +72,13 @@ to your workspace. The deployment process includes:
 A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
+
+Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
+(the flag wins). Paths are relative to the project directory (-d, or the current
+directory) and must stay inside it. The build context is unchanged, so COPY paths
+are unaffected. A custom Dockerfile needs a source build and one project per
+deploy (use --recursive=false when the config lists child packages). It and its
+adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
 
 If the blaxel.toml contains an 'image' field pointing to a registry image,
 the platform will pull the image and transform it via metamorph before deploying.
@@ -104,6 +112,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Non-interactive deployment that waits for build and rollout and explains failures
   bl deploy --yes --wait --timeout 20m
+
+  # Deploy using a custom Dockerfile
+  bl deploy --dockerfile blaxel.Dockerfile
+
+  # Select a Dockerfile relative to a project subdirectory
+  bl deploy -d sandbox --dockerfile Dockerfile.v2
 
   # Deploy with environment variables
   bl deploy -e .env.production
@@ -184,6 +198,12 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				name = core.Slugify(name)
 			}
 
+			if cmd.Flags().Changed("dockerfile") && dockerfile == "" {
+				err := deploy.InputError("--dockerfile must not be empty")
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
+			}
+
 			// Resolve Docker registry credentials
 			projectDir := filepath.Join(cwd, folder)
 			dockerConfigJSON, dockerErr := core.ResolveDockerConfig(projectDir, registryCreds, dockerConfigPath)
@@ -256,6 +276,14 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				config.Type = resourceType
 			}
 
+			// Resolve the selection before archive creation or recursive dispatch,
+			// with the type known at this point.
+			deployment.dockerfile, err = deploy.ResolveDockerfile(cwd, folder, dockerfile, config, deployBuildsSource(config, skipBuild), recursive)
+			if err != nil {
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
+			}
+
 			if !skipBuild && config.Image == "" {
 				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
@@ -284,7 +312,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 			if (config.Type == "agent" || config.Type == "function" || config.Type == "application") && !skipBuild && config.Image == "" {
 				projectDir := filepath.Join(cwd, folder)
 				language := core.ModuleLanguage(projectDir)
-				if !core.CheckServerEnvUsage(folder, language) {
+				if !core.CheckServerEnvUsage(folder, language) && !deployment.dockerfile.UsesServerEnv() {
 					serverEnvWarning := core.BuildServerEnvWarning(language, config.Type)
 					handleConfigWarning(serverEnvWarning, noTTY)
 				}
@@ -364,6 +392,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().BoolVar(&experimental, "experimental", false, "Enable experimental features (e.g. USER directive support)")
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
+	cmd.Flags().StringVar(&dockerfile, "dockerfile", "", "Dockerfile path relative to the project directory (overrides build.dockerfile in blaxel.toml)")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
@@ -383,6 +412,7 @@ type Deployment struct {
 	experimental           bool
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
+	dockerfile             *deploy.Dockerfile
 	// uploadMetadata is the object metadata the presigned URL was signed for.
 	// Push and source-building deploys set it explicitly; uploads that do not
 	// start a build, such as volume templates, leave it empty.
@@ -594,13 +624,21 @@ func handleConfigWarning(warning string, noTTY bool) {
 // validateDeploymentConfig checks if the project has proper configuration for deployment
 // Returns a warning message if configuration is missing, empty string if all is good
 func (d *Deployment) validateDeploymentConfig(config core.Config) string {
-	return ValidateBuildConfig(d.cwd, d.folder, config)
+	path := filepath.Join(d.cwd, d.folder, "Dockerfile")
+	if d.dockerfile != nil {
+		path = d.dockerfile.Path
+	}
+	return validateBuildConfig(d.cwd, d.folder, config, path)
 }
 
-// ValidateBuildConfig checks if the project has proper configuration for building.
-// Used by both deploy and push commands.
+// ValidateBuildConfig checks if the project has proper configuration for building
+// with its default Dockerfile; deploy and push use validateBuildConfig with the selected one.
 // Returns a warning message if configuration is missing, empty string if all is good.
 func ValidateBuildConfig(cwd, folder string, config core.Config) string {
+	return validateBuildConfig(cwd, folder, config, filepath.Join(cwd, folder, "Dockerfile"))
+}
+
+func validateBuildConfig(cwd, folder string, config core.Config, dockerfilePath string) string {
 	// Skip validation for volume templates - they don't need language detection, Dockerfile, or entrypoint
 	if core.IsVolumeTemplate(config.Type) {
 		return ""
@@ -609,7 +647,6 @@ func ValidateBuildConfig(cwd, folder string, config core.Config) string {
 	projectDir := filepath.Join(cwd, folder)
 
 	// Check for Dockerfile
-	dockerfilePath := filepath.Join(projectDir, "Dockerfile")
 	hasDockerfile := false
 	if _, err := os.Stat(dockerfilePath); err == nil {
 		hasDockerfile = true
@@ -2838,6 +2875,14 @@ func (t *tarArchiveWriter) close() error {
 func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	config := core.GetConfig()
 
+	// The selection is nil for non-source builds; deploys and pushes without one
+	// keep their archive membership, including legacy -d injections.
+	// A volume template picked interactively after the selection was resolved has no Dockerfile.
+	selected := d.dockerfile
+	if core.IsVolumeTemplate(config.Type) {
+		selected = nil
+	}
+
 	// For volume-template, don't apply ignore logic
 	var ignoreMatcher *ignoredPathMatcher
 	if !core.IsVolumeTemplate(config.Type) {
@@ -2890,6 +2935,12 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 	err := filepath.WalkDir(archiveRoot, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Suppress canonical files before the normal walk; the selected bytes
+		// are streamed once at the end, even when the source is ignored.
+		if selected != nil && (path == filepath.Join(archiveRoot, "Dockerfile") || path == filepath.Join(archiveRoot, "Dockerfile.dockerignore")) {
+			return nil
 		}
 
 		// Only apply ignore logic for non-volume-template types
@@ -2953,9 +3004,22 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 				return err
 			}
 		}
-		dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
-		if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
+		if selected == nil {
+			dockerfilePath := filepath.Join(d.cwd, d.folder, "Dockerfile")
+			if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
+				return err
+			}
+		}
+	}
+
+	if selected != nil {
+		if err := writer.addFile(selected.Path, "Dockerfile"); err != nil {
 			return err
+		}
+		if selected.IgnorePath != "" {
+			if err := writer.addFile(selected.IgnorePath, "Dockerfile.dockerignore"); err != nil {
+				return err
+			}
 		}
 	}
 
