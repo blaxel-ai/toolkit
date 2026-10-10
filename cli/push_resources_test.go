@@ -199,3 +199,9 @@ func TestPushTagFlagReachesRequestBody(t *testing.T) {
 		})
 	}
 }
+
+func TestPushSamplesUseChosenTag(t *testing.T) {
+	require.Contains(t, getSandboxSamplesMap("phone", "v1.2")["CLI"], "image: sandbox/phone:v1.2")
+	require.Contains(t, getResourceSamples("agent", "bot", "v1.2")["CLI"], "agent/bot:v1.2")
+	require.Contains(t, getSandboxSamplesMap("phone", "")["CLI"], "image: sandbox/phone:latest")
+}
