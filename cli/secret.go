@@ -57,7 +57,7 @@ when none of the flags is given. Prefer --from-env, --from-file or stdin over
 --value so the secret does not end up in your shell history.`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			v, err := readSecretValue(value, fromEnv, fromFile, cmd.InOrStdin())
+			v, err := readSecretValue(cmd.Flags().Changed("value"), value, fromEnv, fromFile, cmd.InOrStdin())
 			if err != nil {
 				core.PrintError("Secret", err)
 				core.ExitWithError(core.MarkExpectedError(err, core.CLIErrorValidation))
@@ -70,6 +70,10 @@ when none of the flags is given. Prefer --from-env, --from-file or stdin over
 			if err != nil {
 				core.PrintError("Secret", err)
 				core.ExitWithError(err)
+			}
+			if f := core.GetOutputFormat(); f == "json" || f == "yaml" {
+				outputDriveData(out, f)
+				return
 			}
 			core.PrintSuccess(fmt.Sprintf("Secret %s set", out.Name))
 		},
@@ -116,10 +120,10 @@ func SecretDeleteCmd() *cobra.Command {
 
 // readSecretValue picks the single configured value source. Trailing newlines
 // from files and pipes are trimmed so `echo value | bl secret set` works.
-func readSecretValue(value, fromEnv, fromFile string, stdin io.Reader) (string, error) {
+func readSecretValue(valueSet bool, value, fromEnv, fromFile string, stdin io.Reader) (string, error) {
 	sources := 0
-	for _, s := range []string{value, fromEnv, fromFile} {
-		if s != "" {
+	for _, set := range []bool{valueSet, fromEnv != "", fromFile != ""} {
+		if set {
 			sources++
 		}
 	}
@@ -128,7 +132,7 @@ func readSecretValue(value, fromEnv, fromFile string, stdin io.Reader) (string, 
 	}
 	var v string
 	switch {
-	case value != "":
+	case valueSet:
 		v = value
 	case fromEnv != "":
 		var ok bool
