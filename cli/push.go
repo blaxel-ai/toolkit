@@ -495,7 +495,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
-	cmd.Flags().StringVar(&tag, "tag", "", "Tag for the built image (registry image imports with --image only). Defaults to a content-derived tag.")
+	cmd.Flags().StringVar(&tag, "tag", "", "Tag for the built image, from source or with --image (immutable: an existing tag is refused). Defaults to a content-derived tag.")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
 	return cmd
