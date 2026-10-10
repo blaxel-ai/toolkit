@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Hash the installed representation, including additional files and modes.
@@ -102,6 +103,11 @@ func preserveEditedSkills(plans []skillInstallPlan, home string, env func(string
 	if err != nil {
 		return err
 	}
+	// A symlinked ~/.agents or skills folder (for example from dotfiles) is
+	// fine while it stays in the home folder; each skill must still match the
+	// hash the CLI recorded before it is replaced.
+	rel, err := filepath.Rel(resolvedHome, resolvedBase)
+	insideHome := err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 	for i := range plans {
 		plan := &plans[i]
 		var locked skillsLockEntry
@@ -116,7 +122,7 @@ func preserveEditedSkills(plans []skillInstallPlan, home string, env func(string
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if plan.preserved || resolvedBase != filepath.Join(resolvedHome, ".agents", "skills") {
+		if plan.preserved || !insideHome {
 			plan.preserved, plan.links = true, nil
 			continue
 		}

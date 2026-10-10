@@ -489,3 +489,38 @@ func TestSkillsUpdaterRunsPeriodicallyWithoutBlockingMCP(t *testing.T) {
 		t.Fatal("updater did not stop")
 	}
 }
+
+func TestSkillsUpdaterFollowsASymlinkedSkillsFolderOnlyInsideHome(t *testing.T) {
+	for _, inside := range []bool{true, false} {
+		t.Run(map[bool]string{true: "inside home", false: "outside home"}[inside], func(t *testing.T) {
+			home := resolvedTempDir(t)
+			target := filepath.Join(home, "dotfiles", "agents")
+			if !inside {
+				target = filepath.Join(resolvedTempDir(t), "agents")
+			}
+			require.NoError(t, os.MkdirAll(target, 0755))
+			managedSkillLink(t, target, filepath.Join(home, ".agents"))
+			archive := buildSkillsArchive(t, testSkillsEntries())
+			_, err := InstallSkillsArchive(archive, home, noEnv, nil, time.Now())
+			require.NoError(t, err)
+			entries := testSkillsEntries()
+			entries[1].body = skillManifest("blaxel-cli") + "Updated.\n"
+			updated := buildSkillsArchive(t, entries)
+			manifest := updateManifest(updated, strings.Repeat("e", 40))
+			updater := fixtureUpdater(t, home, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/manifest" {
+					_ = json.NewEncoder(w).Encode(manifest)
+				} else {
+					_, _ = w.Write(updated)
+				}
+			}))
+			require.NoError(t, updater.check(context.Background(), true))
+			got := readTestFile(t, filepath.Join(target, "skills", "blaxel-cli", "SKILL.md"))
+			if inside {
+				assert.Equal(t, skillManifest("blaxel-cli")+"Updated.\n", got)
+			} else {
+				assert.Equal(t, skillManifest("blaxel-cli"), got, "a skills folder outside home is left alone")
+			}
+		})
+	}
+}
