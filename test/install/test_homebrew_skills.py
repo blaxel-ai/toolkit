@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import json
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import sys
@@ -128,7 +129,7 @@ class Installation:
             assert self.installed_skills() == SKILLS, self.installed_skills()
 
     def marker(self, version="1.0.0"):
-        return self.home / ".blaxel/skills/homebrew" / version
+        return self.home / ".blaxel/setup/homebrew" / version
 
     def seed_project(self):
         for name, content in PROJECT_CANARIES.items():
@@ -182,8 +183,8 @@ def fake_tests(root, binary, server):
         install.assert_installs(1)
         assert install.marker().exists()
         # Users see one concise summary.
-        assert "Blaxel skills installed to ~/.agents/skills (blaxel-cli, blaxel-sdk)" in first.stderr, first.stderr
-        assert "with: bl setup" in first.stderr, "new users are pointed to the rest of the setup"
+        assert "Blaxel setup refresh: 2 skills refreshed" in first.stderr, first.stderr
+        assert len(first.stderr.splitlines()) == 1, first.stderr
         second = install.run(args)
         install.assert_installs(1)
         assert first.stdout == second.stdout
@@ -198,6 +199,32 @@ def fake_tests(root, binary, server):
     install.assert_installs(2)
     assert install.marker("1.0.1").exists()
     print("PASS new keg refresh", flush=True)
+
+    install = installation("new-agent")
+    install.run()
+    (install.home / ".cursor").mkdir()
+    install.use_keg("1.0.1")
+    result = install.run()
+    servers = json.loads((install.home / ".cursor/mcp.json").read_text())["mcpServers"]
+    assert servers["blaxel"] == {"command": str(install.prefix / "bin/bl"), "args": ["mcp"]}, servers
+    assert "blaxel-docs" in servers
+    assert "MCP 2 added" in result.stderr, result.stderr
+    print("PASS a Homebrew upgrade adds MCP to a newly detected agent", flush=True)
+
+    for index, args in enumerate((("mcp",), ("--workspace", "test", "mcp"))):
+        install = installation(f"mcp-{index}")
+        messages = '\n'.join([
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}',
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
+        ]) + '\n'
+        result = subprocess.run([str(install.prefix / "bin/bl"), *args], input=messages,
+                                cwd=install.cwd, env=install.env, capture_output=True, text=True, timeout=10)
+        assert result.returncode == 0, result.stderr
+        answers = [json.loads(line) for line in result.stdout.splitlines()]
+        assert len(answers) == 2 and all(answer["jsonrpc"] == "2.0" for answer in answers), answers
+        assert install.downloads() == 0 and not install.marker().exists()
+        assert not (install.home / ".blaxel").exists()
+    print("PASS bl mcp skips refresh and keeps stdout JSON-RPC, including global flags", flush=True)
 
     install = installation("upgrade-command")
     # Only these disposable scripts can service brew/git calls. The fake brew
@@ -229,13 +256,113 @@ def fake_tests(root, binary, server):
     git.chmod(0o755)
     install.run(("upgrade",))
     install.assert_installs(1)
-    assert install.marker().exists() and install.marker("1.0.1").exists()
+    assert not install.marker().exists() and install.marker("1.0.1").exists()
     install.run()
     install.assert_installs(1)
     print("PASS first bl upgrade installs once and marks the new keg", flush=True)
 
+    # The replacement executable must run refresh, even after the old keg is removed.
+    replacement = install.root / "replacement"
+    receipt = install.root / "refresh.json"
+    replacement.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, pathlib, sys\n"
+        "if sys.argv[1:] == ['setup', '--refresh-check']:\n    print('blaxel-setup-refresh-v1')\n    sys.exit(0)\n"
+        f"pathlib.Path({str(receipt)!r}).write_text(json.dumps({{'args': sys.argv[1:], 'refresh': os.getenv('BL_INSTALL_REFRESH'), 'skills': os.getenv('BL_INSTALL_SKILLS'), 'mcp': os.getenv('BL_INSTALL_MCP'), 'input': sys.stdin.read()}}))\n"
+    )
+    replacement.chmod(0o755)
+    for force in (False, True):
+        install.use_keg("2.0." + str(int(force)))
+        brew.write_text(
+            f"#!{sys.executable}\n"
+            "import pathlib, shutil, sys\n"
+            f"prefix = pathlib.Path({str(install.prefix)!r})\n"
+            "if sys.argv[1:] == ['--prefix']:\n    print(prefix)\n"
+            "elif sys.argv[1:] == ['tap']:\n    print('blaxel-ai/blaxel')\n"
+            "elif sys.argv[1] == '--repository':\n    sys.exit(2)\n"
+            f"elif sys.argv[1:] == {[('reinstall' if force else 'upgrade'), 'blaxel']!r}:\n"
+            "    old = (prefix / 'opt/blaxel').resolve()\n"
+            "    keg = prefix / 'Cellar/blaxel/3.0.0'\n"
+            "    (keg / 'bin').mkdir(parents=True, exist_ok=True)\n"
+            f"    shutil.copy2({str(replacement)!r}, keg / 'bin/blaxel')\n"
+            "    for link, target in [(prefix / 'bin/bl', keg / 'bin/blaxel'), (prefix / 'opt/blaxel', keg)]:\n"
+            "        link.unlink()\n        link.symlink_to(target)\n"
+            "    shutil.rmtree(old)\n"
+            "else:\n    sys.exit(2)\n"
+        )
+        args = ("--skip-version-warning", "upgrade", "--force") if force else ("upgrade",)
+        code, output = run_in_terminal([str(install.prefix / "bin/bl"), *args], install.cwd,
+                                      {**install.env, "BL_INSTALL_SKILLS": "false", "BL_INSTALL_MCP": "true"}, timeout=15)
+        assert code == 0 and "enable tracking" not in output, output
+        assert json.loads(receipt.read_text()) == {
+            "args": ["setup", "--yes", "--skip-login"], "refresh": "true",
+            "skills": "false", "mcp": "true", "input": "",
+        }
+        receipt.unlink()
+    print("PASS terminal brew upgrade and reinstall invoke the new binary without prompts after old keg removal", flush=True)
+
+    install = installation("manual-upgrade")
+    bindir = install.home / "bin"
+    bindir.mkdir()
+    shutil.copy2(binary, bindir / "blaxel")
+    manual_receipt = install.root / "manual-refresh.json"
+    replacement.write_text(replacement.read_text().replace(str(receipt), str(manual_receipt)))
+    curl = install.tools / "curl"
+    script = 'cp -f ' + shlex.quote(str(replacement)) + ' "$BINDIR/blaxel"\n'
+    curl.write_text(f"#!{sys.executable}\nimport sys\nsys.stdout.write({script!r})\n")
+    curl.chmod(0o755)
+    (install.tools / "sh").symlink_to("/bin/sh")
+    (install.tools / "cp").symlink_to("/bin/cp")
+    result = subprocess.run([str(bindir / "blaxel"), "upgrade", "--version", "1.2.3"],
+                            cwd=install.cwd, env={**install.env, "BL_INSTALL_SKILLS": "true", "BL_INSTALL_MCP": "false"},
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(manual_receipt.read_text()) == {
+        "args": ["setup", "--yes", "--skip-login"], "refresh": "true",
+        "skills": "true", "mcp": "false", "input": "",
+    }
+    print("PASS curl upgrade invokes the replacement binary with the original opt-outs", flush=True)
+
+    # A pre-contract CLI would interpret the old handoff as ordinary setup.
+    # Its unknown-flag response must stop the caller before that side effect.
+    for probe_output in ("", "ordinary setup"):
+        shutil.copy2(binary, bindir / "blaxel")
+        manual_receipt.unlink()
+        replacement.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, pathlib, sys\n"
+            "if sys.argv[1:] == ['setup', '--refresh-check']:\n"
+            f"    print({probe_output!r})\n    sys.exit({0 if probe_output else 2})\n"
+            f"pathlib.Path({str(manual_receipt)!r}).write_text('ordinary setup enabled tracking')\n"
+        )
+        result = subprocess.run([str(bindir / "blaxel"), "upgrade", "--version", "1.2.3"],
+                                cwd=install.cwd, env={**install.env, "BL_INSTALL_SKILLS": "true", "BL_INSTALL_MCP": "false"},
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "does not support headless setup refresh" in result.stderr, result.stderr
+        assert not manual_receipt.exists(), "unsupported CLI must never run ordinary setup"
+        assert not (install.home / ".blaxel").exists(), "unsupported upgrade must leave consent and login state alone"
+        # Keep unlinking uniform on the second iteration.
+        manual_receipt.write_text("fixture")
+    print("PASS unsupported replacement binaries leave setup and consent unchanged", flush=True)
+
+    install = installation("installer-refresh")
+    (install.home / ".cursor").mkdir()
+    (install.tools / "bl").symlink_to(binary)
+    for _ in range(2):
+        result = subprocess.run(["/bin/sh", "-c", "BL_INSTALL_REFRESH=true bl setup --yes --skip-login </dev/null"],
+                                cwd=install.cwd, env=install.env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "" and len(result.stderr.splitlines()) == 1, result
+        assert "Blaxel setup refresh:" in result.stderr
+        assert "login" not in result.stderr and "error reports" not in result.stderr
+    install.assert_installs(2)
+    assert (install.home / ".cursor/mcp.json").is_file()
+    assert not (install.home / ".blaxel").exists()
+    print("PASS installer hook refreshes every invocation with one line and no authentication", flush=True)
+
     for name, skipped, enabled in (
-        ("optout", {"BL_INSTALL_SKILLS": "false"}, {}),
+        ("optout", {"BL_INSTALL_SKILLS": "false", "BL_INSTALL_MCP": "false"}, {}),
         ("ci", {"CI": "true"}, {"CI": "true", "BL_INSTALL_SKILLS": "true"}),
     ):
         install = installation(name)
@@ -249,8 +376,8 @@ def fake_tests(root, binary, server):
     install = installation("failure")
     install.fail_downloads()
     result = install.run()
-    assert "Could not install the Blaxel skills" in result.stderr, result.stderr
-    assert "503" in result.stderr, "the failure says why"
+    assert "skills unavailable" in result.stderr and "retry with bl setup" in result.stderr, result.stderr
+    assert len(result.stderr.splitlines()) == 1, result.stderr
     install.run()
     # A 503 is retried twice within the one attempt; later commands do not retry.
     assert install.downloads() == 3, install.downloads()
@@ -263,10 +390,11 @@ def fake_tests(root, binary, server):
     assert result.returncode != 0, result
     assert install.downloads() == 3
     assert result.stderr.count("503") == 1, result.stderr
-    assert install.marker().exists()
+    assert not install.marker().exists()
     install.run()
-    assert install.downloads() == 3
-    print("PASS explicit skills install on first Homebrew run installs and reports once", flush=True)
+    assert install.downloads() == 6
+    assert install.marker().exists()
+    print("PASS explicit skills install leaves the automatic MCP refresh pending", flush=True)
 
     install = installation("agents")
     (install.home / ".claude").mkdir()
@@ -479,7 +607,7 @@ def real_test(root, binary, server):
     del install.env["BL_SKILLS_ARCHIVE_URL"]
     install.seed_project()
     first = install.run()
-    assert "Blaxel skills installed" in first.stderr, first.stderr
+    assert "Blaxel setup refresh:" in first.stderr, first.stderr
     skills = install.installed_skills()
     assert SKILLS <= skills, skills
     lock = json.loads((install.home / ".agents/.skill-lock.json").read_text())

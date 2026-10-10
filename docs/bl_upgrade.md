@@ -18,9 +18,12 @@ Supported installation methods:
   - Manual installation (install.sh, or install.ps1 on Windows)
   - Direct binary download
 
-After upgrading, the Blaxel agent skills (https://github.com/blaxel-ai/agent-skills)
-are installed or refreshed globally so coding agents (Claude Code, Codex, Cursor, ...)
-stay up to date. Set BL_INSTALL_SKILLS=false to skip this.
+After upgrading, the newly installed CLI refreshes the Blaxel agent skills and
+MCP servers for detected coding agents without setup screens or login. Existing
+custom MCP entries, plugin-managed servers, and externally managed skills are
+kept. Set BL_INSTALL_SKILLS=false or BL_INSTALL_MCP=false to skip either part.
+Automatic refresh is skipped in CI unless the corresponding setting is true.
+If the requested release does not support headless refresh, setup is left alone.
 
 Examples:
   # Upgrade to the latest version

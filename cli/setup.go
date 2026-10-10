@@ -59,6 +59,7 @@ type setupOptions struct {
 
 func SetupCmd() *cobra.Command {
 	options := setupOptions{}
+	refreshCheck := false
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Set up Blaxel for your coding agents and log in",
@@ -94,13 +95,33 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
   bl setup --agent claude-code,codex --skip-login`,
 		Args:         cobra.NoArgs,
 		SilenceUsage: true, SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if refreshCheck || strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
+				return nil
+			}
+			if root := cmd.Root(); root != cmd && root.PersistentPreRunE != nil {
+				return root.PersistentPreRunE(cmd, args)
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if refreshCheck {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), setupRefreshCapability)
+				return err
+			}
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return err
 			}
 			options.home = home
 			options.env = os.Getenv
+			if strings.EqualFold(strings.TrimSpace(os.Getenv(setupRefreshEnv)), "true") {
+				refreshSetup(options)
+				if executable, err := os.Executable(); err == nil {
+					setupHomebrewRefresh(executable, func() {})
+				}
+				return nil
+			}
 			options.out = os.Stdout
 			options.interactive = core.IsTerminalInteractive()
 			options.workspace, _ = explicitWorkspaceFlag(cmd)
@@ -133,6 +154,8 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 	cmd.Flags().BoolVar(&options.skipSkills, "skip-skills", false, "Do not install the Blaxel agent skills")
 	cmd.Flags().BoolVar(&options.skipMCP, "skip-mcp", false, "Do not add the Blaxel MCP servers")
 	cmd.Flags().BoolVar(&options.skipLogin, "skip-login", false, "Do not log in to Blaxel")
+	cmd.Flags().BoolVar(&refreshCheck, "refresh-check", false, "Check the internal refresh contract")
+	_ = cmd.Flags().MarkHidden("refresh-check")
 	_ = cmd.RegisterFlagCompletionFunc("agent", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		ids := make([]string, 0, len(skillsAgents))
 		for _, agent := range setupAgents() {
@@ -824,4 +847,98 @@ func displayHomePath(home, path string) string {
 		return filepath.Join("~", relative)
 	}
 	return path
+}
+
+// setupRefreshEnv is the installer/upgrade handoff to the existing setup command.
+// Refresh never runs the setup screens, authentication, or tracking tasks.
+const setupRefreshEnv = "BL_INSTALL_REFRESH"
+
+const setupRefreshCapability = "blaxel-setup-refresh-v1"
+
+func automaticSetupOffers(env func(string) string) (skills, mcp bool) {
+	if envDisabled(env, "BL_INSTALL_SETUP") {
+		return false, false
+	}
+	return !skillsInstallDisabled(env), !automaticInstallDisabled(env, mcpInstallEnv)
+}
+
+func refreshSetup(options setupOptions) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Blaxel setup refresh could not find the home directory; retry with bl setup.")
+		return
+	}
+	bl, err := blCommandPath(os.Executable)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Blaxel setup refresh could not locate bl; retry with bl setup.")
+		return
+	}
+	options.home, options.env, options.out = home, os.Getenv, os.Stderr
+	options.mcp = newMCPEnv(home)
+	options.resourceServer, options.documentsServer = resourceMCPServer(bl), docsMCPServer()
+	options.installSkills = installSkillsFor
+	runSetupRefresh(context.Background(), options)
+}
+
+// Refresh deadlines. Each part has its own, so a slow skills download cannot
+// leave MCP with an expired context; together they fit bl upgrade's wait.
+var (
+	setupRefreshSkillsTimeout = 90 * time.Second
+	setupRefreshMCPTimeout    = 30 * time.Second
+)
+
+// runSetupRefresh shares setup's detection and conservative MCP writes. Each
+// component is best effort, so an unavailable skills archive does not stop MCP.
+func runSetupRefresh(ctx context.Context, options setupOptions) {
+	agents := detectedSetupAgents(options.home, options.env)
+	skills, mcp := automaticSetupOffers(options.env)
+	skills = skills && !options.skipSkills
+	mcp = mcp && !options.skipMCP
+	parts := []string{"skills skipped", "MCP skipped"}
+	problems := 0
+	if skills {
+		var selected []skillsAgent
+		for _, agent := range agents {
+			if !isMCPOnlyAgent(agent.id) {
+				selected = append(selected, agent)
+			}
+		}
+		skillsCtx, cancel := context.WithTimeout(ctx, setupRefreshSkillsTimeout)
+		result, err := options.installSkills(skillsCtx, selected)
+		cancel()
+		if err != nil {
+			parts[0] = "skills unavailable"
+			problems++
+		} else {
+			parts[0] = fmt.Sprintf("%d skills refreshed", len(result.skills))
+			if len(result.preserved) > 0 {
+				parts[0] += fmt.Sprintf(", %d externally managed kept", len(result.preserved))
+			}
+			if len(result.backups) > 0 {
+				parts[0] += fmt.Sprintf(", %d copies backed up outside skills folders", len(result.backups))
+			}
+		}
+	}
+	if mcp {
+		mcpCtx, cancel := context.WithTimeout(ctx, setupRefreshMCPTimeout)
+		defer cancel()
+		added, updated, kept, plugin := 0, 0, 0, 0
+		for _, agent := range agents {
+			if target, ok := mcpTargets[agent.id]; ok {
+				result := configureAgentMCP(mcpCtx, options.mcp, target, []mcpServer{options.resourceServer, options.documentsServer})
+				added += len(result.added)
+				updated += len(result.updated)
+				kept += len(result.existing)
+				plugin += len(result.plugin)
+				if result.err != nil {
+					problems++
+				}
+			}
+		}
+		parts[1] = fmt.Sprintf("MCP %d added, %d migrated, %d kept, %d from plugins", added, updated, kept, plugin)
+	}
+	if problems > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s; retry with bl setup", problems, plural(problems, "problem", "problems")))
+	}
+	_, _ = fmt.Fprintln(options.out, "Blaxel setup refresh: "+strings.Join(parts, "; ")+".")
 }

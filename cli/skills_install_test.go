@@ -463,12 +463,6 @@ func TestSkillsInstalledMessage(t *testing.T) {
 		skillsInstalledMessage(skillsInstallResult{skills: skills, agents: []string{"Claude Code", "Codex", "Cursor"}}))
 }
 
-func TestIsSkillsCommand(t *testing.T) {
-	assert.True(t, isSkillsCommand([]string{"skills", "install"}))
-	assert.False(t, isSkillsCommand([]string{"get", "skills"}))
-	assert.False(t, isSkillsCommand(nil))
-}
-
 func TestDownloadSkillsArchiveRetriesBriefProblems(t *testing.T) {
 	previous := skillsDownloadAttempts
 	skillsDownloadAttempts = []time.Duration{0, time.Millisecond, time.Millisecond}
