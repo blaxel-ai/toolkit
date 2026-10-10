@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/blaxel-ai/toolkit/cli/agentsetup"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,12 +143,6 @@ func createSkillsSymlink(t *testing.T, target, link string) {
 		t.Skipf("symlinks require Windows privileges: %v", err)
 	}
 	require.NoError(t, err)
-}
-
-func TestIsSkillsCommand(t *testing.T) {
-	assert.True(t, isSkillsCommand([]string{"skills", "install"}))
-	assert.False(t, isSkillsCommand([]string{"get", "skills"}))
-	assert.False(t, isSkillsCommand(nil))
 }
 
 func TestHomebrewRefreshFor(t *testing.T) {

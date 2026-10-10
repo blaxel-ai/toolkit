@@ -189,7 +189,7 @@ func refreshUpgradedSetup(executable string) {
 	if skills, mcp := automaticSetupOffers(os.Getenv); !skills && !mcp {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute+5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), setupRefreshSkillsTimeout+setupRefreshMCPTimeout+10*time.Second)
 	defer cancel()
 	probeCtx, probeCancel := context.WithTimeout(ctx, 5*time.Second)
 	probe := exec.CommandContext(probeCtx, executable, "setup", "--refresh-check")

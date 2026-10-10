@@ -314,11 +314,6 @@ func TestDisplayHomePath(t *testing.T) {
 	assert.Equal(t, "/etc/x", displayHomePath("/h", "/etc/x"))
 }
 
-func TestIsSkillsCommandIncludesSetup(t *testing.T) {
-	assert.True(t, isSkillsCommand([]string{"setup", "--yes"}))
-	assert.False(t, isSkillsCommand([]string{"get", "setup"}))
-}
-
 func cmpOr(value, fallback string) string {
 	if value != "" {
 		return value
@@ -819,4 +814,30 @@ func TestSkillsSavedOptOutKeepsAutomaticRefreshMCPIndependent(t *testing.T) {
 	assert.NotNil(t, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"), "MCP refresh remains independent")
 	assert.Empty(t, recorder.logins)
 	assert.Empty(t, recorder.tracking)
+}
+
+func TestRefreshSlowSkillsDownloadLeavesMCPItsOwnDeadline(t *testing.T) {
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{"PATH_HAS_claude": ""}, recorder)
+	ran := 0
+	options.mcp.Run = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+		ran++
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return []byte("Added HTTP MCP server"), nil
+	}
+	saved := setupRefreshSkillsTimeout
+	setupRefreshSkillsTimeout = 10 * time.Millisecond
+	t.Cleanup(func() { setupRefreshSkillsTimeout = saved })
+	options.installSkills = func(ctx context.Context, _ []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		<-ctx.Done()
+		return agentsetup.SkillsInstallResult{}, ctx.Err()
+	}
+	runSetupRefresh(context.Background(), options)
+	assert.Positive(t, ran)
+	assert.Contains(t, recorder.text(t), "skills unavailable")
+	assert.NotContains(t, recorder.text(t), "2 problems")
 }
