@@ -53,14 +53,36 @@ func fetchPage(c *blaxel.Client, apiPath string, limit int, cursor string) (Pagi
 		option.WithHeader("Accept", "application/json"),
 	)
 	if err != nil {
-		return PaginatedResult{}, fmt.Errorf("paginated list %s: %w", apiPath, err)
+		return PaginatedResult{}, classifyListError(apiPath, err)
 	}
 
+	// An absent or null "data" field is an empty page, not a failure. Only a
+	// non-empty payload is decoded, so a response that omits "data" (or is just
+	// "{}") yields no items instead of an "unexpected end of JSON input" error.
 	var items []any
-	if err := json.Unmarshal(page.Data, &items); err != nil {
-		return PaginatedResult{}, fmt.Errorf("paginated list %s: decode data: %w", apiPath, err)
+	if len(page.Data) > 0 {
+		if err := json.Unmarshal(page.Data, &items); err != nil {
+			return PaginatedResult{}, MarkExpectedError(
+				fmt.Errorf("paginated list %s: decode data: %w", apiPath, err),
+				CLIErrorOperational,
+			)
+		}
 	}
 	return PaginatedResult{Items: items, Meta: page.Meta}, nil
+}
+
+// classifyListError preserves any expected classification the SDK error already
+// carries (HTTP status, network failure, cancellation, …) and otherwise marks a
+// response the CLI could not decode — a non-JSON body or a 2xx payload that is
+// not the paginated envelope — as an operational condition. A listing endpoint
+// returning an unparseable response is a server/transport problem, not a CLI
+// implementation defect, so it must not be reported as an unexpected CLI failure.
+func classifyListError(apiPath string, err error) error {
+	wrapped := fmt.Errorf("paginated list %s: %w", apiPath, err)
+	if IsExpectedCLIError(wrapped) {
+		return wrapped
+	}
+	return MarkExpectedError(wrapped, CLIErrorOperational)
 }
 
 // ListPaginated fetches a single page of items starting from the given cursor.
