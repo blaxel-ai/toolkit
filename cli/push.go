@@ -38,8 +38,11 @@ type createImageRequest struct {
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
 	DockerConfig string `json:"dockerConfig,omitempty"`
-	MemoryMb     *int   `json:"memoryMb,omitempty"`
-	VolumeMb     *int   `json:"volumeMb,omitempty"`
+	// Tag is validated server-side only (single source of truth); empty lets the
+	// platform derive one from the content.
+	Tag      string `json:"tag,omitempty"`
+	MemoryMb *int   `json:"memoryMb,omitempty"`
+	VolumeMb *int   `json:"volumeMb,omitempty"`
 	// Labels carries blaxel.toml's [build] choices. The platform signs them into
 	// the upload URL, and Upload sends matching headers — that round trip is what
 	// gets them to a build started by `bl push`, which creates no resource
@@ -134,6 +137,7 @@ func PushCmd() *cobra.Command {
 	var timeoutStr string
 	var buildEnvPath string
 	var skipBuild bool
+	var tag string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -333,6 +337,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					ResourceType: resourceType,
 					Generation:   generation,
 					Image:        image,
+					Tag:          tag,
 				}
 				if dockerConfigJSON != nil {
 					reqBody.DockerConfig = string(dockerConfigJSON)
@@ -418,6 +423,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					ResourceType: resourceType,
 					Generation:   generation,
 					Labels:       buildLabels(config.Build),
+					Tag:          tag,
 				}
 
 				var httpResponse *http.Response
@@ -489,6 +495,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().StringVar(&tag, "tag", "", "Tag for the built image (registry image imports). Defaults to a content-derived tag.")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
 	return cmd
