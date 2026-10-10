@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -378,4 +379,63 @@ func TestTrackCLIInstalledFailedDeliveryRetries(t *testing.T) {
 	data, err := os.ReadFile(getTelemetryPath())
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"cli": "2.0.0"`)
+}
+
+// The installer runs bl setup before any consent exists, so the startup check
+// skips setup. Once setup saves consent, the install is reported from there,
+// with the installer's install method.
+func TestTrackCLIInstalledAfterConsentReportsInstallerSetup(t *testing.T) {
+	var requests atomic.Int32
+	var payload map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+	t.Setenv("BL_INSTALLER", "1")
+	oldArgs, oldVersion := os.Args, version
+	t.Cleanup(func() { os.Args, version = oldArgs, oldVersion })
+	os.Args, version = []string{"bl", "setup", "--yes"}, "1.4.0"
+
+	TrackCLIInstalled(version)
+	FlushPosthog()
+	assert.Equal(t, int32(0), requests.Load(), "setup is exempt at startup")
+
+	TrackCLIInstalledAfterConsent()
+	FlushPosthog()
+	require.Equal(t, int32(1), requests.Load())
+	assert.Equal(t, "Installed CLI", payload["event"])
+	properties, ok := payload["properties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "1.4.0", properties["version"])
+	assert.Equal(t, map[bool]string{true: "powershell", false: "shell"}[runtime.GOOS == "windows"], properties["install_method"])
+	assert.Equal(t, "1.4.0", loadTelemetryStateCLI())
+}
+
+// An upgrade event can finish after a newer CLI in another terminal recorded
+// its own version. Like the install event, it must not roll that back.
+func TestTrackCLIUpgradedDoesNotOverwriteVersionAnotherProcessRecorded(t *testing.T) {
+	requestStarted := make(chan struct{})
+	releaseUpgrade := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(requestStarted)
+		<-releaseUpgrade
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	TrackCLIUpgraded("1.0.0", "2.0.0")
+	<-requestStarted
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"shared-id","cli":"3.0.0"}`), 0o600))
+	close(releaseUpgrade)
+	FlushPosthog()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cli":"3.0.0"`)
 }

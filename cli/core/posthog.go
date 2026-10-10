@@ -213,19 +213,31 @@ func capturePosthogEvent(event string, properties map[string]any, onComplete fun
 // TrackCLIInstalled checks if this CLI version has been reported and sends
 // an "Installed CLI" event if it hasn't.
 func TrackCLIInstalled(cliVersion string) {
-	if PosthogAPIKey == "" || !usageTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
-		return
-	}
-	// Skip telemetry in subprocess spawned by detectInstalledVersion()
-	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
-		return
-	}
 	// Shell completion runs on every TAB press. Since the version is only
 	// marked reported after a successful delivery, tracking here would make
 	// each keypress wait out the flush budget until PostHog accepts the event.
 	// These are the same latency-sensitive, side-effect-free commands already
 	// exempted from the tracking consent prompt.
 	if isTrackingPromptCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
+		return
+	}
+	trackCLIInstalled(cliVersion)
+}
+
+// TrackCLIInstalledAfterConsent reports this CLI version once bl setup has
+// saved the user's consent. Setup is exempt from the startup check because the
+// installer runs it before any consent exists, so without this an installer
+// install would never be reported with its install method.
+func TrackCLIInstalledAfterConsent() {
+	trackCLIInstalled(GetVersion())
+}
+
+func trackCLIInstalled(cliVersion string) {
+	if PosthogAPIKey == "" || !usageTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
+		return
+	}
+	// Skip telemetry in subprocess spawned by detectInstalledVersion()
+	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
 		return
 	}
 
@@ -295,6 +307,7 @@ func TrackCLIUpgraded(oldVersion string, newVersion string) {
 
 	eventKey := "upgrade:" + oldVersion + ":" + newVersion
 	telemetryMu.Lock()
+	seenCLI := loadTelemetryState().CLI
 	if _, pending := pendingCLIEvents[eventKey]; pending {
 		telemetryMu.Unlock()
 		return
@@ -315,8 +328,13 @@ func TrackCLIUpgraded(oldVersion string, newVersion string) {
 			return
 		}
 		state := loadTelemetryState()
-		state.CLI = newVersion
-		saveTelemetryState(state)
+		// Like TrackCLIInstalled: skip the write if another CLI process recorded
+		// a different version while the event was in flight.
+		unchanged := func(v string) bool { return v == seenCLI || v == oldVersion || v == newVersion }
+		if unchanged(state.CLI) && unchanged(readOnDiskCLI()) {
+			state.CLI = newVersion
+			saveTelemetryState(state)
+		}
 	})
 	if !started {
 		telemetryMu.Lock()
