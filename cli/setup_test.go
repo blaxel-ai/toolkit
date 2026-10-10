@@ -503,12 +503,6 @@ func TestMCPAgentResultText(t *testing.T) {
 	assert.Equal(t, "/etc/x", displayHomePath("/h", "/etc/x"))
 }
 
-func TestIsSkillsCommandIncludesSetup(t *testing.T) {
-	assert.True(t, isSkillsCommand([]string{"setup", "--yes"}))
-	assert.False(t, isSkillsCommand([]string{"get", "setup"}))
-	assert.Equal(t, []string{"/x/bl", "mcp"}, resourceMCPServer("/x/bl").command)
-}
-
 func cmpOr(value, fallback string) string {
 	if value != "" {
 		return value

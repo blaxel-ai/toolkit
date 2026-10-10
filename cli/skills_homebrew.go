@@ -67,11 +67,6 @@ func isMCPBridgeArgs(args []string) bool {
 	return len(args) > 0 && args[0] == "mcp"
 }
 
-// isSkillsCommand reports commands that install the skills themselves.
-func isSkillsCommand(args []string) bool {
-	return len(args) > 0 && (args[0] == "skills" || args[0] == "setup")
-}
-
 // setupHomebrewRefresh records an attempt before installing, so concurrent
 // launches and failures cannot repeatedly delay commands. A failed attempt can
 // be retried explicitly with bl upgrade or bl setup.
