@@ -193,6 +193,49 @@ func TestIsInstalledViaHomebrewWithInvalidPath(t *testing.T) {
 	assert.IsType(t, false, result)
 }
 
+func TestBuildCurlUpgradeCommand(t *testing.T) {
+	const url = "https://example.com/install.sh"
+
+	tests := []struct {
+		name          string
+		targetVersion string
+		binDir        string
+		needsSudo     bool
+		expected      string
+	}{
+		{
+			name:     "latest without sudo",
+			binDir:   "/home/user/.local/bin",
+			expected: "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false BINDIR=/home/user/.local/bin sh",
+		},
+		{
+			name:          "specific version without sudo",
+			targetVersion: "v1.2.3",
+			binDir:        "/home/user/.local/bin",
+			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/home/user/.local/bin sh",
+		},
+		{
+			name:      "latest with sudo",
+			binDir:    "/usr/local/bin",
+			needsSudo: true,
+			expected:  "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false BINDIR=/usr/local/bin sudo -E sh",
+		},
+		{
+			name:          "specific version with sudo",
+			targetVersion: "v1.2.3",
+			binDir:        "/usr/local/bin",
+			needsSudo:     true,
+			expected:      "curl -fsSL https://example.com/install.sh | BL_INSTALL_SETUP=false BL_INSTALL_SKILLS=false VERSION=v1.2.3 BINDIR=/usr/local/bin sudo -E sh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, buildCurlUpgradeCommand(url, tt.targetVersion, tt.binDir, tt.needsSudo))
+		})
+	}
+}
+
 func TestBuildPowerShellUpgradeCommand(t *testing.T) {
 	const prefix = "$ErrorActionPreference = 'Stop'; [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; "
 	assert.Equal(t,

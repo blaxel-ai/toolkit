@@ -8,44 +8,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/stretchr/testify/require"
 )
-
-func TestHomebrewSkillsLocation(t *testing.T) {
-	for _, tt := range []struct{ name, path, prefix, version string }{
-		{"apple silicon", "/opt/homebrew/Cellar/blaxel/1.2.3/bin/blaxel", "/opt/homebrew", "1.2.3"},
-		{"intel alias", "/usr/local/Cellar/blaxel/1.2.3_1/bin/bl", "/usr/local", "1.2.3_1"},
-		{"linux", "/home/linuxbrew/.linuxbrew/Cellar/blaxel/1.2.3/bin/blaxel", "/home/linuxbrew/.linuxbrew", "1.2.3"},
-		{"custom prefix", "/tmp/custom brew/Cellar/blaxel/1.2.3/bin/blaxel", "/tmp/custom brew", "1.2.3"},
-		{"curl", "/home/user/.local/bin/blaxel", "", ""},
-		{"other formula", "/opt/homebrew/Cellar/other/1.2.3/bin/blaxel", "", ""},
-		{"lookalike formula", "/opt/homebrew/Cellar/blaxel-extra/1.2.3/bin/blaxel", "", ""},
-		{"lookalike cellar", "/opt/homebrew/NotCellar/blaxel/1.2.3/bin/blaxel", "", ""},
-		{"wrong directory", "/opt/homebrew/Cellar/blaxel/1.2.3/lib/blaxel", "", ""},
-		{"wrong binary", "/opt/homebrew/Cellar/blaxel/1.2.3/bin/other", "", ""},
-		{"relative", "Cellar/blaxel/1.2.3/bin/blaxel", "", ""},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			path, expectedPrefix := tt.path, tt.prefix
-			if runtime.GOOS == "windows" && filepath.IsAbs(filepath.FromSlash("C:"+path)) {
-				path = filepath.FromSlash("C:" + path)
-				if expectedPrefix != "" {
-					expectedPrefix = filepath.FromSlash("C:" + expectedPrefix)
-				}
-			}
-			prefix, version := homebrewSkillsLocation(path)
-			require.Equal(t, expectedPrefix, prefix)
-			require.Equal(t, tt.version, version)
-		})
-	}
-}
 
 func isolatedSkillsHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv(skillsInstallEnv, "true")
+	t.Setenv(agentsetup.SkillsInstallEnv, "true")
 	return home
 }
 
@@ -84,17 +56,17 @@ func TestSetupHomebrewSkillsDisabledDoesNotConsumeAttempt(t *testing.T) {
 			home := isolatedSkillsHome(t)
 			binary := createSkillsKeg(t, t.TempDir(), "1.2.3")
 			if mode == "disabled" {
-				t.Setenv(skillsInstallEnv, "false")
+				t.Setenv(agentsetup.SkillsInstallEnv, "false")
 				t.Setenv(mcpInstallEnv, "false")
 			} else {
-				t.Setenv(skillsInstallEnv, "")
+				t.Setenv(agentsetup.SkillsInstallEnv, "")
 				t.Setenv("CI", "true")
 			}
 			calls := 0
 			setupHomebrewRefresh(binary, func() { calls++ })
 			require.Zero(t, calls)
 			require.NoDirExists(t, filepath.Join(home, ".blaxel"))
-			t.Setenv(skillsInstallEnv, "true")
+			t.Setenv(agentsetup.SkillsInstallEnv, "true")
 			t.Setenv(mcpInstallEnv, "true")
 			setupHomebrewRefresh(binary, func() { calls++ })
 			require.Equal(t, 1, calls)

@@ -1,8 +1,9 @@
-package cli
+package agentsetup
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,10 +13,12 @@ import (
 // A projection owned by a dotfile/skill manager is used, never refreshed from
 // upstream. Preflight the whole install before replacing any folder or lock.
 type skillInstallPlan struct {
-	skill     archivedSkill
-	canonical string
-	preserved bool
-	links     []skillLinkPlan
+	skill        archivedSkill
+	canonical    string
+	preserved    bool
+	links        []skillLinkPlan
+	expectedHash string
+	skippedLinks []string
 }
 
 // A repair uses an existing skill rather than the upstream archive. Displaced
@@ -24,9 +27,12 @@ type skillLinkPlan struct {
 	target, destination string
 	root                string
 	repair              bool
+	// expectedHash, when set, is the contents an existing agent copy must
+	// still have for an update to replace it.
+	expectedHash string
 }
 
-func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSkill, selected []skillsAgent) ([]skillInstallPlan, error) {
+func planSkillsInstall(base string, paths SkillsAgentPaths, skills []archivedSkill, selected []SkillsAgent) ([]skillInstallPlan, error) {
 	wanted, folders := map[string]bool{}, map[string]bool{}
 	for _, skill := range skills {
 		folder := sanitizeSkillName(skill.name)
@@ -67,7 +73,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 		if err == nil {
 			switch {
 			case isSkillLink(canonical, info.Mode()):
-				manifest, err := os.ReadFile(filepath.Join(canonical, "SKILL.md"))
+				manifest, err := readExistingSkillManifest(filepath.Join(canonical, "SKILL.md"))
 				name, valid := skillManifestName(manifest)
 				if err != nil || !valid || name != skill.name {
 					return nil, fmt.Errorf("externally managed link %s does not contain a valid %s skill; left unchanged", canonical, skill.name)
@@ -112,7 +118,7 @@ func planSkillsInstall(base string, paths skillsAgentPaths, skills []archivedSki
 			}
 			managed := info != nil && isSkillLink(link, info.Mode())
 			if managed && destination != target && destination != flatTarget {
-				manifest, err := os.ReadFile(filepath.Join(link, "SKILL.md"))
+				manifest, err := readExistingSkillManifest(filepath.Join(link, "SKILL.md"))
 				name, valid := skillManifestName(manifest)
 				if err != nil || !valid || name != skill.name {
 					return nil, fmt.Errorf("externally managed link %s does not contain a valid %s skill; left unchanged", link, skill.name)
@@ -292,7 +298,7 @@ func repairSkillLink(plan skillLinkPlan) (string, error) {
 // Resolve existing links even when the final destination does not exist yet.
 // A dangling skill link can then be compared to its planned canonical target.
 func resolveSkillPath(name string) (string, error) {
-	resolved, err := evalSkillLinks(name)
+	resolved, err := EvalSkillLinks(name)
 	if err == nil {
 		return resolved, nil
 	}
@@ -305,7 +311,7 @@ func resolveSkillPath(name string) (string, error) {
 		}
 		// EvalSymlinks already rejects cycles; a dangling link's target has a
 		// missing component, so resolve only its parent rather than follow it again.
-		parent, err := evalSkillLinks(filepath.Dir(target))
+		parent, err := EvalSkillLinks(filepath.Dir(target))
 		if err == nil {
 			return filepath.Join(parent, filepath.Base(target)), nil
 		}
@@ -327,6 +333,7 @@ func resolveSkillPath(name string) (string, error) {
 // skill contents, hidden folders or dependencies.
 func existingSkillFolders(root string, wanted map[string]bool) (map[string][]string, error) {
 	found, visited := map[string][]string{}, map[string]bool{}
+	entries := 0
 	var walk func(string) error
 	walk = func(directory string) error {
 		return filepath.WalkDir(directory, func(name string, entry fs.DirEntry, walkErr error) error {
@@ -335,6 +342,10 @@ func existingSkillFolders(root string, wanted map[string]bool) (map[string][]str
 			}
 			if walkErr != nil {
 				return walkErr
+			}
+			entries++
+			if entries > skillsArchiveMaxEntries {
+				return fmt.Errorf("skill root %s exceeds the scan limit", root)
 			}
 			if name != directory && (strings.HasPrefix(entry.Name(), ".") || entry.Name() == "node_modules") {
 				if entry.IsDir() {
@@ -366,7 +377,7 @@ func existingSkillFolders(root string, wanted map[string]bool) (map[string][]str
 				return filepath.SkipDir
 			}
 			visited[name] = true
-			manifest, err := os.ReadFile(filepath.Join(name, "SKILL.md"))
+			manifest, err := readExistingSkillManifest(filepath.Join(name, "SKILL.md"))
 			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
@@ -381,4 +392,24 @@ func existingSkillFolders(root string, wanted map[string]bool) (map[string][]str
 	}
 	err := walk(root)
 	return found, err
+}
+
+func readExistingSkillManifest(name string) ([]byte, error) {
+	info, err := os.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("skill manifest %s must be a regular file", name)
+	}
+	file, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
+	if len(data) > 1<<20 {
+		return nil, fmt.Errorf("skill manifest %s is too large", name)
+	}
+	return data, err
 }

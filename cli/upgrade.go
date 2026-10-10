@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
 )
@@ -173,7 +174,7 @@ func runUpgrade(targetVersion string, force bool) error {
 // the running keg. Manual upgrades replace blaxel beside the running binary.
 func upgradedExecutable(executable, method string) string {
 	if method == "brew" {
-		if prefix, _ := homebrewSkillsLocation(executable); prefix != "" {
+		if prefix, _ := agentsetup.HomebrewSkillsLocation(executable); prefix != "" {
 			return filepath.Join(prefix, "opt", "blaxel", "bin", "blaxel")
 		}
 	}
@@ -320,7 +321,7 @@ func upgradeViaCurl(targetVersion string) error {
 // script needs sudo.
 func buildCurlUpgradeCommand(installScriptURL, targetVersion, binDir string, needsSudo bool) string {
 	// The installer must not run interactive setup or a second refresh.
-	env := "BL_INSTALL_SETUP=false " + skillsInstallEnv + "=false"
+	env := "BL_INSTALL_SETUP=false " + agentsetup.SkillsInstallEnv + "=false"
 	if targetVersion != "" {
 		env += " VERSION=" + targetVersion
 	}

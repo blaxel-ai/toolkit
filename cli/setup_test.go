@@ -1,32 +1,27 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/ui"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var testResourceServer = resourceMCPServer("/opt/blaxel/bin/bl")
+var testResourceServer = agentsetup.ResourceMCPServer("/opt/blaxel/bin/bl")
 
-// movedBl is an absolute path, on any OS, to a bl that is no longer there.
-var movedBl = filepath.Join(os.TempDir(), "old", "bin", "bl")
-
-// testHostedServer is the hosted form setup wrote before bl mcp.
-var testHostedServer = mcpServer{name: "blaxel", url: "https://api.blaxel.ai/v0/mcp", plugin: true}
-var testDocsServer = mcpServer{name: "blaxel-docs", url: docsMCPURL}
+var testDocsServer = agentsetup.MCPServer{Name: "blaxel-docs", URL: agentsetup.DocsMCPURL}
 
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -41,163 +36,87 @@ func readTestFile(t *testing.T, path string) string {
 	return string(data)
 }
 
-func TestUpsertJSONConfigPreservesOrderAndValues(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "mcp.json")
-	writeTestFile(t, file, `{"zeta": 1, "mcpServers": {"other": {"command": "x", "args": ["b", "a"]}}, "big": 12345678901234567890, "alpha": true}`)
-
-	changed, err := upsertJSONConfig(file, "mcpServers", "blaxel", map[string]string{"url": "https://api.blaxel.ai/v0/mcp?a=1&b=2"}, false)
-	require.NoError(t, err)
-	assert.True(t, changed)
-
-	assert.Equal(t, `{
-  "zeta": 1,
-  "mcpServers": {
-    "other": {
-      "command": "x",
-      "args": [
-        "b",
-        "a"
-      ]
-    },
-    "blaxel": {
-      "url": "https://api.blaxel.ai/v0/mcp?a=1&b=2"
-    }
-  },
-  "big": 12345678901234567890,
-  "alpha": true
+// archiveEntry is one entry of a test repository tarball.
+type archiveEntry struct {
+	name, body, link string
+	mode             int64
 }
-`, readTestFile(t, file))
-	// Windows has no Unix permissions to keep.
-	if runtime.GOOS != "windows" {
-		info, err := os.Stat(file)
-		require.NoError(t, err)
-		assert.Equal(t, os.FileMode(0644), info.Mode().Perm())
+
+const testSkillManifest = "---\nname: %s\ndescription: Use the %s.\n---\n\n# %s\n"
+
+func skillManifest(name string) string {
+	return strings.ReplaceAll(testSkillManifest, "%s", name)
+}
+
+// testSkillsEntries mirrors the agent-skills repository layout, with the edge
+// cases the installer must handle.
+func testSkillsEntries() []archiveEntry {
+	return []archiveEntry{
+		{name: "README.md", body: "# Agent skills\n"},
+		{name: "skills/blaxel-cli/SKILL.md", body: skillManifest("blaxel-cli")},
+		{name: "skills/blaxel-cli/metadata.json", body: `{"version":"1"}`},
+		{name: "skills/blaxel-cli/references/login.md", body: "# bl login\n"},
+		{name: "skills/blaxel-cli/references/alias.md", link: "login.md"},
+		{name: "skills/blaxel-cli/outside.md", link: "../../README.md"},
+		{name: "skills/blaxel-cli/scripts/generate.sh", body: "#!/bin/sh\necho docs\n", mode: 0o775},
+		{name: "skills/blaxel-cli/__pycache__/cache.pyc", body: "cache"},
+		{name: "skills/blaxel-sdk/SKILL.md", body: skillManifest("blaxel-sdk")},
+		{name: "skills/blaxel-sdk/references/sdk-python.md", body: "# Python\n"},
+		{name: "skills/internal-tool/SKILL.md", body: "---\nname: internal-tool\ndescription: Internal.\nmetadata:\n  internal: true\n---\n"},
+		{name: "skills/broken/SKILL.md", body: "---\nname: broken\n---\n"},
+		{name: "skills/notes/README.md", body: "no skill here"},
+		{name: "skills/../../escape/SKILL.md", body: skillManifest("escape")},
+		{name: "prompts/SKILL.md", body: skillManifest("prompt")},
 	}
 }
 
-func TestUpsertJSONConfigCreatesFileAndContainer(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, "opencode", "opencode.json")
-	changed, err := upsertJSONConfig(file, "mcp", "blaxel", map[string]string{"url": "u"}, false)
-	require.NoError(t, err)
-	assert.True(t, changed)
-	assert.Equal(t, "{\n  \"mcp\": {\n    \"blaxel\": {\n      \"url\": \"u\"\n    }\n  }\n}\n", readTestFile(t, file))
-
-	other := filepath.Join(dir, "settings.json")
-	writeTestFile(t, other, `{"theme": "dark"}`)
-	_, err = upsertJSONConfig(other, "mcpServers", "blaxel", map[string]string{"httpUrl": "u"}, false)
-	require.NoError(t, err)
-	assert.Equal(t, "{\n  \"theme\": \"dark\",\n  \"mcpServers\": {\n    \"blaxel\": {\n      \"httpUrl\": \"u\"\n    }\n  }\n}\n", readTestFile(t, other))
-}
-
-func TestUpsertJSONConfigLeavesExistingServerAlone(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "mcp.json")
-	original := `{"mcpServers":{"blaxel":{"url":"https://api.blaxel.ai/v0/mcp","headers":{"Authorization":"Bearer KEY"}}}}`
-	writeTestFile(t, file, original)
-	changed, err := upsertJSONConfig(file, "mcpServers", "blaxel", map[string]string{"url": "other"}, false)
-	require.NoError(t, err)
-	assert.False(t, changed)
-	assert.Equal(t, original, readTestFile(t, file))
-}
-
-func TestUpsertJSONConfigRefusesFilesItCannotParse(t *testing.T) {
-	for name, content := range map[string]string{
-		"comments":      "{\n  // my servers\n  \"mcpServers\": {}\n}",
-		"not an object": `["a"]`,
-		"bad container": `{"mcpServers": []}`,
-		"trailing data": `{} {}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			file := filepath.Join(t.TempDir(), "settings.json")
-			writeTestFile(t, file, content)
-			_, err := upsertJSONConfig(file, "mcpServers", "blaxel", map[string]string{"url": "u"}, false)
-			assert.Error(t, err)
-			assert.Equal(t, content, readTestFile(t, file))
-		})
-	}
-}
-
-func TestWriteConfigFileFollowsSymlinks(t *testing.T) {
-	dir := t.TempDir()
-	target := filepath.Join(dir, "dotfiles", "mcp.json")
-	writeTestFile(t, target, `{}`)
-	link := filepath.Join(dir, "home", "mcp.json")
-	require.NoError(t, os.MkdirAll(filepath.Dir(link), 0755))
-	require.NoError(t, os.Symlink(target, link))
-
-	_, err := upsertJSONConfig(link, "mcpServers", "blaxel", map[string]string{"url": "u"}, false)
-	require.NoError(t, err)
-	info, err := os.Lstat(link)
-	require.NoError(t, err)
-	assert.NotZero(t, info.Mode()&os.ModeSymlink, "the symlink is kept")
-	assert.Contains(t, readTestFile(t, target), `"blaxel"`)
-}
-
-func TestAppendCodexMCPServer(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "config.toml")
-	original := "# my settings\nmodel = \"gpt-5\"\n\n[mcp_servers.other]\nurl = \"https://example.com/mcp\" # keep\n\n[plugins.\"x@y\"]\nenabled = true"
-	writeTestFile(t, file, original)
-
-	changed, err := appendCodexMCPServer(file, testHostedServer)
-	require.NoError(t, err)
-	assert.True(t, changed)
-	content := readTestFile(t, file)
-	assert.Equal(t, original+"\n\n[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\n", content)
-
-	var config struct {
-		MCPServers map[string]struct {
-			URL string `toml:"url"`
-		} `toml:"mcp_servers"`
-	}
-	_, err = toml.Decode(content, &config)
-	require.NoError(t, err)
-	assert.Equal(t, "https://api.blaxel.ai/v0/mcp", config.MCPServers["blaxel"].URL)
-	assert.Equal(t, "https://example.com/mcp", config.MCPServers["other"].URL)
-
-	changed, err = appendCodexMCPServer(file, testHostedServer)
-	require.NoError(t, err)
-	assert.False(t, changed, "an existing server is left alone")
-	assert.Equal(t, content, readTestFile(t, file))
-}
-
-func TestAppendCodexMCPServerAcceptsValidLayouts(t *testing.T) {
-	for name, content := range map[string]string{
-		"dotted keys":         "mcp_servers.other.url = \"x\"\n",
-		"inline server":       "[mcp_servers]\nother = { url = \"x\" }\n",
-		"assignment in table": "[profiles.work]\nmcp_servers = {}\n",
-	} {
-		t.Run(name, func(t *testing.T) {
-			file := filepath.Join(t.TempDir(), "config.toml")
-			writeTestFile(t, file, content)
-			changed, err := appendCodexMCPServer(file, testResourceServer)
+func buildSkillsArchive(t *testing.T, entries []archiveEntry) []byte {
+	t.Helper()
+	var buffer bytes.Buffer
+	compressed := gzip.NewWriter(&buffer)
+	writer := tar.NewWriter(compressed)
+	// GitHub archives start with the commit as a global header.
+	require.NoError(t, writer.WriteHeader(&tar.Header{Typeflag: tar.TypeXGlobalHeader, Name: "pax_global_header",
+		PAXRecords: map[string]string{"comment": "0123456789abcdef0123456789abcdef01234567"}}))
+	require.NoError(t, writer.WriteHeader(&tar.Header{Typeflag: tar.TypeDir, Name: "agent-skills-HEAD/", Mode: 0o775}))
+	for _, entry := range entries {
+		header := &tar.Header{Name: "agent-skills-HEAD/" + entry.name, Mode: 0o664, Size: int64(len(entry.body)), Typeflag: tar.TypeReg}
+		if entry.mode != 0 {
+			header.Mode = entry.mode
+		}
+		if entry.link != "" {
+			header.Typeflag, header.Linkname, header.Size, header.Mode = tar.TypeSymlink, entry.link, 0, 0o777
+		}
+		require.NoError(t, writer.WriteHeader(header))
+		if entry.link == "" {
+			_, err := writer.Write([]byte(entry.body))
 			require.NoError(t, err)
-			assert.True(t, changed)
-		})
+		}
 	}
+	require.NoError(t, writer.Close())
+	require.NoError(t, compressed.Close())
+	return buffer.Bytes()
 }
 
-func TestAppendCodexMCPServerCreatesConfig(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "codex", "config.toml")
-	changed, err := appendCodexMCPServer(file, testDocsServer)
+func noEnv(string) string { return "" }
+
+// resolvedTempDir returns t.TempDir() with links and Windows 8.3 short names
+// (C:\Users\RUNNER~1) expanded, matching the resolved paths in error messages.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := agentsetup.EvalSkillLinks(t.TempDir())
 	require.NoError(t, err)
-	assert.True(t, changed)
-	assert.Equal(t, "[mcp_servers.blaxel-docs]\nurl = \"https://docs.blaxel.ai/mcp\"\n", readTestFile(t, file))
+	return dir
 }
 
-func TestAppendCodexMCPServerRefusesConfigsItCannotExtend(t *testing.T) {
-	for name, content := range map[string]string{
-		"inline table":        "mcp_servers = { other = { url = \"x\" } }\n",
-		"quoted inline table": "model = \"x\"\n\"mcp_servers\" = {}\n[tui]\nx = 1\n",
-		"invalid":             "model = \n",
-	} {
-		t.Run(name, func(t *testing.T) {
-			file := filepath.Join(t.TempDir(), "config.toml")
-			writeTestFile(t, file, content)
-			_, err := appendCodexMCPServer(file, testResourceServer)
-			assert.Error(t, err)
-			assert.Equal(t, content, readTestFile(t, file))
-		})
+func managedSkillLink(t *testing.T, target, link string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(link), 0755))
+	absolute := target
+	if !filepath.IsAbs(absolute) {
+		absolute = filepath.Join(filepath.Dir(link), target)
 	}
+	require.NoError(t, agentsetup.CreateSkillDirectoryLink(absolute, target, link))
 }
 
 type fakeCommand struct {
@@ -205,125 +124,22 @@ type fakeCommand struct {
 	args []string
 }
 
-func testMCPEnv(home string, env map[string]string, commands *[]fakeCommand, output string, runErr error) mcpEnv {
-	return mcpEnv{
-		home: home, config: filepath.Join(home, ".config"),
-		env: func(key string) string { return env[key] },
-		lookPath: func(name string) (string, error) {
+func testMCPEnv(home string, env map[string]string, commands *[]fakeCommand, output string, runErr error) agentsetup.MCPEnv {
+	return agentsetup.MCPEnv{
+		Home: home, Config: filepath.Join(home, ".config"),
+		Env: func(key string) string { return env[key] },
+		LookPath: func(name string) (string, error) {
 			if _, ok := env["PATH_HAS_"+name]; ok {
 				return "/usr/bin/" + name, nil
 			}
 			return "", errors.New("not found")
 		},
-		exists: func(path string) bool { return env["MISSING:"+path] == "" },
-		run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+		Exists: func(path string) bool { return env["MISSING:"+path] == "" },
+		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
 			*commands = append(*commands, fakeCommand{name, args})
 			return []byte(output), runErr
 		},
 	}
-}
-
-func TestClaudeMCPUsesTheClaudeCLI(t *testing.T) {
-	home := t.TempDir()
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": ""}, &commands, "Added stdio MCP server", nil)
-
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpAdded, change)
-	require.Len(t, commands, 1)
-	assert.Equal(t, "/usr/bin/claude", commands[0].name)
-	assert.Equal(t, []string{"mcp", "add", "--scope", "user", "blaxel", "--", "/opt/blaxel/bin/bl", "mcp"}, commands[0].args)
-
-	// Someone else's server with that name is left alone.
-	writeTestFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"blaxel":{"type":"http","url":"x"}}}`)
-	change, err = addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpUnchanged, change)
-	assert.Len(t, commands, 1)
-
-	// The hosted server an earlier setup added is switched to bl mcp.
-	writeTestFile(t, filepath.Join(home, ".claude.json"), `{"mcpServers":{"blaxel":{"type":"http","url":"https://api.blaxel.ai/v0/mcp"}}}`)
-	change, err = addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpReplaced, change)
-	require.Len(t, commands, 3)
-	assert.Equal(t, []string{"mcp", "remove", "--scope", "user", "blaxel"}, commands[1].args)
-	assert.Equal(t, []string{"mcp", "add", "--scope", "user", "blaxel", "--", "/opt/blaxel/bin/bl", "mcp"}, commands[2].args)
-}
-
-// claude mcp add writes "env": {}, which is not a customization: a bl that
-// moved is repaired.
-func TestClaudeMCPRepairsAMovedBl(t *testing.T) {
-	home := t.TempDir()
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": "", "MISSING:" + movedBl: "1"}, &commands, "", nil)
-	writeTestFile(t, filepath.Join(home, ".claude.json"), fmt.Sprintf(`{"mcpServers":{"blaxel":{"type":"stdio","command":%q,"args":["mcp"],"env":{}}}}`, movedBl))
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpReplaced, change)
-	require.Len(t, commands, 2)
-	assert.Equal(t, []string{"mcp", "add", "--scope", "user", "blaxel", "--", "/opt/blaxel/bin/bl", "mcp"}, commands[1].args)
-}
-
-func TestClaudeMCPWithoutTheCLIEditsClaudeJSON(t *testing.T) {
-	home := t.TempDir()
-	configDir := filepath.Join(home, "claude-config")
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"CLAUDE_CONFIG_DIR": configDir}, &commands, "", nil)
-	writeTestFile(t, filepath.Join(configDir, ".claude.json"), `{"numStartups": 3}`)
-
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testDocsServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpAdded, change)
-	assert.Empty(t, commands)
-	assert.Equal(t, "{\n  \"numStartups\": 3,\n  \"mcpServers\": {\n    \"blaxel-docs\": {\n      \"type\": \"http\",\n      \"url\": \"https://docs.blaxel.ai/mcp\"\n    }\n  }\n}\n",
-		readTestFile(t, filepath.Join(configDir, ".claude.json")))
-}
-
-// CLAUDE_CONFIG_DIR can come from an untrusted place, so a claude binary under
-// it is never run; the config file is edited instead.
-func TestClaudeMCPNeverRunsAClaudeUnderClaudeConfigDir(t *testing.T) {
-	home := t.TempDir()
-	configDir := filepath.Join(home, "repo", "claude-config")
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"CLAUDE_CONFIG_DIR": configDir}, &commands, "", nil)
-	writeTestFile(t, filepath.Join(configDir, "local", "claude"), "#!/bin/sh\n")
-
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testDocsServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpAdded, change)
-	assert.Empty(t, commands)
-	assert.Contains(t, readTestFile(t, filepath.Join(configDir, ".claude.json")), `"blaxel-docs"`)
-}
-
-func TestClaudeMCPReportsCLIFailures(t *testing.T) {
-	var commands []fakeCommand
-	env := testMCPEnv(t.TempDir(), map[string]string{"PATH_HAS_claude": ""}, &commands, "MCP server blaxel already exists in user config", errors.New("exit status 1"))
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpUnchanged, change)
-
-	env = testMCPEnv(t.TempDir(), map[string]string{"PATH_HAS_claude": ""}, &commands, "boom", errors.New("exit status 2"))
-	_, err = addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	assert.ErrorContains(t, err, "boom")
-}
-
-func TestConfigureAgentMCPLeavesInstalledPluginsToThemselves(t *testing.T) {
-	home := t.TempDir()
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{}, &commands, "", nil)
-	writeTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), `{"version":2,"plugins":{"blaxel@blaxel":[{"scope":"user"}]}}`)
-
-	result := configureAgentMCP(context.Background(), env, mcpTargets["claude-code"], []mcpServer{testResourceServer, testDocsServer})
-	require.NoError(t, result.err)
-	assert.Equal(t, []string{"blaxel"}, result.plugin, "a plugin whose files cannot be found is left alone")
-	assert.Equal(t, []string{"blaxel-docs"}, result.added)
-
-	writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[plugins.\"blaxel@blaxel\"]\nenabled = false\n")
-	result = configureAgentMCP(context.Background(), env, mcpTargets["codex"], []mcpServer{testResourceServer})
-	require.NoError(t, result.err)
-	assert.Equal(t, []string{"blaxel"}, result.added, "a disabled plugin does not provide the server")
 }
 
 type setupRecorder struct {
@@ -354,13 +170,13 @@ func testSetupOptions(t *testing.T, home string, env map[string]string, recorder
 		home: home,
 		env:  func(key string) string { return env[key] },
 		out:  recorder.output,
-		installSkills: func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-			targets, names := skillsTargets(agents)
+		installSkills: func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+			targets, names := agentsetup.SkillsTargets(agents)
 			recorder.skillsAgents = append(recorder.skillsAgents, targets)
 			if env["SKILLS_OFFLINE"] != "" {
-				return skillsInstallResult{}, errors.New("downloading the skills: no network")
+				return agentsetup.SkillsInstallResult{}, errors.New("downloading the skills: no network")
 			}
-			return skillsInstallResult{skills: []string{"blaxel-cli", "blaxel-sdk"}, agents: names}, nil
+			return agentsetup.SkillsInstallResult{Skills: []string{"blaxel-cli", "blaxel-sdk"}, Agents: names}, nil
 		},
 		login: func(_ context.Context, _ *ui.Control, workspace string) (string, error) {
 			recorder.logins = append(recorder.logins, workspace)
@@ -446,7 +262,7 @@ func TestRunSetupHonorsSwitches(t *testing.T) {
 	home := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".cursor"), 0755))
 	recorder := &setupRecorder{}
-	require.NoError(t, runSetup(context.Background(), testSetupOptions(t, home, map[string]string{mcpInstallEnv: "false", skillsInstallEnv: "false"}, recorder)))
+	require.NoError(t, runSetup(context.Background(), testSetupOptions(t, home, map[string]string{mcpInstallEnv: "false", agentsetup.SkillsInstallEnv: "false"}, recorder)))
 	assert.Empty(t, recorder.skillsAgents)
 	assert.NoFileExists(t, filepath.Join(home, ".cursor", "mcp.json"))
 
@@ -493,12 +309,7 @@ func TestRunSetupReportsMCPProblems(t *testing.T) {
 	assert.Equal(t, "{ // comment\n}", readTestFile(t, filepath.Join(home, ".gemini", "settings.json")))
 }
 
-func TestMCPAgentResultText(t *testing.T) {
-	assert.Equal(t, "added blaxel and blaxel-docs", mcpAgentResult{added: []string{"blaxel", "blaxel-docs"}}.short())
-	assert.Equal(t, "added blaxel-docs · blaxel from the Blaxel plugin",
-		mcpAgentResult{added: []string{"blaxel-docs"}, plugin: []string{"blaxel"}}.short())
-	assert.Equal(t, "blaxel and blaxel-docs already set up", mcpAgentResult{existing: []string{"blaxel", "blaxel-docs"}}.short())
-	assert.Equal(t, []string{"docs MCP", "Blaxel MCP (Blaxel plugin)"}, mcpAgentResult{added: []string{"blaxel-docs"}, plugin: []string{"blaxel"}}.servers())
+func TestDisplayHomePath(t *testing.T) {
 	assert.Equal(t, filepath.Join("~", ".codex", "config.toml"), displayHomePath("/h", "/h/.codex/config.toml"))
 	assert.Equal(t, "/etc/x", displayHomePath("/h", "/etc/x"))
 }
@@ -642,7 +453,7 @@ func TestSetupReportsAPartialMCPFailure(t *testing.T) {
 	env := map[string]string{"PATH_HAS_claude": "", "LOGGED_IN": "main", "TRACKING_SET": "1"}
 	options := testSetupOptions(t, home, env, recorder)
 	calls := 0
-	options.mcp.run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
+	options.mcp.Run = func(_ context.Context, _ string, args ...string) ([]byte, error) {
 		calls++
 		if calls > 1 {
 			return []byte("boom"), errors.New("exit status 1")
@@ -657,80 +468,6 @@ func TestSetupReportsAPartialMCPFailure(t *testing.T) {
 	assert.Contains(t, text, "try again")
 }
 
-func TestClaudeMCPLeavesFilesItCannotReadToTheCLI(t *testing.T) {
-	home := t.TempDir()
-	writeTestFile(t, filepath.Join(home, ".claude.json"), "// settings\n{\"numStartups\": 3}\n")
-	var commands []fakeCommand
-	env := testMCPEnv(home, map[string]string{"PATH_HAS_claude": ""}, &commands, "Added HTTP MCP server", nil)
-	change, err := addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	require.NoError(t, err)
-	assert.Equal(t, mcpAdded, change)
-	assert.Len(t, commands, 1, "the claude CLI applies the server")
-
-	// Without the CLI, the file is not rewritten.
-	env = testMCPEnv(home, map[string]string{}, &commands, "", nil)
-	_, err = addMCPServer(context.Background(), env, mcpTargets["claude-code"], testResourceServer)
-	assert.Error(t, err)
-	assert.Equal(t, "// settings\n{\"numStartups\": 3}\n", readTestFile(t, filepath.Join(home, ".claude.json")))
-}
-
-func TestClassifyMCPEntry(t *testing.T) {
-	env := testMCPEnv(t.TempDir(), map[string]string{"MISSING:" + movedBl: "1"}, &[]fakeCommand{}, "", nil)
-	for name, test := range map[string]struct {
-		entry map[string]any
-		want  mcpEntryState
-	}{
-		"absent":                {nil, mcpEntryAbsent},
-		"bl mcp":                {map[string]any{"command": "/opt/blaxel/bin/bl", "args": []any{"mcp"}}, mcpEntryCurrent},
-		"another bl":            {map[string]any{"command": "/usr/local/bin/blaxel", "args": []any{"mcp", "-w", "x"}}, mcpEntryCustom},
-		"bare bl":               {map[string]any{"type": "stdio", "command": "bl", "args": []any{"mcp"}}, mcpEntryCurrent},
-		"Windows bl":            {map[string]any{"command": `C:\Users\me\bin\bl.exe`, "args": []any{"mcp"}}, mcpEntryCurrent},
-		"OpenCode list":         {map[string]any{"type": "local", "command": []any{"/opt/blaxel/bin/bl", "mcp"}, "enabled": true}, mcpEntryCurrent},
-		"bl that moved":         {map[string]any{"command": movedBl, "args": []any{"mcp"}}, mcpEntryOutdated},
-		"moved, empty env":      {map[string]any{"type": "stdio", "command": movedBl, "args": []any{"mcp"}, "env": map[string]any{}}, mcpEntryOutdated},
-		"moved, custom env":     {map[string]any{"type": "stdio", "command": movedBl, "args": []any{"mcp"}, "env": map[string]any{"BL_WORKSPACE": "x"}}, mcpEntryCustom},
-		"hosted, Claude":        {map[string]any{"type": "http", "url": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
-		"hosted, Gemini":        {map[string]any{"httpUrl": "https://api.blaxel.ai/v0/mcp"}, mcpEntryOutdated},
-		"hosted, OpenCode":      {map[string]any{"type": "remote", "url": "https://api.blaxel.dev/v0/mcp", "enabled": true}, mcpEntryOutdated},
-		"hosted with a header":  {map[string]any{"url": "https://api.blaxel.ai/v0/mcp", "headers": map[string]any{"X": "y"}}, mcpEntryCustom},
-		"another URL":           {map[string]any{"url": "https://example.com/mcp"}, mcpEntryCustom},
-		"another command":       {map[string]any{"command": "npx", "args": []any{"mcp-remote", "https://api.blaxel.ai/v0/mcp"}}, mcpEntryCustom},
-		"bl, another command":   {map[string]any{"command": "bl", "args": []any{"get", "sandboxes"}}, mcpEntryCustom},
-		"empty":                 {map[string]any{}, mcpEntryCustom},
-		"only a type":           {map[string]any{"type": "http"}, mcpEntryCustom},
-		"hosted, trailing path": {map[string]any{"serverUrl": "https://api.blaxel.ai/v0/mcp/"}, mcpEntryOutdated},
-	} {
-		assert.Equal(t, test.want, classifyMCPEntry(env, testResourceServer, test.entry), name)
-	}
-	assert.Equal(t, mcpEntryCurrent, classifyMCPEntry(env, testDocsServer, map[string]any{"url": "anything"}), "a docs entry is the user's choice")
-}
-
-func TestReplaceCodexMCPServerKeepsTheRestOfTheFile(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "config.toml")
-	original := "model = \"gpt-5\"\n\n[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\n\n[mcp_servers.blaxel-docs] # docs\nurl = \"https://docs.blaxel.ai/mcp\"\n"
-	writeTestFile(t, file, original)
-	require.NoError(t, replaceCodexMCPServer(file, resourceMCPServer(`C:\Program Files\bl.exe`)))
-	assert.Equal(t, "model = \"gpt-5\"\n\n[mcp_servers.blaxel]\ncommand = \"C:\\\\Program Files\\\\bl.exe\"\nargs = [\"mcp\"]\n\n[mcp_servers.blaxel-docs] # docs\nurl = \"https://docs.blaxel.ai/mcp\"\n",
-		readTestFile(t, file))
-	var config struct {
-		MCPServers map[string]struct {
-			Command string   `toml:"command"`
-			Args    []string `toml:"args"`
-			URL     string   `toml:"url"`
-		} `toml:"mcp_servers"`
-	}
-	_, err := toml.DecodeFile(file, &config)
-	require.NoError(t, err)
-	assert.Equal(t, `C:\Program Files\bl.exe`, config.MCPServers["blaxel"].Command, "backslashes survive")
-	assert.Equal(t, []string{"mcp"}, config.MCPServers["blaxel"].Args)
-	assert.Equal(t, "https://docs.blaxel.ai/mcp", config.MCPServers["blaxel-docs"].URL)
-
-	// The last table of a file, quoted.
-	writeTestFile(t, file, "[mcp_servers.\"blaxel\"]\nurl = \"https://api.blaxel.ai/v0/mcp\"")
-	require.NoError(t, replaceCodexMCPServer(file, testResourceServer))
-	assert.Equal(t, "[mcp_servers.blaxel]\ncommand = \"/opt/blaxel/bin/bl\"\nargs = [\"mcp\"]\n", readTestFile(t, file))
-}
-
 // Agents set up by v0.1.119 have the hosted server, with its own sign-in:
 // the next setup switches them to bl mcp and leaves other entries alone.
 func TestRunSetupSwitchesHostedServersToBlMCP(t *testing.T) {
@@ -739,7 +476,7 @@ func TestRunSetupSwitchesHostedServersToBlMCP(t *testing.T) {
 	writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\n\n[mcp_servers.blaxel-docs]\nurl = \"https://docs.blaxel.ai/mcp\"\n")
 	writeTestFile(t, filepath.Join(home, ".gemini", "settings.json"), `{"mcpServers":{"blaxel":{"httpUrl":"https://api.blaxel.ai/v0/mcp","headers":{"Authorization":"Bearer mine"}}}}`)
 	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", skillsInstallEnv: "false"}, recorder)
+	options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", agentsetup.SkillsInstallEnv: "false"}, recorder)
 	plan, err := newSetupPlan(options)
 	require.NoError(t, err)
 	items := map[string]*ui.Item{}
@@ -763,22 +500,22 @@ func TestRunSetupSwitchesHostedServersToBlMCP(t *testing.T) {
 
 	// Nothing changes the second time.
 	before := cursor
-	require.NoError(t, runSetup(context.Background(), testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", skillsInstallEnv: "false"}, recorder)))
+	require.NoError(t, runSetup(context.Background(), testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", agentsetup.SkillsInstallEnv: "false"}, recorder)))
 	assert.Equal(t, before, readTestFile(t, filepath.Join(home, ".cursor", "mcp.json")))
 }
 
 func TestRunSetupAddsBlMCPToClaudeDesktop(t *testing.T) {
 	home := t.TempDir()
 	env := map[string]string{"APPDATA": filepath.Join(home, "AppData", "Roaming"), "XDG_CONFIG_HOME": filepath.Join(home, ".config")}
-	dir := claudeDesktopDir(newSkillsAgentPaths(home, func(key string) string { return env[key] }))
+	dir := agentsetup.ClaudeDesktopDir(agentsetup.NewSkillsAgentPaths(home, func(key string) string { return env[key] }))
 	writeTestFile(t, filepath.Join(dir, "claude_desktop_config.json"), `{"preferences":{"theme":"dark"}}`)
 	recorder := &setupRecorder{}
 	options := testSetupOptions(t, home, env, recorder)
-	options.mcp.config = env["XDG_CONFIG_HOME"]
+	options.mcp.Config = env["XDG_CONFIG_HOME"]
 	plan, err := newSetupPlan(options)
 	require.NoError(t, err)
 	require.Len(t, plan.agents, 1)
-	assert.Equal(t, "claude-desktop", plan.agents[0].id)
+	assert.Equal(t, "claude-desktop", plan.agents[0].ID)
 	items := setupItems(options, plan)
 	assert.Equal(t, "MCP", items[0].Detail, "Claude Desktop takes no skills folder")
 
@@ -791,22 +528,133 @@ func TestRunSetupAddsBlMCPToClaudeDesktop(t *testing.T) {
 	assert.Contains(t, recorder.text(t), "Claude Desktop Blaxel MCP")
 }
 
-func TestBlCommandPath(t *testing.T) {
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	require.NoError(t, err)
-	keg := filepath.Join(dir, "Cellar", "blaxel", "0.1.120", "bin", "blaxel")
-	writeTestFile(t, keg, "")
-	path, err := blCommandPath(func() (string, error) { return keg, nil })
-	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(dir, "bin", "bl"), path)
-	plain := filepath.Join(dir, ".local", "bin", "bl")
-	writeTestFile(t, plain, "")
-	path, err = blCommandPath(func() (string, error) { return plain, nil })
-	require.NoError(t, err)
-	assert.Equal(t, plain, path)
-	path, err = blCommandPath(func() (string, error) { return "", errors.New("unknown") })
-	assert.Empty(t, path)
-	assert.ErrorContains(t, err, "cannot locate")
+// With the Blaxel plugin installed, setup leaves the plugin's blaxel server
+// alone and adds no second one. It exits cleanly, every time it runs.
+func TestSetupLeavesThePluginServerAlone(t *testing.T) {
+	for _, agent := range []string{"claude-code", "codex"} {
+		t.Run(agent, func(t *testing.T) {
+			home := t.TempDir()
+			root := filepath.Join(home, "plugin", "blaxel", "1.0.0")
+			if agent == "claude-code" {
+				data, _ := json.Marshal(map[string]any{"plugins": map[string]any{"blaxel@blaxel": []any{map[string]any{"installPath": root}}}})
+				writeTestFile(t, filepath.Join(home, ".claude", "plugins", "installed_plugins.json"), string(data))
+			} else {
+				root = filepath.Join(home, ".codex", "plugins", "cache", "blaxel", "blaxel", "1.0.0")
+				writeTestFile(t, filepath.Join(home, ".codex", "config.toml"), "[plugins.\"blaxel@blaxel\"]\nenabled = true\n")
+			}
+			hosted := `{"mcpServers":{"blaxel":{"type":"http","url":"https://api.blaxel.ai/v0/mcp"}}}`
+			writeTestFile(t, filepath.Join(root, ".mcp.json"), hosted)
+			recorder := &setupRecorder{}
+			run := func() {
+				options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1", agentsetup.SkillsInstallEnv: "false"}, recorder)
+				options.agents = []string{agent}
+				require.NoError(t, runSetup(context.Background(), options))
+			}
+			run()
+			assert.Contains(t, recorder.text(t), "docs MCP · Blaxel MCP (Blaxel plugin)")
+			run()
+			target := agentsetup.MCPTargets[agent]
+			e := testMCPEnv(home, map[string]string{}, &[]fakeCommand{}, "", nil)
+			assert.Nil(t, target.Entry(e, "blaxel"), "the plugin's server is the only Blaxel server")
+			assert.NotNil(t, target.Entry(e, "blaxel-docs"))
+			assert.Equal(t, hosted, readTestFile(t, filepath.Join(root, ".mcp.json")), "plugin files are never edited")
+
+			// A plugin that no longer bundles the server leaves the job to setup.
+			require.NoError(t, os.Remove(filepath.Join(root, ".mcp.json")))
+			run()
+			command, args := agentsetup.EntryCommand(target.Entry(e, "blaxel"))
+			assert.Equal(t, "/opt/blaxel/bin/bl", command)
+			assert.Equal(t, []string{"mcp"}, args)
+		})
+	}
+}
+
+func TestSetupReportsAutomaticSkillRepair(t *testing.T) {
+	home := resolvedTempDir(t)
+	root := filepath.Join(home, ".agents", "skills")
+	writeTestFile(t, filepath.Join(root, "blaxel", "blaxel-cli", "SKILL.md"), skillManifest("blaxel-cli"))
+	writeTestFile(t, filepath.Join(root, "blaxel-cli", "SKILL.md"), "old flat")
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1"}, recorder)
+	options.skipMCP, options.skipLogin = true, true
+	options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		return agentsetup.InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, agents, time.Now())
+	}
+	require.NoError(t, runSetup(context.Background(), options))
+	output := recorder.text(t)
+	assert.Contains(t, output, "Blaxel is ready")
+	assert.Contains(t, output, "Auto-fixed")
+	assert.Contains(t, output, "Backup")
+	assert.Contains(t, output, "existing contents unchanged")
+	assert.NotContains(t, output, "try again")
+	assert.NotContains(t, output, "links and contents unchanged")
+}
+
+func TestSetupKeepsSavedErrorReportingToggleVisible(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		t.Run(map[bool]string{true: "enabled", false: "disabled"}[enabled], func(t *testing.T) {
+			recorder := &setupRecorder{}
+			env := map[string]string{"TRACKING_SET": "1", "TRACKING_ENABLED": map[bool]string{true: "true", false: "false"}[enabled]}
+			options := testSetupOptions(t, t.TempDir(), env, recorder)
+			plan, err := newSetupPlan(options)
+			require.NoError(t, err)
+			var found bool
+			for _, item := range setupItems(options, plan) {
+				if item.ID == "tracking" {
+					found = true
+					assert.Equal(t, "This machine", item.Group)
+					assert.Equal(t, "Error reports", item.Label)
+					assert.Empty(t, item.Done, "a saved preference must remain toggleable")
+					assert.Equal(t, enabled, item.On)
+				}
+			}
+			require.True(t, found)
+			options.skipSkills, options.skipMCP, options.skipLogin = true, true, true
+			require.NoError(t, runSetup(context.Background(), options))
+			assert.Equal(t, []bool{enabled}, recorder.tracking, "repeat setup must not reset the saved preference")
+			tasks := setupTasks(options, plan, map[string]bool{"tracking": !enabled}, &setupOutcome{})
+			require.Len(t, tasks, 1)
+			_, err = tasks[0].Run(context.Background(), nil)
+			require.NoError(t, err)
+			assert.Equal(t, []bool{enabled, !enabled}, recorder.tracking, "the toggle must save a new choice")
+		})
+	}
+}
+
+func TestSetupErrorReportingEnvironmentOverridesSavedChoice(t *testing.T) {
+	for _, value := range []string{"true", "false"} {
+		recorder := &setupRecorder{}
+		options := testSetupOptions(t, t.TempDir(), map[string]string{
+			"TRACKING_SET": "1", "TRACKING_ENABLED": "true", trackingInstallEnv: value,
+		}, recorder)
+		options.skipSkills, options.skipMCP, options.skipLogin = true, true, true
+		require.NoError(t, runSetup(context.Background(), options))
+		assert.Equal(t, []bool{value == "true"}, recorder.tracking)
+	}
+}
+
+func TestSetupReportsPreservedManagedSkills(t *testing.T) {
+	home, external := t.TempDir(), t.TempDir()
+	root := filepath.Join(home, ".agents", "skills")
+	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
+		target := filepath.Join(external, name)
+		writeTestFile(t, filepath.Join(target, "SKILL.md"), skillManifest(name))
+		managedSkillLink(t, target, filepath.Join(root, name))
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".pi", "agent"), 0755))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1"}, recorder)
+	options.skipMCP, options.skipLogin = true, true
+	options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		return agentsetup.InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, agents, time.Now())
+	}
+	require.NoError(t, runSetup(context.Background(), options))
+	text := recorder.text(t)
+	assert.Contains(t, text, "kept externally managed: blaxel-cli, blaxel-sdk")
+	assert.Contains(t, text, "Kept managed")
+	assert.Contains(t, text, "links and contents unchanged")
+	assert.Contains(t, text, "Pi")
+	assert.NoFileExists(t, agentsetup.SkillsLockPath(home, noEnv))
 }
 
 func TestRefreshCapabilityCheckHasNoSetupSideEffects(t *testing.T) {
@@ -832,8 +680,8 @@ func TestRefreshUpdatesSkillsAndNewAgentsWithoutLogin(t *testing.T) {
 	recorder := &setupRecorder{}
 	options := testSetupOptions(t, home, map[string]string{}, recorder)
 	archive := buildSkillsArchive(t, testSkillsEntries())
-	options.installSkills = func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-		return installSkillsArchive(archive, home, options.env, agents, time.Now())
+	options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		return agentsetup.InstallSkillsArchive(archive, home, options.env, agents, time.Now())
 	}
 	runSetupRefresh(context.Background(), options)
 	manifest := filepath.Join(home, ".agents", "skills", "blaxel-cli", "SKILL.md")
@@ -841,10 +689,10 @@ func TestRefreshUpdatesSkillsAndNewAgentsWithoutLogin(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".codex"), 0755))
 	runSetupRefresh(context.Background(), options)
 	assert.Equal(t, skillManifest("blaxel-cli"), readTestFile(t, manifest))
-	command, args := entryCommand(mcpTargets["codex"].entry(options.mcp, "blaxel"))
-	assert.Equal(t, testResourceServer.command[0], command)
+	command, args := agentsetup.EntryCommand(agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel"))
+	assert.Equal(t, testResourceServer.Command[0], command)
 	assert.Equal(t, []string{"mcp"}, args)
-	assert.NotNil(t, mcpTargets["codex"].entry(options.mcp, "blaxel-docs"))
+	assert.NotNil(t, agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel-docs"))
 	assert.Empty(t, recorder.logins)
 	assert.Empty(t, recorder.tracking)
 	assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 2, "one summary per refresh")
@@ -864,14 +712,14 @@ func TestRefreshMigratesOwnedEntriesAndKeepsCustomAndPluginServers(t *testing.T)
 	pluginConfig := `{"mcpServers":{"blaxel":{"url":"https://api.blaxel.ai/v0/mcp"}}}`
 	writeTestFile(t, filepath.Join(plugin, ".mcp.json"), pluginConfig)
 	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{skillsInstallEnv: "false"}, recorder)
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "false"}, recorder)
 	runSetupRefresh(context.Background(), options)
-	command, args := entryCommand(mcpTargets["cursor"].entry(options.mcp, "blaxel"))
-	assert.Equal(t, testResourceServer.command[0], command)
+	command, args := agentsetup.EntryCommand(agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"))
+	assert.Equal(t, testResourceServer.Command[0], command)
 	assert.Equal(t, []string{"mcp"}, args)
-	assert.Equal(t, custom, mcpTargets["gemini-cli"].entry(options.mcp, "blaxel"))
-	assert.Nil(t, mcpTargets["claude-code"].entry(options.mcp, "blaxel"))
-	assert.NotNil(t, mcpTargets["claude-code"].entry(options.mcp, "blaxel-docs"))
+	assert.Equal(t, custom, agentsetup.MCPTargets["gemini-cli"].Entry(options.mcp, "blaxel"))
+	assert.Nil(t, agentsetup.MCPTargets["claude-code"].Entry(options.mcp, "blaxel"))
+	assert.NotNil(t, agentsetup.MCPTargets["claude-code"].Entry(options.mcp, "blaxel-docs"))
 	assert.Contains(t, readTestFile(t, filepath.Join(home, ".cursor", "mcp.json")), `"command": "custom"`)
 	assert.Equal(t, pluginConfig, readTestFile(t, filepath.Join(plugin, ".mcp.json")))
 	assert.Contains(t, recorder.text(t), "1 migrated")
@@ -885,12 +733,12 @@ func TestRefreshHonorsIndependentOptOutsAndCI(t *testing.T) {
 		skills, mcp bool
 	}{
 		{"defaults", nil, true, true},
-		{"skills disabled", map[string]string{skillsInstallEnv: " FALSE "}, false, true},
+		{"skills disabled", map[string]string{agentsetup.SkillsInstallEnv: " FALSE "}, false, true},
 		{"MCP disabled", map[string]string{mcpInstallEnv: "false"}, true, false},
-		{"both disabled", map[string]string{skillsInstallEnv: "false", mcpInstallEnv: "false"}, false, false},
+		{"both disabled", map[string]string{agentsetup.SkillsInstallEnv: "false", mcpInstallEnv: "false"}, false, false},
 		{"setup disabled", map[string]string{"BL_INSTALL_SETUP": "false"}, false, false},
 		{"CI", map[string]string{"CI": "true"}, false, false},
-		{"CI skills forced", map[string]string{"CI": "true", skillsInstallEnv: "true"}, true, false},
+		{"CI skills forced", map[string]string{"CI": "true", agentsetup.SkillsInstallEnv: "true"}, true, false},
 		{"CI MCP forced", map[string]string{"GITHUB_ACTIONS": "true", mcpInstallEnv: "true"}, false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -900,7 +748,7 @@ func TestRefreshHonorsIndependentOptOutsAndCI(t *testing.T) {
 			options := testSetupOptions(t, home, test.env, recorder)
 			runSetupRefresh(context.Background(), options)
 			assert.Equal(t, test.skills, len(recorder.skillsAgents) > 0)
-			assert.Equal(t, test.mcp, mcpTargets["cursor"].entry(options.mcp, "blaxel") != nil)
+			assert.Equal(t, test.mcp, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel") != nil)
 			assert.Empty(t, recorder.logins)
 			assert.Empty(t, recorder.tracking)
 			assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 1)
@@ -923,18 +771,18 @@ func TestRefreshKeepsManagedSkillsAndContinuesAfterDownloadFailure(t *testing.T)
 			recorder := &setupRecorder{}
 			options := testSetupOptions(t, home, env, recorder)
 			if !offline {
-				options.installSkills = func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-					return installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, options.env, agents, time.Now())
+				options.installSkills = func(_ context.Context, agents []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+					return agentsetup.InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, options.env, agents, time.Now())
 				}
 			}
 			runSetupRefresh(context.Background(), options)
 			assert.Equal(t, manifest, readTestFile(t, filepath.Join(external, "SKILL.md")))
-			assert.NotNil(t, mcpTargets["cursor"].entry(options.mcp, "blaxel"))
+			assert.NotNil(t, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"))
 			if offline {
 				assert.Contains(t, recorder.text(t), "1 problem; retry with bl setup")
 			} else {
 				assert.Contains(t, recorder.text(t), "1 externally managed kept")
-				assert.NotContains(t, readTestFile(t, skillsLockPath(home, options.env)), `"blaxel-cli"`)
+				assert.NotContains(t, readTestFile(t, agentsetup.SkillsLockPath(home, options.env)), `"blaxel-cli"`)
 			}
 		})
 	}
@@ -946,12 +794,26 @@ func TestRefreshContinuesAfterAnAgentConfigFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".codex"), 0755))
 	writeTestFile(t, filepath.Join(home, ".claude.json"), "broken configuration")
 	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{skillsInstallEnv: "false"}, recorder)
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "false"}, recorder)
 	runSetupRefresh(context.Background(), options)
 	assert.Equal(t, "broken configuration", readTestFile(t, filepath.Join(home, ".claude.json")))
-	assert.NotNil(t, mcpTargets["codex"].entry(options.mcp, "blaxel"))
+	assert.NotNil(t, agentsetup.MCPTargets["codex"].Entry(options.mcp, "blaxel"))
 	assert.Contains(t, recorder.text(t), "1 problem; retry with bl setup")
 	assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 1)
+}
+
+func TestSkillsSavedOptOutKeepsAutomaticRefreshMCPIndependent(t *testing.T) {
+	home := resolvedTempDir(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".cursor"), 0755))
+	enabled := false
+	require.NoError(t, agentsetup.WriteSkillsUpdateState(home, agentsetup.SkillsUpdateState{AutoUpdate: &enabled}))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{agentsetup.SkillsInstallEnv: "true"}, recorder)
+	runSetupRefresh(context.Background(), options)
+	assert.Empty(t, recorder.skillsAgents, "saved preference wins over automatic installer refresh")
+	assert.NotNil(t, agentsetup.MCPTargets["cursor"].Entry(options.mcp, "blaxel"), "MCP refresh remains independent")
+	assert.Empty(t, recorder.logins)
+	assert.Empty(t, recorder.tracking)
 }
 
 func TestRefreshSlowSkillsDownloadLeavesMCPItsOwnDeadline(t *testing.T) {
@@ -960,7 +822,7 @@ func TestRefreshSlowSkillsDownloadLeavesMCPItsOwnDeadline(t *testing.T) {
 	recorder := &setupRecorder{}
 	options := testSetupOptions(t, home, map[string]string{"PATH_HAS_claude": ""}, recorder)
 	ran := 0
-	options.mcp.run = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+	options.mcp.Run = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
 		ran++
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -970,9 +832,9 @@ func TestRefreshSlowSkillsDownloadLeavesMCPItsOwnDeadline(t *testing.T) {
 	saved := setupRefreshSkillsTimeout
 	setupRefreshSkillsTimeout = 10 * time.Millisecond
 	t.Cleanup(func() { setupRefreshSkillsTimeout = saved })
-	options.installSkills = func(ctx context.Context, _ []skillsAgent) (skillsInstallResult, error) {
+	options.installSkills = func(ctx context.Context, _ []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
 		<-ctx.Done()
-		return skillsInstallResult{}, ctx.Err()
+		return agentsetup.SkillsInstallResult{}, ctx.Err()
 	}
 	runSetupRefresh(context.Background(), options)
 	assert.Positive(t, ran)

@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"os"
@@ -18,17 +18,17 @@ func TestWindowsSkillDirectoryJunction(t *testing.T) {
 	link := filepath.Join(staging, "new")
 	// The relative name is deliberately wrong: Windows junctions must keep
 	// their absolute target when the staged directory is renamed.
-	require.NoError(t, createSkillDirectoryLink(target, "wrong-relative-target", link))
+	require.NoError(t, CreateSkillDirectoryLink(target, "wrong-relative-target", link))
 	final := filepath.Join(home, "agent", "blaxel-sdk")
 	require.NoError(t, os.MkdirAll(filepath.Dir(final), 0755))
 	require.NoError(t, os.Rename(link, final))
 	info, err := os.Lstat(final)
 	require.NoError(t, err)
 	assert.True(t, isSkillLink(final, info.Mode()), "a junction must be recognized as a projection")
-	resolved, err := evalSkillLinks(final)
+	resolved, err := EvalSkillLinks(final)
 	require.NoError(t, err)
 	assert.Equal(t, target, resolved)
-	file, err := evalSkillLinks(filepath.Join(final, "SKILL.md"))
+	file, err := EvalSkillLinks(filepath.Join(final, "SKILL.md"))
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(target, "SKILL.md"), file)
 	missing, err := resolveSkillPath(filepath.Join(final, "future", "file"))
@@ -43,7 +43,7 @@ func TestWindowsSkillDirectoryJunction(t *testing.T) {
 func TestWindowsSkillJunctionFailureLeavesNoEmptyFolder(t *testing.T) {
 	home := resolvedTempDir(t)
 	link := filepath.Join(home, "link")
-	err := createSkillDirectoryLink("bad\x00target", "", link)
+	err := CreateSkillDirectoryLink("bad\x00target", "", link)
 	require.Error(t, err)
 	assert.NoDirExists(t, link)
 	assert.Empty(t, dirNames(t, home))
