@@ -13,6 +13,16 @@ func init() {
 func SkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "skills", Short: "Manage Blaxel skills for coding agents",
+		Long: `Manage the Blaxel agent skills installed for your coding agents.
+
+Once skills are installed, ordinary bl commands and bl mcp check for a newer
+verified skills bundle at most every six hours. Turn this off with
+bl skills autoupdate off, or with BL_INSTALL_SKILLS=false; CI is skipped.
+
+To uninstall, run bl skills autoupdate off so automatic updates and CLI
+upgrades stop reinstalling them, then delete the blaxel-* folders in
+~/.agents/skills and the matching links in each coding agent's skills folder
+(for example ~/.claude/skills). The update state stays in ~/.blaxel/skills.`,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return nil },
 	}
 	cmd.AddCommand(&cobra.Command{
