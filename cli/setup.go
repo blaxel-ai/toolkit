@@ -880,11 +880,16 @@ func refreshSetup(options setupOptions) {
 	runSetupRefresh(context.Background(), options)
 }
 
+// Refresh deadlines. Each part has its own, so a slow skills download cannot
+// leave MCP with an expired context; together they fit bl upgrade's wait.
+var (
+	setupRefreshSkillsTimeout = 90 * time.Second
+	setupRefreshMCPTimeout    = 30 * time.Second
+)
+
 // runSetupRefresh shares setup's detection and conservative MCP writes. Each
 // component is best effort, so an unavailable skills archive does not stop MCP.
 func runSetupRefresh(ctx context.Context, options setupOptions) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
 	agents := detectedSetupAgents(options.home, options.env)
 	skills, mcp := automaticSetupOffers(options.env)
 	skills = skills && !options.skipSkills
@@ -898,7 +903,9 @@ func runSetupRefresh(ctx context.Context, options setupOptions) {
 				selected = append(selected, agent)
 			}
 		}
-		result, err := options.installSkills(ctx, selected)
+		skillsCtx, cancel := context.WithTimeout(ctx, setupRefreshSkillsTimeout)
+		result, err := options.installSkills(skillsCtx, selected)
+		cancel()
 		if err != nil {
 			parts[0] = "skills unavailable"
 			problems++
@@ -913,10 +920,12 @@ func runSetupRefresh(ctx context.Context, options setupOptions) {
 		}
 	}
 	if mcp {
+		mcpCtx, cancel := context.WithTimeout(ctx, setupRefreshMCPTimeout)
+		defer cancel()
 		added, updated, kept, plugin := 0, 0, 0, 0
 		for _, agent := range agents {
 			if target, ok := mcpTargets[agent.id]; ok {
-				result := configureAgentMCP(ctx, options.mcp, target, []mcpServer{options.resourceServer, options.documentsServer})
+				result := configureAgentMCP(mcpCtx, options.mcp, target, []mcpServer{options.resourceServer, options.documentsServer})
 				added += len(result.added)
 				updated += len(result.updated)
 				kept += len(result.existing)

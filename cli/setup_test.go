@@ -953,3 +953,29 @@ func TestRefreshContinuesAfterAnAgentConfigFailure(t *testing.T) {
 	assert.Contains(t, recorder.text(t), "1 problem; retry with bl setup")
 	assert.Len(t, strings.Split(strings.TrimSpace(recorder.text(t)), "\n"), 1)
 }
+
+func TestRefreshSlowSkillsDownloadLeavesMCPItsOwnDeadline(t *testing.T) {
+	home := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{"PATH_HAS_claude": ""}, recorder)
+	ran := 0
+	options.mcp.run = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+		ran++
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return []byte("Added HTTP MCP server"), nil
+	}
+	saved := setupRefreshSkillsTimeout
+	setupRefreshSkillsTimeout = 10 * time.Millisecond
+	t.Cleanup(func() { setupRefreshSkillsTimeout = saved })
+	options.installSkills = func(ctx context.Context, _ []skillsAgent) (skillsInstallResult, error) {
+		<-ctx.Done()
+		return skillsInstallResult{}, ctx.Err()
+	}
+	runSetupRefresh(context.Background(), options)
+	assert.Positive(t, ran)
+	assert.Contains(t, recorder.text(t), "skills unavailable")
+	assert.NotContains(t, recorder.text(t), "2 problems")
+}
