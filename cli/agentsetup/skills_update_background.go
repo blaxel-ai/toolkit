@@ -25,14 +25,8 @@ func RunSkillsUpdateWorker(version string) (bool, error) {
 }
 
 func StartSkillsUpdateWorker(version string) {
-	args := os.Args[1:]
-	if core.IsShellCompletionRequest(args) || SkillsInstallDisabled(os.Getenv) {
+	if skillsUpdateWorkerSkipped(os.Args[1:]) || SkillsInstallDisabled(os.Getenv) {
 		return
-	}
-	for _, arg := range args {
-		if arg == "mcp" || arg == "skills" || arg == "setup" || arg == "upgrade" || arg == "docs" {
-			return
-		}
 	}
 	updater, err := DefaultSkillsUpdater(version)
 	if err != nil {
@@ -47,19 +41,40 @@ func StartSkillsUpdateWorker(version string) {
 		return
 	}
 	worker := exec.Command(executable, "skills", "update")
-	// Pass only local paths and networking settings, never Blaxel credentials.
-	for _, name := range []string{"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SystemRoot", "TMPDIR", "TEMP", "TMP", "XDG_STATE_HOME", "XDG_CONFIG_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", SkillsInstallEnv, "CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR"} {
-		if value, ok := os.LookupEnv(name); ok {
-			worker.Env = append(worker.Env, name+"="+value)
-		}
-	}
-	// Suppress main's tracking probe before the worker entrypoint runs.
-	worker.Env = append(worker.Env, "DO_NOT_TRACK=1", SkillsUpdateWorkerEnv+"=1")
+	worker.Env = skillsUpdateWorkerEnv(os.LookupEnv)
 	detachSkillsUpdateWorker(worker)
 	// nil streams use the null device; no terminal or MCP pipes are inherited.
 	if worker.Start() == nil {
 		_ = worker.Process.Release()
 	}
+}
+
+// skillsUpdateWorkerSkipped reports commands that handle skills themselves or
+// must not start a worker: shell completion, bl mcp, skills, setup, upgrade
+// and docs. The command is resolved as cobra will, so a flag value or argument
+// such as `bl get skills` or `-w mcp` still gets the scheduled check.
+func skillsUpdateWorkerSkipped(args []string) bool {
+	if core.IsShellCompletionRequest(args) {
+		return true
+	}
+	switch core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade", "docs") {
+	case "mcp", "skills", "setup", "upgrade", "docs":
+		return true
+	}
+	return false
+}
+
+// skillsUpdateWorkerEnv passes only local paths (including where each agent
+// lives) and networking settings, never Blaxel credentials.
+func skillsUpdateWorkerEnv(lookup func(string) (string, bool)) []string {
+	var env []string
+	for _, name := range []string{"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SystemRoot", "APPDATA", "TMPDIR", "TEMP", "TMP", "XDG_STATE_HOME", "XDG_CONFIG_HOME", "CLAUDE_CONFIG_DIR", "CODEX_HOME", "GOOSE_PATH_ROOT", "CONTINUE_GLOBAL_DIR", "CRUSH_GLOBAL_CONFIG", "OPENCLAW_CONFIG_PATH", "OPENCLAW_STATE_DIR", SkillsInstallEnv, "CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR"} {
+		if value, ok := lookup(name); ok {
+			env = append(env, name+"="+value)
+		}
+	}
+	// Suppress main's tracking probe before the worker entrypoint runs.
+	return append(env, "DO_NOT_TRACK=1", SkillsUpdateWorkerEnv+"=1")
 }
 
 func (updater SkillsUpdater) Run(ctx context.Context, interval time.Duration) {
