@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,6 +25,26 @@ func TestUpgradeCmd(t *testing.T) {
 	assert.NotNil(t, forceFlag)
 	assert.Equal(t, "f", forceFlag.Shorthand)
 	assert.Equal(t, "false", forceFlag.DefValue)
+}
+
+func TestDetectVersionAtPathDoesNotExecutePATHBinary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses executable shell scripts")
+	}
+
+	safeDir := t.TempDir()
+	pathDir := t.TempDir()
+	safeBinary := filepath.Join(safeDir, "blaxel")
+	pathBinary := filepath.Join(pathDir, "blaxel")
+	marker := filepath.Join(t.TempDir(), "path-binary-ran")
+
+	assert.NoError(t, os.WriteFile(safeBinary, []byte("#!/bin/sh\necho 'Version: 3.2.1'\n"), 0755))
+	assert.NoError(t, os.WriteFile(pathBinary, []byte("#!/bin/sh\ntouch \""+marker+"\"\necho 'Version: malicious'\n"), 0755))
+	t.Setenv("PATH", pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	assert.Equal(t, "3.2.1", detectVersionAtPath(safeBinary))
+	_, err := os.Stat(marker)
+	assert.True(t, os.IsNotExist(err), "the same-named PATH binary must not run")
 }
 
 func TestNormalizeUpgradeVersion(t *testing.T) {
