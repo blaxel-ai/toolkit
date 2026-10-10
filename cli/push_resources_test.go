@@ -161,3 +161,47 @@ func TestPushResourceFlagValidationAndSourceLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"x-blaxel-build-memory": "16384", "x-blaxel-build-volume": "0"}, buildLabels(build))
 }
+
+func TestPushTagFlagReachesRequestBody(t *testing.T) {
+	for _, tc := range []struct{ name, tag string }{{"omitted", ""}, {"set", "v1.2_rc-3"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			core.ResetConfig()
+			t.Cleanup(core.ResetConfig)
+			original := core.GetClient()
+			t.Cleanup(func() { core.SetClient(original) })
+			requests := make(chan map[string]any, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var request map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+				}
+				requests <- request
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"name":"phone","resourceType":"sandbox","build":false}`))
+			}))
+			defer server.Close()
+			client := blaxel.NewClient(option.WithBaseURL(server.URL+"/"), option.WithAPIKey("test"), option.WithMaxRetries(0))
+			core.SetClient(&client)
+			args := []string{"--yes", "--type", "sandbox", "--name", "phone", "--image", "registry.example.com/phone:latest"}
+			if tc.tag != "" {
+				args = append(args, "--tag", tc.tag)
+			}
+			cmd := PushCmd()
+			cmd.SetArgs(args)
+			require.NoError(t, cmd.Execute())
+			request := <-requests
+			if tc.tag == "" {
+				require.NotContains(t, request, "tag", "empty tag must be omitted so the server derives one")
+				return
+			}
+			require.Equal(t, tc.tag, request["tag"])
+		})
+	}
+}
+
+func TestPushSamplesUseChosenTag(t *testing.T) {
+	require.Contains(t, getSandboxSamplesMap("phone", "v1.2")["CLI"], "image: sandbox/phone:v1.2")
+	require.Contains(t, getResourceSamples("agent", "bot", "v1.2")["CLI"], "agent/bot:v1.2")
+	require.Contains(t, getSandboxSamplesMap("phone", "")["CLI"], "image: sandbox/phone:latest")
+}

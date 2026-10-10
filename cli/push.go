@@ -38,8 +38,11 @@ type createImageRequest struct {
 	Generation   string `json:"generation,omitempty"`
 	Image        string `json:"image,omitempty"`
 	DockerConfig string `json:"dockerConfig,omitempty"`
-	MemoryMb     *int   `json:"memoryMb,omitempty"`
-	VolumeMb     *int   `json:"volumeMb,omitempty"`
+	// Tag is validated server-side only (single source of truth); empty lets the
+	// platform derive one from the content.
+	Tag      string `json:"tag,omitempty"`
+	MemoryMb *int   `json:"memoryMb,omitempty"`
+	VolumeMb *int   `json:"volumeMb,omitempty"`
 	// Labels carries blaxel.toml's [build] choices. The platform signs them into
 	// the upload URL, and Upload sends matching headers — that round trip is what
 	// gets them to a build started by `bl push`, which creates no resource
@@ -134,6 +137,7 @@ func PushCmd() *cobra.Command {
 	var timeoutStr string
 	var buildEnvPath string
 	var skipBuild bool
+	var tag string
 
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -333,6 +337,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					ResourceType: resourceType,
 					Generation:   generation,
 					Image:        image,
+					Tag:          tag,
 				}
 				if dockerConfigJSON != nil {
 					reqBody.DockerConfig = string(dockerConfigJSON)
@@ -351,7 +356,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 
 				if respBody.Build {
-					err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
+					err = watchBuildLogsNonInteractive(resourceType, name, tag, noTTY, buildTimeout)
 					if err != nil {
 						core.PrintError("Push", err)
 						core.ExitWithError(err)
@@ -360,7 +365,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					if respBody.Message != "" {
 						fmt.Println(respBody.Message)
 					}
-					printPushSuccess(resourceType, name, noTTY)
+					printPushSuccess(resourceType, name, tag, noTTY)
 				}
 			} else {
 				// Check for blaxel.toml validation warnings
@@ -418,6 +423,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					ResourceType: resourceType,
 					Generation:   generation,
 					Labels:       buildLabels(config.Build),
+					Tag:          tag,
 				}
 
 				var httpResponse *http.Response
@@ -469,7 +475,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				fmt.Println("Upload completed")
 
 				// Monitor build logs
-				err = watchBuildLogsNonInteractive(resourceType, name, noTTY, buildTimeout)
+				err = watchBuildLogsNonInteractive(resourceType, name, tag, noTTY, buildTimeout)
 				if err != nil {
 					core.PrintError("Push", err)
 					core.ExitWithError(err)
@@ -489,13 +495,14 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
+	cmd.Flags().StringVar(&tag, "tag", "", "Tag for the built image (registry image imports with --image only). Defaults to a content-derived tag.")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
 
 	return cmd
 }
 
 // watchBuildLogsNonInteractive monitors the build logs until the build succeeds or fails.
-func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTimeout time.Duration) error {
+func watchBuildLogsNonInteractive(resourceType, name, tag string, noTTY bool, buildTimeout time.Duration) error {
 	client := core.GetClient()
 	workspace := core.GetWorkspace()
 
@@ -556,7 +563,7 @@ func watchBuildLogsNonInteractive(resourceType, name string, noTTY bool, buildTi
 			if status == "succeeded" {
 				logWatcher.Stop()
 				time.Sleep(1 * time.Second) // Allow final logs to flush
-				printPushSuccess(resourceType, name, noTTY)
+				printPushSuccess(resourceType, name, tag, noTTY)
 				return nil
 			}
 			if status == "failed" {
@@ -623,7 +630,16 @@ func imageRef(resourceType, name string) string {
 	return name
 }
 
-func printPushSuccess(resourceType, name string, noTTY bool) {
+// pushedImageRef is the reference a deployment uses for the pushed image: the
+// chosen tag, or latest when none was chosen.
+func pushedImageRef(resourceType, name, tag string) string {
+	if tag == "" {
+		tag = "latest"
+	}
+	return fmt.Sprintf("%s/%s:%s", resourceType, name, tag)
+}
+
+func printPushSuccess(resourceType, name, tag string, noTTY bool) {
 	fmt.Printf("\nImage %s built and pushed successfully!\n", imageRef(resourceType, name))
 	fmt.Println()
 	core.PrintInfoWithCommand("List images:", "bl get images")
@@ -631,9 +647,9 @@ func printPushSuccess(resourceType, name string, noTTY bool) {
 	fmt.Println()
 
 	if noTTY {
-		printDeploySampleCLI(resourceType, name)
+		printDeploySampleCLI(resourceType, name, tag)
 	} else {
-		printDeploySamplesInteractive(resourceType, name)
+		printDeploySamplesInteractive(resourceType, name, tag)
 	}
 }
 
@@ -654,8 +670,8 @@ func resourceKind(resourceType string) string {
 
 var sampleLanguages = []string{"TypeScript", "Python", "Go", "CLI", "curl"}
 
-func getSandboxSamplesMap(name string) map[string]string {
-	imageTag := fmt.Sprintf("sandbox/%s:latest", name)
+func getSandboxSamplesMap(name, tag string) map[string]string {
+	imageTag := pushedImageRef("sandbox", name, tag)
 	instanceName := fmt.Sprintf("%s-%s", name, core.RandomString(5))
 	baseUrl := blaxel.GetBaseURL()
 	tsSample := fmt.Sprintf(`import { SandboxInstance } from "@blaxel/core";
@@ -746,11 +762,11 @@ EOF`, instanceName, imageTag)
 	}
 }
 
-func getResourceSamples(resourceType, name string) map[string]string {
+func getResourceSamples(resourceType, name, tag string) map[string]string {
 	kind := resourceKind(resourceType)
 	workspace := core.GetWorkspace()
 	baseUrl := blaxel.GetBaseURL()
-	imageTag := fmt.Sprintf("%s/%s:latest", resourceType, name)
+	imageTag := pushedImageRef(resourceType, name, tag)
 
 	tsSample := fmt.Sprintf(`import Blaxel from "@blaxel/sdk";
 
@@ -860,12 +876,12 @@ func renderCodeBlock(code string) string {
 	return b.String()
 }
 
-func printDeploySampleCLI(resourceType, name string) {
+func printDeploySampleCLI(resourceType, name, tag string) {
 	var samples map[string]string
 	if resourceType == "sandbox" {
-		samples = getSandboxSamplesMap(name)
+		samples = getSandboxSamplesMap(name, tag)
 	} else {
-		samples = getResourceSamples(resourceType, name)
+		samples = getResourceSamples(resourceType, name, tag)
 	}
 	fmt.Println("Deploy this image with:")
 	fmt.Println()
@@ -1046,12 +1062,12 @@ func (m codeSampleModel) View() string {
 	return m.headerView() + m.viewport.View()
 }
 
-func printDeploySamplesInteractive(resourceType, name string) {
+func printDeploySamplesInteractive(resourceType, name, tag string) {
 	var samples map[string]string
 	if resourceType == "sandbox" {
-		samples = getSandboxSamplesMap(name)
+		samples = getSandboxSamplesMap(name, tag)
 	} else {
-		samples = getResourceSamples(resourceType, name)
+		samples = getResourceSamples(resourceType, name, tag)
 	}
 
 	m := codeSampleModel{
@@ -1063,6 +1079,6 @@ func printDeploySamplesInteractive(resourceType, name string) {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		// Fallback to non-interactive
-		printDeploySampleCLI(resourceType, name)
+		printDeploySampleCLI(resourceType, name, tag)
 	}
 }

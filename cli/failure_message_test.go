@@ -68,7 +68,7 @@ func TestPushWatcherReportsMultilineFailureWithoutLogs(t *testing.T) {
 	}))
 	defer server.Close()
 	setupTestClient(t, server.URL)
-	err := watchBuildLogsNonInteractive("sandbox", "test-image", true, 15*time.Second)
+	err := watchBuildLogsNonInteractive("sandbox", "test-image", "", true, 15*time.Second)
 	require.EqualError(t, err, "image build failed: "+reason)
 	require.EqualValues(t, 1, polls.Load())
 }
