@@ -545,7 +545,7 @@ func TestSetupPlanAndSummary(t *testing.T) {
 		"Claude Code    skills · Blaxel MCP · docs MCP",
 		"Pi             skills",
 		"Shell          bl on PATH · zsh completions",
-		"Blaxel         logged in to main · error reports on",
+		"Blaxel         logged in to main · usage and error reports on",
 		"source ~/.zshrc",
 		"Blaxel is ready",
 		// bl mcp signs the agents in with the bl login.

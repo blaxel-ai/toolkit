@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/spf13/cobra"
@@ -141,23 +143,104 @@ func runUpgrade(targetVersion string, force bool) error {
 
 	core.PrintInfo(fmt.Sprintf("Detected installation method: %s", method))
 
+	oldVersion := core.GetVersion()
+
+	var upgradeErr error
 	switch method {
 	case "brew":
-		err = upgradeViaBrew(force)
+		upgradeErr = upgradeViaBrew(force)
 	case "curl":
-		err = upgradeViaCurl(targetVersion)
+		upgradeErr = upgradeViaCurl(targetVersion)
 	default:
 		return fmt.Errorf("unknown installation method: %s", method)
 	}
-	if err != nil {
-		return err
+
+	if upgradeErr != nil {
+		return upgradeErr
 	}
 
 	installSkills()
 	if method == "brew" {
 		markUpgradedHomebrewSkills()
 	}
+
+	// Detect new version after successful upgrade, only to report it.
+	// For brew upgrades, the old cellar binary is gone so we must resolve
+	// the symlink again (brew updates the /usr/local/bin symlink to the
+	// new cellar path). For curl upgrades the binary is replaced in-place.
+	if core.UsageEventsEnabled() {
+		newVersion := detectInstalledVersion(method)
+		if newVersion != "" && newVersion != oldVersion {
+			core.TrackCLIUpgraded(oldVersion, newVersion)
+		}
+	}
+
 	return nil
+}
+
+// versionProbeTimeout bounds the post-upgrade version read, which runs after
+// the upgrade already succeeded and must never make it look hung.
+var versionProbeTimeout = 5 * time.Second
+
+// detectInstalledVersion runs the upgraded binary at the location controlled
+// by the installation method. It deliberately never resolves the CLI through
+// PATH, where an unrelated binary with the same name could be executed.
+func detectInstalledVersion(method string) string {
+	binaryPath, err := upgradedCLIPath(method)
+	if err != nil {
+		return ""
+	}
+	return detectVersionAtPath(binaryPath)
+}
+
+func upgradedCLIPath(method string) (string, error) {
+	switch method {
+	case "brew":
+		// The old Cellar path may disappear during upgrade. Homebrew's formula
+		// prefix resolves the new Cellar entry without selecting a CLI from PATH.
+		output, err := exec.Command("brew", "--prefix", "blaxel").Output()
+		if err != nil {
+			return "", err
+		}
+		prefix := strings.TrimSpace(string(output))
+		if prefix == "" {
+			return "", fmt.Errorf("homebrew returned an empty blaxel prefix")
+		}
+		return filepath.Join(prefix, "bin", "blaxel"), nil
+	case "curl":
+		execPath, err := os.Executable()
+		if err != nil {
+			return "", err
+		}
+		if realPath, err := filepath.EvalSymlinks(execPath); err == nil {
+			execPath = realPath
+		}
+		return execPath, nil
+	default:
+		return "", fmt.Errorf("unknown installation method: %s", method)
+	}
+}
+
+func detectVersionAtPath(binaryPath string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), versionProbeTimeout)
+	defer cancel()
+	// --skip-version-warning avoids the network update check.
+	cmd := exec.CommandContext(ctx, binaryPath, "version", "--skip-version-warning")
+	cmd.WaitDelay = time.Second
+	// Reading the version must not start another setup or skills refresh.
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1", "DO_NOT_TRACK=1", "BL_INSTALL_SETUP=false", "BL_INSTALL_SKILLS=false", "BL_INSTALL_MCP=false")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	// Parse "Version: X.Y.Z" from the output
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	return ""
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew

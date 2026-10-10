@@ -164,7 +164,7 @@ func TestSetupKeepsSavedErrorReportingToggleVisible(t *testing.T) {
 				if item.ID == "tracking" {
 					found = true
 					assert.Equal(t, "This machine", item.Group)
-					assert.Equal(t, "Error reports", item.Label)
+					assert.Equal(t, "Usage and error reports", item.Label)
 					assert.Empty(t, item.Done, "a saved preference must remain toggleable")
 					assert.Equal(t, enabled, item.On)
 				}

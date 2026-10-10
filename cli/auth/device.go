@@ -76,7 +76,11 @@ func LoginDevice(workspace string) {
 // Without a terminal (such as a coding agent running bl login) nothing is
 // asked: the workspace is chosen for them and the login URL is printed on its
 // own line. Failures are returned, so callers such as bl setup can carry on.
-func LoginWithDevice(workspace string) error {
+func LoginWithDevice(workspace string) (loginErr error) {
+	core.TrackCLILogin("started", nil)
+	defer func() {
+		core.TrackCLILogin(map[bool]string{true: "failure", false: "success"}[loginErr != nil], loginErr)
+	}()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	return loginWithDevice(ctx, workspace, core.IsTerminalInteractive())

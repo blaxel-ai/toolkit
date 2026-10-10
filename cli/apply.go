@@ -514,6 +514,9 @@ func handleResourceOperation(resource *core.Resource, name string, resourceObjec
 		return nil, err
 	}
 
+	if operation == "post" {
+		core.TrackCLIFirstResource(resource.Kind)
+	}
 	result := &handleResourceOperationResult{
 		Response: results[0].Interface(),
 	}

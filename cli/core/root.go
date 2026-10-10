@@ -473,6 +473,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	SetSentryTag("commit", commit)
 	SetSentryTag("command.class", "bl command-resolution")
 
+	// Track CLI installation (fires once per new version)
+	TrackCLIInstalled(version)
+
 	return rootCmd.Execute()
 }
 
@@ -627,7 +630,8 @@ func promptForTracking() {
 
 	// Prompt user for tracking consent
 	fmt.Println()
-	fmt.Print("Do you want to enable tracking to help improve Blaxel? [y/N] ")
+	fmt.Println("Events, properties and opt-outs: " + UsageDisclosureURL)
+	fmt.Print("Enable usage and error reports? [y/N] ")
 
 	var response string
 	_, _ = fmt.Scanln(&response)

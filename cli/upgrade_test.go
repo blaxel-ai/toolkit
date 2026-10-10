@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,6 +26,51 @@ func TestUpgradeCmd(t *testing.T) {
 	assert.NotNil(t, forceFlag)
 	assert.Equal(t, "f", forceFlag.Shorthand)
 	assert.Equal(t, "false", forceFlag.DefValue)
+}
+
+func TestDetectVersionAtPathDoesNotExecutePATHBinary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses executable shell scripts")
+	}
+
+	safeDir := t.TempDir()
+	pathDir := t.TempDir()
+	safeBinary := filepath.Join(safeDir, "blaxel")
+	pathBinary := filepath.Join(pathDir, "blaxel")
+	marker := filepath.Join(t.TempDir(), "path-binary-ran")
+
+	assert.NoError(t, os.WriteFile(safeBinary, []byte("#!/bin/sh\n"+
+		"[ \"$DO_NOT_TRACK\" = 1 ] && [ \"$BL_INSTALL_SETUP\" = false ] && [ \"$BL_INSTALL_SKILLS\" = false ] && [ \"$BL_INSTALL_MCP\" = false ] || exit 3\n"+
+		"echo 'Version: 3.2.1'\n"), 0755))
+	assert.NoError(t, os.WriteFile(pathBinary, []byte("#!/bin/sh\ntouch \""+marker+"\"\necho 'Version: malicious'\n"), 0755))
+	t.Setenv("PATH", pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("BL_INSTALL_SETUP", "true")
+
+	assert.Equal(t, "3.2.1", detectVersionAtPath(safeBinary))
+	_, err := os.Stat(marker)
+	assert.True(t, os.IsNotExist(err), "the same-named PATH binary must not run")
+}
+
+func TestDetectVersionAtPathSkipsUpdateCheckAndTimesOut(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses executable shell scripts")
+	}
+
+	dir := t.TempDir()
+	checked := filepath.Join(dir, "blaxel-checked")
+	assert.NoError(t, os.WriteFile(checked, []byte("#!/bin/sh\n"+
+		"[ \"$2\" = --skip-version-warning ] || exit 3\n"+
+		"echo 'Version: 3.2.1'\n"), 0755))
+	assert.Equal(t, "3.2.1", detectVersionAtPath(checked))
+
+	hung := filepath.Join(dir, "blaxel-hung")
+	assert.NoError(t, os.WriteFile(hung, []byte("#!/bin/sh\nexec sleep 30\n"), 0755))
+	oldTimeout := versionProbeTimeout
+	versionProbeTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { versionProbeTimeout = oldTimeout })
+	started := time.Now()
+	assert.Equal(t, "", detectVersionAtPath(hung))
+	assert.Less(t, time.Since(started), 5*time.Second, "a hung version probe must not hold up the upgrade")
 }
 
 func TestNormalizeUpgradeVersion(t *testing.T) {
