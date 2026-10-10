@@ -115,6 +115,8 @@ func RegisterResourceOperations(ctx context.Context) {
 		case "Snapshot":
 			// Listing goes through the paginated APIPath.
 			snapshotOperations(resource, c)
+		case "Secret":
+			secretOperations(resource, c)
 		case "Application":
 			resource.List = c.Applications.List
 			resource.Get = c.Applications.Get

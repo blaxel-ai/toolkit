@@ -165,6 +165,7 @@ The command can list all resources of a type or get details for a specific one.
 * [bl get previewtokens](bl_get_previewtokens.md)	 - List all previewtokens or get details of a specific one
 * [bl get sandbox-hub](bl_get_sandbox-hub.md)	 - List pre-built sandbox images available in the Blaxel Hub
 * [bl get sandboxes](bl_get_sandboxes.md)	 - List all sandboxes or get details of a specific one
+* [bl get secrets](bl_get_secrets.md)	 - List all secrets or get details of a specific one
 * [bl get snapshots](bl_get_snapshots.md)	 - List all snapshots or get details of a specific one
 * [bl get templates](bl_get_templates.md)	 - List available project templates
 * [bl get volumes](bl_get_volumes.md)	 - List all volumes or get details of a specific one

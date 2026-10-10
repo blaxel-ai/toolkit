@@ -182,6 +182,19 @@ var resources = []*Resource{
 		},
 	},
 	{
+		Kind:     "Secret",
+		Short:    "sec",
+		Plural:   "secrets",
+		Singular: "secret",
+		APIPath:  "secrets",
+		SpecType: reflect.TypeOf(WorkspaceSecret{}),
+		Fields: []Field{
+			{Key: "NAME", Value: "name"},
+			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+			{Key: "UPDATED_AT", Value: "updatedAt", Special: "date"},
+		},
+	},
+	{
 		Kind:     "VolumeTemplate",
 		Short:    "vt",
 		Plural:   "volumetemplates",
