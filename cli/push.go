@@ -126,6 +126,31 @@ func imageRefToName(ref string) string {
 	return ref
 }
 
+// parsePushBuildTimeout resolves the --timeout flag into a build-monitoring
+// duration. An empty value uses the default. A malformed or non-positive value
+// is user input the caller got wrong, so it is returned as an expected
+// validation error: a raw time.ParseDuration failure is unclassified and would
+// otherwise be reported to Sentry as an internal CLI defect.
+func parsePushBuildTimeout(timeoutStr string) (time.Duration, error) {
+	if timeoutStr == "" {
+		return mon.DefaultBuildTimeout, nil
+	}
+	parsed, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		return 0, core.MarkExpectedError(
+			fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, err),
+			core.CLIErrorValidation,
+		)
+	}
+	if parsed <= 0 {
+		return 0, core.MarkExpectedError(
+			fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr),
+			core.CLIErrorValidation,
+		)
+	}
+	return parsed, nil
+}
+
 func PushCmd() *cobra.Command {
 	var name string
 	var imageRefFlag string
@@ -267,21 +292,10 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 			}
 
 			// Parse timeout early to fail fast before expensive upload
-			buildTimeout := mon.DefaultBuildTimeout
-			if timeoutStr != "" {
-				parsed, parseErr := time.ParseDuration(timeoutStr)
-				if parseErr != nil {
-					core.PrintError("Push", fmt.Errorf("invalid timeout value %q: %w (use format like 30m, 1h)", timeoutStr, parseErr))
-					core.ExitWithError(parseErr)
-				}
-				if parsed <= 0 {
-					core.PrintError("Push", fmt.Errorf("timeout must be a positive duration, got %q", timeoutStr))
-					core.ExitWithError(core.MarkExpectedError(
-						fmt.Errorf("invalid timeout"),
-						core.CLIErrorValidation,
-					))
-				}
-				buildTimeout = parsed
+			buildTimeout, timeoutErr := parsePushBuildTimeout(timeoutStr)
+			if timeoutErr != nil {
+				core.PrintError("Push", timeoutErr)
+				core.ExitWithError(timeoutErr)
 			}
 
 			// Determine name: flag > config > image ref > directory
