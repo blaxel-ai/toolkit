@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/customdomain"
@@ -152,7 +153,7 @@ is set at creation: later updates keep the existing method.`,
 			}
 			name := domainName(domain, req.Metadata.Name)
 			core.PrintSuccess(fmt.Sprintf("Custom domain '%s' created", name))
-			printRecords(customdomain.Records(domain))
+			printRecords(cmd.OutOrStdout(), customdomain.Records(domain))
 			core.PrintInfoWithCommand("Publish these records, then run", fmt.Sprintf("bl custom-domain verify %s", name))
 		},
 	}
@@ -186,12 +187,12 @@ records are only needed with the dns validation method.`,
 			switch core.GetOutputFormat() {
 			case "json":
 				out, _ := json.MarshalIndent(records, "", "  ")
-				fmt.Println(string(out))
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			case "yaml", "pretty":
 				out, _ := yaml.Marshal(records)
-				fmt.Print(string(out))
+				fmt.Fprint(cmd.OutOrStdout(), string(out))
 			default:
-				printRecords(records)
+				printRecords(cmd.OutOrStdout(), records)
 			}
 		},
 	}
@@ -259,7 +260,7 @@ func domainName(domain map[string]any, fallback string) string {
 	return fallback
 }
 
-func printRecords(records []customdomain.Record) {
+func printRecords(w io.Writer, records []customdomain.Record) {
 	if len(records) == 0 {
 		core.PrintInfo("No DNS records to publish yet")
 		return
@@ -269,7 +270,7 @@ func printRecords(records []customdomain.Record) {
 	for _, r := range records {
 		tw.AppendRow(table.Row{r.Type, r.Name, r.Value, r.Purpose})
 	}
-	fmt.Println(tw.Render())
+	_, _ = fmt.Fprintln(w, tw.Render())
 	for _, r := range records {
 		if r.Type == customdomain.RecordTypeAlias {
 			core.PrintInfo("ALIAS/ANAME: an apex name cannot carry a CNAME, use your DNS provider's ALIAS, ANAME or CNAME flattening record")
