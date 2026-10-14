@@ -23,6 +23,7 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl chat](bl_chat.md)	 - Chat with an agent
 * [bl completion](bl_completion.md)	 - Generate shell completion scripts
 * [bl connect](bl_connect.md)	 - Open an interactive terminal session to a sandbox
+* [bl custom-domain](bl_custom-domain.md)	 - Manage custom domains
 * [bl delete](bl_delete.md)	 - Delete resources from your workspace
 * [bl deploy](bl_deploy.md)	 - Build, push, and deploy your project to Blaxel
 * [bl drive](bl_drive.md)	 - Manage drives and drive mounts on sandboxes

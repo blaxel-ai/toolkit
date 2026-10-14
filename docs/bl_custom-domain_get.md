@@ -1,0 +1,39 @@
+---
+title: "bl custom-domain get"
+slug: bl_custom-domain_get
+---
+## bl custom-domain get
+
+Get a custom domain
+
+```
+bl custom-domain get <name> [flags]
+```
+
+### Examples
+
+```
+  bl custom-domain get example.com
+  bl custom-domain get example.com -o yaml
+```
+
+### Options
+
+```
+  -h, --help   help for get
+```
+
+### Options inherited from parent commands
+
+```
+  -o, --output string          Output format. One of: pretty,yaml,json,table
+      --skip-version-warning   Skip version warning
+  -u, --utc                    Enable UTC timezone
+  -v, --verbose                Enable verbose output
+  -w, --workspace string       Specify the workspace name
+```
+
+### SEE ALSO
+
+* [bl custom-domain](bl_custom-domain.md)	 - Manage custom domains
+

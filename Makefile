@@ -51,6 +51,16 @@ test-integration:
 	@echo "🚀 Starting integration tests (this may take several minutes)..."
 	go test -count=1 -v -timeout=30m -run TestCLIWorkflow_CompleteFlow ./test/integration/
 
+test-integration-custom-domain:
+	@echo "🧪 Running custom domain integration tests..."
+	@if [ -z "$$BL_API_KEY" ]; then \
+		echo "❌ Error: BL_API_KEY environment variable is required"; \
+		echo "   Please set your API key: export BL_API_KEY=your_api_key"; \
+		exit 1; \
+	fi
+	@echo "🏢 Using workspace: $${BL_WORKSPACE:-main} (BL_ENV=$${BL_ENV:-prod})"
+	RUN_CUSTOM_DOMAIN_TESTS=true go test -count=1 -v -timeout=10m -run TestCustomDomainCommands ./test/integration/
+
 install:
 	brew install goreleaser
 
@@ -75,4 +85,4 @@ test-zsh-blaxel-prompt:
 test-install-release-lookup:
 	sh test/install/test_release_lookup.sh
 
-.PHONY: test test-integration test-install test-install-release-lookup test-zsh-blaxel-prompt
+.PHONY: test test-integration test-integration-custom-domain test-install test-install-release-lookup test-zsh-blaxel-prompt
