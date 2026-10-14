@@ -116,8 +116,8 @@ such as *.preview.example.com); --type applications serves applications.
 --validation-method chooses how the TLS certificate is validated. dns (the API
 default when the flag is omitted) asks you to publish certificate validation
 records. http needs no validation record once the domain points to Blaxel; it
-is only available for applications domains without wildcard names, and the
-method cannot be changed after creation.`,
+is only available for applications domains without wildcard names. The method
+is set at creation: later updates keep the existing method.`,
 		Example: `  # Application domain on an apex with www, DNS validation (default)
   bl custom-domain create example.com --type applications --san www.example.com
 
