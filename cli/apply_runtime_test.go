@@ -25,7 +25,8 @@ func TestApplySandboxSendsLifecycleGracePeriods(t *testing.T) {
 	require.NotNil(t, resource)
 	previous := *resource
 	t.Cleanup(func() { *resource = previous })
-	var runtime map[string]interface{}
+	runtimes := map[string]map[string]interface{}{}
+	conflict := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Spec struct {
@@ -33,8 +34,13 @@ func TestApplySandboxSendsLifecycleGracePeriods(t *testing.T) {
 			} `json:"spec"`
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		runtime = body.Spec.Runtime
+		runtimes[r.Method] = body.Spec.Runtime
 		w.Header().Set("Content-Type", "application/json")
+		if conflict && r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusConflict)
+			_, _ = w.Write([]byte(`{"message":"already exists"}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"metadata":{"name":"lifecycle"}}`))
 	}))
 	defer server.Close()
@@ -56,6 +62,11 @@ spec:
 `), 0600))
 	_, err := Apply(path)
 	require.NoError(t, err)
-	require.EqualValues(t, 30, runtime["terminationGracePeriodSeconds"])
-	require.EqualValues(t, 15, runtime["standbyGracePeriodSeconds"])
+	conflict = true
+	_, err = Apply(path)
+	require.NoError(t, err)
+	for _, method := range []string{http.MethodPost, http.MethodPut} {
+		require.EqualValues(t, 30, runtimes[method]["terminationGracePeriodSeconds"], method)
+		require.EqualValues(t, 15, runtimes[method]["standbyGracePeriodSeconds"], method)
+	}
 }
