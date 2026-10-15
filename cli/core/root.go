@@ -473,6 +473,9 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 	SetSentryTag("commit", commit)
 	SetSentryTag("command.class", "bl command-resolution")
 
+	// Track CLI installation (fires once per new version)
+	TrackCLIInstalled(version)
+
 	return rootCmd.Execute()
 }
 
@@ -650,13 +653,19 @@ func promptForTracking() {
 }
 
 func isTrackingPromptCommandExempt(args []string) bool {
+	// bl setup asks about error reports itself; bl mcp has no terminal.
+	return isInstallTrackingCommandExempt(args) || (len(args) > 1 && (args[1] == "setup" || args[1] == "mcp"))
+}
+
+// isInstallTrackingCommandExempt reports latency-sensitive, side-effect-free
+// commands that must not wait on the telemetry flush at exit.
+func isInstallTrackingCommandExempt(args []string) bool {
 	if len(args) <= 1 {
 		return false
 	}
 
 	cmd := args[1]
-	// bl setup asks about error reports itself; bl mcp has no terminal.
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" || cmd == "setup" || cmd == "mcp"
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
 }
 
 // IsMCPBridgeCommand reports bl mcp, which keeps stdout for JSON-RPC. bl get
