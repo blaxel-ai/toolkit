@@ -211,11 +211,34 @@ func TestValidateTimeRange(t *testing.T) {
 			err := validateTimeRange(tt.start, tt.end)
 			if tt.expectError {
 				assert.Error(t, err)
+				// Time-range validation failures are user input errors. They must
+				// stay classified as expected so ExitWithError never reports them
+				// to Sentry (regression guard for CLI-3C / ENG-4048).
+				assert.True(t, core.IsExpectedCLIError(err),
+					"validateTimeRange errors must be expected, not Sentry-reportable")
 			} else {
 				assert.NoError(t, err)
 			}
 		})
 	}
+}
+
+// TestValidateTimeRangeExceedsMaxIsExpected reproduces the exact scenario from
+// Sentry issue CLI-3C ("time range exceeds maximum of 3 days (requested:
+// 168h0m0s)"): a 7-day window requested via `bl logs ... --period 7d`. The
+// resulting error must carry the user-facing message AND be classified as an
+// expected validation error so it is surfaced to the user but never captured as
+// an unexpected CLI defect.
+func TestValidateTimeRangeExceedsMaxIsExpected(t *testing.T) {
+	end := time.Now().UTC()
+	start := end.Add(-168 * time.Hour) // 7 days, the originally reported case
+
+	err := validateTimeRange(start, end)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "time range exceeds maximum of 3 days")
+	assert.True(t, core.IsExpectedCLIError(err),
+		"exceeding the max log time range must not be reported to Sentry")
 }
 
 func TestFormatLogOutput(t *testing.T) {
