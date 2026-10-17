@@ -7,6 +7,15 @@ import (
 	"path/filepath"
 )
 
+// toolingError marks a missing-dependency or environment failure (for example a
+// missing git/python/uv/pip binary, or a template that cannot be installed) as
+// an expected operational error. The message is still shown to the user, but the
+// failure is not reported as an unexpected CLI defect because it reflects the
+// user's local environment rather than a bug in the CLI.
+func toolingError(format string, args ...any) error {
+	return MarkExpectedError(fmt.Errorf(format, args...), CLIErrorOperational)
+}
+
 func installPythonDependencies(directory string) error {
 	// First, try to use uv
 	if isCommandAvailable("uv") {
@@ -37,7 +46,7 @@ func installPythonDependencies(directory string) error {
 			} else if isCommandAvailable("python") {
 				venvCreateCmd = exec.Command("python", "-m", "venv", ".venv")
 			} else {
-				return fmt.Errorf("neither python3 nor python command found")
+				return toolingError("neither python3 nor python command found")
 			}
 
 			venvCreateCmd.Dir = directory
@@ -49,7 +58,7 @@ func installPythonDependencies(directory string) error {
 
 			// Verify the virtual environment was created
 			if _, err := os.Stat(venvPath); err != nil {
-				return fmt.Errorf("virtual environment directory was not created at %s", venvPath)
+				return toolingError("virtual environment directory was not created at %s", venvPath)
 			}
 		}
 
@@ -73,7 +82,7 @@ func installPythonDependencies(directory string) error {
 		}
 
 		if pythonPath == "" {
-			return fmt.Errorf("could not find python executable in virtual environment at %s", venvPath)
+			return toolingError("could not find python executable in virtual environment at %s", venvPath)
 		}
 
 		if _, err := os.Stat(pyprojectPath); err == nil {
@@ -97,13 +106,12 @@ func installPythonDependencies(directory string) error {
 			}
 			return nil
 		} else {
-			return fmt.Errorf("neither pyproject.toml nor requirements.txt found in %s", directory)
+			return toolingError("neither pyproject.toml nor requirements.txt found in %s", directory)
 		}
 	}
 
 	// If neither uv nor pip is available, return a clear error
-	//nolint:staticcheck
-	return fmt.Errorf(`neither 'uv' nor 'pip' is available on your system.
+	return toolingError(`neither 'uv' nor 'pip' is available on your system.
 
 To install uv (recommended):
   curl -LsSf https://astral.sh/uv/install.sh | sh

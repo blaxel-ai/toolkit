@@ -174,6 +174,37 @@ func TestExpectedErrorsCreateNoSentryEvents(t *testing.T) {
 	assert.Empty(t, transport.Events())
 }
 
+func TestToolingErrorsAreExpectedAndNotReported(t *testing.T) {
+	transport := bindMockSentry(t)
+
+	// Missing-tooling / environment failures raised by the `bl new` create flow
+	// (missing git/python/uv/pip, unusable virtualenv, template without a
+	// manifest) describe the user's local environment, not a CLI defect. They
+	// must be shown to the user but never reported as an unexpected CLI failure.
+	toolingErrors := []error{
+		toolingError("git is not available on your system. Please install git and try again"),
+		toolingError("neither python3 nor python command found"),
+		toolingError("virtual environment directory was not created at %s", "/tmp/project/.venv"),
+		toolingError("could not find python executable in virtual environment at %s", "/tmp/project/.venv"),
+		toolingError("neither pyproject.toml nor requirements.txt found in %s", "/tmp/project"),
+		toolingError("neither uv nor pip is available on your system"),
+	}
+
+	for _, err := range toolingErrors {
+		classification := classifyCLIError(err)
+		assert.True(t, classification.expected, "tooling error should be expected: %v", err)
+		assert.Equal(t, CLIErrorOperational, classification.category)
+		assert.False(t, captureUnexpectedError(err), "tooling error should not be reported: %v", err)
+	}
+	assert.Empty(t, transport.Events())
+
+	// The user-facing message is preserved verbatim.
+	assert.Equal(t,
+		"git is not available on your system. Please install git and try again",
+		toolingError("git is not available on your system. Please install git and try again").Error(),
+	)
+}
+
 func TestUnmarkedLookalikeErrorsRemainReportable(t *testing.T) {
 	transport := bindMockSentry(t)
 

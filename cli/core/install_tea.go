@@ -381,7 +381,7 @@ func runInstallationSteps(p *tea.Program, t Template, opts TemplateOptions) erro
 	p.Send(stepMsg{step: 1, status: StatusRunning})
 
 	if !isCommandAvailable("git") {
-		err := fmt.Errorf("git is not available on your system. Please install git and try again")
+		err := toolingError("git is not available on your system. Please install git and try again")
 		p.Send(stepFailedMsg{step: 1, err: err})
 		return err
 	}
@@ -517,7 +517,7 @@ func installPythonDepsWithLogs(directory string, p *tea.Program) error {
 			} else if isCommandAvailable("python") {
 				venvCreateCmd = exec.Command("python", "-m", "venv", ".venv")
 			} else {
-				return fmt.Errorf("neither python3 nor python command found")
+				return toolingError("neither python3 nor python command found")
 			}
 
 			venvCreateCmd.Dir = directory
@@ -545,7 +545,7 @@ func installPythonDepsWithLogs(directory string, p *tea.Program) error {
 		}
 
 		if pythonPath == "" {
-			return fmt.Errorf("could not find python executable in virtual environment")
+			return toolingError("could not find python executable in virtual environment")
 		}
 
 		// Install dependencies with streaming output
@@ -555,7 +555,7 @@ func installPythonDepsWithLogs(directory string, p *tea.Program) error {
 		} else if _, err := os.Stat(requirementsPath); err == nil {
 			pipCmd = exec.Command(pythonPath, "-u", "-m", "pip", "install", "-r", "requirements.txt", "--progress-bar=on")
 		} else {
-			return fmt.Errorf("neither pyproject.toml nor requirements.txt found in %s", directory)
+			return toolingError("neither pyproject.toml nor requirements.txt found in %s", directory)
 		}
 
 		pipCmd.Dir = directory
@@ -564,7 +564,7 @@ func installPythonDepsWithLogs(directory string, p *tea.Program) error {
 		return runCommandWithLogs(pipCmd, p)
 	}
 
-	return fmt.Errorf("neither uv nor pip is available on your system")
+	return toolingError("neither uv nor pip is available on your system")
 }
 
 func installTypescriptDepsWithLogs(directory string, p *tea.Program) error {
