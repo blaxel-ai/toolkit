@@ -66,6 +66,33 @@ func missingFlagValueError(t *testing.T) error {
 	return flags.Parse([]string{"--name"})
 }
 
+// jsonSyntaxError mirrors a truncated or non-JSON API response body (e.g. an
+// empty body or an HTML gateway error page) decoded by the SDK.
+func jsonSyntaxError(t *testing.T) error {
+	t.Helper()
+	var items []any
+	err := json.Unmarshal([]byte(""), &items)
+	require.Error(t, err)
+	var syntaxErr *json.SyntaxError
+	require.ErrorAs(t, err, &syntaxErr)
+	return err
+}
+
+// jsonTypeError mirrors a response whose JSON shape does not match what the
+// client expects (e.g. a bare array returned under API-version skew instead of
+// the `{data, meta}` envelope).
+func jsonTypeError(t *testing.T) error {
+	t.Helper()
+	var envelope struct {
+		Data []any `json:"data"`
+	}
+	err := json.Unmarshal([]byte("[1,2,3]"), &envelope)
+	require.Error(t, err)
+	var typeErr *json.UnmarshalTypeError
+	require.ErrorAs(t, err, &typeErr)
+	return err
+}
+
 func TestSentryConfigStruct(t *testing.T) {
 	cfg := SentryConfig{DSN: testSentryDSN, Release: "v1.0.0"}
 	assert.Equal(t, testSentryDSN, cfg.DSN)
@@ -124,6 +151,8 @@ func TestExpectedErrorClassification(t *testing.T) {
 		{name: "non-interactive command", err: MarkExpectedError(errors.New("this command requires an interactive terminal"), CLIErrorUsage), category: CLIErrorUsage},
 		{name: "websocket handshake", err: fmt.Errorf("failed to connect to terminal: %w", websocket.ErrBadHandshake), category: CLIErrorOperational},
 		{name: "workspace permission denied", err: MarkExpectedError(fmt.Errorf("failed to access workspace 'workspace-name': %w", errors.New("permission denied for workspace \"workspace-name\"")), CLIErrorAuthentication), category: CLIErrorAuthentication},
+		{name: "response body decode syntax error", err: fmt.Errorf("paginated list sandboxes: error parsing response json: %w", jsonSyntaxError(t)), category: CLIErrorOperational},
+		{name: "response body shape mismatch", err: fmt.Errorf("paginated list sandboxes: %w", jsonTypeError(t)), category: CLIErrorOperational},
 	}
 
 	for _, test := range tests {
@@ -166,6 +195,8 @@ func TestExpectedErrorsCreateNoSentryEvents(t *testing.T) {
 		MarkExpectedError(errors.New("this command requires an interactive terminal"), CLIErrorUsage),
 		fmt.Errorf("failed to connect to terminal: %w", websocket.ErrBadHandshake),
 		MarkExpectedError(fmt.Errorf("failed to access workspace 'test': %w", errors.New("permission denied")), CLIErrorAuthentication),
+		fmt.Errorf("paginated list sandboxes: error parsing response json: %w", jsonSyntaxError(t)),
+		fmt.Errorf("paginated list sandboxes: %w", jsonTypeError(t)),
 	}
 
 	for _, err := range expectedErrors {

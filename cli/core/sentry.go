@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -186,6 +187,19 @@ func classifyCLIError(err error) errorClassification {
 
 	var networkError net.Error
 	if errors.As(err, &networkError) {
+		return errorClassification{category: CLIErrorOperational, expected: true}
+	}
+
+	// A malformed or unexpected API response body surfaces as a JSON decode
+	// failure (a truncated body, an HTML/gateway error page, or a shape
+	// mismatch such as a bare array returned under API-version skew). These
+	// are operational server/transport problems, not CLI implementation
+	// defects, so they must not be reported as unexpected internal failures.
+	// Programming-defect decode errors (e.g. *json.InvalidUnmarshalError from
+	// passing a non-pointer) are deliberately not matched here.
+	var jsonSyntaxError *json.SyntaxError
+	var jsonTypeError *json.UnmarshalTypeError
+	if errors.As(err, &jsonSyntaxError) || errors.As(err, &jsonTypeError) {
 		return errorClassification{category: CLIErrorOperational, expected: true}
 	}
 
