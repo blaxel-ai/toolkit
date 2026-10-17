@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
+	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsAPIStatusUsesTypedErrorIdentity(t *testing.T) {
@@ -75,6 +79,55 @@ func TestImageRefToName(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestParsePushBuildTimeout(t *testing.T) {
+	t.Run("empty uses default", func(t *testing.T) {
+		d, err := parsePushBuildTimeout("")
+		assert.NoError(t, err)
+		assert.Equal(t, mon.DefaultBuildTimeout, d)
+	})
+
+	t.Run("valid duration", func(t *testing.T) {
+		d, err := parsePushBuildTimeout("30m")
+		assert.NoError(t, err)
+		assert.Equal(t, 30*time.Minute, d)
+	})
+
+	// Every malformed or non-positive value is user input, not a CLI defect, so
+	// it must be classified as expected and never reported to Sentry. "30" (no
+	// unit) and "not-a-duration" specifically exercise the time.ParseDuration
+	// failure branch that b4f101c left unwrapped.
+	for _, tc := range []struct {
+		name  string
+		input string
+	}{
+		{"not a duration", "not-a-duration"},
+		{"missing unit", "30"},
+		{"zero", "0"},
+		{"negative", "-5m"},
+	} {
+		t.Run("expected validation error: "+tc.name, func(t *testing.T) {
+			d, err := parsePushBuildTimeout(tc.input)
+			require.Error(t, err)
+			assert.Equal(t, time.Duration(0), d)
+			assert.True(t, core.IsExpectedCLIError(err),
+				"a bad --timeout value is user input, not a CLI defect")
+		})
+	}
+}
+
+// TestParsePushBuildTimeoutGuardsRawParseError documents why
+// parsePushBuildTimeout must wrap the time.ParseDuration failure: an unwrapped
+// parse error is unclassified and would be reported to Sentry as an internal
+// "Unexpected CLI failure". If a future change reverts the wrapper, this test
+// still passes but TestParsePushBuildTimeout fails — proving the wrap is
+// load-bearing.
+func TestParsePushBuildTimeoutGuardsRawParseError(t *testing.T) {
+	_, rawErr := time.ParseDuration("not-a-duration")
+	require.Error(t, rawErr)
+	assert.False(t, core.IsExpectedCLIError(rawErr),
+		"an unwrapped ParseDuration error is reported as an internal defect")
 }
 
 func TestPushCmd(t *testing.T) {
