@@ -49,7 +49,10 @@ func FindPythonExecutable() (string, error) {
 		return "python3", nil
 	}
 	// Neither found
-	return "", fmt.Errorf("python is not available on this system")
+	return "", core.MarkExpectedError(
+		fmt.Errorf("python is not available on this system"),
+		core.CLIErrorOperational,
+	)
 }
 
 func StartPythonServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {

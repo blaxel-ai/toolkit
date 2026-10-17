@@ -21,7 +21,10 @@ func FindNodeExecutable() (string, error) {
 	if _, err := exec.LookPath("node"); err == nil {
 		return "node", nil
 	}
-	return "", fmt.Errorf("node is not available on this system")
+	return "", core.MarkExpectedError(
+		fmt.Errorf("node is not available on this system"),
+		core.CLIErrorOperational,
+	)
 }
 
 // FindPackageManagerExecutable checks for npm, yarn, or pnpm in PATH
@@ -37,7 +40,10 @@ func FindPackageManagerExecutable() (string, error) {
 	if _, err := exec.LookPath("npm"); err == nil {
 		return "npm", nil
 	}
-	return "", fmt.Errorf("no package manager found (npm, yarn, or pnpm)")
+	return "", core.MarkExpectedError(
+		fmt.Errorf("no package manager found (npm, yarn, or pnpm)"),
+		core.CLIErrorOperational,
+	)
 }
 
 func StartTypescriptServer(port int, host string, hotreload bool, folder string, config core.Config) *exec.Cmd {
@@ -154,19 +160,28 @@ func findStartCommand(script string) ([]string, error) {
 	case "pnpm":
 		// Check if pnpm is available
 		if _, err := exec.LookPath("pnpm"); err != nil {
-			return nil, fmt.Errorf("pnpm is not available - please install it with: npm install -g pnpm")
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("pnpm is not available - please install it with: npm install -g pnpm"),
+				core.CLIErrorOperational,
+			)
 		}
 		return []string{"npx", "pnpm", "run", script}, nil
 	case "yarn":
 		// Check if yarn is available
 		if _, err := exec.LookPath("yarn"); err != nil {
-			return nil, fmt.Errorf("yarn is not available - please install it with: npm install -g yarn")
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("yarn is not available - please install it with: npm install -g yarn"),
+				core.CLIErrorOperational,
+			)
 		}
 		return []string{"yarn", "run", script}, nil
 	default:
 		// Check if npm is available
 		if _, err := exec.LookPath("npm"); err != nil {
-			return nil, fmt.Errorf("npm is not available - please install Node.js which includes npm")
+			return nil, core.MarkExpectedError(
+				fmt.Errorf("npm is not available - please install Node.js which includes npm"),
+				core.CLIErrorOperational,
+			)
 		}
 		return []string{"npm", "run", script}, nil
 	}
