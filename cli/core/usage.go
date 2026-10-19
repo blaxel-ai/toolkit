@@ -65,7 +65,7 @@ func usageProperties(event string, input map[string]any) map[string]any {
 		}
 	}
 	if event == "Setup CLI" {
-		properties["detected_agents"] = allowedList(input["detected_agents"], "claude-code", "codex", "cursor", "gemini-cli", "github-copilot", "opencode", "amp", "cline", "windsurf", "goose", "kiro-cli", "roo", "continue", "augment", "junie", "trae", "qwen-code", "openhands", "pi", "crush", "devin", "openclaw")
+		properties["detected_agents"] = allowedList(input["detected_agents"], "claude-code", "codex", "cursor", "gemini-cli", "github-copilot", "opencode", "amp", "cline", "windsurf", "goose", "kiro-cli", "roo", "continue", "augment", "junie", "trae", "qwen-code", "openhands", "pi", "crush", "devin", "openclaw", "vscode", "claude-desktop")
 		properties["components"] = allowedList(input["components"], "skills", "mcp", "docs", "login", "tracking")
 	}
 	if event == "First Resource CLI" {

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/blaxel-ai/sdk-go/option"
@@ -109,4 +110,46 @@ func TestUsageSetupAndRegisteredCreateHooks(t *testing.T) {
 	require.Contains(t, logins, "cancelled")
 	assert.NotContains(t, logins, "failure", "a skipped login is not a failed one")
 	assert.NotContains(t, logins["cancelled"], "failure_category")
+}
+
+// Every agent setup can detect must survive the Setup CLI allowlist, or a new
+// agent is silently dropped from detected_agents.
+func TestUsageSetupReportsEverySetupAgent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("DO_NOT_TRACK", "")
+	t.Setenv("BL_INSTALL_TRACKING", "")
+	t.Setenv("BL_SKIP_TELEMETRY", "")
+	for _, key := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE", "TEAMCITY_VERSION"} {
+		t.Setenv(key, "")
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".blaxel"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".blaxel", "config.yaml"), []byte("tracking: true\n"), 0600))
+	payloads := make(chan map[string]any, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		payloads <- payload
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	oldKey, oldHost := core.PosthogAPIKey, core.PosthogHost
+	core.PosthogAPIKey, core.PosthogHost = "test-key", server.URL
+	t.Cleanup(func() { core.FlushPosthog(); core.PosthogAPIKey, core.PosthogHost = oldKey, oldHost })
+
+	var ids []string
+	for _, agent := range setupAgents() {
+		ids = append(ids, agent.id)
+	}
+	core.TrackCLISetup(ids, nil, "success", nil)
+	core.FlushPosthog()
+	require.Len(t, payloads, 1)
+	payload := <-payloads
+	slices.Sort(ids)
+	want := make([]any, 0, len(ids))
+	for _, id := range ids {
+		want = append(want, id)
+	}
+	assert.Equal(t, want, payload["properties"].(map[string]any)["detected_agents"])
 }

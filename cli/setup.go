@@ -492,7 +492,7 @@ func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
 	if err != nil {
 		return err
 	}
-	for _, agent := range detectedSkillsAgents(options.home, options.env) {
+	for _, agent := range detectedSetupAgents(options.home, options.env) {
 		agents = append(agents, agent.id)
 	}
 	outcome := &setupOutcome{mcp: map[string]mcpAgentResult{}}
