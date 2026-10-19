@@ -268,6 +268,7 @@ def fake_tests(root, binary, server):
         f"#!{sys.executable}\n"
         "import json, os, pathlib, sys\n"
         "if sys.argv[1:] == ['setup', '--refresh-check']:\n    print('blaxel-setup-refresh-v1')\n    sys.exit(0)\n"
+        "if sys.argv[1:] == ['version']:\n    print('Version: 3.0.0')\n    sys.exit(0)\n"
         f"pathlib.Path({str(receipt)!r}).write_text(json.dumps({{'args': sys.argv[1:], 'refresh': os.getenv('BL_INSTALL_REFRESH'), 'skills': os.getenv('BL_INSTALL_SKILLS'), 'mcp': os.getenv('BL_INSTALL_MCP'), 'input': sys.stdin.read()}}))\n"
     )
     replacement.chmod(0o755)
@@ -333,6 +334,7 @@ def fake_tests(root, binary, server):
             "import json, os, pathlib, sys\n"
             "if sys.argv[1:] == ['setup', '--refresh-check']:\n"
             f"    print({probe_output!r})\n    sys.exit({0 if probe_output else 2})\n"
+            "if sys.argv[1:] == ['version']:\n    print('Version: 1.2.3')\n    sys.exit(0)\n"
             f"pathlib.Path({str(manual_receipt)!r}).write_text('ordinary setup enabled tracking')\n"
         )
         result = subprocess.run([str(bindir / "blaxel"), "upgrade", "--version", "1.2.3"],
