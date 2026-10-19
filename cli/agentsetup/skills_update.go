@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -251,7 +252,8 @@ func (updater SkillsUpdater) apply(ctx context.Context, state *SkillsUpdateState
 		return err
 	}
 	hash := sha256.Sum256(archive)
-	if hex.EncodeToString(hash[:]) != manifest.SHA256 {
+	// The manifest may publish the digest in either hex case.
+	if !strings.EqualFold(hex.EncodeToString(hash[:]), manifest.SHA256) {
 		return errors.New("skills bundle checksum mismatch; installed skills were left unchanged")
 	}
 	result, err := installSkillsArchiveUnlocked(archive, updater.home, updater.env, detectedSkillsAgents(updater.home, updater.env), updater.now(), true)

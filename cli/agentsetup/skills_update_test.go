@@ -524,3 +524,21 @@ func TestSkillsUpdaterFollowsASymlinkedSkillsFolderOnlyInsideHome(t *testing.T) 
 		})
 	}
 }
+
+func TestSkillsUpdaterAcceptsUppercaseChecksum(t *testing.T) {
+	home := resolvedTempDir(t)
+	archive := buildSkillsArchive(t, testSkillsEntries())
+	manifest := updateManifest(archive, strings.Repeat("c", 40))
+	manifest.SHA256 = strings.ToUpper(manifest.SHA256)
+	updater := fixtureUpdater(t, home, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/manifest" {
+			_ = json.NewEncoder(w).Encode(manifest)
+			return
+		}
+		_, _ = w.Write(archive)
+	}))
+	require.NoError(t, updater.check(context.Background(), true))
+	state, err := ReadSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Equal(t, manifest.Revision, state.VerifiedRevision)
+}
