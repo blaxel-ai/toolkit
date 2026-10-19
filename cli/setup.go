@@ -135,7 +135,13 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 			options.loginState = setupLoginState
 			options.trackingConfigured = blaxel.IsTrackingConfigured
 			options.trackingEnabled = blaxel.IsTrackingEnabled
-			options.setTracking = blaxel.SetTracking
+			options.setTracking = func(enabled bool) {
+				blaxel.SetTracking(enabled)
+				// The install check ran at startup, before this consent existed.
+				if enabled {
+					core.TrackCLIInstalled(core.GetVersion())
+				}
+			}
 			options.mcp = agentsetup.NewMCPEnv(home)
 			bl, pathErr := agentsetup.BlCommandPath(os.Executable)
 			if pathErr != nil {

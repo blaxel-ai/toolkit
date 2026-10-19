@@ -78,6 +78,7 @@ bl push [flags]
   -n, --name string                 Name for the image (defaults to directory name)
   -c, --registry-cred stringArray   Registry credentials (format: registry=username:password, repeatable)
       --skip-build                  Skip the image build step (use existing built image if available)
+      --tag string                  Tag for the built image, from source or with --image (immutable: an existing tag is refused). Defaults to a content-derived tag.
       --timeout string              Timeout for build log monitoring (e.g. 30m, 1h). Defaults to 1h
   -t, --type string                 Resource type (agent, function, sandbox, job). Defaults to blaxel.toml type; required if not set
       --volume int                  Build or import scratch disk in MiB (0-131072); 0 uses memory-backed scratch; overrides [build].volumeMb
