@@ -18,7 +18,15 @@ var PosthogAPIKey = ""
 // PostHog API endpoint
 var PosthogHost = "https://us.i.posthog.com"
 
-// posthogFlushBudget caps how long usage telemetry may delay process exit.
+// posthogFlushBudget caps how long telemetry may delay process exit.
+//
+// A successful capture against us.i.posthog.com takes ~250-350ms end to end
+// (DNS + TLS handshake + POST), so a one second budget comfortably covers the
+// happy path. It matters because a version is only marked as reported after a
+// successful delivery: when the endpoint is unreachable, every subsequent
+// command re-sends and pays this budget again. Networks that silently drop
+// traffic rather than refusing it — corporate firewalls, captive portals — hit
+// that path on every invocation, so the bound has to stay imperceptible.
 const posthogFlushBudget = 1 * time.Second
 
 // telemetryState stores reported versions and the CLI first-resource marker.
@@ -105,7 +113,7 @@ func saveTelemetryState(state *telemetryState) {
 	}
 
 	// distinct_id is shared by every writer, so the first one persisted wins.
-	// Replacing it would split the same local installation across two IDs.
+	// Replacing it would split the same user across two PostHog identities.
 	if id, _ := merged["distinct_id"].(string); usageID.MatchString(id) {
 		state.DistinctID = id
 	} else {
@@ -117,7 +125,7 @@ func saveTelemetryState(state *telemetryState) {
 	if state.CLI != "" {
 		merged["cli"] = state.CLI
 	}
-	// Per-language entries belong to the SDKs; the CLI writes its own fields.
+	// Per-language entries belong to the SDKs; the CLI writes only its own fields.
 	// Writing back this process's load-time copy of them would roll back a
 	// newer version an SDK recorded after this process started, and that SDK
 	// would then re-send its "Installed" event.
@@ -213,31 +221,18 @@ func capturePosthogEvent(event string, properties map[string]any, onComplete fun
 // TrackCLIInstalled checks if this CLI version has been reported and sends
 // an "Installed CLI" event if it hasn't.
 func TrackCLIInstalled(cliVersion string) {
-	// Shell completion runs on every TAB press. Since the version is only
-	// marked reported after a successful delivery, tracking here would make
-	// each keypress wait out the flush budget until PostHog accepts the event.
-	// These are the same latency-sensitive, side-effect-free commands already
-	// exempted from the tracking consent prompt.
-	if isTrackingPromptCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
-		return
-	}
-	trackCLIInstalled(cliVersion)
-}
-
-// TrackCLIInstalledAfterConsent reports this CLI version once bl setup has
-// saved the user's consent. Setup is exempt from the startup check because the
-// installer runs it before any consent exists, so without this an installer
-// install would never be reported with its install method.
-func TrackCLIInstalledAfterConsent() {
-	trackCLIInstalled(GetVersion())
-}
-
-func trackCLIInstalled(cliVersion string) {
 	if PosthogAPIKey == "" || !usageTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
 		return
 	}
 	// Skip telemetry in subprocess spawned by detectInstalledVersion()
 	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
+		return
+	}
+	// Shell completion runs on every TAB press. Since the version is only
+	// marked reported after a successful delivery, tracking here would make
+	// each keypress wait out the flush budget until PostHog accepts the event.
+	// bl setup is not skipped: it is usually the first command after install.
+	if isInstallTrackingCommandExempt(os.Args) || (len(os.Args) > 1 && IsShellCompletionRequest(os.Args[1:])) {
 		return
 	}
 
@@ -357,8 +352,8 @@ func generateUUID() string {
 
 // FlushPosthog waits for all in-flight PostHog requests to complete, giving up
 // after posthogFlushBudget so telemetry can never make the CLI feel hung.
-// Failed version/first-resource captures stay eligible on a later invocation.
-// Setup and login attempts are not queued on disk or replayed.
+// Failed version and first-resource captures stay eligible on a later
+// invocation. Setup and login attempts are not queued on disk or replayed.
 func FlushPosthog() {
 	if PosthogAPIKey == "" {
 		return

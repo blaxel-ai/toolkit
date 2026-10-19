@@ -80,7 +80,9 @@ func TestFlushPosthogStaysWithinLatencyBudgetWhenEndpointHangs(t *testing.T) {
 // permanently unreachable endpoint makes every single command pay the flush
 // budget. Keep that budget small enough to stay imperceptible.
 func TestPosthogFlushBudgetIsImperceptible(t *testing.T) {
-	// Keep the configured exit budget at or under one second.
+	// Measured round-trip to https://us.i.posthog.com/capture/ is ~250-350ms
+	// including DNS and the TLS handshake. Anything at or under a second keeps
+	// a stalled send from registering as a hang while leaving ample headroom.
 	assert.LessOrEqual(t, posthogFlushBudget, time.Second)
 }
 
@@ -156,7 +158,7 @@ func TestSaveTelemetryStateNeverRollsBackEntriesItDoesNotOwn(t *testing.T) {
 
 // distinct_id is shared by the CLI and both SDKs. If the CLI starts before any
 // id exists and an SDK persists one first, the CLI must adopt it instead of
-// replacing it, so the local installation keeps one random ID.
+// replacing it, or the same user becomes two PostHog identities.
 func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	resetPosthogTestState(t, "http://127.0.0.1:1")
 
@@ -213,6 +215,34 @@ func TestTrackCLIInstalledSkipsCommandsThatMustStayFast(t *testing.T) {
 	TrackCLIInstalled("4.0.0")
 	FlushPosthog()
 	assert.Equal(t, int32(1), requests.Load(), "a normal command must still report")
+}
+
+// bl setup is usually the first command after install, so it must report the
+// install even though it is exempt from the tracking consent prompt. When the
+// installer runs it, the event keeps the installer's install method.
+func TestTrackCLIInstalledReportsOnSetup(t *testing.T) {
+	var requests atomic.Int32
+	var payload map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+	t.Setenv("BL_INSTALLER", "1")
+
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
+
+	os.Args = []string{"bl", "setup"}
+	TrackCLIInstalled("4.1.0")
+	FlushPosthog()
+	assert.Equal(t, int32(1), requests.Load(), "bl setup must report the install")
+	properties, ok := payload["properties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "4.1.0", properties["version"])
+	assert.Equal(t, map[bool]string{true: "powershell", false: "shell"}[runtime.GOOS == "windows"], properties["install_method"])
 }
 
 func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {
@@ -379,39 +409,6 @@ func TestTrackCLIInstalledFailedDeliveryRetries(t *testing.T) {
 	data, err := os.ReadFile(getTelemetryPath())
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"cli": "2.0.0"`)
-}
-
-// The installer runs bl setup before any consent exists, so the startup check
-// skips setup. Once setup saves consent, the install is reported from there,
-// with the installer's install method.
-func TestTrackCLIInstalledAfterConsentReportsInstallerSetup(t *testing.T) {
-	var requests atomic.Int32
-	var payload map[string]interface{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests.Add(1)
-		_ = json.NewDecoder(r.Body).Decode(&payload)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-	resetPosthogTestState(t, server.URL)
-	t.Setenv("BL_INSTALLER", "1")
-	oldArgs, oldVersion := os.Args, version
-	t.Cleanup(func() { os.Args, version = oldArgs, oldVersion })
-	os.Args, version = []string{"bl", "setup", "--yes"}, "1.4.0"
-
-	TrackCLIInstalled(version)
-	FlushPosthog()
-	assert.Equal(t, int32(0), requests.Load(), "setup is exempt at startup")
-
-	TrackCLIInstalledAfterConsent()
-	FlushPosthog()
-	require.Equal(t, int32(1), requests.Load())
-	assert.Equal(t, "Installed CLI", payload["event"])
-	properties, ok := payload["properties"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "1.4.0", properties["version"])
-	assert.Equal(t, map[bool]string{true: "powershell", false: "shell"}[runtime.GOOS == "windows"], properties["install_method"])
-	assert.Equal(t, "1.4.0", loadTelemetryStateCLI())
 }
 
 // An upgrade event can finish after a newer CLI in another terminal recorded

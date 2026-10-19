@@ -178,10 +178,6 @@ func runUpgrade(targetVersion string, force bool) error {
 	return nil
 }
 
-// versionProbeTimeout bounds the post-upgrade version read, which runs after
-// the upgrade already succeeded and must never make it look hung.
-var versionProbeTimeout = 5 * time.Second
-
 // detectInstalledVersion runs the upgraded binary at the location controlled
 // by the installation method. It deliberately never resolves the CLI through
 // PATH, where an unrelated binary with the same name could be executed.
@@ -242,6 +238,10 @@ func detectVersionAtPath(binaryPath string) string {
 	}
 	return ""
 }
+
+// versionProbeTimeout bounds the post-upgrade version read, which runs after
+// the upgrade already succeeded and must never make it look hung.
+var versionProbeTimeout = 5 * time.Second
 
 // upgradeViaBrew upgrades the CLI using Homebrew
 func upgradeViaBrew(force bool) error {

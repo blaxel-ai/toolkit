@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -135,6 +137,19 @@ func TrackCLILogin(status string, err error) {
 		properties["failure_category"] = string(classifyCLIError(err).category)
 	}
 	capturePosthogEvent("Login CLI", properties, func(bool) {})
+}
+
+// TrackCLILoginResult records how a login attempt ended. A cancelled ctx
+// (Esc or quitting in bl setup, Ctrl+C in bl login) is not a failed login.
+func TrackCLILoginResult(ctx context.Context, err error) {
+	switch {
+	case err == nil:
+		TrackCLILogin("success", nil)
+	case errors.Is(ctx.Err(), context.Canceled):
+		TrackCLILogin("cancelled", nil)
+	default:
+		TrackCLILogin("failure", err)
+	}
 }
 
 // TrackCLIFirstResource records the first eligible successful CLI create for

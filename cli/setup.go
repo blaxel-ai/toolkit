@@ -120,8 +120,9 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 			options.trackingEnabled = blaxel.IsTrackingEnabled
 			options.setTracking = func(enabled bool) {
 				blaxel.SetTracking(enabled)
+				// The install check ran at startup, before this consent existed.
 				if enabled {
-					core.TrackCLIInstalledAfterConsent()
+					core.TrackCLIInstalled(core.GetVersion())
 				}
 			}
 			options.mcp = newMCPEnv(home)
@@ -646,16 +647,8 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 		tasks = append(tasks, ui.Task{ID: "login", Label: "Log in", After: others, Skippable: true, Run: func(ctx context.Context, c *ui.Control) (string, error) {
 			core.TrackCLILogin("started", nil)
 			workspace, err := options.login(ctx, c, options.workspace)
-			switch {
-			case err == nil:
-				core.TrackCLILogin("success", nil)
-			case errors.Is(ctx.Err(), context.Canceled):
-				// Esc skips this task by cancelling its context; quitting setup
-				// does too. Neither is a failed login.
-				core.TrackCLILogin("cancelled", nil)
-			default:
-				core.TrackCLILogin("failure", err)
-			}
+			// Esc skips this task by cancelling its context; quitting setup does too.
+			core.TrackCLILoginResult(ctx, err)
 			if err != nil {
 				return "", err
 			}
