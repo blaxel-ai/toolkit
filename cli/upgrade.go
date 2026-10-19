@@ -153,19 +153,30 @@ func runUpgrade(targetVersion string, force bool) error {
 
 	core.PrintInfo(fmt.Sprintf("Detected installation method: %s", method))
 
+	oldVersion := core.GetVersion()
+
+	var upgradeErr error
 	switch method {
 	case "brew":
-		err = upgradeViaBrew(force)
+		upgradeErr = upgradeViaBrew(force)
 	case "curl":
-		err = upgradeViaCurl(targetVersion)
+		upgradeErr = upgradeViaCurl(targetVersion)
 	default:
 		return fmt.Errorf("unknown installation method: %s", method)
 	}
-	if err != nil {
-		return err
+
+	if upgradeErr != nil {
+		return upgradeErr
 	}
 
-	refreshUpgradedSetup(upgradedExecutable(executable, method))
+	upgraded := upgradedExecutable(executable, method)
+	refreshUpgradedSetup(upgraded)
+
+	// Ask the upgraded binary at the install method's location (never through
+	// PATH) which version it is, and record the upgrade.
+	if newVersion := detectVersionAtPath(upgraded); newVersion != "" && newVersion != oldVersion {
+		core.TrackCLIUpgraded(oldVersion, newVersion)
+	}
 	return nil
 }
 
@@ -207,6 +218,25 @@ func refreshUpgradedSetup(executable string) {
 	if err := cmd.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "Could not refresh Blaxel setup with the upgraded CLI; retry with bl setup.")
 	}
+}
+
+// detectVersionAtPath runs binaryPath version with telemetry off and returns
+// the version it reports, or "" when it can't tell.
+func detectVersionAtPath(binaryPath string) string {
+	cmd := exec.Command(binaryPath, "version")
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	// Parse "Version: X.Y.Z" from the output
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	return ""
 }
 
 // upgradeViaBrew upgrades the CLI using Homebrew
