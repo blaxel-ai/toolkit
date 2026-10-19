@@ -78,13 +78,24 @@ func installSkillsForMode(ctx context.Context, selected []SkillsAgent, conservat
 	var result SkillsInstallResult
 	err = withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
-		result, err = installSkillsArchiveUnlocked(archive, home, os.Getenv, selected, time.Now(), conservative)
-		if err != nil {
-			return err
-		}
-		return invalidateSkillsBundleRevision(home, result.Skills)
+		result, err = installNonmanifestSkillsUnlocked(archive, home, os.Getenv, selected, time.Now(), conservative)
+		return err
 	})
 	return result, err
+}
+
+// installNonmanifestSkillsUnlocked installs an archive that has no bundle
+// revision. Skills swapped before a later failure still lose their recorded
+// revision, so the automatic check does not treat them as already applied.
+func installNonmanifestSkillsUnlocked(archive []byte, home string, env func(string) string, selected []SkillsAgent, now time.Time, conservative bool) (SkillsInstallResult, error) {
+	result, err := installSkillsArchiveUnlocked(archive, home, env, selected, now, conservative)
+	if invalidateErr := invalidateSkillsBundleRevision(home, result.Skills); err == nil {
+		err = invalidateErr
+	}
+	if err != nil {
+		return SkillsInstallResult{}, err
+	}
+	return result, nil
 }
 
 // skillsDownloadAttempts retries brief network problems, such as a DNS
@@ -414,11 +425,8 @@ func InstallSkillsArchive(archive []byte, home string, env func(string) string, 
 	var result SkillsInstallResult
 	err := withSkillsUpdateLock(ctx, home, true, func() error {
 		var err error
-		result, err = installSkillsArchiveUnlocked(archive, home, env, selected, now, false)
-		if err != nil {
-			return err
-		}
-		return invalidateSkillsBundleRevision(home, result.Skills)
+		result, err = installNonmanifestSkillsUnlocked(archive, home, env, selected, now, false)
+		return err
 	})
 	return result, err
 }
@@ -464,7 +472,7 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 			files = nil // a failed symlink must never fall back to a copy of the upstream fork
 		} else {
 			if err := replaceSkillFolderChecked(plan.canonical, files, conservative, plan.expectedHash); err != nil {
-				return SkillsInstallResult{}, fmt.Errorf("installing %s: %w", plan.skill.name, err)
+				return result, fmt.Errorf("installing %s: %w", plan.skill.name, err)
 			}
 			installed = append(installed, plan.skill)
 			result.Skills = append(result.Skills, plan.skill.name)
@@ -473,7 +481,7 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 			if link.repair {
 				backup, err := repairSkillLink(link)
 				if err != nil {
-					return SkillsInstallResult{}, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
+					return result, fmt.Errorf("reconciling %s at %s: %w", plan.skill.name, link.destination, err)
 				}
 				result.Repaired = append(result.Repaired, link.destination)
 				if backup != "" {
@@ -490,7 +498,7 @@ func installSkillsArchiveUnlocked(archive []byte, home string, env func(string) 
 			if err := linkSkillFolder(link.target, link.destination, files); errors.Is(err, errManagedSkillNotLinked) {
 				continue // that agent is left unchanged
 			} else if err != nil {
-				return SkillsInstallResult{}, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
+				return result, fmt.Errorf("linking %s at %s: %w", plan.skill.name, link.destination, err)
 			}
 		}
 	}

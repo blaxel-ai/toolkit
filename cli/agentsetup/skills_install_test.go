@@ -337,6 +337,39 @@ func TestConservativeUpdateRecordsSkillsReplacedBeforeAFailure(t *testing.T) {
 	assert.Contains(t, readTestFile(t, filepath.Join(sdk, "SKILL.md")), "Updated.")
 }
 
+func TestPartialExplicitInstallInvalidatesBundleRevision(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs a folder that can't be moved, which Windows and root don't enforce")
+	}
+	home := resolvedTempDir(t)
+	_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	require.NoError(t, err)
+	revision := strings.Repeat("a", 40)
+	require.NoError(t, WriteSkillsUpdateState(home, SkillsUpdateState{
+		VerifiedRevision:   revision,
+		InstalledRevisions: map[string]string{"blaxel-cli": revision, "blaxel-sdk": revision},
+	}))
+	updated := testSkillsEntries()
+	for i := range updated {
+		if strings.HasSuffix(updated[i].name, "/SKILL.md") {
+			updated[i].body += "\nUpdated.\n"
+		}
+	}
+
+	// blaxel-cli is replaced, then the read-only blaxel-sdk fails.
+	sdk := filepath.Join(home, ".agents", "skills", "blaxel-sdk")
+	require.NoError(t, os.Chmod(sdk, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(sdk, 0o755) })
+	_, err = InstallSkillsArchive(buildSkillsArchive(t, updated), home, noEnv, nil, time.Now())
+	require.ErrorContains(t, err, "installing blaxel-sdk")
+
+	state, err := ReadSkillsUpdateState(home)
+	require.NoError(t, err)
+	assert.Empty(t, state.VerifiedRevision, "the next automatic check must not skip the replaced skill")
+	assert.Empty(t, state.InstalledRevisions["blaxel-cli"])
+	assert.Equal(t, revision, state.InstalledRevisions["blaxel-sdk"], "the untouched skill keeps its revision")
+}
+
 func TestSkillsLockLocationAndReset(t *testing.T) {
 	home, state := t.TempDir(), t.TempDir()
 	env := func(key string) string {
