@@ -1,8 +1,10 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -239,4 +242,30 @@ func TestUsageEnvironmentSeparatesDevFromProd(t *testing.T) {
 		blaxel.SetEnvironment(environment)
 		assert.Equal(t, want, usageProperties("Login CLI", nil)["environment"])
 	}
+}
+
+// Leaving the bl login workspace picker returns huh's abort error while the
+// login context is still live. That is a cancelled login, not a failed one.
+func TestUsageLoginAbortCountsAsCancelled(t *testing.T) {
+	payloads := make(chan map[string]any, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+		payloads <- payload
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	TrackCLILoginResult(context.Background(), fmt.Errorf("error selecting workspace: %w", huh.ErrUserAborted))
+	FlushPosthog()
+	require.Len(t, payloads, 1)
+	properties := (<-payloads)["properties"].(map[string]any)
+	assert.Equal(t, "cancelled", properties["status"])
+	assert.NotContains(t, properties, "failure_category")
+
+	TrackCLILoginResult(context.Background(), errors.New("denied"))
+	FlushPosthog()
+	require.Len(t, payloads, 1)
+	assert.Equal(t, "failure", (<-payloads)["properties"].(map[string]any)["status"])
 }

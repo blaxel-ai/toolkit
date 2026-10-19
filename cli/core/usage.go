@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/charmbracelet/huh"
 )
 
 // UsageDisclosureURL must be published with the matching CLI usage disclosure
@@ -140,12 +141,13 @@ func TrackCLILogin(status string, err error) {
 }
 
 // TrackCLILoginResult records how a login attempt ended. A cancelled ctx
-// (Esc or quitting in bl setup, Ctrl+C in bl login) is not a failed login.
+// (Esc or quitting in bl setup, Ctrl+C in bl login) or leaving the workspace
+// picker in bl login is not a failed login.
 func TrackCLILoginResult(ctx context.Context, err error) {
 	switch {
 	case err == nil:
 		TrackCLILogin("success", nil)
-	case errors.Is(ctx.Err(), context.Canceled):
+	case errors.Is(ctx.Err(), context.Canceled), errors.Is(err, huh.ErrUserAborted):
 		TrackCLILogin("cancelled", nil)
 	default:
 		TrackCLILogin("failure", err)
