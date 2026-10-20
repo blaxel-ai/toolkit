@@ -1,7 +1,6 @@
-package cli
+package agentsetup
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,7 +15,7 @@ import (
 // (C:\Users\RUNNER~1) expanded, matching the resolved paths in error messages.
 func resolvedTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := evalSkillLinks(t.TempDir())
+	dir, err := EvalSkillLinks(t.TempDir())
 	require.NoError(t, err)
 	return dir
 }
@@ -28,13 +27,13 @@ func managedSkillLink(t *testing.T, target, link string) {
 	if !filepath.IsAbs(absolute) {
 		absolute = filepath.Join(filepath.Dir(link), target)
 	}
-	require.NoError(t, createSkillDirectoryLink(absolute, target, link))
+	require.NoError(t, CreateSkillDirectoryLink(absolute, target, link))
 }
 
 func TestInstallSkillsArchivePreservesManagedProjection(t *testing.T) {
 	home := t.TempDir()
 	root := filepath.Join(home, ".agents", "skills")
-	lockFile := skillsLockPath(home, noEnv)
+	lockFile := SkillsLockPath(home, noEnv)
 	lock := `{"version":3,"skills":{"blaxel-cli":{"source":"blaxel-ai/agent-skills","updatedAt":"old"}},"dismissed":{"mine":true}}`
 	writeTestFile(t, lockFile, lock)
 	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
@@ -47,9 +46,9 @@ func TestInstallSkillsArchivePreservesManagedProjection(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(home, ".claude"), 0755))
 
 	for range 2 {
-		result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+		result, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
 		require.NoError(t, err)
-		assert.Empty(t, result.skills, "externally managed skills are not reported as upstream installations")
+		assert.Empty(t, result.Skills, "externally managed skills are not reported as upstream installations")
 		for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
 			link, err := os.Readlink(filepath.Join(root, name))
 			require.NoError(t, err, "the projection must remain a symlink")
@@ -72,12 +71,12 @@ func TestInstallSkillsArchivePreservesExternalSkillLink(t *testing.T) {
 	writeTestFile(t, filepath.Join(external, "SKILL.md"), skillManifest("blaxel-cli")+"External fork.\n")
 	managedSkillLink(t, external, filepath.Join(root, "blaxel-cli"))
 
-	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	_, err = os.Readlink(filepath.Join(root, "blaxel-cli"))
 	require.NoError(t, err)
 	assert.Equal(t, skillManifest("blaxel-cli")+"External fork.\n", readTestFile(t, filepath.Join(external, "SKILL.md")))
-	lock := readLock(t, skillsLockPath(home, noEnv))
+	lock := readLock(t, SkillsLockPath(home, noEnv))
 	entries, ok := lock["skills"].(map[string]any)
 	require.True(t, ok)
 	assert.NotContains(t, entries, "blaxel-cli", "a kept external skill must not be registered for upstream updates")
@@ -91,16 +90,16 @@ func TestInstallSkillsArchiveReusesNestedSkill(t *testing.T) {
 			root := filepath.Join(home, ".agents", "skills")
 			nested := filepath.Join(root, "blaxel", name)
 			writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest(name)+"Local fork.\n")
-			result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+			result, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 			require.NoError(t, err)
-			assert.Contains(t, result.preserved, name)
-			assert.Contains(t, result.repaired, filepath.Join(root, name))
-			assert.Empty(t, result.backups)
-			target, err := evalSkillLinks(filepath.Join(root, name))
+			assert.Contains(t, result.Preserved, name)
+			assert.Contains(t, result.Repaired, filepath.Join(root, name))
+			assert.Empty(t, result.Backups)
+			target, err := EvalSkillLinks(filepath.Join(root, name))
 			require.NoError(t, err)
 			assert.Equal(t, nested, target)
 			assert.Equal(t, skillManifest(name)+"Local fork.\n", readTestFile(t, filepath.Join(nested, "SKILL.md")))
-			lock := readLock(t, skillsLockPath(home, noEnv))
+			lock := readLock(t, SkillsLockPath(home, noEnv))
 			assert.NotContains(t, lock["skills"], name)
 		})
 	}
@@ -115,7 +114,7 @@ func TestInstallSkillsArchiveRejectsBrokenOrMismatchedManagedLink(t *testing.T) 
 			}
 			link := filepath.Join(home, ".agents", "skills", "blaxel-cli")
 			managedSkillLink(t, target, link)
-			_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+			_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 			require.Error(t, err)
 			got, err := os.Readlink(link)
 			require.NoError(t, err)
@@ -130,7 +129,7 @@ func TestInstallSkillsArchivePreservesAgentManagedLink(t *testing.T) {
 	writeTestFile(t, filepath.Join(external, "SKILL.md"), skillManifest("blaxel-sdk")+"Agent-specific fork.\n")
 	link := filepath.Join(home, ".claude", "skills", "blaxel-sdk")
 	managedSkillLink(t, external, link)
-	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+	_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
 	require.NoError(t, err)
 	got, err := os.Readlink(link)
 	require.NoError(t, err)
@@ -144,9 +143,9 @@ func TestInstallSkillsArchiveReusesAgentNestedSkill(t *testing.T) {
 	nested := filepath.Join(home, ".claude", "skills", "custom", "sdk")
 	writeTestFile(t, filepath.Join(nested, "SKILL.md"), skillManifest("blaxel-sdk"))
 	for range 2 {
-		_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
+		_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, detectedSkillsAgents(home, noEnv), time.Now())
 		require.NoError(t, err)
-		target, err := evalSkillLinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
+		target, err := EvalSkillLinks(filepath.Join(home, ".claude", "skills", "blaxel-sdk"))
 		require.NoError(t, err)
 		assert.Equal(t, nested, target)
 		assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(nested, "SKILL.md")))
@@ -158,10 +157,10 @@ func TestInstallSkillsArchiveChecksProjectedNamespace(t *testing.T) {
 	root := filepath.Join(home, ".agents", "skills")
 	writeTestFile(t, filepath.Join(external, "sdk", "SKILL.md"), skillManifest("blaxel-sdk"))
 	managedSkillLink(t, external, filepath.Join(root, "vendor"))
-	result, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	result, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 	require.NoError(t, err)
-	assert.Contains(t, result.preserved, "blaxel-sdk")
-	target, err := evalSkillLinks(filepath.Join(root, "blaxel-sdk"))
+	assert.Contains(t, result.Preserved, "blaxel-sdk")
+	target, err := EvalSkillLinks(filepath.Join(root, "blaxel-sdk"))
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(external, "sdk"), target)
 	assert.Equal(t, skillManifest("blaxel-sdk"), readTestFile(t, filepath.Join(external, "sdk", "SKILL.md")))
@@ -172,44 +171,20 @@ func TestInstallSkillsArchiveDoesNotTraverseNamespaceCycles(t *testing.T) {
 	root := filepath.Join(home, ".agents", "skills")
 	require.NoError(t, os.MkdirAll(root, 0755))
 	managedSkillLink(t, root, filepath.Join(root, "loop"))
-	_, err := installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, nil, time.Now())
 	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(root, "blaxel-sdk", "SKILL.md"))
 }
 
-func TestSetupReportsPreservedManagedSkills(t *testing.T) {
-	home, external := t.TempDir(), t.TempDir()
-	root := filepath.Join(home, ".agents", "skills")
-	for _, name := range []string{"blaxel-cli", "blaxel-sdk"} {
-		target := filepath.Join(external, name)
-		writeTestFile(t, filepath.Join(target, "SKILL.md"), skillManifest(name))
-		managedSkillLink(t, target, filepath.Join(root, name))
-	}
-	require.NoError(t, os.MkdirAll(filepath.Join(home, ".pi", "agent"), 0755))
-	recorder := &setupRecorder{}
-	options := testSetupOptions(t, home, map[string]string{"LOGGED_IN": "main", "TRACKING_SET": "1"}, recorder)
-	options.skipMCP, options.skipLogin = true, true
-	options.installSkills = func(_ context.Context, agents []skillsAgent) (skillsInstallResult, error) {
-		return installSkillsArchive(buildSkillsArchive(t, testSkillsEntries()), home, noEnv, agents, time.Now())
-	}
-	require.NoError(t, runSetup(context.Background(), options))
-	text := recorder.text(t)
-	assert.Contains(t, text, "kept externally managed: blaxel-cli, blaxel-sdk")
-	assert.Contains(t, text, "Kept managed")
-	assert.Contains(t, text, "links and contents unchanged")
-	assert.Contains(t, text, "Pi")
-	assert.NoFileExists(t, skillsLockPath(home, noEnv))
-}
-
 func TestManagedSkillsInstallMessages(t *testing.T) {
-	managed := skillsInstallResult{preserved: []string{"blaxel-cli", "blaxel-sdk"}}
+	managed := SkillsInstallResult{Preserved: []string{"blaxel-cli", "blaxel-sdk"}}
 	message := skillsInstalledMessage(managed)
 	assert.Contains(t, message, "Kept externally managed")
 	assert.NotContains(t, message, "skills installed")
-	assert.Equal(t, "kept externally managed: blaxel-cli, blaxel-sdk", skillsInstallDetail(managed))
-	managed.skills = []string{"new-skill"}
+	assert.Equal(t, "kept externally managed: blaxel-cli, blaxel-sdk", SkillsInstallDetail(managed))
+	managed.Skills = []string{"new-skill"}
 	assert.Contains(t, skillsInstalledMessage(managed), "Blaxel skills installed")
-	assert.Equal(t, "new-skill · kept externally managed: blaxel-cli, blaxel-sdk", skillsInstallDetail(managed))
+	assert.Equal(t, "new-skill · kept externally managed: blaxel-cli, blaxel-sdk", SkillsInstallDetail(managed))
 }
 
 func TestSkillFolderHelpersRejectExternalLinks(t *testing.T) {
@@ -232,7 +207,7 @@ func TestInstallSkillsArchiveRejectsArchiveNameCollision(t *testing.T) {
 		{name: "skills/a/SKILL.md", body: skillManifest("Blaxel SDK")},
 		{name: "skills/b/SKILL.md", body: skillManifest("blaxel-sdk")},
 	}
-	_, err := installSkillsArchive(buildSkillsArchive(t, entries), home, noEnv, nil, time.Now())
+	_, err := InstallSkillsArchive(buildSkillsArchive(t, entries), home, noEnv, nil, time.Now())
 	require.Error(t, err)
-	assert.Empty(t, dirNames(t, home))
+	assert.NoDirExists(t, filepath.Join(home, ".agents"))
 }

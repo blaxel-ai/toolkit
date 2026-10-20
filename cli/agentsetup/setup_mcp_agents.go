@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"bytes"
@@ -15,24 +15,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func typedCommandOrURL(localType, remoteType string) func(mcpServer) any {
-	return func(s mcpServer) any {
+func typedCommandOrURL(localType, remoteType string) func(MCPServer) any {
+	return func(s MCPServer) any {
 		if s.local() {
-			return localServerEntry{Type: localType, Command: s.command[0], Args: s.command[1:]}
+			return localServerEntry{Type: localType, Command: s.Command[0], Args: s.Command[1:]}
 		}
-		return map[string]string{"type": remoteType, "url": s.url}
+		return map[string]string{"type": remoteType, "url": s.URL}
 	}
 }
 
-func crushConfigDir(p skillsAgentPaths) string {
+func crushConfigDir(p SkillsAgentPaths) string {
 	return p.envOr("CRUSH_GLOBAL_CONFIG", p.configDir("crush"))
 }
 
-func crushMCPTarget() mcpTarget {
-	file := func(e mcpEnv) string { return filepath.Join(crushConfigDir(e.paths()), "crush.json") }
+func crushMCPTarget() MCPTarget {
+	file := func(e MCPEnv) string { return filepath.Join(crushConfigDir(e.paths()), "crush.json") }
 	target := jsonServerTarget(file, "mcp", typedCommandOrURL("stdio", "http"))
 	write := target.write
-	target.write = func(ctx context.Context, e mcpEnv, s mcpServer, replace bool) error {
+	target.write = func(ctx context.Context, e MCPEnv, s MCPServer, replace bool) error {
 		if _, err := os.Stat(filepath.Join(filepath.Dir(file(e)), "crushrc")); !errors.Is(err, os.ErrNotExist) {
 			return errors.New("configure MCP in crushrc; setup cannot safely merge shell configuration")
 		}
@@ -44,15 +44,15 @@ func crushMCPTarget() mcpTarget {
 // clineMCPSettingsFile resolves the file the Cline CLI reads:
 // CLINE_MCP_SETTINGS_PATH, else the data folder from CLINE_DATA_DIR, CLINE_DIR
 // or ~/.cline.
-func clineMCPSettingsFile(e mcpEnv) string {
-	data := e.envOr("CLINE_DATA_DIR", filepath.Join(e.envOr("CLINE_DIR", filepath.Join(e.home, ".cline")), "data"))
+func clineMCPSettingsFile(e MCPEnv) string {
+	data := e.envOr("CLINE_DATA_DIR", filepath.Join(e.envOr("CLINE_DIR", filepath.Join(e.Home, ".cline")), "data"))
 	return e.envOr("CLINE_MCP_SETTINGS_PATH", filepath.Join(data, "settings", "cline_mcp_settings.json"))
 }
 
-func clineMCPTarget() mcpTarget {
+func clineMCPTarget() MCPTarget {
 	file := clineMCPSettingsFile
 	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("", "streamableHttp"))
-	target.entry = func(e mcpEnv, name string) map[string]any {
+	target.Entry = func(e MCPEnv, name string) map[string]any {
 		entry := jsonConfigEntry(file(e), "mcpServers", name)
 		if entry["type"] == "streamableHttp" {
 			entry["type"] = "http"
@@ -62,12 +62,12 @@ func clineMCPTarget() mcpTarget {
 	return target
 }
 
-func continueMCPTarget() mcpTarget {
-	file := func(e mcpEnv) string {
-		return filepath.Join(e.envOr("CONTINUE_GLOBAL_DIR", filepath.Join(e.home, ".continue")), "mcpServers", "blaxel.json")
+func continueMCPTarget() MCPTarget {
+	file := func(e MCPEnv) string {
+		return filepath.Join(e.envOr("CONTINUE_GLOBAL_DIR", filepath.Join(e.Home, ".continue")), "mcpServers", "blaxel.json")
 	}
 	target := jsonServerTarget(file, "mcpServers", typedCommandOrURL("stdio", "http"))
-	owns := func(e mcpEnv, name string) (bool, error) {
+	owns := func(e MCPEnv, name string) (bool, error) {
 		// A blaxel.json holding a single server is the user's own "blaxel"
 		// server, so setup merges nothing into it.
 		if data, err := os.ReadFile(file(e)); err == nil && singleServerJSON(data) {
@@ -139,15 +139,15 @@ func continueMCPTarget() mcpTarget {
 		}
 		return false, nil
 	}
-	target.entry = func(e mcpEnv, name string) map[string]any {
+	target.Entry = func(e MCPEnv, name string) map[string]any {
 		if exists, err := owns(e, name); err == nil && exists {
 			return map[string]any{}
 		}
 		return jsonConfigEntry(file(e), "mcpServers", name)
 	}
 	write := target.write
-	target.write = func(ctx context.Context, e mcpEnv, s mcpServer, replace bool) error {
-		if exists, err := owns(e, s.name); err != nil {
+	target.write = func(ctx context.Context, e MCPEnv, s MCPServer, replace bool) error {
+		if exists, err := owns(e, s.Name); err != nil {
 			return err
 		} else if exists {
 			return errMCPServerExists
@@ -180,33 +180,33 @@ func singleServerJSON(data []byte) bool {
 // ~/.moltbot folder. OpenClaw reads only ~/.openclaw, and openclaw doctor moves
 // a legacy folder there only while ~/.openclaw does not exist, so setup must not
 // create it first.
-func openclawLegacyOnly(e mcpEnv) bool {
-	if strings.TrimSpace(e.env("OPENCLAW_CONFIG_PATH")) != "" || strings.TrimSpace(e.env("OPENCLAW_STATE_DIR")) != "" {
+func openclawLegacyOnly(e MCPEnv) bool {
+	if strings.TrimSpace(e.Env("OPENCLAW_CONFIG_PATH")) != "" || strings.TrimSpace(e.Env("OPENCLAW_STATE_DIR")) != "" {
 		return false
 	}
-	if _, err := os.Stat(filepath.Join(e.home, ".openclaw")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(e.Home, ".openclaw")); !errors.Is(err, os.ErrNotExist) {
 		return false
 	}
 	for _, legacy := range []string{".clawdbot", ".moltbot"} {
-		if _, err := os.Stat(filepath.Join(e.home, legacy)); err == nil {
+		if _, err := os.Stat(filepath.Join(e.Home, legacy)); err == nil {
 			return true
 		}
 	}
 	return false
 }
 
-func openclawConfigFile(e mcpEnv) string {
-	path := e.envOr("OPENCLAW_CONFIG_PATH", filepath.Join(e.envOr("OPENCLAW_STATE_DIR", filepath.Join(e.home, ".openclaw")), "openclaw.json"))
+func openclawConfigFile(e MCPEnv) string {
+	path := e.envOr("OPENCLAW_CONFIG_PATH", filepath.Join(e.envOr("OPENCLAW_STATE_DIR", filepath.Join(e.Home, ".openclaw")), "openclaw.json"))
 	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, `~\`) {
-		path = filepath.Join(e.home, path[2:])
+		path = filepath.Join(e.Home, path[2:])
 	}
 	return path
 }
 
 // OpenClaw's native registry is nested. Leave JSON5 and included settings to
 // the client, and preserve every unrelated JSON member while merging servers.
-func openclawMCPTarget() mcpTarget {
-	read := func(e mcpEnv) ([]jsonMember, []jsonMember, error) {
+func openclawMCPTarget() MCPTarget {
+	read := func(e MCPEnv) ([]jsonMember, []jsonMember, error) {
 		_, root, err := readJSONConfig(openclawConfigFile(e))
 		if err != nil {
 			return nil, nil, err
@@ -229,9 +229,9 @@ func openclawMCPTarget() mcpTarget {
 		}
 		return root, mcp, nil
 	}
-	return mcpTarget{
-		file: openclawConfigFile,
-		entry: func(e mcpEnv, name string) map[string]any {
+	return MCPTarget{
+		File: openclawConfigFile,
+		Entry: func(e MCPEnv, name string) map[string]any {
 			_, mcp, err := read(e)
 			if err != nil {
 				return nil
@@ -260,7 +260,7 @@ func openclawMCPTarget() mcpTarget {
 			}
 			return entry
 		},
-		write: func(_ context.Context, e mcpEnv, s mcpServer, replace bool) error {
+		write: func(_ context.Context, e MCPEnv, s MCPServer, replace bool) error {
 			if openclawLegacyOnly(e) {
 				return errors.New("run openclaw doctor to move the legacy OpenClaw folder to ~/.openclaw; setup does not create ~/.openclaw beside it")
 			}
@@ -268,11 +268,11 @@ func openclawMCPTarget() mcpTarget {
 			if err != nil {
 				return err
 			}
-			entry := map[string]any{"transport": "streamable-http", "url": s.url}
+			entry := map[string]any{"transport": "streamable-http", "url": s.URL}
 			if s.local() {
-				entry = map[string]any{"transport": "stdio", "command": s.command[0], "args": s.command[1:]}
+				entry = map[string]any{"transport": "stdio", "command": s.Command[0], "args": s.Command[1:]}
 			}
-			updated, changed, err := mergeJSONServer(mcp, "servers", s.name, entry, replace)
+			updated, changed, err := mergeJSONServer(mcp, "servers", s.Name, entry, replace)
 			if err != nil || !changed {
 				return err
 			}
@@ -290,19 +290,19 @@ func openclawMCPTarget() mcpTarget {
 	}
 }
 
-func copilotConfigFile(e mcpEnv) string {
-	return filepath.Join(e.envOr("COPILOT_HOME", filepath.Join(e.home, ".copilot")), "mcp-config.json")
+func copilotConfigFile(e MCPEnv) string {
+	return filepath.Join(e.envOr("COPILOT_HOME", filepath.Join(e.Home, ".copilot")), "mcp-config.json")
 }
 
-func copilotMCPTarget() mcpTarget {
-	target := jsonServerTarget(copilotConfigFile, "mcpServers", func(s mcpServer) any {
-		entry := map[string]any{"type": "http", "url": s.url, "tools": []string{"*"}}
+func copilotMCPTarget() MCPTarget {
+	target := jsonServerTarget(copilotConfigFile, "mcpServers", func(s MCPServer) any {
+		entry := map[string]any{"type": "http", "url": s.URL, "tools": []string{"*"}}
 		if s.local() {
-			entry = map[string]any{"type": "local", "command": s.command[0], "args": s.command[1:], "tools": []string{"*"}}
+			entry = map[string]any{"type": "local", "command": s.Command[0], "args": s.Command[1:], "tools": []string{"*"}}
 		}
 		return entry
 	})
-	target.entry = func(e mcpEnv, name string) map[string]any {
+	target.Entry = func(e MCPEnv, name string) map[string]any {
 		entry := jsonConfigEntry(copilotConfigFile(e), "mcpServers", name)
 		// Copilot's default tool selection is part of the minimal server shape.
 		// A user's narrower tool selection remains a customization.
@@ -313,13 +313,13 @@ func copilotMCPTarget() mcpTarget {
 	}
 	// Ask Copilot for its resolved registry so disabled and skills-only plugins
 	// are not mistaken for plugins that provide the resource server.
-	target.hasPlugin = func(e mcpEnv) bool {
-		if _, err := e.lookPath("copilot"); err != nil {
+	target.hasPlugin = func(e MCPEnv) bool {
+		if _, err := e.LookPath("copilot"); err != nil {
 			return false
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		data, err := e.run(ctx, "copilot", "mcp", "list", "--json")
+		data, err := e.Run(ctx, "copilot", "mcp", "list", "--json")
 		if err != nil {
 			return false
 		}
@@ -336,12 +336,12 @@ func copilotMCPTarget() mcpTarget {
 		server := config.Servers["blaxel"]
 		return server.SourcePlugin == "blaxel" && server.Source == "plugin" && server.Enabled
 	}
-	target.pluginDirs = func(mcpEnv) []string { return nil }
+	target.pluginDirs = func(MCPEnv) []string { return nil }
 	return target
 }
 
-func ampConfigFile(e mcpEnv) string {
-	file := filepath.Join(e.config, "amp", "settings.json")
+func ampConfigFile(e MCPEnv) string {
+	file := filepath.Join(e.Config, "amp", "settings.json")
 	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
 		jsonc := file + "c"
 		if _, err := os.Stat(jsonc); !errors.Is(err, os.ErrNotExist) {
@@ -351,11 +351,11 @@ func ampConfigFile(e mcpEnv) string {
 	return file
 }
 
-func gooseMCPTarget() mcpTarget {
-	file := func(e mcpEnv) string { return filepath.Join(gooseConfigDir(e.paths()), "config.yaml") }
-	return mcpTarget{
-		file: file,
-		entry: func(e mcpEnv, name string) map[string]any {
+func gooseMCPTarget() MCPTarget {
+	file := func(e MCPEnv) string { return filepath.Join(gooseConfigDir(e.paths()), "config.yaml") }
+	return MCPTarget{
+		File: file,
+		Entry: func(e MCPEnv, name string) map[string]any {
 			_, extensions, err := readGooseConfig(file(e))
 			if err != nil {
 				return nil
@@ -388,18 +388,18 @@ func gooseMCPTarget() mcpTarget {
 			}
 			return entry
 		},
-		write: func(_ context.Context, e mcpEnv, s mcpServer, replace bool) error {
+		write: func(_ context.Context, e MCPEnv, s MCPServer, replace bool) error {
 			root, extensions, err := readGooseConfig(file(e))
 			if err != nil {
 				return err
 			}
-			index := yamlMember(extensions, s.name)
+			index := yamlMember(extensions, s.Name)
 			if index >= 0 && !replace {
 				return nil
 			}
-			entry := map[string]any{"name": s.name, "type": "streamable_http", "uri": s.url, "enabled": true}
+			entry := map[string]any{"name": s.Name, "type": "streamable_http", "uri": s.URL, "enabled": true}
 			if s.local() {
-				entry = map[string]any{"name": s.name, "type": "stdio", "cmd": s.command[0], "args": s.command[1:], "enabled": true}
+				entry = map[string]any{"name": s.Name, "type": "stdio", "cmd": s.Command[0], "args": s.Command[1:], "enabled": true}
 			}
 			var node yaml.Node
 			if err := node.Encode(entry); err != nil {
@@ -408,7 +408,7 @@ func gooseMCPTarget() mcpTarget {
 			if index >= 0 {
 				extensions.Content[index+1] = &node
 			} else {
-				extensions.Content = append(extensions.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: s.name}, &node)
+				extensions.Content = append(extensions.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: s.Name}, &node)
 			}
 			var data bytes.Buffer
 			encoder := yaml.NewEncoder(&data)

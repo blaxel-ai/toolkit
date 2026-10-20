@@ -1,4 +1,4 @@
-package cli
+package agentsetup
 
 import (
 	"bytes"
@@ -11,35 +11,36 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 )
 
-// mcpServer is a Blaxel MCP server that setup adds to coding agents: a hosted
+// MCPServer is a Blaxel MCP server that setup adds to coding agents: a hosted
 // server at url, or a local command the agent starts.
-type mcpServer struct {
-	name    string
-	url     string
-	command []string
-	// plugin reports whether the Blaxel agent plugin already provides this server.
-	plugin bool
+type MCPServer struct {
+	Name    string
+	URL     string
+	Command []string
+	// Plugin reports whether the Blaxel agent plugin already provides this server.
+	Plugin bool
 }
 
-func (s mcpServer) local() bool { return len(s.command) > 0 }
+func (s MCPServer) local() bool { return len(s.Command) > 0 }
 
-const docsMCPURL = "https://docs.blaxel.ai/mcp"
+const DocsMCPURL = "https://docs.blaxel.ai/mcp"
 
-// resourceMCPServer manages workspace resources through bl mcp, which signs
+// ResourceMCPServer manages workspace resources through bl mcp, which signs
 // in with the bl login: agents need no sign-in of their own, and no token is
 // stored in their configuration.
-func resourceMCPServer(bl string) mcpServer {
-	return mcpServer{name: "blaxel", command: []string{bl, "mcp"}, plugin: true}
+func ResourceMCPServer(bl string) MCPServer {
+	return MCPServer{Name: "blaxel", Command: []string{bl, "mcp"}, Plugin: true}
 }
 
-func docsMCPServer() mcpServer {
-	return mcpServer{name: "blaxel-docs", url: docsMCPURL}
+func DocsMCPServer() MCPServer {
+	return MCPServer{Name: "blaxel-docs", URL: DocsMCPURL}
 }
 
 // isHostedResourceMCPURL recognizes the hosted server that setup added to
@@ -49,16 +50,16 @@ func isHostedResourceMCPURL(value string) bool {
 	return value == "https://api.blaxel.ai/v0/mcp" || value == "https://api.blaxel.dev/v0/mcp"
 }
 
-// blCommandPath is the bl binary agents start for bl mcp. It is absolute,
+// BlCommandPath is the bl binary agents start for bl mcp. It is absolute,
 // because desktop apps do not get the shell's PATH, and survives upgrades:
 // Homebrew's bin link rather than the versioned keg.
-func blCommandPath(executable func() (string, error)) (string, error) {
+func BlCommandPath(executable func() (string, error)) (string, error) {
 	path, err := executable()
 	if err != nil || path == "" {
 		return "", errors.New("cannot locate the bl executable; run setup from an installed bl or blaxel binary")
 	}
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		if prefix, _ := homebrewSkillsLocation(resolved); prefix != "" {
+		if prefix, _ := HomebrewSkillsLocation(resolved); prefix != "" {
 			return filepath.Join(prefix, "bin", "bl"), nil
 		}
 	}
@@ -69,73 +70,90 @@ func blCommandPath(executable func() (string, error)) (string, error) {
 	return absolute, nil
 }
 
-// mcpEnv is everything MCP configuration needs from the machine, so tests can
-// point it at a temporary home and fake agent CLIs.
-type mcpEnv struct {
-	home, config string
-	env          func(string) string
-	lookPath     func(string) (string, error)
-	run          func(ctx context.Context, name string, args ...string) ([]byte, error)
-	// exists reports whether a file exists, to notice a bl that moved.
-	exists func(string) bool
+// HomebrewSkillsLocation recognizes the resolved keg path without invoking brew
+// on every command. It supports custom prefixes and both binary aliases.
+func HomebrewSkillsLocation(executable string) (prefix, version string) {
+	executable = filepath.Clean(executable)
+	if !filepath.IsAbs(executable) || (filepath.Base(executable) != "blaxel" && filepath.Base(executable) != "bl") {
+		return "", ""
+	}
+	bin := filepath.Dir(executable)
+	keg := filepath.Dir(bin)
+	rack := filepath.Dir(keg)
+	cellar := filepath.Dir(rack)
+	if filepath.Base(bin) != "bin" || filepath.Base(rack) != "blaxel" || filepath.Base(cellar) != "Cellar" {
+		return "", ""
+	}
+	return filepath.Dir(cellar), filepath.Base(keg)
 }
 
-func newMCPEnv(home string) mcpEnv {
-	paths := newSkillsAgentPaths(home, os.Getenv)
-	return mcpEnv{
-		home: home, config: paths.config, env: os.Getenv, lookPath: exec.LookPath,
-		run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+// MCPEnv is everything MCP configuration needs from the machine, so tests can
+// point it at a temporary home and fake agent CLIs.
+type MCPEnv struct {
+	Home, Config string
+	Env          func(string) string
+	LookPath     func(string) (string, error)
+	Run          func(ctx context.Context, name string, args ...string) ([]byte, error)
+	// Exists reports whether a file exists, to notice a bl that moved.
+	Exists func(string) bool
+}
+
+func NewMCPEnv(home string) MCPEnv {
+	paths := NewSkillsAgentPaths(home, os.Getenv)
+	return MCPEnv{
+		Home: home, Config: paths.config, Env: os.Getenv, LookPath: exec.LookPath,
+		Run: func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			cmd := exec.CommandContext(ctx, name, args...)
 			cmd.Stdin = nil
 			cmd.WaitDelay = time.Second
 			return cmd.CombinedOutput()
 		},
-		exists: func(path string) bool { _, err := os.Stat(path); return err == nil },
+		Exists: func(path string) bool { _, err := os.Stat(path); return err == nil },
 	}
 }
 
-func (e mcpEnv) envOr(key, fallback string) string {
-	if value := strings.TrimSpace(e.env(key)); value != "" {
+func (e MCPEnv) envOr(key, fallback string) string {
+	if value := strings.TrimSpace(e.Env(key)); value != "" {
 		return value
 	}
 	return fallback
 }
 
-func (e mcpEnv) paths() skillsAgentPaths {
-	return skillsAgentPaths{home: e.home, config: e.config, env: e.env}
+func (e MCPEnv) paths() SkillsAgentPaths {
+	return SkillsAgentPaths{home: e.Home, config: e.Config, env: e.Env}
 }
 
-// mcpEntryState compares a configured server with the one setup writes.
-type mcpEntryState int
+// MCPEntryState compares a configured server with the one setup writes.
+type MCPEntryState int
 
 const (
-	mcpEntryAbsent   mcpEntryState = iota
-	mcpEntryCurrent                // what setup writes, or the same server
-	mcpEntryOutdated               // one setup wrote before, which it replaces
-	mcpEntryCustom                 // someone else's entry, left alone
+	mcpEntryAbsent   MCPEntryState = iota
+	MCPEntryCurrent                // what setup writes, or the same server
+	MCPEntryOutdated               // one setup wrote before, which it replaces
+	MCPEntryCustom                 // someone else's entry, left alone
 )
 
-// classifyMCPEntry decides what setup does with an existing entry. Only
+// ClassifyMCPEntry decides what setup does with an existing entry. Only
 // exact minimal known shapes are repairable; this is not proof of ownership.
 // Custom arguments, env, headers, unknown keys and disabled entries stay intact.
-func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntryState {
+func ClassifyMCPEntry(e MCPEnv, server MCPServer, entry map[string]any) MCPEntryState {
 	if entry == nil {
 		return mcpEntryAbsent
 	}
 	if !server.local() {
-		return mcpEntryCurrent
+		return MCPEntryCurrent
 	}
 	// Never re-enable a disabled server or overwrite customization.
 	if disabled, _ := entry["disabled"].(bool); disabled {
-		return mcpEntryCustom
+		return MCPEntryCustom
 	}
 	if enabled, ok := entry["enabled"]; ok && enabled != true {
-		return mcpEntryCustom
+		return MCPEntryCustom
 	}
-	if command, args := entryCommand(entry); command != "" {
+	if command, args := EntryCommand(entry); command != "" {
 		name := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(command, `\`, "/"))), ".exe")
 		if (name != "bl" && name != "blaxel") || len(args) != 1 || args[0] != "mcp" {
-			return mcpEntryCustom
+			return MCPEntryCustom
 		}
 		for key, value := range entry {
 			switch key {
@@ -143,20 +161,20 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 			case "env":
 				// claude mcp add writes an empty one: not a customization.
 				if env, ok := value.(map[string]any); !ok || len(env) > 0 {
-					return mcpEntryCustom
+					return MCPEntryCustom
 				}
 			case "type":
 				if value != "stdio" && value != "local" {
-					return mcpEntryCustom
+					return MCPEntryCustom
 				}
 			default:
-				return mcpEntryCustom
+				return MCPEntryCustom
 			}
 		}
-		if filepath.IsAbs(command) && e.exists != nil && !e.exists(command) {
-			return mcpEntryOutdated
+		if filepath.IsAbs(command) && e.Exists != nil && !e.Exists(command) {
+			return MCPEntryOutdated
 		}
-		return mcpEntryCurrent
+		return MCPEntryCurrent
 	}
 	hosted := false
 	for key, value := range entry {
@@ -164,27 +182,27 @@ func classifyMCPEntry(e mcpEnv, server mcpServer, entry map[string]any) mcpEntry
 		case "url", "httpUrl", "serverUrl":
 			text, _ := value.(string)
 			if !isHostedResourceMCPURL(text) {
-				return mcpEntryCustom
+				return MCPEntryCustom
 			}
 			hosted = true
 		case "type":
 			if value != "http" && value != "remote" && value != "streamable-http" {
-				return mcpEntryCustom
+				return MCPEntryCustom
 			}
 		case "enabled":
 		default:
-			return mcpEntryCustom
+			return MCPEntryCustom
 		}
 	}
 	if !hosted {
-		return mcpEntryCustom
+		return MCPEntryCustom
 	}
-	return mcpEntryOutdated
+	return MCPEntryOutdated
 }
 
-// entryCommand reads a local server's command and arguments, in the common
+// EntryCommand reads a local server's command and arguments, in the common
 // form ("command" and "args") or OpenCode's (one "command" list).
-func entryCommand(entry map[string]any) (string, []string) {
+func EntryCommand(entry map[string]any) (string, []string) {
 	var parts []string
 	switch command := entry["command"].(type) {
 	case string:
@@ -207,26 +225,26 @@ func entryCommand(entry map[string]any) (string, []string) {
 	return parts[0], parts[1:]
 }
 
-// mcpTarget knows how to add an MCP server to one coding agent.
-type mcpTarget struct {
-	// file is the configuration file setup edits, shown in messages.
-	file func(mcpEnv) string
-	// entry returns the configured server with that name, or nil.
-	entry func(e mcpEnv, name string) map[string]any
+// MCPTarget knows how to add an MCP server to one coding agent.
+type MCPTarget struct {
+	// File is the configuration file setup edits, shown in messages.
+	File func(MCPEnv) string
+	// Entry returns the configured server with that name, or nil.
+	Entry func(e MCPEnv, name string) map[string]any
 	// write adds the server, replacing the existing entry when replace is set.
-	write func(ctx context.Context, e mcpEnv, server mcpServer, replace bool) error
+	write func(ctx context.Context, e MCPEnv, server MCPServer, replace bool) error
 	// hasPlugin reports whether the Blaxel plugin is installed in this agent,
 	// and pluginDirs where its files are.
-	hasPlugin  func(mcpEnv) bool
-	pluginDirs func(mcpEnv) []string
+	hasPlugin  func(MCPEnv) bool
+	pluginDirs func(MCPEnv) []string
 	// localOnly targets run local servers only, so they get bl mcp alone.
 	localOnly bool
 }
 
-// pluginServes reports whether the installed Blaxel plugin supplies the blaxel
+// PluginServes reports whether the installed Blaxel plugin supplies the blaxel
 // server itself. Setup then adds none, because the agent would have two. A
 // plugin without an MCP server (skills only) leaves that to setup.
-func (t mcpTarget) pluginServes(e mcpEnv) bool {
+func (t MCPTarget) PluginServes(e MCPEnv) bool {
 	if t.hasPlugin == nil || !t.hasPlugin(e) {
 		return false
 	}
@@ -251,8 +269,8 @@ func (t mcpTarget) pluginServes(e mcpEnv) bool {
 	return false
 }
 
-// takes reports whether the target can run the server.
-func (t mcpTarget) takes(server mcpServer) bool { return server.local() || !t.localOnly }
+// Takes reports whether the target can run the server.
+func (t MCPTarget) Takes(server MCPServer) bool { return server.local() || !t.localOnly }
 
 type mcpChange int
 
@@ -264,11 +282,11 @@ const (
 
 // addMCPServer adds the server unless an entry is already there, and
 // replaces only an outdated entry setup wrote before.
-func addMCPServer(ctx context.Context, e mcpEnv, target mcpTarget, server mcpServer) (mcpChange, error) {
-	switch classifyMCPEntry(e, server, target.entry(e, server.name)) {
-	case mcpEntryCurrent, mcpEntryCustom:
+func addMCPServer(ctx context.Context, e MCPEnv, target MCPTarget, server MCPServer) (mcpChange, error) {
+	switch ClassifyMCPEntry(e, server, target.Entry(e, server.Name)) {
+	case MCPEntryCurrent, MCPEntryCustom:
 		return mcpUnchanged, nil
-	case mcpEntryOutdated:
+	case MCPEntryOutdated:
 		if err := target.write(ctx, e, server, true); err != nil {
 			if errors.Is(err, errMCPServerExists) {
 				return mcpUnchanged, nil // a layout setup cannot rewrite is left as it is
@@ -286,15 +304,93 @@ func addMCPServer(ctx context.Context, e mcpEnv, target mcpTarget, server mcpSer
 	return mcpAdded, nil
 }
 
+type MCPAgentResult struct {
+	Added, Updated, Existing, Plugin []string
+	Err                              error
+}
+
+func ConfigureAgentMCP(ctx context.Context, env MCPEnv, target MCPTarget, servers []MCPServer) MCPAgentResult {
+	result := MCPAgentResult{}
+	plugin := target.PluginServes(env)
+	for _, server := range servers {
+		if !target.Takes(server) {
+			continue
+		}
+		if server.Plugin && plugin {
+			result.Plugin = append(result.Plugin, server.Name)
+			continue
+		}
+		change, err := addMCPServer(ctx, env, target, server)
+		if err != nil {
+			result.Err = err
+			return result
+		}
+		switch change {
+		case mcpAdded:
+			result.Added = append(result.Added, server.Name)
+		case mcpReplaced:
+			result.Updated = append(result.Updated, server.Name)
+		default:
+			result.Existing = append(result.Existing, server.Name)
+		}
+	}
+	return result
+}
+
+// Short describes what changed, for a progress row.
+func (r MCPAgentResult) Short() string {
+	var parts []string
+	if len(r.Added) > 0 {
+		parts = append(parts, "added "+joinSkillsNames(r.Added))
+	}
+	if len(r.Updated) > 0 {
+		parts = append(parts, "switched "+joinSkillsNames(r.Updated)+" to bl mcp")
+	}
+	if len(r.Existing) > 0 {
+		parts = append(parts, joinSkillsNames(r.Existing)+" already set up")
+	}
+	if len(r.Plugin) > 0 {
+		parts = append(parts, joinSkillsNames(r.Plugin)+" from the Blaxel plugin")
+	}
+	return strings.Join(parts, " · ")
+}
+
+// Servers names the MCP servers the agent now has, for the final screen.
+func (r MCPAgentResult) Servers() []string {
+	var names []string
+	for _, name := range slices.Concat(r.Added, r.Updated, r.Existing) {
+		names = append(names, MCPLabel(name))
+	}
+	for _, name := range r.Plugin {
+		names = append(names, MCPLabel(name)+PluginLabelSuffix)
+	}
+	return names
+}
+
+// PluginLabelSuffix tells that the Blaxel plugin supplies a server, which setup
+// leaves as it is.
+const PluginLabelSuffix = " (Blaxel plugin)"
+
+// MCPLabel names an MCP server briefly: Blaxel MCP, docs MCP.
+func MCPLabel(name string) string {
+	switch name {
+	case "blaxel":
+		return "Blaxel MCP"
+	case "blaxel-docs":
+		return "docs MCP"
+	}
+	return name + " MCP"
+}
+
 // errMCPServerExists is returned by agent CLIs that already have the server.
 var errMCPServerExists = errors.New("the server is already configured")
 
 // jsonServerTarget keeps servers under container in a JSON configuration file.
-func jsonServerTarget(file func(mcpEnv) string, container string, entry func(mcpServer) any) mcpTarget {
-	return mcpTarget{file: file,
-		entry: func(e mcpEnv, name string) map[string]any { return jsonConfigEntry(file(e), container, name) },
-		write: func(_ context.Context, e mcpEnv, server mcpServer, replace bool) error {
-			_, err := upsertJSONConfig(file(e), container, server.name, entry(server), replace)
+func jsonServerTarget(file func(MCPEnv) string, container string, entry func(MCPServer) any) MCPTarget {
+	return MCPTarget{File: file,
+		Entry: func(e MCPEnv, name string) map[string]any { return jsonConfigEntry(file(e), container, name) },
+		write: func(_ context.Context, e MCPEnv, server MCPServer, replace bool) error {
+			_, err := upsertJSONConfig(file(e), container, server.Name, entry(server), replace)
 			return err
 		},
 	}
@@ -302,12 +398,12 @@ func jsonServerTarget(file func(mcpEnv) string, container string, entry func(mcp
 
 // commandOrURL writes a local server in the common form, and a hosted one
 // with the agent's URL key.
-func commandOrURL(urlKey string) func(mcpServer) any {
-	return func(s mcpServer) any {
+func commandOrURL(urlKey string) func(MCPServer) any {
+	return func(s MCPServer) any {
 		if s.local() {
-			return localServerEntry{Command: s.command[0], Args: s.command[1:]}
+			return localServerEntry{Command: s.Command[0], Args: s.Command[1:]}
 		}
-		return map[string]string{urlKey: s.url}
+		return map[string]string{urlKey: s.URL}
 	}
 }
 
@@ -319,17 +415,17 @@ type localServerEntry struct {
 	Env     map[string]string `json:"env,omitempty"`
 }
 
-// mcpTargets maps agent IDs to their MCP configuration. Agents without an
+// MCPTargets maps agent IDs to their MCP configuration. Agents without an
 // entry receive the skills only.
-var mcpTargets = map[string]mcpTarget{
+var MCPTargets = map[string]MCPTarget{
 	"claude-code": {
-		file: claudeConfigFile,
-		entry: func(e mcpEnv, name string) map[string]any {
+		File: claudeConfigFile,
+		Entry: func(e MCPEnv, name string) map[string]any {
 			return jsonConfigEntry(claudeConfigFile(e), "mcpServers", name)
 		},
 		write:     writeClaudeMCPServer,
-		hasPlugin: func(e mcpEnv) bool { return len(installedClaudePlugins(e)) > 0 },
-		pluginDirs: func(e mcpEnv) []string {
+		hasPlugin: func(e MCPEnv) bool { return len(installedClaudePlugins(e)) > 0 },
+		pluginDirs: func(e MCPEnv) []string {
 			var dirs []string
 			for _, raw := range installedClaudePlugins(e) {
 				var installs []struct {
@@ -346,8 +442,8 @@ var mcpTargets = map[string]mcpTarget{
 		},
 	},
 	"codex": {
-		file: codexConfigFile,
-		entry: func(e mcpEnv, name string) map[string]any {
+		File: codexConfigFile,
+		Entry: func(e MCPEnv, name string) map[string]any {
 			var config struct {
 				MCPServers map[string]map[string]any `toml:"mcp_servers"`
 			}
@@ -356,14 +452,14 @@ var mcpTargets = map[string]mcpTarget{
 			}
 			return config.MCPServers[name]
 		},
-		write: func(_ context.Context, e mcpEnv, server mcpServer, replace bool) error {
+		write: func(_ context.Context, e MCPEnv, server MCPServer, replace bool) error {
 			if replace {
 				return replaceCodexMCPServer(codexConfigFile(e), server)
 			}
 			_, err := appendCodexMCPServer(codexConfigFile(e), server)
 			return err
 		},
-		hasPlugin: func(e mcpEnv) bool {
+		hasPlugin: func(e MCPEnv) bool {
 			var config struct {
 				Plugins map[string]struct {
 					Enabled *bool `toml:"enabled"`
@@ -379,55 +475,55 @@ var mcpTargets = map[string]mcpTarget{
 			}
 			return false
 		},
-		pluginDirs: func(e mcpEnv) []string {
+		pluginDirs: func(e MCPEnv) []string {
 			dirs, _ := filepath.Glob(filepath.Join(filepath.Dir(codexConfigFile(e)), "plugins", "cache", "*", "blaxel", "*"))
 			return dirs
 		},
 	},
-	"cursor": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".cursor", "mcp.json") },
+	"cursor": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".cursor", "mcp.json") },
 		"mcpServers", commandOrURL("url")),
-	"gemini-cli": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".gemini", "settings.json") },
+	"gemini-cli": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".gemini", "settings.json") },
 		"mcpServers", commandOrURL("httpUrl")),
-	"opencode": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.config, "opencode", "opencode.json") },
-		"mcp", func(s mcpServer) any {
+	"opencode": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Config, "opencode", "opencode.json") },
+		"mcp", func(s MCPServer) any {
 			if s.local() {
-				return map[string]any{"type": "local", "command": s.command, "enabled": true}
+				return map[string]any{"type": "local", "command": s.Command, "enabled": true}
 			}
-			return map[string]any{"type": "remote", "url": s.url, "enabled": true}
+			return map[string]any{"type": "remote", "url": s.URL, "enabled": true}
 		}),
 	"github-copilot": copilotMCPTarget(),
-	"vscode": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(vscodeUserDir(e.paths()), "mcp.json") },
-		"servers", func(s mcpServer) any {
+	"vscode": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(vscodeUserDir(e.paths()), "mcp.json") },
+		"servers", func(s MCPServer) any {
 			if s.local() {
-				return localServerEntry{Type: "stdio", Command: s.command[0], Args: s.command[1:]}
+				return localServerEntry{Type: "stdio", Command: s.Command[0], Args: s.Command[1:]}
 			}
-			return map[string]string{"type": "http", "url": s.url}
+			return map[string]string{"type": "http", "url": s.URL}
 		}),
 	"amp":   jsonServerTarget(ampConfigFile, "amp.mcpServers", commandOrURL("url")),
 	"goose": gooseMCPTarget(),
-	"kiro-cli": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".kiro", "settings", "mcp.json") },
+	"kiro-cli": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".kiro", "settings", "mcp.json") },
 		"mcpServers", commandOrURL("url")),
-	"qwen-code": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".qwen", "settings.json") },
+	"qwen-code": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".qwen", "settings.json") },
 		"mcpServers", commandOrURL("httpUrl")),
 	"cline":    clineMCPTarget(),
 	"continue": continueMCPTarget(),
-	"junie": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".junie", "mcp", "mcp.json") },
+	"junie": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".junie", "mcp", "mcp.json") },
 		"mcpServers", commandOrURL("url")),
-	"augment": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".augment", "settings.json") },
+	"augment": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".augment", "settings.json") },
 		"mcpServers", typedCommandOrURL("", "http")),
-	"openhands": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".openhands", "mcp.json") },
+	"openhands": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".openhands", "mcp.json") },
 		"mcpServers", commandOrURL("url")),
 	"crush":    crushMCPTarget(),
 	"openclaw": openclawMCPTarget(),
-	"windsurf": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.home, ".codeium", "windsurf", "mcp_config.json") },
+	"windsurf": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Home, ".codeium", "windsurf", "mcp_config.json") },
 		"mcpServers", commandOrURL("serverUrl")),
-	"devin": jsonServerTarget(func(e mcpEnv) string { return filepath.Join(e.config, "devin", "mcp_config.json") },
+	"devin": jsonServerTarget(func(e MCPEnv) string { return filepath.Join(e.Config, "devin", "mcp_config.json") },
 		"mcpServers", commandOrURL("serverUrl")),
 	// Claude Desktop's configuration file runs local servers only; hosted
 	// ones are connectors, added in the app.
-	"claude-desktop": func() mcpTarget {
-		target := jsonServerTarget(func(e mcpEnv) string {
-			return filepath.Join(claudeDesktopDir(e.paths()), "claude_desktop_config.json")
+	"claude-desktop": func() MCPTarget {
+		target := jsonServerTarget(func(e MCPEnv) string {
+			return filepath.Join(ClaudeDesktopDir(e.paths()), "claude_desktop_config.json")
 		}, "mcpServers", commandOrURL("url"))
 		target.localOnly = true
 		return target
@@ -435,7 +531,7 @@ var mcpTargets = map[string]mcpTarget{
 }
 
 // installedClaudePlugins returns the installed Blaxel plugins, by plugin id.
-func installedClaudePlugins(e mcpEnv) map[string]json.RawMessage {
+func installedClaudePlugins(e MCPEnv) map[string]json.RawMessage {
 	data, err := os.ReadFile(filepath.Join(claudeConfigDir(e), "plugins", "installed_plugins.json"))
 	if err != nil {
 		return nil
@@ -452,34 +548,34 @@ func installedClaudePlugins(e mcpEnv) map[string]json.RawMessage {
 	return installed.Plugins
 }
 
-func claudeConfigDir(e mcpEnv) string {
-	return e.envOr("CLAUDE_CONFIG_DIR", filepath.Join(e.home, ".claude"))
+func claudeConfigDir(e MCPEnv) string {
+	return e.envOr("CLAUDE_CONFIG_DIR", filepath.Join(e.Home, ".claude"))
 }
 
 // Claude Code keeps user-scoped MCP servers in .claude.json: in the home
 // directory by default, or inside CLAUDE_CONFIG_DIR when that is set.
-func claudeConfigFile(e mcpEnv) string {
-	if dir := strings.TrimSpace(e.env("CLAUDE_CONFIG_DIR")); dir != "" {
+func claudeConfigFile(e MCPEnv) string {
+	if dir := strings.TrimSpace(e.Env("CLAUDE_CONFIG_DIR")); dir != "" {
 		return filepath.Join(dir, ".claude.json")
 	}
-	return filepath.Join(e.home, ".claude.json")
+	return filepath.Join(e.Home, ".claude.json")
 }
 
-func codexConfigFile(e mcpEnv) string {
-	return filepath.Join(e.envOr("CODEX_HOME", filepath.Join(e.home, ".codex")), "config.toml")
+func codexConfigFile(e MCPEnv) string {
+	return filepath.Join(e.envOr("CODEX_HOME", filepath.Join(e.Home, ".codex")), "config.toml")
 }
 
 // writeClaudeMCPServer prefers the claude CLI, which owns .claude.json, and
 // edits the file directly only when the CLI cannot be found. A file it cannot
 // read (such as one with comments) is left to the CLI.
-func writeClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer, replace bool) error {
+func writeClaudeMCPServer(ctx context.Context, e MCPEnv, server MCPServer, replace bool) error {
 	file := claudeConfigFile(e)
 	_, _, readErr := readJSONConfig(file)
-	claude, err := e.lookPath("claude")
+	claude, err := e.LookPath("claude")
 	if err != nil {
 		// Only fixed home locations: never run a binary from a directory an
 		// environment variable such as CLAUDE_CONFIG_DIR selects.
-		for _, candidate := range []string{filepath.Join(e.home, ".local", "bin", "claude"), filepath.Join(e.home, ".claude", "local", "claude")} {
+		for _, candidate := range []string{filepath.Join(e.Home, ".local", "bin", "claude"), filepath.Join(e.Home, ".claude", "local", "claude")} {
 			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
 				claude, err = candidate, nil
 				break
@@ -490,33 +586,33 @@ func writeClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer, repla
 		if readErr != nil {
 			return readErr
 		}
-		var entry any = map[string]string{"type": "http", "url": server.url}
+		var entry any = map[string]string{"type": "http", "url": server.URL}
 		if server.local() {
-			entry = localServerEntry{Type: "stdio", Command: server.command[0], Args: server.command[1:]}
+			entry = localServerEntry{Type: "stdio", Command: server.Command[0], Args: server.Command[1:]}
 		}
-		_, err := upsertJSONConfig(file, "mcpServers", server.name, entry, replace)
+		_, err := upsertJSONConfig(file, "mcpServers", server.Name, entry, replace)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	var previous map[string]any
 	if replace {
-		previous = jsonConfigEntry(file, "mcpServers", server.name)
+		previous = jsonConfigEntry(file, "mcpServers", server.Name)
 		if previous == nil || readErr != nil {
 			return errors.New("cannot safely back up the existing Claude MCP entry")
 		}
-		if _, err = e.run(ctx, claude, "mcp", "remove", "--scope", "user", server.name); err != nil {
+		if _, err = e.Run(ctx, claude, "mcp", "remove", "--scope", "user", server.Name); err != nil {
 			return fmt.Errorf("claude mcp remove: %w", err)
 		}
 	}
-	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", server.name, server.url}
+	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", server.Name, server.URL}
 	if server.local() {
-		args = append([]string{"mcp", "add", "--scope", "user", server.name, "--"}, server.command...)
+		args = append([]string{"mcp", "add", "--scope", "user", server.Name, "--"}, server.Command...)
 	}
-	output, err := e.run(ctx, claude, args...)
+	output, err := e.Run(ctx, claude, args...)
 	if err != nil {
 		if previous != nil {
-			if _, restoreErr := upsertJSONConfig(file, "mcpServers", server.name, previous, true); restoreErr != nil {
+			if _, restoreErr := upsertJSONConfig(file, "mcpServers", server.Name, previous, true); restoreErr != nil {
 				return fmt.Errorf("claude mcp add failed (%w); restoring the old entry also failed: %v", err, restoreErr)
 			}
 		}
@@ -529,15 +625,15 @@ func writeClaudeMCPServer(ctx context.Context, e mcpEnv, server mcpServer, repla
 }
 
 // codexServerTable is the [mcp_servers.NAME] table setup writes.
-func codexServerTable(server mcpServer) (string, error) {
+func codexServerTable(server MCPServer) (string, error) {
 	if !server.local() {
-		return fmt.Sprintf("[mcp_servers.%s]\nurl = %s\n", server.name, tomlString(server.url)), nil
+		return fmt.Sprintf("[mcp_servers.%s]\nurl = %s\n", server.Name, tomlString(server.URL)), nil
 	}
-	args, err := json.Marshal(server.command[1:])
+	args, err := json.Marshal(server.Command[1:])
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("[mcp_servers.%s]\ncommand = %s\nargs = %s\n", server.name, tomlString(server.command[0]), args), nil
+	return fmt.Sprintf("[mcp_servers.%s]\ncommand = %s\nargs = %s\n", server.Name, tomlString(server.Command[0]), args), nil
 }
 
 // tomlString quotes a string as a TOML basic string. JSON string escapes are
@@ -550,7 +646,7 @@ func tomlString(value string) string {
 // appendCodexMCPServer appends an [mcp_servers.NAME] table, which keeps the
 // user's comments and formatting. `codex mcp add` is not used because it
 // starts an interactive OAuth sign-in for servers that support it.
-func appendCodexMCPServer(file string, server mcpServer) (bool, error) {
+func appendCodexMCPServer(file string, server MCPServer) (bool, error) {
 	data, err := os.ReadFile(file)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return false, err
@@ -561,7 +657,7 @@ func appendCodexMCPServer(file string, server mcpServer) (bool, error) {
 	if _, err := toml.Decode(string(data), &config); err != nil {
 		return false, fmt.Errorf("not valid TOML: %w", err)
 	}
-	if _, exists := config.MCPServers[server.name]; exists {
+	if _, exists := config.MCPServers[server.Name]; exists {
 		return false, nil
 	}
 	// TOML forbids adding tables to an inline table, and Codex refuses to start
@@ -584,19 +680,19 @@ func appendCodexMCPServer(file string, server mcpServer) (bool, error) {
 	updated.WriteString(table)
 	// An inline mcp_servers table, for example, cannot be extended this way.
 	if _, err := toml.Decode(updated.String(), &config); err != nil {
-		return false, fmt.Errorf("cannot add an [mcp_servers.%s] table: %w", server.name, err)
+		return false, fmt.Errorf("cannot add an [mcp_servers.%s] table: %w", server.Name, err)
 	}
 	return true, writeConfigFile(file, updated.Bytes())
 }
 
 // replaceCodexMCPServer rewrites the body of an existing [mcp_servers.NAME]
 // table and keeps every other line of the file as it was.
-func replaceCodexMCPServer(file string, server mcpServer) error {
+func replaceCodexMCPServer(file string, server MCPServer) error {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
-	header := regexp.MustCompile(`^[ \t]*\[[ \t]*mcp_servers[ \t]*\.[ \t]*("?)` + regexp.QuoteMeta(server.name) + `("?)[ \t]*\][ \t]*(#.*)?$`)
+	header := regexp.MustCompile(`^[ \t]*\[[ \t]*mcp_servers[ \t]*\.[ \t]*("?)` + regexp.QuoteMeta(server.Name) + `("?)[ \t]*\][ \t]*(#.*)?$`)
 	lines := strings.SplitAfter(string(data), "\n")
 	start, end := -1, len(lines)
 	for i, line := range lines {
@@ -630,10 +726,10 @@ func replaceCodexMCPServer(file string, server mcpServer) error {
 		MCPServers map[string]map[string]any `toml:"mcp_servers"`
 	}
 	if _, err := toml.Decode(updated, &config); err != nil {
-		return fmt.Errorf("cannot replace the [mcp_servers.%s] table: %w", server.name, err)
+		return fmt.Errorf("cannot replace the [mcp_servers.%s] table: %w", server.Name, err)
 	}
-	if _, ok := config.MCPServers[server.name]["command"]; server.local() && !ok {
-		return fmt.Errorf("cannot replace the [mcp_servers.%s] table", server.name)
+	if _, ok := config.MCPServers[server.Name]["command"]; server.local() && !ok {
+		return fmt.Errorf("cannot replace the [mcp_servers.%s] table", server.Name)
 	}
 	return writeConfigFile(file, []byte(updated))
 }
