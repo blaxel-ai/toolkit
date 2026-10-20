@@ -12,7 +12,6 @@ import (
 var (
 	skillsInstallOnce  sync.Once
 	skillsInstallError error
-	skillsReportOnce   sync.Once
 )
 
 const (
@@ -31,36 +30,18 @@ func skillsInstallCommand() string {
 // BL_INSTALL_SKILLS=false always disables it, and CI environments are skipped
 // unless BL_INSTALL_SKILLS=true (mirrors install.sh / install.ps1).
 func skillsInstallDisabled(env func(string) string) bool {
-	switch strings.ToLower(strings.TrimSpace(env(skillsInstallEnv))) {
+	return automaticInstallDisabled(env, skillsInstallEnv)
+}
+
+func automaticInstallDisabled(env func(string) string, setting string) bool {
+	switch strings.ToLower(strings.TrimSpace(env(setting))) {
 	case "false":
 		return true
 	case "true":
 		return false
 	}
 
-	for _, ciEnv := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE"} {
-		if env(ciEnv) != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// installSkills installs the Blaxel agent skills after a CLI install/upgrade.
-// It is best-effort: failures are reported as warnings and never abort the upgrade.
-func installSkills() {
-	if skillsInstallDisabled(os.Getenv) {
-		return
-	}
-	// A first invocation of `bl upgrade` also passes through startup setup.
-	// Both paths use the same installer, but only one download is needed.
-	if err := installSkillsOnce(); err != nil {
-		// Startup setup and bl upgrade can share one failed attempt; report it once.
-		skillsReportOnce.Do(func() {
-			fmt.Fprintln(os.Stderr, "Could not install the Blaxel skills:", err)
-			fmt.Fprintln(os.Stderr, "You can retry later with:", skillsInstallCommand())
-		})
-	}
+	return ciEnvironment(env)
 }
 
 func installSkillsOnce() error {

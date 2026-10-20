@@ -5,6 +5,6 @@ import (
 )
 
 func Execute(releaseVersion string, releaseCommit string, releaseDate string) error {
-	installHomebrewSkills()
+	refreshHomebrewSetup()
 	return core.Execute(releaseVersion, releaseCommit, releaseDate)
 }

@@ -400,16 +400,25 @@ func IsShellCompletionRequest(args []string) bool {
 	if !slices.Contains(args, "__complete") && !slices.Contains(args, "__completeNoDesc") {
 		return false
 	}
-	resolver := &cobra.Command{Use: "bl", Version: "completion", DisableSuggestions: true}
+	command := ResolveStartupCommand(args, "__complete", "__completeNoDesc")
+	return command == "__complete" || command == "__completeNoDesc"
+}
+
+// ResolveStartupCommand returns which of names args invoke, reading the
+// global flags as normal execution does, without running anything.
+func ResolveStartupCommand(args []string, names ...string) string {
+	resolver := &cobra.Command{Use: "bl", Version: "startup", DisableSuggestions: true}
 	resolver.PersistentFlags().AddFlagSet(rootCmd.PersistentFlags())
 	resolver.InitDefaultHelpFlag()
 	resolver.InitDefaultVersionFlag()
-	resolver.AddCommand(
-		&cobra.Command{Use: "__complete", Args: cobra.ArbitraryArgs},
-		&cobra.Command{Use: "__completeNoDesc", Args: cobra.ArbitraryArgs},
-	)
+	for _, name := range names {
+		resolver.AddCommand(&cobra.Command{Use: name, Args: cobra.ArbitraryArgs})
+	}
 	command, _, err := resolver.Find(args)
-	return err == nil && (command.Name() == "__complete" || command.Name() == "__completeNoDesc")
+	if err != nil {
+		return ""
+	}
+	return command.Name()
 }
 
 // completeWorkspaceNames returns a list of workspace names from the local config for shell completion
@@ -659,8 +668,16 @@ func promptForTracking() {
 }
 
 func isTrackingPromptCommandExempt(args []string) bool {
-	// bl setup asks about error reports itself; bl mcp has no terminal.
-	return isInstallTrackingCommandExempt(args) || (len(args) > 1 && (args[1] == "setup" || args[1] == "mcp"))
+	if isInstallTrackingCommandExempt(args) {
+		return true
+	}
+	if len(args) <= 1 {
+		return false
+	}
+	// bl setup asks about error reports itself; bl mcp has no terminal;
+	// automatic upgrade refresh never asks.
+	command := ResolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade")
+	return command != "" && command != "bl"
 }
 
 // isInstallTrackingCommandExempt reports latency-sensitive, side-effect-free

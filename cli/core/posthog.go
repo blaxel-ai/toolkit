@@ -198,7 +198,7 @@ func TrackCLIInstalled(cliVersion string) {
 	if PosthogAPIKey == "" || !blaxel.IsTrackingEnabled() || cliVersion == "" || cliVersion == "dev" {
 		return
 	}
-	// Skip telemetry in subprocess spawned by detectInstalledVersion()
+	// Skip telemetry in subprocess spawned by detectVersionAtPath()
 	if os.Getenv("BL_SKIP_TELEMETRY") == "1" {
 		return
 	}
