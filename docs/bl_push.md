@@ -38,6 +38,11 @@ directory) and must stay inside it. The build context is unchanged, so COPY path
 are unaffected. A custom Dockerfile needs a source build, not an image import.
 It and its adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
 
+Use --config to read a config file other than blaxel.toml, such as
+blaxel-v2.toml. The path is relative to the source directory (-d, or the current
+directory), and the file must exist and parse. A source build uploads it as
+blaxel.toml, so the build reads it too.
+
 For private registries, supply credentials via --registry-cred or --docker-config.
 
 ```
@@ -62,6 +67,9 @@ bl push [flags]
   # Build with a custom Dockerfile
   bl push --dockerfile blaxel.Dockerfile
 
+  # Build a variant from its own config file (which can set build.dockerfile)
+  bl push --config blaxel-v2.toml
+
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
 
@@ -79,6 +87,7 @@ bl push [flags]
 
 ```
       --build-env-file string       Path to a build env file with Docker build args (default: auto-detect .env.build)
+      --config string               Config file relative to the source directory (default blaxel.toml)
   -d, --directory string            Source directory path
       --docker-config string        Path to a Docker config.json file with registry credentials
       --dockerfile string           Dockerfile path relative to the source directory (overrides build.dockerfile in blaxel.toml)

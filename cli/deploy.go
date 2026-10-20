@@ -49,6 +49,7 @@ func DeployCmd() *cobra.Command {
 	var registryCreds []string
 	var dockerConfigPath string
 	var dockerfile string
+	var configFile string
 	var timeoutStr string
 	var buildEnvPath string
 	var wait bool
@@ -79,6 +80,13 @@ directory) and must stay inside it. The build context is unchanged, so COPY path
 are unaffected. A custom Dockerfile needs a source build and one project per
 deploy (use --recursive=false when the config lists child packages). It and its
 adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
+
+Use --config to read a config file other than blaxel.toml, such as
+blaxel-v2.toml. The path is relative to the project directory (-d, or the
+current directory), and the file must exist and parse. It is uploaded as
+blaxel.toml, so the build reads it too. It deploys that one project, so
+--config implies --recursive=false. Config files in the same directory share
+one build context; give each its own Dockerfile with build.dockerfile.
 
 If the blaxel.toml contains an 'image' field pointing to a registry image,
 the platform will pull the image and transform it via metamorph before deploying.
@@ -118,6 +126,9 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 
   # Select a Dockerfile relative to a project subdirectory
   bl deploy -d sandbox --dockerfile Dockerfile.v2
+
+  # Deploy a variant from its own config file (which can set build.dockerfile)
+  bl deploy --config blaxel-v2.toml
 
   # Deploy with environment variables
   bl deploy -e .env.production
@@ -166,18 +177,31 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				core.SetInteractiveMode(false)
 			}
 
-			if folder != "" {
-				recursive = false
-				core.ReadSecrets("", envFiles)
-				core.ReadConfigToml(folder, false)
-			} else {
-				// Read config without setting default type, we'll handle that below
-				core.ReadConfigToml("", false)
-			}
-
 			cwd, err := os.Getwd()
 			if err != nil {
 				err = fmt.Errorf("failed to get current working directory: %w", err)
+				core.PrintError("Deploy", err)
+				core.ExitWithError(err)
+			}
+
+			// An explicit config file deploys that one project, like -d, and must exist.
+			explicitConfig := cmd.Flags().Changed("config")
+			if explicitConfig {
+				if err := deploy.ResolveConfigFile(cwd, folder, configFile); err != nil {
+					core.PrintError("Deploy", err)
+					core.ExitWithError(err)
+				}
+				recursive = false
+			}
+
+			if folder != "" {
+				recursive = false
+				core.ReadSecrets("", envFiles)
+			}
+			// Read config without setting default type, we'll handle that below.
+			// Only an explicit file that does not parse is fatal; blaxel.toml keeps its warning.
+			if err := core.ReadConfigTomlFile(folder, configFile, false); err != nil && explicitConfig {
+				err = core.MarkExpectedError(err, core.CLIErrorValidation)
 				core.PrintError("Deploy", err)
 				core.ExitWithError(err)
 			}
@@ -256,6 +280,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 				timeout:          deployTimeout,
 				timeoutExplicit:  timeoutStr != "",
 				skipBuild:        skipBuild,
+				configFile:       configFile,
 				nextType:         resourceType,
 			}
 			if config.Name == "" && cmd.Flags().Changed("name") {
@@ -393,6 +418,7 @@ all projects in a monorepo (looks for blaxel.toml in subdirectories).`,
 	cmd.Flags().StringArrayVarP(&registryCreds, "registry-cred", "c", []string{}, "Registry credentials (format: registry=username:password, repeatable)")
 	cmd.Flags().StringVar(&dockerConfigPath, "docker-config", "", "Path to a Docker config.json file with registry credentials")
 	cmd.Flags().StringVar(&dockerfile, "dockerfile", "", "Dockerfile path relative to the project directory (overrides build.dockerfile in blaxel.toml)")
+	cmd.Flags().StringVar(&configFile, "config", "", "Config file relative to the project directory (default blaxel.toml)")
 	cmd.Flags().StringVar(&timeoutStr, "timeout", "", "Timeout for build and deployment monitoring (e.g. 30m, 1h). Defaults to 1h")
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	return cmd
@@ -413,6 +439,7 @@ type Deployment struct {
 	dockerConfigJSON       []byte
 	buildEnvContent        []byte
 	dockerfile             *deploy.Dockerfile
+	configFile             string // --config, relative to the project directory; empty means blaxel.toml
 	// uploadMetadata is the object metadata the presigned URL was signed for.
 	// Push and source-building deploys set it explicitly; uploads that do not
 	// start a build, such as volume templates, leave it empty.
@@ -628,7 +655,12 @@ func (d *Deployment) validateDeploymentConfig(config core.Config) string {
 	if d.dockerfile != nil {
 		path = d.dockerfile.Path
 	}
-	return validateBuildConfig(d.cwd, d.folder, config, path)
+	warning := validateBuildConfig(d.cwd, d.folder, config, path)
+	if d.configFile != "" {
+		// The hints say where to add settings: name the file that is actually read.
+		warning = strings.ReplaceAll(warning, "blaxel.toml", d.configFile)
+	}
+	return warning
 }
 
 // ValidateBuildConfig checks if the project has proper configuration for building
@@ -2915,6 +2947,12 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 		}
 	}
 
+	// Volume templates never ship their CLI config as content, whatever its name.
+	isConfigFile := func(path string) bool {
+		return filepath.Base(path) == "blaxel.toml" ||
+			(d.configFile != "" && path == filepath.Join(d.cwd, d.folder, d.configFile))
+	}
+
 	// Count total files for progress tracking (only for volume-template)
 	var totalFiles int
 	var processedFiles int
@@ -2923,8 +2961,8 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 			if err != nil || path == archiveRoot {
 				return nil
 			}
-			// Exclude blaxel.toml from the count (it won't be archived)
-			if filepath.Base(path) == "blaxel.toml" {
+			// Exclude the config file from the count (it won't be archived)
+			if isConfigFile(path) {
 				return nil
 			}
 			totalFiles++
@@ -2957,8 +2995,8 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 			}
 		}
 
-		// For volume-templates, exclude blaxel.toml from the archive
-		if core.IsVolumeTemplate(config.Type) && filepath.Base(path) == "blaxel.toml" {
+		// For volume-templates, exclude the config file from the archive
+		if core.IsVolumeTemplate(config.Type) && isConfigFile(path) {
 			return nil
 		}
 
@@ -3009,6 +3047,14 @@ func (d *Deployment) createArchive(_ string, writer archiveWriter) error {
 			if err := writer.addFile(dockerfilePath, "Dockerfile"); err != nil {
 				return err
 			}
+		}
+	}
+
+	// The builder reads blaxel.toml from the archive, so promote the config the CLI
+	// read, the way -d promotes <folder>/blaxel.toml. The last entry wins.
+	if d.configFile != "" && !core.IsVolumeTemplate(config.Type) {
+		if err := writer.addFile(filepath.Join(d.cwd, d.folder, d.configFile), "blaxel.toml"); err != nil {
+			return err
 		}
 	}
 

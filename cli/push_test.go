@@ -147,6 +147,53 @@ func TestPushDockerfileRejectedBeforeUpload(t *testing.T) {
 	}
 }
 
+// pushUploadServer stubs the API for one source-building push of "push-test" and
+// records the uploaded archive. The build reports FAILED on the first status
+// poll, so the push exits 1 soon after the upload.
+func pushUploadServer(t *testing.T) (url string, archive func() map[string][]string) {
+	t.Helper()
+	var mu sync.Mutex
+	var uploaded []byte
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/images":
+			w.Header().Set("X-Blaxel-Upload-Url", server.URL+"/upload")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"name":"push-test","resourceType":"sandbox"}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/upload":
+			body, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			uploaded = body
+			mu.Unlock()
+		case r.Method == http.MethodGet && r.URL.Path == "/images/sandbox/push-test":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"metadata":{"name":"push-test","status":"FAILED"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server.URL, func() map[string][]string {
+		t.Helper()
+		mu.Lock()
+		defer mu.Unlock()
+		require.NotEmpty(t, uploaded, "the archive was uploaded")
+		reader, err := zip.NewReader(bytes.NewReader(uploaded), int64(len(uploaded)))
+		require.NoError(t, err)
+		files := map[string][]string{}
+		for _, entry := range reader.File {
+			r, err := entry.Open()
+			require.NoError(t, err)
+			content, err := io.ReadAll(r)
+			require.NoError(t, err)
+			require.NoError(t, r.Close())
+			files[entry.Name] = append(files[entry.Name], string(content))
+		}
+		return files
+	}
+}
+
 // The flag, or build.dockerfile in blaxel.toml, replaces the uploaded Dockerfile.
 func TestPushDockerfileUpload(t *testing.T) {
 	for _, tt := range []struct {
@@ -160,30 +207,7 @@ func TestPushDockerfileUpload(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel() // each run waits one build-status poll
-			var mu sync.Mutex
-			var uploaded []byte
-			var server *httptest.Server
-			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				switch {
-				case r.Method == http.MethodPost && r.URL.Path == "/images":
-					w.Header().Set("X-Blaxel-Upload-Url", server.URL+"/upload")
-					w.Header().Set("Content-Type", "application/json")
-					_, _ = w.Write([]byte(`{"name":"push-test","resourceType":"sandbox"}`))
-				case r.Method == http.MethodPut && r.URL.Path == "/upload":
-					body, _ := io.ReadAll(r.Body)
-					mu.Lock()
-					uploaded = body
-					mu.Unlock()
-				case r.Method == http.MethodGet && r.URL.Path == "/images/sandbox/push-test":
-					// End the run quickly: the test only checks what was uploaded.
-					w.Header().Set("Content-Type", "application/json")
-					_, _ = w.Write([]byte(`{"metadata":{"name":"push-test","status":"FAILED"}}`))
-				default:
-					w.WriteHeader(http.StatusNotFound)
-				}
-			}))
-			defer server.Close()
-
+			url, archive := pushUploadServer(t)
 			root := t.TempDir()
 			fixture := map[string]string{
 				"blaxel.toml":      "name = \"push-test\"\ntype = \"sandbox\"\n" + tt.toml,
@@ -194,28 +218,71 @@ func TestPushDockerfileUpload(t *testing.T) {
 			for path, content := range fixture {
 				writeDockerfileFixture(t, root, path, content)
 			}
-			_, stderr, code, _ := runCLIProcess(t, root, server.URL, "push", tt.args...)
+			_, stderr, code, _ := runCLIProcess(t, root, url, "push", tt.args...)
 			assert.Equal(t, 1, code)
 			assert.Contains(t, stderr, "image build failed")
-
-			mu.Lock()
-			defer mu.Unlock()
-			require.NotEmpty(t, uploaded, "the archive was uploaded")
-			reader, err := zip.NewReader(bytes.NewReader(uploaded), int64(len(uploaded)))
-			require.NoError(t, err)
-			var dockerfiles []string
-			for _, entry := range reader.File {
-				if entry.Name != "Dockerfile" {
-					continue
-				}
-				r, err := entry.Open()
-				require.NoError(t, err)
-				content, err := io.ReadAll(r)
-				require.NoError(t, err)
-				require.NoError(t, r.Close())
-				dockerfiles = append(dockerfiles, string(content))
-			}
-			assert.Equal(t, []string{fixture[tt.want]}, dockerfiles, "exactly one Dockerfile, with the selected bytes")
+			assert.Equal(t, []string{fixture[tt.want]}, archive()["Dockerfile"], "exactly one Dockerfile, with the selected bytes")
 		})
 	}
+}
+
+func TestPushConfigFlag(t *testing.T) {
+	flag := PushCmd().Flags().Lookup("config")
+	require.NotNil(t, flag)
+	assert.Empty(t, flag.DefValue)
+}
+
+// An explicit config file must exist and parse before any API call or archive.
+func TestPushConfigRejectedBeforeUpload(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	root := t.TempDir()
+	writeDockerfileFixture(t, root, "blaxel.toml", "name = \"push-test\"\ntype = \"sandbox\"\n")
+	writeDockerfileFixture(t, root, "bad.toml", "name = \n")
+	for _, tt := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--config", ""}, "--config must not be empty"},
+		{[]string{"--config", "missing.toml"}, `Config file "missing.toml" not found`},
+		{[]string{"--config", "../blaxel.toml"}, "must be a relative path inside the project directory"},
+		{[]string{"--config", "bad.toml"}, "config file bad.toml is not valid"},
+	} {
+		stdout, stderr, code, tmp := runCLIProcess(t, root, server.URL, "push", tt.args...)
+		assert.Equal(t, 1, code, tt.args)
+		assert.Empty(t, stdout, tt.args)
+		assert.Contains(t, stderr, tt.want, tt.args)
+		assert.Zero(t, requests.Load(), "validation must precede API calls: %v", tt.args)
+		assert.Empty(t, tmp, "validation must precede archive generation: %v", tt.args)
+	}
+}
+
+// A variant config is read by the CLI and uploaded as blaxel.toml, and its
+// build.dockerfile selects the variant's Dockerfile.
+func TestPushConfigUpload(t *testing.T) {
+	t.Parallel() // waits one build-status poll
+	url, archive := pushUploadServer(t)
+	root := t.TempDir()
+	fixture := map[string]string{
+		"blaxel.toml":    "name = \"wrong-name\"\ntype = \"agent\"\n",
+		"blaxel-v2.toml": "name = \"push-test\"\ntype = \"sandbox\"\n[build]\ndockerfile = \"v2.Dockerfile\"\n",
+		"Dockerfile":     "FROM wrong-default\n",
+		"v2.Dockerfile":  "FROM ghcr.io/blaxel-ai/sandbox:latest\n# v2\n",
+	}
+	for path, content := range fixture {
+		writeDockerfileFixture(t, root, path, content)
+	}
+	_, stderr, code, _ := runCLIProcess(t, root, url, "push", "--config", "blaxel-v2.toml")
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stderr, "image build failed", "the push used the variant's name and type")
+	files := archive()
+	configs := files["blaxel.toml"]
+	require.NotEmpty(t, configs)
+	assert.Equal(t, fixture["blaxel-v2.toml"], configs[len(configs)-1], "the variant is promoted to blaxel.toml (last entry wins)")
+	assert.Equal(t, []string{fixture["v2.Dockerfile"]}, files["Dockerfile"])
 }
