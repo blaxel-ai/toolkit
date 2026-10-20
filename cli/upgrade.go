@@ -174,9 +174,11 @@ func runUpgrade(targetVersion string, force bool) error {
 	refreshUpgradedSetup(upgraded)
 
 	// Ask the upgraded binary at the install method's location (never through
-	// PATH) which version it is, and record the upgrade.
-	if newVersion := detectVersionAtPath(upgraded); newVersion != "" && newVersion != oldVersion {
-		core.TrackCLIUpgraded(oldVersion, newVersion)
+	// PATH) which version it is, only to report the upgrade.
+	if core.UsageEventsEnabled() {
+		if newVersion := detectVersionAtPath(upgraded); newVersion != "" && newVersion != oldVersion {
+			core.TrackCLIUpgraded(oldVersion, newVersion)
+		}
 	}
 	return nil
 }
@@ -224,8 +226,13 @@ func refreshUpgradedSetup(executable string) {
 // detectVersionAtPath runs binaryPath version with telemetry off and returns
 // the version it reports, or "" when it can't tell.
 func detectVersionAtPath(binaryPath string) string {
-	cmd := exec.Command(binaryPath, "version")
-	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1")
+	ctx, cancel := context.WithTimeout(context.Background(), versionProbeTimeout)
+	defer cancel()
+	// --skip-version-warning avoids the network update check.
+	cmd := exec.CommandContext(ctx, binaryPath, "version", "--skip-version-warning")
+	cmd.WaitDelay = time.Second
+	// Reading the version must not start another setup or skills refresh.
+	cmd.Env = append(os.Environ(), "BL_SKIP_TELEMETRY=1", "DO_NOT_TRACK=1", "BL_INSTALL_SETUP=false", "BL_INSTALL_SKILLS=false", "BL_INSTALL_MCP=false")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -239,6 +246,10 @@ func detectVersionAtPath(binaryPath string) string {
 	}
 	return ""
 }
+
+// versionProbeTimeout bounds the post-upgrade version read, which runs after
+// the upgrade already succeeded and must never make it look hung.
+var versionProbeTimeout = 5 * time.Second
 
 // upgradeViaBrew upgrades the CLI using Homebrew
 func upgradeViaBrew(force bool) error {

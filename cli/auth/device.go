@@ -79,7 +79,10 @@ func LoginDevice(workspace string) {
 func LoginWithDevice(workspace string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-	return loginWithDevice(ctx, workspace, core.IsTerminalInteractive())
+	core.TrackCLILogin("started", nil)
+	err := loginWithDevice(ctx, workspace, core.IsTerminalInteractive())
+	core.TrackCLILoginResult(ctx, err)
+	return err
 }
 
 func loginWithDevice(ctx context.Context, workspace string, interactive bool) error {

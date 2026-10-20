@@ -353,7 +353,7 @@ func TestSetupPlanAndSummary(t *testing.T) {
 		"Claude Code    skills · Blaxel MCP · docs MCP",
 		"Pi             skills",
 		"Shell          bl on PATH · zsh completions",
-		"Blaxel         logged in to main · error reports on",
+		"Blaxel         logged in to main · usage and error reports on",
 		"source ~/.zshrc",
 		"Blaxel is ready",
 		// bl mcp signs the agents in with the bl login.
@@ -603,7 +603,7 @@ func TestSetupKeepsSavedErrorReportingToggleVisible(t *testing.T) {
 				if item.ID == "tracking" {
 					found = true
 					assert.Equal(t, "This machine", item.Group)
-					assert.Equal(t, "Error reports", item.Label)
+					assert.Equal(t, "Usage and error reports", item.Label)
 					assert.Empty(t, item.Done, "a saved preference must remain toggleable")
 					assert.Equal(t, enabled, item.On)
 				}

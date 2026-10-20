@@ -8,6 +8,7 @@ import (
 )
 
 func LoginClientCredentials(workspace string, clientCredentials string) {
+	core.TrackCLILogin("started", nil)
 	// Create credentials struct and marshal to JSON
 	creds := blaxel.Credentials{
 		ClientCredentials: clientCredentials,
@@ -20,16 +21,20 @@ func LoginClientCredentials(workspace string, clientCredentials string) {
 			core.CLIErrorAuthentication,
 		)
 		core.PrintError("Login", err)
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
 
 	if err := blaxel.SaveCredentials(workspace, creds); err != nil {
 		core.PrintError("Login", fmt.Errorf("failed to save credentials: %w", err))
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
 	if err := blaxel.SetCurrentWorkspace(workspace); err != nil {
 		core.PrintError("Login", fmt.Errorf("failed to set workspace: %w", err))
+		core.TrackCLILogin("failure", err)
 		core.ExitWithError(err)
 	}
+	core.TrackCLILogin("success", nil)
 	fmt.Println("Successfully stored client credentials")
 }

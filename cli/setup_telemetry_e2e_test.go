@@ -17,8 +17,9 @@ import (
 
 // fakePosthog records the event names captured by a bl binary.
 type fakePosthog struct {
-	mu     sync.Mutex
-	events []string
+	mu             sync.Mutex
+	events         []string
+	installMethods []string
 }
 
 func (f *fakePosthog) installedCLI() int {
@@ -38,11 +39,17 @@ func startFakePosthog(t *testing.T) (*fakePosthog, string) {
 	fake := &fakePosthog{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Event string `json:"event"`
+			Event      string `json:"event"`
+			Properties struct {
+				InstallMethod string `json:"install_method"`
+			} `json:"properties"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		fake.mu.Lock()
 		fake.events = append(fake.events, body.Event)
+		if body.Event == "Installed CLI" {
+			fake.installMethods = append(fake.installMethods, body.Properties.InstallMethod)
+		}
 		fake.mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -86,6 +93,7 @@ func runSetupOnFreshMachine(t *testing.T, binary string, extraEnv ...string) str
 
 // On a fresh machine bl setup is what turns tracking on, so it must report the
 // install itself rather than leave it to whatever command the user runs next.
+// The installer runs it, so the event keeps the installer's install method.
 func TestSetupOnFreshMachineReportsInstall(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds the bl binary")
@@ -93,9 +101,12 @@ func TestSetupOnFreshMachineReportsInstall(t *testing.T) {
 	posthog, host := startFakePosthog(t)
 	binary := buildTelemetryBinary(t, host)
 
-	home := runSetupOnFreshMachine(t, binary)
+	home := runSetupOnFreshMachine(t, binary, "BL_INSTALLER=1")
 
 	assert.Equal(t, 1, posthog.installedCLI(), "bl setup must report the install in the same run")
+	posthog.mu.Lock()
+	assert.Equal(t, []string{map[bool]string{true: "powershell", false: "shell"}[runtime.GOOS == "windows"]}, posthog.installMethods)
+	posthog.mu.Unlock()
 	state, err := os.ReadFile(filepath.Join(home, ".blaxel", "telemetry.json"))
 	require.NoError(t, err)
 	assert.Contains(t, string(state), `"cli": "9.9.9"`)

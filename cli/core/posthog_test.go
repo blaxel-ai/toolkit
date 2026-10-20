@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -20,7 +21,14 @@ func resetPosthogTestState(t *testing.T, host string) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("DO_NOT_TRACK", "0")
+	t.Setenv("DO_NOT_TRACK", "")
+	t.Setenv("BL_INSTALL_TRACKING", "")
+	t.Setenv("BL_SKIP_TELEMETRY", "")
+	for _, name := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "TRAVIS", "JENKINS_URL", "BUILDKITE", "TEAMCITY_VERSION"} {
+		t.Setenv(name, "")
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".blaxel"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(home, ".blaxel", "config.yaml"), []byte("tracking: true\n"), 0600))
 
 	oldKey, oldHost := PosthogAPIKey, PosthogHost
 	PosthogAPIKey, PosthogHost = "test-key", host
@@ -31,7 +39,7 @@ func resetPosthogTestState(t *testing.T, host string) {
 	pendingCLIEvents = make(map[string]struct{})
 	telemetryMu.Unlock()
 	t.Cleanup(func() {
-		FlushPosthog()
+		posthogWg.Wait()
 		PosthogAPIKey, PosthogHost = oldKey, oldHost
 		telemetryMu.Lock()
 		telemetryOnce = sync.Once{}
@@ -111,7 +119,7 @@ func TestSaveTelemetryStateMergesWritesFromOtherProcesses(t *testing.T) {
 	assert.Equal(t, "2.0.0", sdks["typescript"], "another SDK's version must survive")
 }
 
-// Each writer owns exactly one field: the CLI owns "cli", and each SDK owns its
+// The CLI owns its version and first-resource marker; each SDK owns its
 // own language entry. Re-asserting anything else on save would roll back a
 // newer value written by whoever actually owns it, and that owner would then
 // treat its version as unreported and send "Installed" all over again.
@@ -159,7 +167,7 @@ func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(`{"sdks":{}}`), 0o600))
 	loadTelemetryState()
 
-	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"sdk-generated"}`), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"12345678-1234-4234-8234-123456789abc"}`), 0o600))
 
 	used := getDistinctID()
 
@@ -167,8 +175,8 @@ func TestGetDistinctIDAdoptsIDPersistedByAnotherProcess(t *testing.T) {
 	require.NoError(t, err)
 	var got map[string]interface{}
 	require.NoError(t, json.Unmarshal(data, &got))
-	assert.Equal(t, "sdk-generated", got["distinct_id"])
-	assert.Equal(t, "sdk-generated", used)
+	assert.Equal(t, "12345678-1234-4234-8234-123456789abc", got["distinct_id"])
+	assert.Equal(t, "12345678-1234-4234-8234-123456789abc", used)
 }
 
 // Shell completion runs on every TAB press, and the version marker is only
@@ -210,15 +218,19 @@ func TestTrackCLIInstalledSkipsCommandsThatMustStayFast(t *testing.T) {
 }
 
 // bl setup is usually the first command after install, so it must report the
-// install even though it is exempt from the tracking consent prompt.
+// install even though it is exempt from the tracking consent prompt. When the
+// installer runs it, the event keeps the installer's install method.
 func TestTrackCLIInstalledReportsOnSetup(t *testing.T) {
 	var requests atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	var payload map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
+		_ = json.NewDecoder(r.Body).Decode(&payload)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 	resetPosthogTestState(t, server.URL)
+	t.Setenv("BL_INSTALLER", "1")
 
 	oldArgs := os.Args
 	t.Cleanup(func() { os.Args = oldArgs })
@@ -227,6 +239,10 @@ func TestTrackCLIInstalledReportsOnSetup(t *testing.T) {
 	TrackCLIInstalled("4.1.0")
 	FlushPosthog()
 	assert.Equal(t, int32(1), requests.Load(), "bl setup must report the install")
+	properties, ok := payload["properties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "4.1.0", properties["version"])
+	assert.Equal(t, map[bool]string{true: "powershell", false: "shell"}[runtime.GOOS == "windows"], properties["install_method"])
 }
 
 func TestTrackCLIInstalledSuccessfulPayloadAndDedupe(t *testing.T) {
@@ -393,4 +409,30 @@ func TestTrackCLIInstalledFailedDeliveryRetries(t *testing.T) {
 	data, err := os.ReadFile(getTelemetryPath())
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"cli": "2.0.0"`)
+}
+
+// An upgrade event can finish after a newer CLI in another terminal recorded
+// its own version. Like the install event, it must not roll that back.
+func TestTrackCLIUpgradedDoesNotOverwriteVersionAnotherProcessRecorded(t *testing.T) {
+	requestStarted := make(chan struct{})
+	releaseUpgrade := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(requestStarted)
+		<-releaseUpgrade
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	resetPosthogTestState(t, server.URL)
+
+	TrackCLIUpgraded("1.0.0", "2.0.0")
+	<-requestStarted
+	path := getTelemetryPath()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(`{"distinct_id":"shared-id","cli":"3.0.0"}`), 0o600))
+	close(releaseUpgrade)
+	FlushPosthog()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"cli":"3.0.0"`)
 }
