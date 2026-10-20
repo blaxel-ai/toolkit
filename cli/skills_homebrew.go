@@ -5,79 +5,64 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/core"
 )
 
-// homebrewSkillsLocation recognizes the resolved keg path without invoking brew
-// on every command. It supports custom prefixes and both binary aliases.
-func homebrewSkillsLocation(executable string) (prefix, version string) {
-	executable = filepath.Clean(executable)
-	if !filepath.IsAbs(executable) || (filepath.Base(executable) != "blaxel" && filepath.Base(executable) != "bl") {
-		return "", ""
-	}
-	bin := filepath.Dir(executable)
-	keg := filepath.Dir(bin)
-	rack := filepath.Dir(keg)
-	cellar := filepath.Dir(rack)
-	if filepath.Base(bin) != "bin" || filepath.Base(rack) != "blaxel" || filepath.Base(cellar) != "Cellar" {
-		return "", ""
-	}
-	return filepath.Dir(cellar), filepath.Base(keg)
-}
-
-func installHomebrewSkills() {
-	// bl mcp is started by coding agents, which give it seconds to answer.
-	if skillsInstallDisabled(os.Getenv) || core.IsShellCompletionRequest(os.Args[1:]) || isMCPBridgeArgs(os.Args[1:]) {
+func refreshHomebrewSetup() {
+	install := homebrewRefreshFor(os.Args[1:], func() { refreshSetup(setupOptions{}) })
+	if install == nil {
 		return
 	}
 	executable, err := os.Executable()
-	if err != nil {
-		return
+	if err == nil {
+		setupHomebrewRefresh(executable, install)
 	}
-	install := func() {
-		installSkills()
-		// Homebrew cannot ask questions during install, so the first command
-		// points new users to the rest of the setup once.
-		if !isLoginCommand(os.Args[1:]) && setupLoginState("") == "" {
-			fmt.Fprintln(os.Stderr, homebrewSetupHint)
-		}
-	}
-	if isSkillsCommand(os.Args[1:]) {
-		// The explicit command installs and reports by itself; only record it.
-		install = func() {}
-	}
-	setupHomebrewSkills(executable, install)
 }
 
-const homebrewSetupHint = "Finish setting up Blaxel (MCP servers for your coding agents, then login) with: bl setup"
+// homebrewRefreshFor returns what the first command on a new Homebrew keg does
+// about the refresh: nothing yet (nil) for agent handshakes and shell
+// completion, which must never wait for a download, for bl upgrade, and for
+// bl skills, which installs skills only and leaves the MCP refresh pending;
+// only recording the keg for bl setup, which sets up both itself; otherwise
+// the refresh. The command is resolved as cobra will, so a flag
+// value or argument such as `bl get mcp` does not count.
+func homebrewRefreshFor(args []string, refresh func()) func() {
+	if core.IsShellCompletionRequest(args) {
+		return nil
+	}
+	if !slices.ContainsFunc(args, func(arg string) bool { return arg == "mcp" || arg == "skills" || arg == "setup" || arg == "upgrade" }) {
+		return refresh
+	}
+	command := core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade")
+	switch {
+	case isMCPBridgeArgs([]string{command}) || command == "upgrade" || command == "skills":
+		return nil
+	case command == "setup":
+		return func() {}
+	}
+	return refresh
+}
 
 // isMCPBridgeArgs reports bl mcp, as setup writes it into agent configurations.
 func isMCPBridgeArgs(args []string) bool {
 	return len(args) > 0 && args[0] == "mcp"
 }
 
-func isLoginCommand(args []string) bool {
-	return len(args) > 0 && args[0] == "login"
-}
-
-// isSkillsCommand reports commands that install the skills themselves.
-func isSkillsCommand(args []string) bool {
-	return len(args) > 0 && (args[0] == "skills" || args[0] == "setup")
-}
-
-// setupHomebrewSkills records an attempt before installing, so concurrent
+// setupHomebrewRefresh records an attempt before installing, so concurrent
 // launches and failures cannot repeatedly delay commands. A failed attempt can
-// be retried explicitly with bl upgrade or bl skills install.
-func setupHomebrewSkills(executable string, install func()) {
-	if skillsInstallDisabled(os.Getenv) {
+// be retried explicitly with bl upgrade or bl setup.
+func setupHomebrewRefresh(executable string, install func()) {
+	if skills, mcp := automaticSetupOffers(os.Getenv); !skills && !mcp {
 		return
 	}
 	realPath, err := filepath.EvalSymlinks(executable)
 	if err != nil {
 		return
 	}
-	_, version := homebrewSkillsLocation(realPath)
+	_, version := agentsetup.HomebrewSkillsLocation(realPath)
 	if version == "" {
 		return
 	}
@@ -85,11 +70,10 @@ func setupHomebrewSkills(executable string, install func()) {
 	if err != nil {
 		return
 	}
-	marker := filepath.Join(home, ".blaxel", "skills", "homebrew", version)
+	marker := filepath.Join(home, ".blaxel", "setup", "homebrew", version)
 	claimed, err := claimSkillsInstall(marker)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Could not save Blaxel skills setup state:", err)
-		fmt.Fprintln(os.Stderr, "You can install the skills with:", skillsInstallCommand())
+		fmt.Fprintln(os.Stderr, "Could not save Blaxel setup refresh state; retry with bl setup.")
 		return
 	}
 	if claimed {
@@ -112,24 +96,4 @@ func claimSkillsInstall(marker string) (bool, error) {
 		return false, err
 	}
 	return true, file.Close()
-}
-
-// The running binary still belongs to the old keg after brew upgrades it.
-// Follow Homebrew's stable opt link to mark the newly installed version too.
-func markUpgradedHomebrewSkills() {
-	executable, err := os.Executable()
-	if err != nil {
-		return
-	}
-	markHomebrewSkillsForExecutable(executable)
-}
-
-func markHomebrewSkillsForExecutable(executable string) {
-	if realPath, err := filepath.EvalSymlinks(executable); err == nil {
-		executable = realPath
-	}
-	prefix, _ := homebrewSkillsLocation(executable)
-	if prefix != "" {
-		setupHomebrewSkills(filepath.Join(prefix, "opt", "blaxel", "bin", "blaxel"), func() {})
-	}
 }

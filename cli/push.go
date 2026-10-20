@@ -16,6 +16,7 @@ import (
 	blaxel "github.com/blaxel-ai/sdk-go"
 	"github.com/blaxel-ai/sdk-go/option"
 	"github.com/blaxel-ai/toolkit/cli/core"
+	"github.com/blaxel-ai/toolkit/cli/deploy"
 	mon "github.com/blaxel-ai/toolkit/cli/monitor"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -137,6 +138,8 @@ func PushCmd() *cobra.Command {
 	var timeoutStr string
 	var buildEnvPath string
 	var skipBuild bool
+	var dockerfile string
+	var configFile string
 	var tag string
 
 	cmd := &cobra.Command{
@@ -167,6 +170,17 @@ These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
 Omitting both uses project settings or platform defaults; --volume 0 requests
 memory-backed scratch. These settings do not change runtime resources.
 
+Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
+(the flag wins). Paths are relative to the source directory (-d, or the current
+directory) and must stay inside it. The build context is unchanged, so COPY paths
+are unaffected. A custom Dockerfile needs a source build, not an image import.
+It and its adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
+
+Use --config to read a config file other than blaxel.toml, such as
+blaxel-v2.toml. The path is relative to the source directory (-d, or the current
+directory), and the file must exist and parse. A source build uploads it as
+blaxel.toml, so the build reads it too.
+
 For private registries, supply credentials via --registry-cred or --docker-config.`,
 		Example: `  # Push current directory as an image
   bl push
@@ -179,6 +193,12 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
   # Push specifying a resource type
   bl push --type agent
+
+  # Build with a custom Dockerfile
+  bl push --dockerfile blaxel.Dockerfile
+
+  # Build a variant from its own config file (which can set build.dockerfile)
+  bl push --config blaxel-v2.toml
 
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
@@ -203,11 +223,25 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				}
 			}
 
-			// When --image is provided, blaxel.toml is optional
-			if folder != "" {
-				core.ReadConfigToml(folder, false)
-			} else {
-				core.ReadConfigToml("", false)
+			cwd, err := os.Getwd()
+			if err != nil {
+				core.PrintError("Push", fmt.Errorf("failed to get current working directory: %w", err))
+				core.ExitWithError(err)
+			}
+
+			// An explicit config file must exist and parse. Otherwise blaxel.toml is
+			// optional (--image needs none) and a parse failure stays a warning.
+			explicitConfig := cmd.Flags().Changed("config")
+			if explicitConfig {
+				if err := deploy.ResolveConfigFile(cwd, folder, configFile); err != nil {
+					core.PrintError("Push", err)
+					core.ExitWithError(err)
+				}
+			}
+			if err := core.ReadConfigTomlFile(folder, configFile, false); err != nil && explicitConfig {
+				err = core.MarkExpectedError(err, core.CLIErrorValidation)
+				core.PrintError("Push", err)
+				core.ExitWithError(err)
 			}
 
 			config := core.GetConfig()
@@ -289,9 +323,16 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 				name = config.Name
 			}
 
-			cwd, err := os.Getwd()
+			// Resolve the Dockerfile before any API call or upload. Only a source
+			// build uses one; an image import rejects the flag and ignores the TOML.
+			if cmd.Flags().Changed("dockerfile") && dockerfile == "" {
+				err := deploy.InputError("--dockerfile must not be empty")
+				core.PrintError("Push", err)
+				core.ExitWithError(err)
+			}
+			selectedDockerfile, err := deploy.ResolveDockerfile(cwd, folder, dockerfile, config, config.Image == "", false)
 			if err != nil {
-				core.PrintError("Push", fmt.Errorf("failed to get current working directory: %w", err))
+				core.PrintError("Push", err)
 				core.ExitWithError(err)
 			}
 
@@ -377,7 +418,15 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 
 				// Validate build configuration (Dockerfile, sandbox-api, entrypoint, etc.)
 				config.Type = resourceType
-				validationWarning := ValidateBuildConfig(cwd, folder, config)
+				deployment := Deployment{
+					folder:           folder,
+					name:             name,
+					cwd:              cwd,
+					dockerConfigJSON: dockerConfigJSON,
+					dockerfile:       selectedDockerfile,
+					configFile:       configFile,
+				}
+				validationWarning := deployment.validateDeploymentConfig(config)
 				if validationWarning != "" {
 					handleConfigWarning(validationWarning, noTTY)
 				}
@@ -398,13 +447,7 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 					fmt.Printf("Build args: %d variable(s) detected\n", buildArgCount)
 				}
 
-				deployment := Deployment{
-					folder:           folder,
-					name:             name,
-					cwd:              cwd,
-					dockerConfigJSON: dockerConfigJSON,
-					buildEnvContent:  buildEnvContent,
-				}
+				deployment.buildEnvContent = buildEnvContent
 
 				fmt.Printf("Packaging source code for %s...\n", imageRef(resourceType, name))
 				err = deployment.Zip()
@@ -497,6 +540,8 @@ For private registries, supply credentials via --registry-cred or --docker-confi
 	cmd.Flags().StringVar(&buildEnvPath, "build-env-file", "", "Path to a build env file with Docker build args (default: auto-detect .env.build)")
 	cmd.Flags().StringVar(&tag, "tag", "", "Tag for the built image, from source or with --image (immutable: an existing tag is refused). Defaults to a content-derived tag.")
 	cmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip the image build step (use existing built image if available)")
+	cmd.Flags().StringVar(&dockerfile, "dockerfile", "", "Dockerfile path relative to the source directory (overrides build.dockerfile in blaxel.toml)")
+	cmd.Flags().StringVar(&configFile, "config", "", "Config file relative to the source directory (default blaxel.toml)")
 
 	return cmd
 }

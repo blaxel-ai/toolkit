@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/blaxel-ai/sdk-go/option"
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/blaxel-ai/toolkit/cli/ui"
 	"github.com/stretchr/testify/assert"
@@ -139,8 +140,8 @@ func TestUsageSetupReportsEverySetupAgent(t *testing.T) {
 	t.Cleanup(func() { core.FlushPosthog(); core.PosthogAPIKey, core.PosthogHost = oldKey, oldHost })
 
 	var ids []string
-	for _, agent := range setupAgents() {
-		ids = append(ids, agent.id)
+	for _, agent := range agentsetup.SetupAgents() {
+		ids = append(ids, agent.ID)
 	}
 	core.TrackCLISetup(ids, nil, "success", nil)
 	core.FlushPosthog()

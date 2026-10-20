@@ -1,6 +1,6 @@
 //go:build !windows
 
-package cli
+package agentsetup
 
 import (
 	"os"
@@ -8,10 +8,10 @@ import (
 )
 
 // Keep Unix links relative to their final destination, not the staging folder.
-func createSkillDirectoryLink(_, relative, link string) error {
+func CreateSkillDirectoryLink(_, relative, link string) error {
 	return os.Symlink(relative, link)
 }
 
-func evalSkillLinks(name string) (string, error) {
+func EvalSkillLinks(name string) (string, error) {
 	return filepath.EvalSymlinks(name)
 }

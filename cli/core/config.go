@@ -293,6 +293,8 @@ type Package struct {
 // BuildConfig represents the [build] section of blaxel.toml
 type BuildConfig struct {
 	Args map[string]string `toml:"args,omitempty"`
+	// Dockerfile selects a project-relative Dockerfile for source builds (bl deploy and bl push).
+	Dockerfile string `toml:"dockerfile,omitempty"`
 	// Experimental opts this project into the new build system. It is the one
 	// setting here that changes which builder runs, rather than how it is sized.
 	Experimental bool `toml:"experimental,omitempty"`
@@ -354,14 +356,29 @@ type Config struct {
 var blaxelTomlWarning string
 
 func readConfigToml(folder string, setDefaultType bool) {
+	_ = readConfigTomlFile(folder, "", setDefaultType) // a parse failure stays a warning
+}
+
+// readConfigTomlFile reads file from folder; an empty file means blaxel.toml.
+// A file that exists but does not parse is stored as a warning and returned as an error.
+// A missing default blaxel.toml falls back to the defaults, but a file that was
+// asked for by name and cannot be read is an error.
+func readConfigTomlFile(folder, file string, setDefaultType bool) error {
+	explicit := file != ""
+	if !explicit {
+		file = "blaxel.toml"
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
-		return
+		return nil
 	}
 
-	content, err := os.ReadFile(filepath.Join(cwd, folder, "blaxel.toml"))
+	content, err := os.ReadFile(filepath.Join(cwd, folder, file))
 	if err != nil {
+		if explicit {
+			return fmt.Errorf("cannot read config file %s: %w", file, err)
+		}
 		// No blaxel.toml file found
 		config.Functions = []string{"all"}
 		config.Models = []string{"all"}
@@ -370,14 +387,14 @@ func readConfigToml(folder string, setDefaultType bool) {
 		if setDefaultType {
 			config.Type = "agent"
 		}
-		return
+		return nil
 	}
 
 	err = toml.Unmarshal(content, &config)
 	if err != nil {
 		// Store the warning for the caller to handle
 		blaxelTomlWarning = buildBlaxelTomlWarning(err)
-		return
+		return fmt.Errorf("config file %s is not valid: %w", file, err)
 	}
 
 	// Resolve variable interpolation in string fields
@@ -390,6 +407,7 @@ func readConfigToml(folder string, setDefaultType bool) {
 	if config.Workspace != "" {
 		workspace = config.Workspace
 	}
+	return nil
 }
 
 // resolveConfigVars resolves variable interpolation patterns in Config string fields.
@@ -403,10 +421,11 @@ func resolveConfigVars() {
 		&config.Directory,
 		&config.Image,
 	}
-	// [build] region and cacheDrive name a region and a drive, so they deserve
-	// the same ${VAR} interpolation as the top-level region.
+	// [build] region, cacheDrive and dockerfile name a region, a drive and a
+	// project file, so they deserve the same ${VAR} interpolation as the
+	// top-level region and directory.
 	if config.Build != nil {
-		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive)
+		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive, &config.Build.Dockerfile)
 	}
 	for _, f := range fields {
 		if *f != "" {

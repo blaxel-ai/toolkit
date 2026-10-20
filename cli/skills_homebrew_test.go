@@ -8,44 +8,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/blaxel-ai/toolkit/cli/agentsetup"
 	"github.com/stretchr/testify/require"
 )
-
-func TestHomebrewSkillsLocation(t *testing.T) {
-	for _, tt := range []struct{ name, path, prefix, version string }{
-		{"apple silicon", "/opt/homebrew/Cellar/blaxel/1.2.3/bin/blaxel", "/opt/homebrew", "1.2.3"},
-		{"intel alias", "/usr/local/Cellar/blaxel/1.2.3_1/bin/bl", "/usr/local", "1.2.3_1"},
-		{"linux", "/home/linuxbrew/.linuxbrew/Cellar/blaxel/1.2.3/bin/blaxel", "/home/linuxbrew/.linuxbrew", "1.2.3"},
-		{"custom prefix", "/tmp/custom brew/Cellar/blaxel/1.2.3/bin/blaxel", "/tmp/custom brew", "1.2.3"},
-		{"curl", "/home/user/.local/bin/blaxel", "", ""},
-		{"other formula", "/opt/homebrew/Cellar/other/1.2.3/bin/blaxel", "", ""},
-		{"lookalike formula", "/opt/homebrew/Cellar/blaxel-extra/1.2.3/bin/blaxel", "", ""},
-		{"lookalike cellar", "/opt/homebrew/NotCellar/blaxel/1.2.3/bin/blaxel", "", ""},
-		{"wrong directory", "/opt/homebrew/Cellar/blaxel/1.2.3/lib/blaxel", "", ""},
-		{"wrong binary", "/opt/homebrew/Cellar/blaxel/1.2.3/bin/other", "", ""},
-		{"relative", "Cellar/blaxel/1.2.3/bin/blaxel", "", ""},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			path, expectedPrefix := tt.path, tt.prefix
-			if runtime.GOOS == "windows" && filepath.IsAbs(filepath.FromSlash("C:"+path)) {
-				path = filepath.FromSlash("C:" + path)
-				if expectedPrefix != "" {
-					expectedPrefix = filepath.FromSlash("C:" + expectedPrefix)
-				}
-			}
-			prefix, version := homebrewSkillsLocation(path)
-			require.Equal(t, expectedPrefix, prefix)
-			require.Equal(t, tt.version, version)
-		})
-	}
-}
 
 func isolatedSkillsHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv(skillsInstallEnv, "true")
+	t.Setenv(agentsetup.SkillsInstallEnv, "true")
 	return home
 }
 
@@ -65,17 +37,17 @@ func TestSetupHomebrewSkillsOncePerVersion(t *testing.T) {
 	createSkillsSymlink(t, binary, link)
 	calls := 0
 	install := func() { calls++ }
-	setupHomebrewSkills(link, install)
-	setupHomebrewSkills(link, install)
+	setupHomebrewRefresh(link, install)
+	setupHomebrewRefresh(link, install)
 	require.Equal(t, 1, calls)
-	require.FileExists(t, filepath.Join(home, ".blaxel", "skills", "homebrew", "1.2.3"))
+	require.FileExists(t, filepath.Join(home, ".blaxel", "setup", "homebrew", "1.2.3"))
 	next := createSkillsKeg(t, prefix, "1.2.4")
 	require.NoError(t, os.Remove(link))
 	createSkillsSymlink(t, next, link)
-	setupHomebrewSkills(link, install)
-	setupHomebrewSkills(link, install)
+	setupHomebrewRefresh(link, install)
+	setupHomebrewRefresh(link, install)
 	require.Equal(t, 2, calls)
-	require.FileExists(t, filepath.Join(home, ".blaxel", "skills", "homebrew", "1.2.4"))
+	require.FileExists(t, filepath.Join(home, ".blaxel", "setup", "homebrew", "1.2.4"))
 }
 
 func TestSetupHomebrewSkillsDisabledDoesNotConsumeAttempt(t *testing.T) {
@@ -84,17 +56,19 @@ func TestSetupHomebrewSkillsDisabledDoesNotConsumeAttempt(t *testing.T) {
 			home := isolatedSkillsHome(t)
 			binary := createSkillsKeg(t, t.TempDir(), "1.2.3")
 			if mode == "disabled" {
-				t.Setenv(skillsInstallEnv, "false")
+				t.Setenv(agentsetup.SkillsInstallEnv, "false")
+				t.Setenv(mcpInstallEnv, "false")
 			} else {
-				t.Setenv(skillsInstallEnv, "")
+				t.Setenv(agentsetup.SkillsInstallEnv, "")
 				t.Setenv("CI", "true")
 			}
 			calls := 0
-			setupHomebrewSkills(binary, func() { calls++ })
+			setupHomebrewRefresh(binary, func() { calls++ })
 			require.Zero(t, calls)
 			require.NoDirExists(t, filepath.Join(home, ".blaxel"))
-			t.Setenv(skillsInstallEnv, "true")
-			setupHomebrewSkills(binary, func() { calls++ })
+			t.Setenv(agentsetup.SkillsInstallEnv, "true")
+			t.Setenv(mcpInstallEnv, "true")
+			setupHomebrewRefresh(binary, func() { calls++ })
 			require.Equal(t, 1, calls)
 		})
 	}
@@ -107,10 +81,10 @@ func TestSetupHomebrewSkillsFailedAttemptIsNotRepeated(t *testing.T) {
 	// The callback cannot return errors: a failed installer simply returns.
 	failedInstall := func() {
 		calls++
-		require.FileExists(t, filepath.Join(home, ".blaxel", "skills", "homebrew", "1.2.3"))
+		require.FileExists(t, filepath.Join(home, ".blaxel", "setup", "homebrew", "1.2.3"))
 	}
-	setupHomebrewSkills(binary, failedInstall)
-	setupHomebrewSkills(binary, failedInstall)
+	setupHomebrewRefresh(binary, failedInstall)
+	setupHomebrewRefresh(binary, failedInstall)
 	require.Equal(t, 1, calls)
 }
 
@@ -119,7 +93,7 @@ func TestSetupHomebrewSkillsStateFailureSkipsInstall(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(home, ".blaxel"), []byte("not a directory"), 0600))
 	binary := createSkillsKeg(t, t.TempDir(), "1.2.3")
 	calls := 0
-	setupHomebrewSkills(binary, func() { calls++ })
+	setupHomebrewRefresh(binary, func() { calls++ })
 	require.Zero(t, calls)
 }
 
@@ -127,8 +101,8 @@ func TestSetupHomebrewSkillsIgnoresOtherInstallations(t *testing.T) {
 	home := isolatedSkillsHome(t)
 	binary := filepath.Join(t.TempDir(), "blaxel")
 	require.NoError(t, os.WriteFile(binary, nil, 0755))
-	setupHomebrewSkills(binary, func() { t.Fatal("installer called for non-Homebrew binary") })
-	setupHomebrewSkills(binary+"-missing", func() { t.Fatal("installer called for missing binary") })
+	setupHomebrewRefresh(binary, func() { t.Fatal("installer called for non-Homebrew binary") })
+	setupHomebrewRefresh(binary+"-missing", func() { t.Fatal("installer called for missing binary") })
 	require.NoDirExists(t, filepath.Join(home, ".blaxel"))
 }
 
@@ -171,37 +145,25 @@ func createSkillsSymlink(t *testing.T, target, link string) {
 	require.NoError(t, err)
 }
 
-func TestMarkUpgradedHomebrewSkillsWithDeletedOldKeg(t *testing.T) {
-	for _, disabled := range []bool{false, true} {
-		name := "enabled"
-		if disabled {
-			name = "disabled"
-		}
-		t.Run(name, func(t *testing.T) {
-			home := isolatedSkillsHome(t)
-			prefix := t.TempDir()
-			oldBinary := createSkillsKeg(t, prefix, "1.2.3")
-			nextBinary := createSkillsKeg(t, prefix, "1.2.4")
-			opt := filepath.Join(prefix, "opt", "blaxel")
-			require.NoError(t, os.MkdirAll(filepath.Dir(opt), 0755))
-			createSkillsSymlink(t, filepath.Dir(filepath.Dir(nextBinary)), opt)
-			require.NoError(t, os.RemoveAll(filepath.Dir(filepath.Dir(oldBinary))))
-			if disabled {
-				t.Setenv(skillsInstallEnv, "false")
-			}
-			markHomebrewSkillsForExecutable(oldBinary)
-			marker := filepath.Join(home, ".blaxel", "skills", "homebrew", "1.2.4")
-			if disabled {
-				require.NoFileExists(t, marker)
-				t.Setenv(skillsInstallEnv, "true")
-				calls := 0
-				setupHomebrewSkills(nextBinary, func() { calls++ })
-				require.Equal(t, 1, calls)
-			} else {
-				require.FileExists(t, marker)
-				setupHomebrewSkills(nextBinary, func() { t.Fatal("upgraded version attempted again") })
-			}
-			require.NoFileExists(t, filepath.Join(home, ".blaxel", "skills", "homebrew", "1.2.3"))
-		})
+func TestHomebrewRefreshFor(t *testing.T) {
+	refreshed := 0
+	refresh := func() { refreshed++ }
+	// bl skills installs skills only, so the MCP refresh stays pending too.
+	for _, args := range [][]string{{"mcp"}, {"--workspace", "w", "mcp"}, {"upgrade"}, {"__complete", "get", ""}, {"skills", "install"}} {
+		require.Nil(t, homebrewRefreshFor(args, refresh), args)
 	}
+	// bl setup sets up skills and MCP by itself: record the keg only.
+	for _, args := range [][]string{{"setup"}, {"-w", "mcp", "setup", "--yes"}} {
+		install := homebrewRefreshFor(args, refresh)
+		require.NotNil(t, install, args)
+		install()
+	}
+	require.Zero(t, refreshed)
+	// A flag value or argument naming those commands is not the command.
+	for _, args := range [][]string{{"get", "mcp"}, {"-w", "upgrade", "get", "agents"}, {"new", "mcp"}, {"get", "agents"}} {
+		install := homebrewRefreshFor(args, refresh)
+		require.NotNil(t, install, args)
+		install()
+	}
+	require.Equal(t, 4, refreshed)
 }
