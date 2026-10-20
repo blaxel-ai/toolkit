@@ -23,6 +23,13 @@ A blaxel.toml configuration file is required. By default, the command looks
 for it in the current directory. Use -d to specify a subdirectory containing
 the blaxel.toml (useful for monorepo setups).
 
+Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
+(the flag wins). Paths are relative to the project directory (-d, or the current
+directory) and must stay inside it. The build context is unchanged, so COPY paths
+are unaffected. A custom Dockerfile needs a source build and one project per
+deploy (use --recursive=false when the config lists child packages). It and its
+adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
+
 If the blaxel.toml contains an 'image' field pointing to a registry image,
 the platform will pull the image and transform it via metamorph before deploying.
 For private registries, supply credentials via --registry-cred or --docker-config.
@@ -64,6 +71,12 @@ bl deploy [flags]
   # Non-interactive deployment that waits for build and rollout and explains failures
   bl deploy --yes --wait --timeout 20m
 
+  # Deploy using a custom Dockerfile
+  bl deploy --dockerfile blaxel.Dockerfile
+
+  # Select a Dockerfile relative to a project subdirectory
+  bl deploy -d sandbox --dockerfile Dockerfile.v2
+
   # Deploy with environment variables
   bl deploy -e .env.production
 
@@ -95,6 +108,7 @@ bl deploy [flags]
       --build-env-file string       Path to a build env file with Docker build args (default: auto-detect .env.build)
   -d, --directory string            Deployment app path, can be a sub directory
       --docker-config string        Path to a Docker config.json file with registry credentials
+      --dockerfile string           Dockerfile path relative to the project directory (overrides build.dockerfile in blaxel.toml)
       --dryrun                      Dry run the deployment
   -e, --env-file strings            Environment file to load (default [.env])
       --experimental                Enable experimental features (e.g. USER directive support)

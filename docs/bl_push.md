@@ -32,6 +32,12 @@ These flags override [build].memoryMb and [build].volumeMb in blaxel.toml.
 Omitting both uses project settings or platform defaults; --volume 0 requests
 memory-backed scratch. These settings do not change runtime resources.
 
+Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
+(the flag wins). Paths are relative to the source directory (-d, or the current
+directory) and must stay inside it. The build context is unchanged, so COPY paths
+are unaffected. A custom Dockerfile needs a source build, not an image import.
+It and its adjacent .dockerignore are uploaded even if .blaxelignore excludes them.
+
 For private registries, supply credentials via --registry-cred or --docker-config.
 
 ```
@@ -53,6 +59,9 @@ bl push [flags]
   # Push specifying a resource type
   bl push --type agent
 
+  # Build with a custom Dockerfile
+  bl push --dockerfile blaxel.Dockerfile
+
   # Push from a private registry (credentials for blaxel.toml image field)
   bl push --registry-cred ghcr.io=user:token
 
@@ -72,6 +81,7 @@ bl push [flags]
       --build-env-file string       Path to a build env file with Docker build args (default: auto-detect .env.build)
   -d, --directory string            Source directory path
       --docker-config string        Path to a Docker config.json file with registry credentials
+      --dockerfile string           Dockerfile path relative to the source directory (overrides build.dockerfile in blaxel.toml)
   -h, --help                        help for push
       --image string                Existing registry image to import; overrides blaxel.toml image
       --memory int                  Build or import worker memory in MiB (1-32768); overrides [build].memoryMb

@@ -293,6 +293,8 @@ type Package struct {
 // BuildConfig represents the [build] section of blaxel.toml
 type BuildConfig struct {
 	Args map[string]string `toml:"args,omitempty"`
+	// Dockerfile selects a project-relative Dockerfile for source builds (bl deploy and bl push).
+	Dockerfile string `toml:"dockerfile,omitempty"`
 	// Experimental opts this project into the new build system. It is the one
 	// setting here that changes which builder runs, rather than how it is sized.
 	Experimental bool `toml:"experimental,omitempty"`
@@ -403,10 +405,11 @@ func resolveConfigVars() {
 		&config.Directory,
 		&config.Image,
 	}
-	// [build] region and cacheDrive name a region and a drive, so they deserve
-	// the same ${VAR} interpolation as the top-level region.
+	// [build] region, cacheDrive and dockerfile name a region, a drive and a
+	// project file, so they deserve the same ${VAR} interpolation as the
+	// top-level region and directory.
 	if config.Build != nil {
-		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive)
+		fields = append(fields, &config.Build.Region, &config.Build.CacheDrive, &config.Build.Dockerfile)
 	}
 	for _, f := range fields {
 		if *f != "" {
