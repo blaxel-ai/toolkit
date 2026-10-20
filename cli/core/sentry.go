@@ -319,7 +319,6 @@ func InitSentry(cfg SentryConfig) error {
 		Release:          cfg.Release,
 		AttachStacktrace: true,
 		BeforeSend:       sanitizeSentryEvent,
-		SendDefaultPII:   false,
 		MaxBreadcrumbs:   -1,
 		MaxErrorDepth:    1,
 	}); err != nil {
