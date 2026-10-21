@@ -45,9 +45,11 @@ func bindMockSentry(t *testing.T) *sentry.MockTransport {
 	hub.PushScope()
 	hub.BindClient(client)
 	SentryDSN = testSentryDSN
+	SetSentryWorkspace("")
 	t.Cleanup(func() {
 		hub.PopScope()
 		SentryDSN = originalDSN
+		SetSentryWorkspace("")
 	})
 
 	return transport
@@ -259,6 +261,29 @@ func TestUnexpectedErrorCreatesOneSanitizedEvent(t *testing.T) {
 	assert.NotContains(t, string(serialized), "private-attachment")
 	assert.NotContains(t, string(serialized), "private-breadcrumb")
 	assert.NotContains(t, string(serialized), "/Users/customer")
+}
+
+func TestSentryUserIsTheWorkspace(t *testing.T) {
+	cases := []struct{ workspace, want string }{
+		{"acme-staging", "acme-staging"},
+		{"", ""},
+		{"/Users/customer/private project", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.workspace, func(t *testing.T) {
+			transport := bindMockSentry(t)
+			SetSentryWorkspace(tc.workspace)
+			sentry.ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetUser(sentry.User{Email: "private@example.com", IPAddress: "203.0.113.7"})
+			})
+
+			assert.True(t, captureUnexpectedError(errors.New("internal invariant failed")))
+
+			events := transport.Events()
+			require.Len(t, events, 1)
+			assert.Equal(t, sentry.User{ID: tc.want}, events[0].User)
+		})
+	}
 }
 
 func TestCaptureExceptionWithNil(t *testing.T) {

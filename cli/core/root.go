@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"slices"
 	"strings"
 	"time"
@@ -288,6 +287,7 @@ var rootCmd = &cobra.Command{
 			_ = os.Setenv("BL_WORKSPACE", workspace)
 		}
 		blaxel.InitializeEnvironment(workspace)
+		SetSentryWorkspace(workspace)
 
 		// Skip config reading for deploy and push commands as they handle their own config logic
 		if cmd.Name() != "deploy" && cmd.Name() != "push" {
@@ -342,24 +342,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		// Get OS/arch and commit info for User-Agent
-		osArch := goruntime.GOOS + "/" + goruntime.GOARCH
-		commitHash := "unknown"
-
-		// Check if commit was injected at build time via ldflags
-		if commit != "" {
-			if len(commit) > 7 {
-				commitHash = commit[:7]
-			} else {
-				commitHash = commit
-			}
-		}
-
-		userAgent := fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash)
-
 		// Build client options
 		opts := []option.RequestOption{
-			option.WithHeader("User-Agent", userAgent),
+			option.WithHeader("User-Agent", cliUserAgent(version, commit, os.Getenv)),
 		}
 
 		if workspace != "" {

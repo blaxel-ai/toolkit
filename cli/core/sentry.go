@@ -13,6 +13,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -224,9 +225,13 @@ func sanitizeSentryEvent(event *sentry.Event, _ *sentry.EventHint) *sentry.Event
 	}
 
 	// Host/user/request context is not needed to diagnose a CLI implementation
-	// defect and can contain machine or resource identifiers.
+	// defect and can contain machine or resource identifiers. The only user
+	// identifier is the workspace name, so an issue counts affected workspaces.
 	event.ServerName = ""
 	event.User = sentry.User{}
+	if name, _ := sentryWorkspace.Load().(string); name != "" {
+		event.User.ID = name
+	}
 	event.Request = nil
 	event.Breadcrumbs = nil
 	event.Contexts = nil
@@ -358,6 +363,20 @@ func CaptureException(err error) {
 }
 
 var safeTagValue = regexp.MustCompile(`^[A-Za-z0-9._+ -]+$`)
+
+var (
+	sentryWorkspace   atomic.Value
+	safeWorkspaceName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+)
+
+// SetSentryWorkspace reports the workspace a command runs against as the Sentry
+// user. A name outside the workspace name format is dropped.
+func SetSentryWorkspace(name string) {
+	if !safeWorkspaceName.MatchString(name) {
+		name = ""
+	}
+	sentryWorkspace.Store(name)
+}
 
 func sanitizeTagValue(value string) string {
 	value = strings.TrimSpace(value)
