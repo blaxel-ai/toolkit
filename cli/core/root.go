@@ -301,6 +301,7 @@ var rootCmd = &cobra.Command{
 			"logout":           true,
 			"setup":            true,
 			"version":          true,
+			"whoami":           true,
 			"upgrade":          true,
 			"workspaces":       true,
 			"workspace":        true,
@@ -452,6 +453,15 @@ func Execute(releaseVersion string, releaseCommit string, releaseDate string) er
 		date = releaseDate
 	}
 	rootCmd.Version = version
+	// Define --version before parsing, as cobra only does it after finding the
+	// command: otherwise bl --version -o json reads -o as the flag's value.
+	rootCmd.InitDefaultVersionFlag()
+	if versionFlag := rootCmd.Flags().Lookup("version"); versionFlag != nil {
+		versionFlag.Usage = "Print the version (bl -v does the same)"
+	}
+	if args := os.Args[1:]; isRootVersionShorthand(args) {
+		rootCmd.SetArgs(versionShorthandArgs(args))
+	}
 
 	// Prompt for tracking consent if not already configured
 	promptForTracking()
@@ -689,7 +699,28 @@ func isInstallTrackingCommandExempt(args []string) bool {
 	}
 
 	cmd := args[1]
-	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version"
+	return cmd == "completion" || cmd == "__complete" || cmd == "version" || cmd == "--version" ||
+		isRootVersionShorthand(args[1:])
+}
+
+// isRootVersionShorthand reports bl -v with no command. -v is the --verbose
+// shorthand for every command, but bl alone has nothing to be verbose about,
+// so there it prints the version like bl --version. bl get -v stays verbose.
+func isRootVersionShorthand(args []string) bool {
+	// Naming a command makes the resolver reject arguments that are not one,
+	// so only flags (global ones, as normal execution reads them) reach bl.
+	return slices.Contains(args, "-v") && ResolveStartupCommand(args, "version") == "bl"
+}
+
+// versionShorthandArgs returns args with -v replaced by --version.
+func versionShorthandArgs(args []string) []string {
+	rewritten := slices.Clone(args)
+	for i, arg := range rewritten {
+		if arg == "-v" {
+			rewritten[i] = "--version"
+		}
+	}
+	return rewritten
 }
 
 // IsMCPBridgeCommand reports bl mcp, which keeps stdout for JSON-RPC. bl get
