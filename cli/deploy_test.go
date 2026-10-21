@@ -1882,3 +1882,76 @@ func TestDeployConfigProcess(t *testing.T) {
 		assert.NotContains(t, stderr, "is not valid")
 	})
 }
+
+// newUploadArchiveFixture returns a closed temp file whose Name() Upload can
+// reopen. Upload only needs a readable archive on disk; the contents are
+// irrelevant to the status-code handling under test.
+func newUploadArchiveFixture(t *testing.T) *os.File {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "upload-archive-*.zip")
+	require.NoError(t, err)
+	_, err = f.WriteString("archive-bytes")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	return f
+}
+
+// A non-2xx response from the object-storage upload target (expired presigned
+// URL, signature or metadata mismatch, backend outage) is an operational
+// condition of the upload, not an unexpected CLI defect. Upload must classify
+// it as expected so it stays out of error-level telemetry, while still
+// surfacing the status to the user and preserving the classification through
+// the %w wrapping Deployment.Apply applies on the way to ExitWithError.
+func TestDeployUploadStatusErrorIsExpected(t *testing.T) {
+	core.ResetConfig()
+	t.Cleanup(core.ResetConfig)
+	for _, status := range []int{
+		http.StatusForbidden,
+		http.StatusBadRequest,
+		http.StatusInternalServerError,
+		http.StatusServiceUnavailable,
+	} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.Copy(io.Discard, r.Body)
+				w.WriteHeader(status)
+			}))
+			defer server.Close()
+
+			d := &Deployment{archive: newUploadArchiveFixture(t)}
+			err := d.Upload(server.URL)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "upload failed with status")
+			assert.True(t, core.IsExpectedCLIError(err),
+				"a non-2xx upload status is operational, not an unexpected internal defect")
+
+			wrapped := fmt.Errorf("failed to upload file: %w", err)
+			assert.True(t, core.IsExpectedCLIError(wrapped),
+				"classification must survive the wrapping before ExitWithError")
+		})
+	}
+}
+
+// A successful upload (HTTP 200) returns no error.
+func TestDeployUploadSuccess(t *testing.T) {
+	core.ResetConfig()
+	t.Cleanup(core.ResetConfig)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	d := &Deployment{archive: newUploadArchiveFixture(t)}
+	require.NoError(t, d.Upload(server.URL))
+}
+
+// Without the explicit operational classification the raw status error would be
+// treated as an unexpected internal defect and reported to Sentry. This guards
+// against the wrapper being dropped and silently reintroducing the noise.
+func TestDeployUploadStatusErrorUnwrappedIsReported(t *testing.T) {
+	raw := fmt.Errorf("upload failed with status: %s", "403 Forbidden")
+	assert.False(t, core.IsExpectedCLIError(raw),
+		"an unclassified upload-status error must stay reportable; the operational wrap is load-bearing")
+}
