@@ -152,7 +152,7 @@ func waitForBrowserLogin(ctx context.Context, workspace string) (blaxel.Credenti
 		case err == nil:
 			clearPendingLogin()
 			return deviceCredentials(token, pending.DeviceCode), workspace, nil
-		case ctx.Err() != nil, errors.Is(err, errDeviceLoginTimeout):
+		case !deviceLoginRefused(err):
 			return blaxel.Credentials{}, workspace, err
 		}
 		clearPendingLogin()
@@ -217,7 +217,7 @@ func handOffBrowserLogin(ctx context.Context, workspace string, resumeAttempts i
 			say.url(pending.URL)
 			say.info(resumeStep(workspace, pending.Expires))
 			return blaxel.Credentials{}, workspace, ErrLoginPending
-		case ctx.Err() != nil:
+		case !deviceLoginRefused(err):
 			return blaxel.Credentials{}, workspace, err
 		}
 		clearPendingLogin()
@@ -250,8 +250,9 @@ func handOffBrowserLogin(ctx context.Context, workspace string, resumeAttempts i
 	case errors.Is(err, errDeviceLoginTimeout):
 		say.info(resumeStep(workspace, pending.Expires))
 		return blaxel.Credentials{}, workspace, ErrLoginPending
+	case deviceLoginRefused(err):
+		clearPendingLogin()
 	}
-	clearPendingLogin()
 	return blaxel.Credentials{}, workspace, err
 }
 
@@ -408,10 +409,11 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 			}
 		}
 		if res.StatusCode != http.StatusOK {
-			return DeviceLoginFinalizeResponse{}, core.MarkExpectedError(
-				fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body)),
-				core.CLIErrorAuthentication,
-			)
+			err := fmt.Errorf("authentication failed with status %d: %s", res.StatusCode, string(body))
+			if res.StatusCode >= 400 && res.StatusCode < 500 {
+				err = deviceLoginRefusedError{err}
+			}
+			return DeviceLoginFinalizeResponse{}, core.MarkExpectedError(err, core.CLIErrorAuthentication)
 		}
 		var finalizeResponse DeviceLoginFinalizeResponse
 		if err := json.Unmarshal(body, &finalizeResponse); err != nil {
@@ -425,6 +427,18 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 // errDeviceLoginTimeout means the user had not confirmed the login when
 // pollDeviceToken stopped checking.
 var errDeviceLoginTimeout = errors.New("timed out waiting for confirmation in the browser")
+
+// deviceLoginRefusedError is the token endpoint's final answer that the
+// device login cannot be used (expired, denied or unknown). Other errors, such
+// as a cancel or a network failure, leave a pending login to resume.
+type deviceLoginRefusedError struct{ error }
+
+func (e deviceLoginRefusedError) Unwrap() error { return e.error }
+
+func deviceLoginRefused(err error) bool {
+	var refused deviceLoginRefusedError
+	return errors.As(err, &refused)
+}
 
 // currentWorkspaceIndex is where the workspace in use (context.workspace in
 // the config) sits in names, or -1 when the new login cannot use it.

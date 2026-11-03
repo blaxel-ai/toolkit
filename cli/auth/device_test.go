@@ -417,3 +417,45 @@ func TestExpiredPendingLoginStartsOver(t *testing.T) {
 	_, err = os.Stat(path)
 	assert.ErrorIs(t, err, os.ErrNotExist, "an expired pending login is removed")
 }
+
+// A cancel or a failed check after the URL is shown keeps the login pending,
+// since the user may be confirming it; only the server refusing it clears it.
+func TestHandOffKeepsThePendingLoginUntilRefused(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	status := http.StatusBadGateway
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/login/device" {
+			_, _ = fmt.Fprintf(w, `{"device_code":"device-1","verification_uri_complete":%q,"expires_in":600}`, deviceLoginURL)
+			return
+		}
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(`{"error":"expired_token"}`))
+	}))
+	t.Cleanup(server.Close)
+	baseURL, interval, open := blaxel.GetBaseURL(), devicePollInterval, openBrowser
+	t.Cleanup(func() { blaxel.SetBaseURL(baseURL); devicePollInterval, openBrowser = interval, open })
+	devicePollInterval = time.Millisecond
+	t.Setenv("BL_API_URL", server.URL)
+	blaxel.ApplyEnvironmentOverrides()
+	openBrowser = func(string) error { return errors.New("no browser") }
+
+	var err error
+	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.Error(t, err)
+	assert.False(t, deviceLoginRefused(err), "a server error is not a refusal")
+	_, ok := loadPendingLogin(time.Now())
+	assert.True(t, ok, "the login stays pending after a failed check")
+
+	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.Error(t, err)
+	_, ok = loadPendingLogin(time.Now())
+	assert.True(t, ok, "and after a failed resume")
+
+	status = http.StatusBadRequest
+	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.Error(t, err)
+	assert.True(t, deviceLoginRefused(err))
+	_, ok = loadPendingLogin(time.Now())
+	assert.False(t, ok, "a refused login is cleared")
+}
