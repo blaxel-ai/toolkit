@@ -129,7 +129,7 @@ var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
 // shellPath writes a path for a POSIX shell: ~/... in the home folder, quoted
 // when it needs to be.
 func shellPath(home, path string) string {
-	if relative, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(relative, "..") && shellSafe.MatchString(relative) {
+	if relative, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(relative, "..") && shellSafe.MatchString(filepath.ToSlash(relative)) {
 		return "~/" + filepath.ToSlash(relative)
 	}
 	if shellSafe.MatchString(path) {

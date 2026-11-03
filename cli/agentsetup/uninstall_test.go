@@ -24,7 +24,8 @@ func snapshot(t *testing.T, root string) map[string]string {
 		if err != nil {
 			return err
 		}
-		if entry.Type()&fs.ModeSymlink != 0 {
+		// Windows skill links are junctions, which read as irregular.
+		if entry.Type()&(fs.ModeSymlink|fs.ModeIrregular) != 0 {
 			target, err := os.Readlink(path)
 			files[path] = "link:" + target
 			return err
@@ -207,6 +208,19 @@ func TestUninstallRestoresTheCodexConfig(t *testing.T) {
 	writeTestFile(t, file, "[mcp_servers.blaxel-docs]\nurl = \"https://docs.blaxel.ai/mcp\"\n\n[profile]\nname = \"me\"\n")
 	runUninstallPlan(t, planMCPUninstall(t, e))
 	assert.Equal(t, "[profile]\nname = \"me\"\n", readTestFile(t, file))
+}
+
+// Windows editors save CRLF. The Goose config comes back with its comments
+// and settings as they were, in LF.
+func TestUninstallRestoresACRLFGooseConfig(t *testing.T) {
+	var commands []fakeCommand
+	e := testMCPEnv(t.TempDir(), map[string]string{}, &commands, "", nil)
+	target := MCPTargets["goose"]
+	original := "# keep my settings\ntheme: dark # keep my theme\nextensions:\n  other:\n    name: other\n    type: stdio\n    cmd: my-server\n    enabled: false\n"
+	writeTestFile(t, target.File(e), strings.ReplaceAll(original, "\n", "\r\n"))
+	require.NoError(t, ConfigureAgentMCP(context.Background(), e, target, []MCPServer{testResourceServer, testDocsServer}).Err)
+	runUninstallPlan(t, planMCPUninstall(t, e))
+	assert.Equal(t, original, readTestFile(t, target.File(e)))
 }
 
 func TestUninstallJSONKeepsOtherSettings(t *testing.T) {

@@ -151,7 +151,7 @@ func blaxelMCPEntry(ctx context.Context, target MCPTarget, name string, entry ma
 	case DocsMCPServer().Name:
 		candidates = append(candidates, DocsMCPServer())
 	case ResourceMCPServer("").Name:
-		if command, _ := EntryCommand(entry); filepath.IsAbs(command) && blCommand(command) {
+		if command, _ := EntryCommand(entry); fullPath(command) && blCommand(command) {
 			candidates = append(candidates, ResourceMCPServer(command))
 		}
 		for _, key := range []string{"url", "httpUrl", "serverUrl"} {
@@ -169,6 +169,12 @@ func blaxelMCPEntry(ctx context.Context, target MCPTarget, name string, entry ma
 		}
 	}
 	return false
+}
+
+// fullPath reports whether command names one file rather than a PATH
+// lookup. On Windows that includes a path rooted on the current drive.
+func fullPath(command string) bool {
+	return filepath.IsAbs(command) || strings.HasPrefix(filepath.ToSlash(command), "/")
 }
 
 // writtenMCPEntry is the entry the target's own writer adds for the server,

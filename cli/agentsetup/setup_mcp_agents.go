@@ -488,6 +488,8 @@ func readGooseConfig(file string) (*yaml.Node, *yaml.Node, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, nil, err
 	}
+	// A CRLF head comment would come back followed by a blank line.
+	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	root := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
 	doc := &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{root}}
 	if len(bytes.TrimSpace(data)) > 0 {
