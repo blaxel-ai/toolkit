@@ -15,7 +15,7 @@ is stored in the workspace registry. Unlike 'bl deploy', this command does NOT
 create or update any resource (agent, function, sandbox, or job).
 
 The process includes:
-1. Reading configuration from blaxel.toml
+1. Reading configuration from blaxel.toml (or the --config file)
 2. Packaging source code (respects .blaxelignore)
 3. Uploading to Blaxel's build system via presigned URL
 4. Building container image
