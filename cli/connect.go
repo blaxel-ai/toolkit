@@ -152,11 +152,28 @@ func sandboxTerminalAuthentication(ctx context.Context) (string, string, error) 
 		return "", "", fmt.Errorf("failed to load credentials for workspace %q: %w", workspace, err)
 	}
 	if !credentials.IsValid() {
-		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s'", workspace)
+		// Like the API client behind bl get and bl apply, use BL_API_KEY or
+		// BL_CLIENT_CREDENTIALS when the workspace has no stored login.
+		credentials = environmentCredentials(os.Getenv)
+	}
+	if !credentials.IsValid() {
+		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s', or set BL_API_KEY", workspace)
 	}
 	token, err := tokenForCredentials(ctx, workspace, credentials)
 	if err != nil {
 		return "", "", err
 	}
 	return workspace, token, nil
+}
+
+// environmentCredentials are the credentials set in BL_API_KEY, else
+// BL_CLIENT_CREDENTIALS, or none.
+func environmentCredentials(getenv func(string) string) blaxel.Credentials {
+	if key := strings.TrimSpace(getenv("BL_API_KEY")); key != "" {
+		return blaxel.Credentials{APIKey: key}
+	}
+	if clientCredentials := strings.TrimSpace(getenv("BL_CLIENT_CREDENTIALS")); clientCredentials != "" {
+		return blaxel.Credentials{ClientCredentials: clientCredentials}
+	}
+	return blaxel.Credentials{}
 }

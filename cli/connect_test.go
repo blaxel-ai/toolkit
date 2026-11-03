@@ -111,3 +111,47 @@ func TestSandboxTerminalAuthenticationUsesSelectedWorkspaceAndRefreshedToken(t *
 	require.ErrorContains(t, err, "no workspace selected")
 	assert.Empty(t, token)
 }
+
+func TestSandboxTerminalAuthenticationUsesEnvironmentCredentials(t *testing.T) {
+	previousWorkspace := core.GetWorkspace()
+	previousLoader := loadTerminalCredentials
+	previousHeaders := authHeadersForCredentials
+	t.Cleanup(func() {
+		core.SetWorkspace(previousWorkspace)
+		loadTerminalCredentials = previousLoader
+		authHeadersForCredentials = previousHeaders
+	})
+	core.SetWorkspace("env-workspace")
+	stored := blaxel.Credentials{}
+	loadTerminalCredentials = func(string) (blaxel.Credentials, error) { return stored, nil }
+	authHeadersForCredentials = func(ctx context.Context, credentials blaxel.Credentials, workspace string) (map[string]string, error) {
+		return credentials.AuthHeaders(ctx, workspace)
+	}
+
+	t.Setenv("BL_API_KEY", "env-key")
+	t.Setenv("BL_CLIENT_CREDENTIALS", "")
+	workspace, token, err := sandboxTerminalAuthentication(context.Background())
+	require.NoError(t, err, "BL_API_KEY works without bl login, as for bl get and bl apply")
+	assert.Equal(t, "env-workspace", workspace)
+	assert.Equal(t, "env-key", token)
+
+	stored = blaxel.Credentials{APIKey: "stored-key"}
+	_, token, err = sandboxTerminalAuthentication(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "stored-key", token, "a stored login still comes first")
+
+	stored = blaxel.Credentials{}
+	t.Setenv("BL_API_KEY", "")
+	_, _, err = sandboxTerminalAuthentication(context.Background())
+	require.ErrorContains(t, err, "Please run 'bl login env-workspace', or set BL_API_KEY")
+}
+
+func TestEnvironmentCredentials(t *testing.T) {
+	env := map[string]string{}
+	getenv := func(name string) string { return env[name] }
+	assert.False(t, environmentCredentials(getenv).IsValid())
+	env["BL_CLIENT_CREDENTIALS"] = "client"
+	assert.Equal(t, blaxel.Credentials{ClientCredentials: "client"}, environmentCredentials(getenv))
+	env["BL_API_KEY"] = " key "
+	assert.Equal(t, blaxel.Credentials{APIKey: "key"}, environmentCredentials(getenv), "BL_API_KEY comes first, as in the SDK")
+}
