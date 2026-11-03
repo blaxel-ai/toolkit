@@ -211,3 +211,83 @@ func TestSetupDeviceLoginTerminal(t *testing.T) {
 		})
 	}
 }
+
+// Without a terminal, setup prints the login URL, keeps the login pending and
+// finishes the rest instead of waiting; the next run, or bl login, resumes it.
+func TestSetupWithoutTerminalHandsOffLogin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	for _, name := range []string{"BL_API_KEY", "BL_CLIENT_CREDENTIALS", "BL_WORKSPACE"} {
+		t.Setenv(name, "")
+		require.NoError(t, os.Unsetenv(name))
+	}
+	bin := filepath.Join(home, "bin")
+	require.NoError(t, os.Mkdir(bin, 0755))
+	for _, name := range []string{"open", "xdg-open", "wslview"} {
+		require.NoError(t, os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nexit 1\n"), 0755))
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	const loginURL = "https://console.example.com/device?code=fixture"
+	var devices, tokens atomic.Int32
+	var confirmed atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/login/device":
+			devices.Add(1)
+			_, _ = fmt.Fprintf(w, `{"device_code":"fixture-code","verification_uri_complete":%q,"expires_in":600}`, loginURL)
+		case "/oauth/token":
+			tokens.Add(1)
+			if !confirmed.Load() {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, `{"error":"authorization_pending"}`)
+				return
+			}
+			_, _ = io.WriteString(w, `{"access_token":"fixture-access","refresh_token":"fixture-refresh","expires_in":3600}`)
+		case "/workspaces":
+			_, _ = io.WriteString(w, `[{"name":"solo"}]`)
+		default:
+			_, _ = io.WriteString(w, `{"name":"solo"}`)
+		}
+	}))
+	t.Cleanup(server.Close)
+	baseURL := blaxel.GetBaseURL()
+	t.Cleanup(func() { blaxel.SetBaseURL(baseURL) })
+	t.Setenv("BL_API_URL", server.URL)
+	blaxel.ApplyEnvironmentOverrides()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(home, ".cursor"), 0755))
+	recorder := &setupRecorder{}
+	options := testSetupOptions(t, home, map[string]string{}, recorder)
+	options.login = setupHandOffLogin
+	options.yes = true
+	started := time.Now()
+	require.NoError(t, runSetup(context.Background(), options), "a pending login is not a problem")
+	assert.Less(t, time.Since(started), 10*time.Second, "setup does not wait for the browser")
+	text := recorder.text(t)
+	assert.Contains(t, text, loginURL)
+	assert.Contains(t, text, "○ Log in")
+	assert.Contains(t, text, "pending · finish with bl login")
+	assert.Contains(t, text, "finish logging in after you confirm it in the browser")
+	assert.Len(t, recorder.skillsAgents, 1, "the skills are installed")
+	assert.FileExists(t, filepath.Join(home, ".cursor", "mcp.json"), "the MCP servers are added")
+	assert.FileExists(t, filepath.Join(home, ".blaxel", "pending-login.json"), "bl login can resume the login")
+	assert.Equal(t, int32(1), devices.Load())
+	cfg, err := blaxel.LoadConfig()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Workspaces, "nothing is saved before the user confirms")
+
+	confirmed.Store(true)
+	recorder.output = nil
+	options = testSetupOptions(t, home, map[string]string{}, recorder)
+	options.login = setupHandOffLogin
+	options.yes = true
+	require.NoError(t, runSetup(context.Background(), options))
+	assert.Equal(t, int32(1), devices.Load(), "the next run resumes the same login")
+	assert.NoFileExists(t, filepath.Join(home, ".blaxel", "pending-login.json"))
+	cfg, err = blaxel.LoadConfig()
+	require.NoError(t, err)
+	assert.Equal(t, "solo", cfg.Context.Workspace)
+	assert.Contains(t, recorder.text(t), "logged in to solo")
+}

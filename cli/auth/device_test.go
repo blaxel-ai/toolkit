@@ -346,7 +346,7 @@ func TestLoginWithoutTerminalHandsOffAndResumes(t *testing.T) {
 	out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
 	require.ErrorIs(t, err, ErrLoginPending, "an unconfirmed login returns at once")
 	assert.True(t, strings.HasPrefix(out, "ℹ Visit this URL to finish logging in:\n"+deviceLoginURL+"\n"), "the URL comes first, got %q", out)
-	assert.Contains(t, out, "run bl login again to finish")
+	assert.Contains(t, out, "run bl login to finish")
 	assert.Equal(t, 1, *tokens, "it checks once and does not wait")
 	assertNoDeviceLoginSaved(t)
 
@@ -375,7 +375,7 @@ func TestLoginWithoutTerminalResumesTheNamedWorkspace(t *testing.T) {
 	var err error
 	out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "solo", false) })
 	require.ErrorIs(t, err, ErrLoginPending)
-	assert.Contains(t, out, "run bl login solo again to finish")
+	assert.Contains(t, out, "run bl login solo to finish")
 
 	confirmed = true
 	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
@@ -383,6 +383,28 @@ func TestLoginWithoutTerminalResumesTheNamedWorkspace(t *testing.T) {
 	current, err := blaxel.CurrentContext()
 	require.NoError(t, err)
 	assert.Equal(t, "solo", current.Workspace)
+}
+
+// A login handed off without a terminal (bl setup in a coding agent) is
+// finished by bl login in a terminal, not replaced by a new one.
+func TestLoginInTerminalFinishesThePendingLogin(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	confirmed := false
+	devices, _ := pendingLoginServer(t, &confirmed)
+	var err error
+	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.ErrorIs(t, err, ErrLoginPending)
+
+	confirmed = true
+	out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "", true) })
+	require.NoError(t, err)
+	assert.Equal(t, 1, *devices, "no second login starts")
+	assert.Contains(t, out, "Finishing the login started earlier")
+	current, err := blaxel.CurrentContext()
+	require.NoError(t, err)
+	assert.Equal(t, "solo", current.Workspace)
+	_, ok := loadPendingLogin(time.Now())
+	assert.False(t, ok, "the finished login is no longer pending")
 }
 
 func TestExpiredPendingLoginStartsOver(t *testing.T) {

@@ -211,7 +211,7 @@ func TestRunSetupDefaultsSetUpDetectedAgents(t *testing.T) {
 	assert.Contains(t, cursor, `"command": "/opt/blaxel/bin/bl"`)
 	assert.Contains(t, cursor, `"url": "https://docs.blaxel.ai/mcp"`)
 	assert.NoFileExists(t, filepath.Join(home, ".pi", "agent", "mcp.json"), "agents without MCP support get the skills only")
-	assert.Empty(t, recorder.logins, "the browser login needs a terminal")
+	assert.Equal(t, []string{""}, recorder.logins, "without a terminal, setup hands off the browser login")
 
 	// Running again changes nothing.
 	before := readTestFile(t, filepath.Join(home, ".cursor", "mcp.json"))
@@ -222,11 +222,19 @@ func TestRunSetupDefaultsSetUpDetectedAgents(t *testing.T) {
 func TestRunSetupLogsInOnlyWhenNeeded(t *testing.T) {
 	home := t.TempDir()
 	recorder := &setupRecorder{}
+	for _, env := range []map[string]string{{"CI": "true"}, {"BL_API_KEY": "key"}, {"BL_CLIENT_CREDENTIALS": "credentials"}, {installerEnv: "1"}} {
+		// Without a terminal: CI, credentials in the environment, or the
+		// installer, which runs bl login itself.
+		options := testSetupOptions(t, home, env, recorder)
+		options.yes = true
+		require.NoError(t, runSetup(context.Background(), options))
+		assert.Empty(t, recorder.logins, "no login with %v", env)
+	}
 	options := testSetupOptions(t, home, map[string]string{}, recorder)
 	options.yes = true
-	options.interactive = false
 	require.NoError(t, runSetup(context.Background(), options))
-	assert.Empty(t, recorder.logins)
+	assert.Equal(t, []string{""}, recorder.logins, "without a terminal, setup hands off the browser login")
+	recorder.logins = nil
 
 	// In a terminal with --yes, setup logs in after setting up the agents.
 	options.interactive = true
