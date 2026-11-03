@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,4 +183,38 @@ func TestWorkspacesSwitchRejectsUnknownWorkspaceHelper(t *testing.T) {
 	cmd := ListOrSetWorkspacesCmd()
 	cmd.SetArgs([]string{"switch", "prod"})
 	require.NoError(t, cmd.Execute())
+}
+
+func TestWorkspacesSwitchWithEnvCredentials(t *testing.T) {
+	home := writeWorkspaceConfig(t, "")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("BL_CLIENT_CREDENTIALS", "")
+
+	var checked []string
+	original := checkWorkspaceAccess
+	t.Cleanup(func() { checkWorkspaceAccess = original })
+	checkWorkspaceAccess = func(name string, creds blaxel.Credentials) (blaxel.Workspace, error) {
+		checked = append(checked, name+"/"+creds.APIKey)
+		if name == "ci" {
+			return blaxel.Workspace{Name: "ci"}, nil
+		}
+		return blaxel.Workspace{}, errors.New("403 Forbidden")
+	}
+
+	t.Setenv("BL_API_KEY", "")
+	assert.False(t, envCredentialsReach("ci"), "no env credentials, no API call")
+	assert.Empty(t, checked)
+
+	t.Setenv("BL_API_KEY", "key")
+	assert.False(t, envCredentialsReach("other"))
+	assert.True(t, envCredentialsReach("ci"))
+	assert.Equal(t, []string{"other/key", "ci/key"}, checked)
+
+	cmd := ListOrSetWorkspacesCmd()
+	cmd.SetArgs([]string{"ci"})
+	require.NoError(t, cmd.Execute())
+	ctx, err := blaxel.CurrentContext()
+	require.NoError(t, err)
+	assert.Equal(t, "ci", ctx.Workspace)
 }

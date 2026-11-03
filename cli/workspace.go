@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -41,8 +42,9 @@ All commands like 'bl deploy', 'bl get', 'bl run' use the current workspace
 unless you override with the --workspace flag.
 
 To switch workspaces, provide the workspace name as an argument. It must be
-a workspace you are logged in to (run 'bl login' to add one); an unknown name
-is rejected and the current workspace stays as it was.
+a workspace you are logged in to (run 'bl login' to add one), or one that
+BL_API_KEY / BL_CLIENT_CREDENTIALS can access; an unknown name is rejected
+and the current workspace stays as it was.
 To list all authenticated workspaces, run without arguments.`,
 		Example: `  # List all authenticated workspaces
   bl workspaces
@@ -77,6 +79,9 @@ To list all authenticated workspaces, run without arguments.`,
 				cfg, err := blaxel.LoadConfig()
 				if err == nil {
 					err = validateWorkspaceSwitch(workspaceName, args[1:], cfg)
+				}
+				if err != nil && envCredentialsReach(workspaceName) {
+					err = nil
 				}
 				if err != nil {
 					err = core.MarkExpectedError(err, core.CLIErrorNotFound)
@@ -143,6 +148,21 @@ func validateWorkspaceSwitch(workspaceName string, extraArgs []string, cfg blaxe
 			strings.Join(names, ", "), workspaceName)
 	}
 	return errors.New(msg.String())
+}
+
+// checkWorkspaceAccess is a variable so tests can stub the API call.
+var checkWorkspaceAccess = CheckWorkspaceAccess
+
+// envCredentialsReach reports whether BL_API_KEY or BL_CLIENT_CREDENTIALS can
+// read the workspace. Commands use those without a saved login, so a workspace
+// they can reach is a valid switch target even when it is not in the config.
+func envCredentialsReach(workspaceName string) bool {
+	creds := blaxel.Credentials{APIKey: os.Getenv("BL_API_KEY"), ClientCredentials: os.Getenv("BL_CLIENT_CREDENTIALS")}
+	if creds.APIKey == "" && creds.ClientCredentials == "" {
+		return false
+	}
+	_, err := checkWorkspaceAccess(workspaceName, creds)
+	return err == nil
 }
 
 func CheckWorkspaceAccess(workspaceName string, credentials blaxel.Credentials) (blaxel.Workspace, error) {
