@@ -322,9 +322,63 @@ func TestTrackingPromptCommandExemptions(t *testing.T) {
 	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "--skip-version-warning", "upgrade", "--force"}))
 	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "--workspace", "upgrade", "get"}))
 
+	assert.True(t, isTrackingPromptCommandExempt([]string{"bl", "-v"}))
+
 	assert.False(t, isTrackingPromptCommandExempt([]string{"bl"}))
-	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "-v"}))
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "-v", "get"}))
+	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "get", "-v"}))
 	assert.False(t, isTrackingPromptCommandExempt([]string{"bl", "get"}))
+}
+
+func TestRootVersionShorthand(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		args    []string
+		version bool
+	}{
+		{"bare -v", []string{"-v"}, true},
+		{"with global flags", []string{"-o", "json", "-v", "-w", "dev"}, true},
+		{"no flags", nil, false},
+		{"long verbose", []string{"--verbose"}, false},
+		{"verbose before a command", []string{"-v", "get", "agents"}, false},
+		{"verbose after a command", []string{"get", "agents", "-v"}, false},
+		{"unknown command", []string{"-v", "nope"}, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.version, isRootVersionShorthand(tt.args))
+		})
+	}
+	assert.Equal(t, []string{"-o", "json", "--version"}, versionShorthandArgs([]string{"-o", "json", "-v"}))
+}
+
+func TestRootVersionShorthandPrintsVersionAndKeepsVerbose(t *testing.T) {
+	newRoot := func(verboseSeen *bool) (*cobra.Command, *bytes.Buffer) {
+		root := &cobra.Command{Use: "bl", Version: "1.2.3"}
+		root.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
+		root.PersistentFlags().StringP("output", "o", "", "Output format")
+		root.InitDefaultVersionFlag()
+		root.AddCommand(&cobra.Command{Use: "get", Run: func(cmd *cobra.Command, args []string) {
+			*verboseSeen, _ = cmd.Flags().GetBool("verbose")
+		}})
+		var out bytes.Buffer
+		root.SetOut(&out)
+		return root, &out
+	}
+	var verboseSeen bool
+	root, out := newRoot(&verboseSeen)
+	args := []string{"-v", "-o", "json"}
+	assert.True(t, isRootVersionShorthand(args))
+	root.SetArgs(versionShorthandArgs(args))
+	assert.NoError(t, root.Execute())
+	assert.Equal(t, "bl version 1.2.3\n", out.String())
+
+	root, out = newRoot(&verboseSeen)
+	args = []string{"get", "-v"}
+	assert.False(t, isRootVersionShorthand(args))
+	root.SetArgs(args)
+	assert.NoError(t, root.Execute())
+	assert.True(t, verboseSeen)
+	assert.Empty(t, out.String())
 }
 
 func TestReadWriteVersionCache(t *testing.T) {
