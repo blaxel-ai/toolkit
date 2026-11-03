@@ -667,16 +667,21 @@ func removeClaudeMCPServer(ctx context.Context, e MCPEnv, name string) error {
 	return nil
 }
 
+// codexSetupComment ends the header of each table setup writes, so a person or
+// agent reading config.toml finds how to remove it. Uninstall matches the
+// table by its values, so the comment does not need to be there.
+const codexSetupComment = " # Added by bl setup. Remove with: bl uninstall"
+
 // codexServerTable is the [mcp_servers.NAME] table setup writes.
 func codexServerTable(server MCPServer) (string, error) {
 	if !server.local() {
-		return fmt.Sprintf("[mcp_servers.%s]\nurl = %s\n", server.Name, tomlString(server.URL)), nil
+		return fmt.Sprintf("[mcp_servers.%s]%s\nurl = %s\n", server.Name, codexSetupComment, tomlString(server.URL)), nil
 	}
 	args, err := json.Marshal(server.Command[1:])
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("[mcp_servers.%s]\ncommand = %s\nargs = %s\n", server.Name, tomlString(server.Command[0]), args), nil
+	return fmt.Sprintf("[mcp_servers.%s]%s\ncommand = %s\nargs = %s\n", server.Name, codexSetupComment, tomlString(server.Command[0]), args), nil
 }
 
 // tomlString quotes a string as a TOML basic string. JSON string escapes are
