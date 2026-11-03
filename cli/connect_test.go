@@ -77,15 +77,15 @@ func TestConnectCmdHasSandboxSubcommand(t *testing.T) {
 
 func TestSandboxTerminalAuthenticationUsesSelectedWorkspaceAndRefreshedToken(t *testing.T) {
 	previousWorkspace := core.GetWorkspace()
-	previousLoader := loadTerminalCredentials
+	previousLoader := loadStoredCredentials
 	previousHeaders := authHeadersForCredentials
 	t.Cleanup(func() {
 		core.SetWorkspace(previousWorkspace)
-		loadTerminalCredentials = previousLoader
+		loadStoredCredentials = previousLoader
 		authHeadersForCredentials = previousHeaders
 	})
 	core.SetWorkspace("selected-workspace")
-	loadTerminalCredentials = func(workspace string) (blaxel.Credentials, error) {
+	loadStoredCredentials = func(workspace string) (blaxel.Credentials, error) {
 		require.Equal(t, "selected-workspace", workspace)
 		return blaxel.Credentials{AccessToken: "old-token", RefreshToken: "refresh-token"}, nil
 	}
@@ -94,55 +94,55 @@ func TestSandboxTerminalAuthenticationUsesSelectedWorkspaceAndRefreshedToken(t *
 		require.Equal(t, "old-token", credentials.AccessToken)
 		return map[string]string{"X-Blaxel-Authorization": "Bearer refreshed-token"}, nil
 	}
-	workspace, token, err := sandboxTerminalAuthentication(context.Background())
+	workspace, token, err := sandboxAuthentication(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "selected-workspace", workspace)
 	assert.Equal(t, "refreshed-token", token)
 
-	loadTerminalCredentials = func(string) (blaxel.Credentials, error) {
+	loadStoredCredentials = func(string) (blaxel.Credentials, error) {
 		return blaxel.Credentials{}, fmt.Errorf("unreadable credentials")
 	}
-	_, token, err = sandboxTerminalAuthentication(context.Background())
+	_, token, err = sandboxAuthentication(context.Background())
 	require.ErrorContains(t, err, "unreadable credentials")
 	assert.Empty(t, token)
 
 	core.SetWorkspace("")
-	_, token, err = sandboxTerminalAuthentication(context.Background())
+	_, token, err = sandboxAuthentication(context.Background())
 	require.ErrorContains(t, err, "no workspace selected")
 	assert.Empty(t, token)
 }
 
 func TestSandboxTerminalAuthenticationUsesEnvironmentCredentials(t *testing.T) {
 	previousWorkspace := core.GetWorkspace()
-	previousLoader := loadTerminalCredentials
+	previousLoader := loadStoredCredentials
 	previousHeaders := authHeadersForCredentials
 	t.Cleanup(func() {
 		core.SetWorkspace(previousWorkspace)
-		loadTerminalCredentials = previousLoader
+		loadStoredCredentials = previousLoader
 		authHeadersForCredentials = previousHeaders
 	})
 	core.SetWorkspace("env-workspace")
 	stored := blaxel.Credentials{}
-	loadTerminalCredentials = func(string) (blaxel.Credentials, error) { return stored, nil }
+	loadStoredCredentials = func(string) (blaxel.Credentials, error) { return stored, nil }
 	authHeadersForCredentials = func(ctx context.Context, credentials blaxel.Credentials, workspace string) (map[string]string, error) {
 		return credentials.AuthHeaders(ctx, workspace)
 	}
 
 	t.Setenv("BL_API_KEY", "env-key")
 	t.Setenv("BL_CLIENT_CREDENTIALS", "")
-	workspace, token, err := sandboxTerminalAuthentication(context.Background())
+	workspace, token, err := sandboxAuthentication(context.Background())
 	require.NoError(t, err, "BL_API_KEY works without bl login, as for bl get and bl apply")
 	assert.Equal(t, "env-workspace", workspace)
 	assert.Equal(t, "env-key", token)
 
 	stored = blaxel.Credentials{APIKey: "stored-key"}
-	_, token, err = sandboxTerminalAuthentication(context.Background())
+	_, token, err = sandboxAuthentication(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "stored-key", token, "a stored login still comes first")
 
 	stored = blaxel.Credentials{}
 	t.Setenv("BL_API_KEY", "")
-	_, _, err = sandboxTerminalAuthentication(context.Background())
+	_, _, err = sandboxAuthentication(context.Background())
 	require.ErrorContains(t, err, "Please run 'bl login env-workspace', or set BL_API_KEY")
 }
 
@@ -154,4 +154,26 @@ func TestEnvironmentCredentials(t *testing.T) {
 	assert.Equal(t, blaxel.Credentials{ClientCredentials: "client"}, environmentCredentials(getenv))
 	env["BL_API_KEY"] = " key "
 	assert.Equal(t, blaxel.Credentials{APIKey: "key"}, environmentCredentials(getenv), "BL_API_KEY comes first, as in the SDK")
+}
+
+// bl token and bl drive read credentials the same way as bl connect.
+func TestWorkspaceCredentialsFallsBackToTheEnvironment(t *testing.T) {
+	previousLoader := loadStoredCredentials
+	t.Cleanup(func() { loadStoredCredentials = previousLoader })
+	stored := blaxel.Credentials{}
+	loadStoredCredentials = func(string) (blaxel.Credentials, error) { return stored, nil }
+	t.Setenv("BL_API_KEY", "")
+	t.Setenv("BL_CLIENT_CREDENTIALS", "client")
+	credentials, err := workspaceCredentials("env-workspace")
+	require.NoError(t, err)
+	assert.Equal(t, blaxel.Credentials{ClientCredentials: "client"}, credentials)
+
+	stored = blaxel.Credentials{AccessToken: "stored-token"}
+	credentials, err = workspaceCredentials("env-workspace")
+	require.NoError(t, err)
+	assert.Equal(t, "stored-token", credentials.AccessToken, "a stored login comes first")
+
+	loadStoredCredentials = func(string) (blaxel.Credentials, error) { return blaxel.Credentials{}, fmt.Errorf("unreadable") }
+	_, err = workspaceCredentials("env-workspace")
+	require.ErrorContains(t, err, "unreadable", "a broken config is reported, not hidden by the environment")
 }

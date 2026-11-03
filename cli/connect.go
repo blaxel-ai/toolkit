@@ -66,7 +66,7 @@ Examples:
 				core.ExitWithError(err)
 			}
 
-			workspace, token, err := sandboxTerminalAuthentication(ctx)
+			workspace, token, err := sandboxAuthentication(ctx)
 			if err != nil {
 				err = core.MarkExpectedError(err, core.CLIErrorAuthentication)
 				core.PrintError("Connect", err)
@@ -140,21 +140,33 @@ Examples:
 	return cmd
 }
 
-var loadTerminalCredentials = blaxel.LoadCredentials
+var loadStoredCredentials = blaxel.LoadCredentials
 
-func sandboxTerminalAuthentication(ctx context.Context) (string, string, error) {
+// workspaceCredentials is the stored login for the workspace or, like the API
+// client behind bl get and bl apply, BL_API_KEY or BL_CLIENT_CREDENTIALS when
+// the workspace has none.
+func workspaceCredentials(workspace string) (blaxel.Credentials, error) {
+	credentials, err := loadStoredCredentials(workspace)
+	if err != nil {
+		return blaxel.Credentials{}, err
+	}
+	if !credentials.IsValid() {
+		credentials = environmentCredentials(os.Getenv)
+	}
+	return credentials, nil
+}
+
+// sandboxAuthentication is the selected workspace (-w, BL_WORKSPACE, or the
+// current context) and a bearer token for its sandboxes, for bl connect and
+// bl drive.
+func sandboxAuthentication(ctx context.Context) (string, string, error) {
 	workspace := core.GetWorkspace()
 	if workspace == "" {
 		return "", "", fmt.Errorf("no workspace selected. Please run 'bl login' first")
 	}
-	credentials, err := loadTerminalCredentials(workspace)
+	credentials, err := workspaceCredentials(workspace)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to load credentials for workspace %q: %w", workspace, err)
-	}
-	if !credentials.IsValid() {
-		// Like the API client behind bl get and bl apply, use BL_API_KEY or
-		// BL_CLIENT_CREDENTIALS when the workspace has no stored login.
-		credentials = environmentCredentials(os.Getenv)
 	}
 	if !credentials.IsValid() {
 		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s', or set BL_API_KEY", workspace)
