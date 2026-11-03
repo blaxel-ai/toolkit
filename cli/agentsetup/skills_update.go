@@ -46,6 +46,10 @@ type SkillsUpdateState struct {
 	Skip                string            `json:"skip,omitempty"`
 	SkippedSkills       []string          `json:"skippedSkills,omitempty"`
 	Failure             string            `json:"failure,omitempty"`
+	// Uninstalled is set by bl uninstall: nothing installs or updates the
+	// skills automatically until bl setup clears it. It is kept apart from
+	// AutoUpdate, the user's own choice, which both commands leave as it is.
+	Uninstalled bool `json:"uninstalled,omitempty"`
 }
 
 func skillsUpdateStatePath(home string) string {
@@ -103,6 +107,9 @@ func invalidateSkillsBundleRevision(home string, changed []string) error {
 func SkillsUpdateDisabled(state SkillsUpdateState, env func(string) string) string {
 	if SkillsInstallDisabled(env) {
 		return "disabled by BL_INSTALL_SKILLS or CI"
+	}
+	if state.Uninstalled {
+		return "disabled by bl uninstall until bl setup"
 	}
 	if state.AutoUpdate != nil && !*state.AutoUpdate {
 		return "disabled by saved autoupdate preference"
@@ -313,19 +320,45 @@ func UpdateSkills(ctx context.Context, out io.Writer) error {
 }
 
 // SetSkillsAutoUpdate saves this machine's automatic skills update preference.
+// It is the user's own choice, which bl setup keeps. After bl uninstall, the
+// skills stay off until bl setup either way.
 func SetSkillsAutoUpdate(ctx context.Context, enabled bool) error {
 	updater, err := DefaultSkillsUpdater(core.GetVersion())
 	if err != nil {
 		return err
 	}
+	return changeSkillsUpdateState(ctx, updater.home, func(state *SkillsUpdateState) {
+		state.AutoUpdate = &enabled
+	})
+}
+
+// SkillsAutoUpdateOffByUninstall reports whether bl uninstall turned automatic
+// skills installs and updates off, and bl setup has not turned them back on.
+func SkillsAutoUpdateOffByUninstall(home string) bool {
+	state, err := ReadSkillsUpdateState(home)
+	return err == nil && state.Uninstalled
+}
+
+// ResumeSkillsAutoUpdate turns automatic skills updates back on when bl
+// uninstall turned them off. A user's bl skills autoupdate off stays.
+func ResumeSkillsAutoUpdate(ctx context.Context, home string) error {
+	if !SkillsAutoUpdateOffByUninstall(home) {
+		return nil
+	}
+	return changeSkillsUpdateState(ctx, home, func(state *SkillsUpdateState) {
+		state.Uninstalled = false
+	})
+}
+
+func changeSkillsUpdateState(ctx context.Context, home string, change func(*SkillsUpdateState)) error {
 	ctx, cancel := context.WithTimeout(ctx, skillsUpdateTimeout)
 	defer cancel()
-	return withSkillsUpdateLock(ctx, updater.home, true, func() error {
-		state, err := ReadSkillsUpdateState(updater.home)
+	return withSkillsUpdateLock(ctx, home, true, func() error {
+		state, err := ReadSkillsUpdateState(home)
 		if err != nil {
 			return err
 		}
-		state.AutoUpdate = &enabled
-		return WriteSkillsUpdateState(updater.home, state)
+		change(&state)
+		return WriteSkillsUpdateState(home, state)
 	})
 }

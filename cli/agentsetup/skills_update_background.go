@@ -50,15 +50,15 @@ func StartSkillsUpdateWorker(version string) {
 }
 
 // skillsUpdateWorkerSkipped reports commands that handle skills themselves or
-// must not start a worker: shell completion, bl mcp, skills, setup, upgrade
-// and docs. The command is resolved as cobra will, so a flag value or argument
+// must not start a worker: shell completion, bl mcp, skills, setup, upgrade,
+// uninstall and docs. The command is resolved as cobra will, so a flag value or argument
 // such as `bl get skills` or `-w mcp` still gets the scheduled check.
 func skillsUpdateWorkerSkipped(args []string) bool {
 	if core.IsShellCompletionRequest(args) {
 		return true
 	}
-	switch core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade", "docs") {
-	case "mcp", "skills", "setup", "upgrade", "docs":
+	switch core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade", "uninstall", "docs") {
+	case "mcp", "skills", "setup", "upgrade", "uninstall", "docs":
 		return true
 	}
 	return false

@@ -293,10 +293,15 @@ setup_path() {
     return
   fi
   mkdir -p "$(dirname "$RC_FILE")"
+  # Say how to undo it where people and agents look, when this bl can.
+  undo=""
+  if "$BINDIR/$BINARY_SHORT_NAME" uninstall --help >/dev/null 2>&1; then
+    undo="# To remove Blaxel, run: bl uninstall\n"
+  fi
   if [ "$SHELL_NAME" = "fish" ]; then
-    printf '\n# Added by the Blaxel installer\nset -gx PATH %s $PATH\n' "$BINDIR" >> "$RC_FILE"
+    printf "\n# Added by the Blaxel installer\n${undo}set -gx PATH %s \$PATH\n" "$BINDIR" >> "$RC_FILE"
   else
-    printf '\n# Added by the Blaxel installer\nexport PATH="%s:$PATH"\n' "$BINDIR" >> "$RC_FILE"
+    printf "\n# Added by the Blaxel installer\n${undo}export PATH=\"%s:\$PATH\"\n" "$BINDIR" >> "$RC_FILE"
   fi
   SHELL_DONE="bl on PATH ($(display_path "$RC_FILE"))" RELOAD="source $(display_path "$RC_FILE")"
 }
