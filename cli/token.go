@@ -38,7 +38,9 @@ Authentication Methods:
 - Client Credentials: Returns the access token (refreshed if needed)
 
 The token is retrieved from your stored credentials and will be automatically
-refreshed if it's expired or about to expire.
+refreshed if it's expired or about to expire. Without a stored login for the
+workspace, it comes from BL_API_KEY, else BL_CLIENT_CREDENTIALS, with the
+workspace from BL_WORKSPACE.
 
 Examples:
 
@@ -90,8 +92,8 @@ export TOKEN=$(bl token)
 				core.ExitWithError(err)
 			}
 
-			// Load credentials for the workspace
-			credentials, err := blaxel.LoadCredentials(workspace)
+			// The stored login, else BL_API_KEY or BL_CLIENT_CREDENTIALS.
+			credentials, err := workspaceCredentials(workspace)
 			if err != nil {
 				err := fmt.Errorf("failed to load credentials for workspace '%s': %w", workspace, err)
 				core.PrintError("token", err)
@@ -99,7 +101,7 @@ export TOKEN=$(bl token)
 			}
 			if !credentials.IsValid() {
 				err := core.MarkExpectedError(
-					fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s'", workspace, workspace),
+					fmt.Errorf("no valid credentials found for workspace '%s'. Please run 'bl login %s', or set BL_API_KEY", workspace, workspace),
 					core.CLIErrorAuthentication,
 				)
 				core.PrintError("token", err)
