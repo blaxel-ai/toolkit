@@ -32,7 +32,9 @@ use it, or else the first of your workspaces by name, and says which one. The
 browser login prints the login URL on its own line and exits without waiting
 (exit code 1, since you are not logged in yet). Confirm the login in the
 browser, then run the same bl login again: it resumes the pending login, waits
-up to 30 seconds for the confirmation, and saves it.
+up to 30 seconds for the confirmation, and saves it. bl setup without a
+terminal starts the browser login the same way. In a terminal, bl login
+finishes a pending login instead of starting a new one.
 
 Without a workspace argument, if browser login succeeds but your account has
 no workspaces, bl login opens the Console so you can create or join one.

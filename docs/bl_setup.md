@@ -22,9 +22,12 @@ that login through bl mcp, so they need no sign-in of their own.
 
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
-terminal, setup installs the same defaults and skips the browser login, so
-run bl login afterwards. The usage and error reports toggle controls the saved
-tracking preference. New setup plans keep reports selected by default; an
+terminal, such as a coding agent running it, setup installs the same defaults
+and does not wait for the browser: it prints the login URL, keeps the login
+pending and exits, and bl login finishes it once you confirm it in the
+browser. Without a terminal, setup starts no login in CI or when BL_API_KEY
+or BL_CLIENT_CREDENTIALS is set. The usage and error reports toggle controls
+the saved tracking preference. New setup plans keep reports selected by default; an
 existing saved choice is retained. Anonymous usage capture is disabled in CI,
 by any nonempty DO_NOT_TRACK, or by BL_INSTALL_TRACKING=false. Error reports
 keep the SDK's existing DO_NOT_TRACK semantics.
