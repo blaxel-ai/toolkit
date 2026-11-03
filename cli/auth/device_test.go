@@ -418,6 +418,19 @@ func TestExpiredPendingLoginStartsOver(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist, "an expired pending login is removed")
 }
 
+// A pending login is finished only against the API it was started with.
+func TestPendingLoginForAnotherAPIStartsOver(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	pending := pendingLogin{DeviceCode: "code", URL: "https://app.blaxel.ai/device", Expires: time.Now().Add(time.Minute), TokenURL: blaxel.BuildOAuthTokenURL()}
+	require.NoError(t, savePendingLogin(pending))
+	_, ok := loadPendingLogin(time.Now())
+	assert.True(t, ok)
+	pending.TokenURL = "https://elsewhere.example.com/v0/oauth/token"
+	require.NoError(t, savePendingLogin(pending))
+	_, ok = loadPendingLogin(time.Now())
+	assert.False(t, ok, "a login started against another API is dropped")
+}
+
 // A cancel or a failed check after the URL is shown keeps the login pending,
 // since the user may be confirming it; only the server refusing it clears it.
 func TestHandOffKeepsThePendingLoginUntilRefused(t *testing.T) {

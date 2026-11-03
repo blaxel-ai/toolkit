@@ -232,7 +232,8 @@ func handOffBrowserLogin(ctx context.Context, workspace string, resumeAttempts i
 	if deviceLogin.ExpiresIn > 0 {
 		lifetime = time.Duration(deviceLogin.ExpiresIn) * time.Second
 	}
-	pending := pendingLogin{DeviceCode: deviceLogin.DeviceCode, URL: deviceLogin.VerificationURIComplete, Workspace: workspace, Expires: time.Now().Add(lifetime)}
+	pending := pendingLogin{DeviceCode: deviceLogin.DeviceCode, URL: deviceLogin.VerificationURIComplete, Workspace: workspace,
+		Expires: time.Now().Add(lifetime), TokenURL: tokenURL}
 	if opened {
 		say.info("Opened the login page in your browser. If it did not open, visit this URL:")
 	} else {

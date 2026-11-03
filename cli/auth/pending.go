@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // ErrLoginPending means a login without a terminal printed its URL and
@@ -19,6 +21,10 @@ type pendingLogin struct {
 	URL        string    `json:"url"`
 	Workspace  string    `json:"workspace,omitempty"`
 	Expires    time.Time `json:"expires"`
+	// TokenURL is where the device code is redeemed. A login started against
+	// one API is never finished against another, such as one a project's
+	// BL_API_URL selects later.
+	TokenURL string `json:"token_url"`
 }
 
 func pendingLoginPath() (string, error) {
@@ -29,7 +35,8 @@ func pendingLoginPath() (string, error) {
 	return filepath.Join(home, ".blaxel", "pending-login.json"), nil
 }
 
-// loadPendingLogin returns the pending login, if one exists and has not expired.
+// loadPendingLogin returns the pending login, if one exists, has not expired
+// and was started against the API in use now.
 func loadPendingLogin(now time.Time) (pendingLogin, bool) {
 	path, err := pendingLoginPath()
 	if err != nil {
@@ -40,7 +47,8 @@ func loadPendingLogin(now time.Time) (pendingLogin, bool) {
 		return pendingLogin{}, false
 	}
 	var pending pendingLogin
-	if json.Unmarshal(data, &pending) != nil || pending.DeviceCode == "" || pending.URL == "" || !now.Before(pending.Expires) {
+	if json.Unmarshal(data, &pending) != nil || pending.DeviceCode == "" || pending.URL == "" || !now.Before(pending.Expires) ||
+		pending.TokenURL != blaxel.BuildOAuthTokenURL() {
 		clearPendingLogin()
 		return pendingLogin{}, false
 	}
