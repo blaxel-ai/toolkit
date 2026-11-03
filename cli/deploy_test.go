@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -1291,6 +1292,8 @@ func TestDeployFailedSubmissionIsAPlainErrorWithOrWithoutWait(t *testing.T) {
 		d := Deployment{name: "test", cwd: t.TempDir(), blaxelDeployments: []core.Result{{Kind: "Agent", Metadata: map[string]any{"name": "test"}, Spec: map[string]any{}}}}
 		err := d.applyNonInteractive(wait)
 		require.ErrorContains(t, err, "failed to apply Agent/test")
+		require.True(t, core.IsExpectedCLIError(err),
+			"a backend-reported apply failure is operational, not a CLI defect, so it must not be Sentry-reported")
 		require.Empty(t, d.observations, "nothing to wait for after a failed submission")
 		require.False(t, d.printFailureDiagnostics(), "the plain PrintError path is used")
 		output := captureDeployStdout(t, func() { d.printStructuredOutput("json", time.Now(), true, err) })
@@ -1299,6 +1302,54 @@ func TestDeployFailedSubmissionIsAPlainErrorWithOrWithoutWait(t *testing.T) {
 		require.NotContains(t, output, `"note"`)
 	}
 	require.EqualValues(t, 1, reads.Load(), "only the wait run read the baseline")
+}
+
+func TestDeployResourceFailureErrorsAreExpected(t *testing.T) {
+	// A resource that the backend reports as failed during `bl deploy` is an
+	// operational outcome (bad manifest, quota, permission, backend outage), not
+	// a defect in the CLI. Both the non-interactive Apply() path and the
+	// interactive ApplyInteractive() path must classify it as expected so it is
+	// not reported to crash tracking, while keeping the user-facing message.
+	t.Run("applyResultFailureError", func(t *testing.T) {
+		err := applyResultFailureError("Agent", "test", "quota exceeded")
+		require.EqualError(t, err, "failed to apply Agent/test: quota exceeded")
+		require.True(t, core.IsExpectedCLIError(err))
+		// Classification must survive the outer wrap added by the deploy command.
+		require.True(t, core.IsExpectedCLIError(
+			fmt.Errorf("error applying blaxel deployment: %w", err)))
+	})
+
+	t.Run("applyResultFailureError defaults an empty detail", func(t *testing.T) {
+		err := applyResultFailureError("Function", "fn", "")
+		require.EqualError(t, err, "failed to apply Function/fn: apply operation failed")
+		require.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("interactiveResourceFailureError without a cause", func(t *testing.T) {
+		err := interactiveResourceFailureError("Job", "job", nil)
+		require.EqualError(t, err, "deployment failed for Job/job without error detail")
+		require.True(t, core.IsExpectedCLIError(err))
+	})
+
+	t.Run("interactiveResourceFailureError preserves its cause", func(t *testing.T) {
+		cause := errors.New("rollout rejected")
+		err := interactiveResourceFailureError("Sandbox", "sbx", cause)
+		require.EqualError(t, err, "deployment failed for Sandbox/sbx: rollout rejected")
+		require.ErrorIs(t, err, cause)
+		require.True(t, core.IsExpectedCLIError(err))
+		require.True(t, core.IsExpectedCLIError(
+			fmt.Errorf("error applying blaxel deployment: %w", err)))
+	})
+
+	t.Run("the unmarked equivalents remain reportable", func(t *testing.T) {
+		// Guard: proves the MarkExpectedError wrapping is load-bearing. The plain
+		// fmt.Errorf forms these helpers replaced were classified as internal and
+		// reported to crash tracking.
+		require.False(t, core.IsExpectedCLIError(
+			fmt.Errorf("failed to apply %s/%s: %s", "Agent", "test", "quota exceeded")))
+		require.False(t, core.IsExpectedCLIError(
+			fmt.Errorf("deployment failed for %s/%s without error detail", "Job", "job")))
+	})
 }
 
 func TestDeployWaitDoesNotInventBuildWhenApplyReturnsNoUpload(t *testing.T) {
