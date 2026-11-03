@@ -12,16 +12,16 @@ Deploy your Blaxel project to the cloud.
 
 This command packages your code, builds a container image, and deploys it
 to your workspace. The deployment process includes:
-1. Reading configuration from blaxel.toml
+1. Reading configuration from blaxel.toml (or the --config file)
 2. Packaging source code (respects .blaxelignore)
 3. Building container image with your runtime and dependencies
 4. Uploading to Blaxel's container registry
 5. Creating or updating the resource in your workspace
 6. Streaming build and deployment logs (interactive mode)
 
-A blaxel.toml configuration file is required. By default, the command looks
-for it in the current directory. Use -d to specify a subdirectory containing
-the blaxel.toml (useful for monorepo setups).
+The command reads its configuration from blaxel.toml, or from the file passed
+with --config. By default, it looks for that file in the current directory. Use
+-d to specify a subdirectory containing it (useful for monorepo setups).
 
 Use --dockerfile to select a Dockerfile, or set build.dockerfile in blaxel.toml
 (the flag wins). Paths are relative to the project directory (-d, or the current
