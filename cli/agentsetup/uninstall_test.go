@@ -350,10 +350,7 @@ func TestUninstallRemovesInstalledSkills(t *testing.T) {
 	plan, err := PlanUninstall(context.Background(), UninstallOptions{Home: home, Env: noEnv, MCP: testMCPEnv(home, nil, nil, "", nil), SkipMCP: true})
 	require.NoError(t, err)
 	assert.Equal(t, before, snapshot(t, home), "planning changes nothing")
-	link := "link"
-	if runtime.GOOS == "windows" {
-		link = "copy"
-	}
+	link := "link" // a junction on Windows
 	agents, claude, pi := filepath.Join(home, ".agents"), filepath.Join(home, ".claude", "skills"), filepath.Join(home, ".pi", "agent", "skills")
 	assert.Equal(t, map[string]string{
 		filepath.Join(claude, "blaxel-cli"):           link,
