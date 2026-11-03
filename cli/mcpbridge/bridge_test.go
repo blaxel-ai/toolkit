@@ -243,6 +243,14 @@ func TestBridgeAnnouncesToolsOnceLoggedIn(t *testing.T) {
 	answers = runBridge(t, b, `{"jsonrpc":"2.0","id":4,"method":"tools/list"}`)
 	require.Len(t, answers, 1, "the change is announced once")
 	assert.Equal(t, []string{"list_sandboxes"}, toolNames(answerFor(t, answers, 4)))
+
+	// An agent that still holds the login tool gets the same answer later.
+	answers = runBridge(t, b, `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"login","arguments":{}}}`)
+	require.Len(t, answers, 1)
+	text, isError = toolText(t, answerFor(t, answers, 5))
+	assert.False(t, isError)
+	assert.Contains(t, text, "Logged in to Blaxel (workspace main)")
+	assert.Equal(t, []string{"tools/list"}, forwarded, "the login tool is never sent to the hosted server")
 }
 
 func TestBridgeAnswersInitializeFirstAndCancels(t *testing.T) {

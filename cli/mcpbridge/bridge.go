@@ -295,17 +295,18 @@ func (b *mcpBridge) answerLoggedOut(ctx context.Context, m rpcEnvelope) {
 }
 
 // loginFound is called when a request has a login. If the agent was given the
-// logged-out tool list, it tells the agent the tool list changed, and reports
-// whether the request is a call of the login tool, which the bridge answers.
+// logged-out tool list, it tells the agent the tool list changed. It reports
+// whether the request is a call of the login tool, which the hosted server
+// does not have, so the bridge answers it for as long as the agent may still
+// hold the tool.
 func (b *mcpBridge) loginFound(m rpcEnvelope) bool {
 	b.stateMu.Lock()
 	listed := b.listedLogin
 	b.listedLogin = false
 	b.stateMu.Unlock()
-	if !listed {
-		return false
+	if listed {
+		b.write([]byte(`{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}`))
 	}
-	b.write([]byte(`{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}`))
 	return m.Method == "tools/call" && m.Params.Name == mcpLoginTool
 }
 
