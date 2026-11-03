@@ -12,8 +12,10 @@ Serve the hosted Blaxel MCP tools over stdio using your existing bl login.
 
 Run bl login before starting your agent. bl setup configures local MCP targets;
 no token is stored in agent configurations and no separate MCP OAuth is needed.
-Without a usable login, the connection still initializes, with an empty tool
-list and instructions to run bl login, then restart or reconnect the agent.
+Without a usable login, the connection still initializes. Its only tool, login,
+says how to run bl login. Once a login exists, the next request (such as calling
+login again) tells the agent the tool list changed, so agents that support it
+load the Blaxel tools without a restart; otherwise reconnect or restart the agent.
 
 The default workspace is pinned when the bridge starts resolving credentials:
 the current bl workspace, --workspace or BL_WORKSPACE. A tool's workspace

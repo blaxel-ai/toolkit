@@ -23,6 +23,12 @@ const (
 	mcpRequestTimeout    = 10 * time.Minute
 	mcpDrainTimeout      = 3 * time.Second
 	mcpLoginInstructions = "Run `bl login` in a terminal, then restart or reconnect this agent."
+	// mcpLoginTool is the one tool listed before login, so an agent that only
+	// looks at tools still learns it must log in, and can check the login.
+	mcpLoginTool = "login"
+	mcpLoginSteps = "Run `bl login` in a shell. It prints a login URL: show it to the user to confirm in their browser. " +
+		"If bl login exits before they confirm, run `bl login` again once they have, to finish. " +
+		"Then call this tool to load the Blaxel tools."
 )
 
 var mcpProtocolVersions = []string{"2025-06-18", "2025-03-26", "2024-11-05"}
@@ -50,6 +56,9 @@ type mcpBridge struct {
 	session            string
 	protocolVersion    string
 	cancels            map[string]context.CancelFunc
+	// listedLogin is true while the agent was last given the logged-out tool
+	// list, so a login found later announces the real tools.
+	listedLogin bool
 }
 
 func newMCPBridge(a mcpAuthenticator) *mcpBridge {
@@ -70,6 +79,7 @@ type rpcEnvelope struct {
 	Params  struct {
 		RequestID       json.RawMessage `json:"requestId"`
 		ProtocolVersion string          `json:"protocolVersion"`
+		Name            string          `json:"name"`
 	} `json:"params"`
 }
 
@@ -223,6 +233,11 @@ func (b *mcpBridge) handle(ctx context.Context, message []byte, m rpcEnvelope) {
 	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	c, err := b.auth.resolve(requestCtx)
+	if err == nil && b.loginFound(m) {
+		b.writeToolText(m.ID, "Logged in to Blaxel (workspace "+c.workspace+"). The Blaxel tools are available now; "+
+			"if they do not appear, reconnect the Blaxel MCP server or restart this agent.", false)
+		return
+	}
 	if err == nil {
 		err = b.forward(requestCtx, message, m, c, func(p []byte) { b.relay(p, m, c.workspace) })
 	}
@@ -254,17 +269,45 @@ func (b *mcpBridge) answerLoggedOut(ctx context.Context, m rpcEnvelope) {
 		b.stateMu.Unlock()
 		b.writeResult(m.ID, map[string]any{
 			"protocolVersion": version,
-			"capabilities":    map[string]any{"tools": map[string]any{}},
+			"capabilities":    map[string]any{"tools": map[string]any{"listChanged": true}},
 			"serverInfo":      map[string]string{"name": "blaxel", "version": b.version},
-			"instructions":    "Not connected to Blaxel. " + mcpLoginInstructions,
+			"instructions":    "Not logged in to Blaxel. " + mcpLoginSteps,
 		})
 	case "tools/list":
-		b.writeResult(m.ID, map[string]any{"tools": []any{}})
+		b.stateMu.Lock()
+		b.listedLogin = true
+		b.stateMu.Unlock()
+		b.writeResult(m.ID, map[string]any{"tools": []any{map[string]any{
+			"name":        mcpLoginTool,
+			"title":       "Log in to Blaxel",
+			"description": "Not logged in to Blaxel, so no Blaxel tools are available yet. " + mcpLoginSteps,
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
+		}}})
 	case "tools/call":
+		if m.Params.Name == mcpLoginTool {
+			b.writeToolText(m.ID, "Not logged in to Blaxel yet. "+mcpLoginSteps, true)
+			return
+		}
 		b.writeToolText(m.ID, "Not logged in to Blaxel. "+mcpLoginInstructions, true)
 	default:
 		b.writeError(m.ID, -32601, mcpLoginInstructions)
 	}
+}
+
+// loginFound is called when a request has a login. If the agent was given the
+// logged-out tool list, it tells the agent the tool list changed. It reports
+// whether the request is a call of the login tool, which the hosted server
+// does not have, so the bridge answers it for as long as the agent may still
+// hold the tool.
+func (b *mcpBridge) loginFound(m rpcEnvelope) bool {
+	b.stateMu.Lock()
+	listed := b.listedLogin
+	b.listedLogin = false
+	b.stateMu.Unlock()
+	if listed {
+		b.write([]byte(`{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}`))
+	}
+	return m.Method == "tools/call" && m.Params.Name == mcpLoginTool
 }
 
 // relay writes what the hosted server sent. Its initialize answer is kept,
