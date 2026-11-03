@@ -19,7 +19,9 @@ Authentication Methods:
 - Client Credentials: Returns the access token (refreshed if needed)
 
 The token is retrieved from your stored credentials and will be automatically
-refreshed if it's expired or about to expire.
+refreshed if it's expired or about to expire. Without a stored login for the
+workspace, it comes from BL_API_KEY, else BL_CLIENT_CREDENTIALS, with the
+workspace from BL_WORKSPACE.
 
 Examples:
 
