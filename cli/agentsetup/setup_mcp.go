@@ -151,8 +151,7 @@ func ClassifyMCPEntry(e MCPEnv, server MCPServer, entry map[string]any) MCPEntry
 		return MCPEntryCustom
 	}
 	if command, args := EntryCommand(entry); command != "" {
-		name := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(command, `\`, "/"))), ".exe")
-		if (name != "bl" && name != "blaxel") || len(args) != 1 || args[0] != "mcp" {
+		if !blCommand(command) || len(args) != 1 || args[0] != "mcp" {
 			return MCPEntryCustom
 		}
 		for key, value := range entry {
@@ -225,6 +224,12 @@ func EntryCommand(entry map[string]any) (string, []string) {
 	return parts[0], parts[1:]
 }
 
+// blCommand reports a command that runs the bl or blaxel binary.
+func blCommand(command string) bool {
+	name := strings.TrimSuffix(strings.ToLower(filepath.Base(strings.ReplaceAll(command, `\`, "/"))), ".exe")
+	return name == "bl" || name == "blaxel"
+}
+
 // MCPTarget knows how to add an MCP server to one coding agent.
 type MCPTarget struct {
 	// File is the configuration file setup edits, shown in messages.
@@ -233,6 +238,8 @@ type MCPTarget struct {
 	Entry func(e MCPEnv, name string) map[string]any
 	// write adds the server, replacing the existing entry when replace is set.
 	write func(ctx context.Context, e MCPEnv, server MCPServer, replace bool) error
+	// remove deletes the entry with that name, for bl uninstall.
+	remove func(ctx context.Context, e MCPEnv, name string) error
 	// hasPlugin reports whether the Blaxel plugin is installed in this agent,
 	// and pluginDirs where its files are.
 	hasPlugin  func(MCPEnv) bool
@@ -295,11 +302,19 @@ func addMCPServer(ctx context.Context, e MCPEnv, target MCPTarget, server MCPSer
 		}
 		return mcpReplaced, nil
 	}
+	file := target.File(e)
+	_, err := os.Lstat(file)
+	isNew := errors.Is(err, os.ErrNotExist)
 	if err := target.write(ctx, e, server, false); err != nil {
 		if errors.Is(err, errMCPServerExists) {
 			return mcpUnchanged, nil
 		}
 		return mcpUnchanged, err
+	}
+	// bl uninstall deletes an emptied file only when setup created it. Without
+	// this record the file is kept, so a failure to save it is harmless.
+	if _, err := os.Lstat(file); isNew && err == nil {
+		_ = setMCPConfigCreated(e.Home, file, true)
 	}
 	return mcpAdded, nil
 }
@@ -393,6 +408,9 @@ func jsonServerTarget(file func(MCPEnv) string, container string, entry func(MCP
 			_, err := upsertJSONConfig(file(e), container, server.Name, entry(server), replace)
 			return err
 		},
+		remove: func(_ context.Context, e MCPEnv, name string) error {
+			return removeJSONConfigEntry(e.Home, file(e), container, name)
+		},
 	}
 }
 
@@ -424,6 +442,7 @@ var MCPTargets = map[string]MCPTarget{
 			return jsonConfigEntry(claudeConfigFile(e), "mcpServers", name)
 		},
 		write:     writeClaudeMCPServer,
+		remove:    removeClaudeMCPServer,
 		hasPlugin: func(e MCPEnv) bool { return len(installedClaudePlugins(e)) > 0 },
 		pluginDirs: func(e MCPEnv) []string {
 			var dirs []string
@@ -458,6 +477,9 @@ var MCPTargets = map[string]MCPTarget{
 			}
 			_, err := appendCodexMCPServer(codexConfigFile(e), server)
 			return err
+		},
+		remove: func(_ context.Context, e MCPEnv, name string) error {
+			return removeCodexMCPServer(e.Home, codexConfigFile(e), name)
 		},
 		hasPlugin: func(e MCPEnv) bool {
 			var config struct {
@@ -571,17 +593,7 @@ func codexConfigFile(e MCPEnv) string {
 func writeClaudeMCPServer(ctx context.Context, e MCPEnv, server MCPServer, replace bool) error {
 	file := claudeConfigFile(e)
 	_, _, readErr := readJSONConfig(file)
-	claude, err := e.LookPath("claude")
-	if err != nil {
-		// Only fixed home locations: never run a binary from a directory an
-		// environment variable such as CLAUDE_CONFIG_DIR selects.
-		for _, candidate := range []string{filepath.Join(e.Home, ".local", "bin", "claude"), filepath.Join(e.Home, ".claude", "local", "claude")} {
-			if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
-				claude, err = candidate, nil
-				break
-			}
-		}
-	}
+	claude, err := claudeCommand(e)
 	if err != nil {
 		if readErr != nil {
 			return readErr
@@ -620,6 +632,37 @@ func writeClaudeMCPServer(ctx context.Context, e MCPEnv, server MCPServer, repla
 			return errMCPServerExists
 		}
 		return fmt.Errorf("claude mcp add: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+// claudeCommand finds the claude CLI on the PATH or where its installer puts it.
+func claudeCommand(e MCPEnv) (string, error) {
+	claude, err := e.LookPath("claude")
+	if err == nil {
+		return claude, nil
+	}
+	// Only fixed home locations: never run a binary from a directory an
+	// environment variable such as CLAUDE_CONFIG_DIR selects.
+	for _, candidate := range []string{filepath.Join(e.Home, ".local", "bin", "claude"), filepath.Join(e.Home, ".claude", "local", "claude")} {
+		if info, statErr := os.Stat(candidate); statErr == nil && !info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", err
+}
+
+// removeClaudeMCPServer removes a user-scoped server the way setup adds it:
+// with the claude CLI when there is one, else in .claude.json directly.
+func removeClaudeMCPServer(ctx context.Context, e MCPEnv, name string) error {
+	claude, err := claudeCommand(e)
+	if err != nil {
+		return removeJSONConfigEntry(e.Home, claudeConfigFile(e), "mcpServers", name)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if output, err := e.Run(ctx, claude, "mcp", "remove", "--scope", "user", name); err != nil {
+		return fmt.Errorf("claude mcp remove: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -692,22 +735,8 @@ func replaceCodexMCPServer(file string, server MCPServer) error {
 	if err != nil {
 		return err
 	}
-	header := regexp.MustCompile(`^[ \t]*\[[ \t]*mcp_servers[ \t]*\.[ \t]*("?)` + regexp.QuoteMeta(server.Name) + `("?)[ \t]*\][ \t]*(#.*)?$`)
 	lines := strings.SplitAfter(string(data), "\n")
-	start, end := -1, len(lines)
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if start < 0 {
-			if header.MatchString(strings.TrimRight(line, "\r\n")) {
-				start = i
-			}
-			continue
-		}
-		if strings.HasPrefix(trimmed, "[") {
-			end = i
-			break
-		}
-	}
+	start, end := codexServerTableLines(lines, server.Name)
 	if start < 0 {
 		// An inline table or dotted keys: not a layout to rewrite line by line.
 		return errMCPServerExists
@@ -730,6 +759,60 @@ func replaceCodexMCPServer(file string, server MCPServer) error {
 	}
 	if _, ok := config.MCPServers[server.Name]["command"]; server.local() && !ok {
 		return fmt.Errorf("cannot replace the [mcp_servers.%s] table", server.Name)
+	}
+	return writeConfigFile(file, []byte(updated))
+}
+
+// codexServerTableLines finds the lines of the [mcp_servers.NAME] table: from
+// its header to the next table header or the end of the file. start is -1
+// when the server is not written as such a table.
+func codexServerTableLines(lines []string, name string) (start, end int) {
+	header := regexp.MustCompile(`^[ \t]*\[[ \t]*mcp_servers[ \t]*\.[ \t]*("?)` + regexp.QuoteMeta(name) + `("?)[ \t]*\][ \t]*(#.*)?$`)
+	start = -1
+	for i, line := range lines {
+		if start < 0 {
+			if header.MatchString(strings.TrimRight(line, "\r\n")) {
+				start = i
+			}
+			continue
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "[") {
+			return start, i
+		}
+	}
+	return start, len(lines)
+}
+
+// removeCodexMCPServer deletes the [mcp_servers.NAME] table and keeps every
+// other line of the file as it was. A table at the end also loses the blank
+// line setup added before it.
+func removeCodexMCPServer(home, file, name string) error {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	lines := strings.SplitAfter(string(data), "\n")
+	start, end := codexServerTableLines(lines, name)
+	if start < 0 {
+		return fmt.Errorf("%s is not an [mcp_servers.%s] table; remove it yourself", name, name)
+	}
+	if end == len(lines) {
+		for start > 0 && strings.TrimSpace(lines[start-1]) == "" {
+			start--
+		}
+	}
+	updated := strings.Join(lines[:start], "") + strings.Join(lines[end:], "")
+	var config struct {
+		MCPServers map[string]any `toml:"mcp_servers"`
+	}
+	if _, err := toml.Decode(updated, &config); err != nil {
+		return fmt.Errorf("cannot remove the [mcp_servers.%s] table: %w", name, err)
+	}
+	if _, ok := config.MCPServers[name]; ok {
+		return fmt.Errorf("cannot remove the [mcp_servers.%s] table: more of it is set elsewhere", name)
+	}
+	if strings.TrimSpace(updated) == "" {
+		return removeMCPConfigFile(home, file, []byte(updated))
 	}
 	return writeConfigFile(file, []byte(updated))
 }
@@ -876,6 +959,94 @@ func upsertJSONConfig(file, container, name string, entry any, replace bool) (bo
 		return false, err
 	}
 	return true, writeConfigFile(file, updated)
+}
+
+// removeJSONConfigEntry deletes container.name from a JSON configuration
+// file, and the file itself when setup created it and nothing but empty
+// objects is left in it.
+func removeJSONConfigEntry(home, file, container, name string) error {
+	_, members, err := readJSONConfig(file)
+	if err != nil {
+		return err
+	}
+	members, removed, err := removeJSONServer(members, container, name)
+	if err != nil || !removed {
+		return err
+	}
+	return writeJSONConfig(home, file, members)
+}
+
+// removeJSONServer deletes container.name and reports whether it was there.
+// The container stays, even when empty.
+func removeJSONServer(members []jsonMember, container, name string) ([]jsonMember, bool, error) {
+	index := findJSONMember(members, container)
+	if index < 0 {
+		return members, false, nil
+	}
+	servers, err := parseJSONObject(members[index].value)
+	if err != nil {
+		return nil, false, fmt.Errorf("%q is not a JSON object: %w", container, err)
+	}
+	existing := findJSONMember(servers, name)
+	if existing < 0 {
+		return members, false, nil
+	}
+	encoded, err := encodeJSONObject(slices.Delete(servers, existing, existing+1))
+	if err != nil {
+		return nil, false, err
+	}
+	members[index].value = encoded
+	return members, true, nil
+}
+
+// writeJSONConfig writes the configuration members, or deletes the file when
+// setup created it and they hold nothing but empty objects.
+func writeJSONConfig(home, file string, members []jsonMember) error {
+	data, err := encodeJSONObject(members)
+	if err != nil {
+		return err
+	}
+	if emptyJSONObject(data) {
+		return removeMCPConfigFile(home, file, data)
+	}
+	return writeConfigFile(file, data)
+}
+
+// emptyJSONObject reports an object holding nothing but empty objects.
+func emptyJSONObject(data []byte) bool {
+	members, err := parseJSONObject(data)
+	if err != nil {
+		return false
+	}
+	for _, member := range members {
+		if !emptyJSONObject(member.value) {
+			return false
+		}
+	}
+	return true
+}
+
+// removeConfigFile deletes a configuration file left empty. A symlinked file
+// (for example one managed in a dotfiles repository) keeps its link and gets
+// the empty contents instead.
+func removeConfigFile(file string, empty []byte) error {
+	if info, err := os.Lstat(file); err == nil && info.Mode().IsRegular() {
+		return os.Remove(file)
+	}
+	return writeConfigFile(file, empty)
+}
+
+// removeMCPConfigFile deletes an agent configuration file left empty, and its
+// record, when setup created it. A file that was there before setup is the
+// user's: it keeps the empty contents.
+func removeMCPConfigFile(home, file string, empty []byte) error {
+	if !mcpConfigCreated(home, file) {
+		return writeConfigFile(file, empty)
+	}
+	if err := removeConfigFile(file, empty); err != nil {
+		return err
+	}
+	return setMCPConfigCreated(home, file, false)
 }
 
 func mergeJSONServer(members []jsonMember, container, name string, entry any, replace bool) ([]byte, bool, error) {

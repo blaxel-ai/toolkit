@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -287,6 +288,22 @@ func openclawMCPTarget() MCPTarget {
 			}
 			return writeConfigFile(openclawConfigFile(e), data)
 		},
+		remove: func(_ context.Context, e MCPEnv, name string) error {
+			root, mcp, err := read(e)
+			if err != nil {
+				return err
+			}
+			mcp, removed, err := removeJSONServer(mcp, "servers", name)
+			if err != nil || !removed {
+				return err
+			}
+			updated, err := encodeJSONObject(mcp)
+			if err != nil {
+				return err
+			}
+			root[findJSONMember(root, "mcp")].value = updated
+			return writeJSONConfig(e.Home, openclawConfigFile(e), root)
+		},
 	}
 }
 
@@ -410,18 +427,58 @@ func gooseMCPTarget() MCPTarget {
 			} else {
 				extensions.Content = append(extensions.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: s.Name}, &node)
 			}
-			var data bytes.Buffer
-			encoder := yaml.NewEncoder(&data)
-			encoder.SetIndent(2)
-			if err := encoder.Encode(root); err != nil {
+			data, err := encodeGooseConfig(root)
+			if err != nil {
 				return err
 			}
-			if err := encoder.Close(); err != nil {
+			return writeConfigFile(file(e), data)
+		},
+		remove: func(_ context.Context, e MCPEnv, name string) error {
+			root, extensions, err := readGooseConfig(file(e))
+			if err != nil {
 				return err
 			}
-			return writeConfigFile(file(e), data.Bytes())
+			index := yamlMember(extensions, name)
+			if index < 0 {
+				return nil
+			}
+			extensions.Content = slices.Delete(extensions.Content, index, index+2)
+			data, err := encodeGooseConfig(root)
+			if err != nil {
+				return err
+			}
+			var config map[string]any
+			if !bytes.Contains(data, []byte("#")) && yaml.Unmarshal(data, &config) == nil && emptyYAMLMapping(config) {
+				return removeMCPConfigFile(e.Home, file(e), data)
+			}
+			return writeConfigFile(file(e), data)
 		},
 	}
+}
+
+func encodeGooseConfig(root *yaml.Node) ([]byte, error) {
+	var data bytes.Buffer
+	encoder := yaml.NewEncoder(&data)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(root); err != nil {
+		return nil, err
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, err
+	}
+	return data.Bytes(), nil
+}
+
+// emptyYAMLMapping reports a mapping holding nothing but empty mappings, such
+// as the extensions setup alone added.
+func emptyYAMLMapping(mapping map[string]any) bool {
+	for _, value := range mapping {
+		nested, ok := value.(map[string]any)
+		if !ok || !emptyYAMLMapping(nested) {
+			return false
+		}
+	}
+	return true
 }
 
 // readGooseConfig keeps YAML nodes so unrelated entries and comments survive.

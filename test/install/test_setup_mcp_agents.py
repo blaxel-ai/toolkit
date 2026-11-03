@@ -39,7 +39,7 @@ def environment(home):
     return env
 
 
-def setup(home, agent=None):
+def setup(home, agent=None, **env):
     try:
         executable = os.path.relpath(binary, home)
     except ValueError:  # Windows homes and build outputs can use different drives.
@@ -47,8 +47,18 @@ def setup(home, agent=None):
     args = [executable, "setup", "--yes", "--skip-skills", "--skip-login"]
     if agent:
         args += ["--agent", agent]
-    return subprocess.run(args, cwd=home, env=environment(home), text=True,
+    return subprocess.run(args, cwd=home, env={**environment(home), **env}, text=True,
                           capture_output=True, timeout=30)
+
+
+def refresh(home):
+    """The setup refresh that bl upgrade and the install scripts run."""
+    return setup(home, BL_INSTALL_REFRESH="true", BL_INSTALL_MCP="true")
+
+
+def uninstall(home, *flags):
+    return subprocess.run([str(binary), "uninstall", "--skip-skills", *flags], cwd=home, env=environment(home),
+                          text=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=30)
 
 
 def servers(config, agent, container):
@@ -92,6 +102,28 @@ for agent, (relative, container, url_key, local_type, remote_type) in agents.ite
         assert result.returncode == 0, result.stdout + result.stderr
         assert before == file.read_bytes(), agent
 
+        # bl uninstall lists both entries, removes them only with --yes, and
+        # leaves the rest of the file as it was.
+        for flags in [("--dry-run",), ()]:
+            result = uninstall(home, *flags)
+            assert result.returncode == (0 if flags else 1), (agent, flags, result.stdout, result.stderr)
+            assert "blaxel, blaxel-docs" in result.stdout, (agent, result.stdout)
+            assert before == file.read_bytes(), (agent, flags)
+        result = uninstall(home, "--yes")
+        assert result.returncode == 0, (agent, result.stdout, result.stderr)
+        assert json.loads(file.read_text(encoding="utf-8")) == config, (agent, file.read_text(encoding="utf-8"))
+        # Upgrades and install scripts then leave the servers out; bl setup
+        # adds them back.
+        uninstalled = file.read_bytes()
+        result = refresh(home)
+        assert result.returncode == 0, (agent, result.stdout, result.stderr)
+        assert "MCP skipped" in result.stderr, (agent, result.stderr)
+        assert file.read_bytes() == uninstalled, agent
+        result = setup(home)
+        assert result.returncode == 0, result.stdout + result.stderr
+        written = json.loads(file.read_text(encoding="utf-8"))
+        entries = servers(written, agent, container)
+
         # A user-selected workspace and environment remain byte-for-byte intact.
         entries["blaxel"]["args"] += ["--workspace", "my-workspace"]
         entries["blaxel"]["env"] = {"BL_ENV": "dev"}
@@ -101,13 +133,20 @@ for agent, (relative, container, url_key, local_type, remote_type) in agents.ite
         assert result.returncode == 0, result.stdout + result.stderr
         assert before == file.read_bytes(), agent
 
+        # bl uninstall keeps a server the user changed, and says so.
+        result = uninstall(home, "--yes")
+        assert result.returncode == 0, (agent, result.stdout, result.stderr)
+        assert "blaxel: not what setup writes" in result.stdout, (agent, result.stdout)
+        left = servers(json.loads(file.read_text(encoding="utf-8")), agent, container)
+        assert left == {"other": other, "blaxel": entries["blaxel"]}, (agent, left)
+
         # Invalid JSON and comment-bearing JSON are never rewritten.
         for original in ['{"broken":', '{\n// keep my comment\n"' + container + '": {}\n}']:
             file.write_text(original, encoding="utf-8")
             result = setup(home, agent)
             assert result.returncode != 0, (agent, result.stdout)
             assert file.read_text(encoding="utf-8") == original, agent
-        print(f"PASS {agent}: detected, merged, absolute executable, repeated, custom, malformed/commented")
+        print(f"PASS {agent}: detected, merged, absolute executable, repeated, uninstalled, not refreshed, set up again, custom kept, malformed/commented")
 
 
 with tempfile.TemporaryDirectory(prefix="bl-setup-goose-") as temp:
@@ -130,9 +169,15 @@ with tempfile.TemporaryDirectory(prefix="bl-setup-goose-") as temp:
     result = setup(home)
     assert result.returncode == 0, result.stdout + result.stderr
     assert file.read_text(encoding="utf-8") == written
+    result = uninstall(home, "--yes")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert file.read_text(encoding="utf-8") == original, file.read_text(encoding="utf-8")
+    result = refresh(home)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert file.read_text(encoding="utf-8") == original, file.read_text(encoding="utf-8")
     for original in ["extensions: [broken", "extensions: []\n", "extensions: {}\n---\ntheme: dark\n"]:
         file.write_text(original, encoding="utf-8")
         result = setup(home, "goose")
         assert result.returncode != 0, result.stdout
         assert file.read_text(encoding="utf-8") == original
-    print("PASS goose: detected, YAML comments/settings preserved, absolute executable, repeated, malformed")
+    print("PASS goose: detected, YAML comments/settings preserved, absolute executable, repeated, uninstalled, not refreshed, malformed")

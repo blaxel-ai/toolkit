@@ -358,6 +358,7 @@ func TestSetupPlanAndSummary(t *testing.T) {
 		"Blaxel is ready",
 		// bl mcp signs the agents in with the bl login.
 		`Restart your agents  and ask: "Create a Blaxel sandbox"`,
+		"bl uninstall         undo this setup",
 	} {
 		assert.Contains(t, text, expected)
 	}

@@ -27,6 +27,8 @@ const (
 	loginInstallEnv = "BL_INSTALL_LOGIN"
 	// trackingInstallEnv=false disables usage capture and setup's tracking choice.
 	trackingInstallEnv = "BL_INSTALL_TRACKING"
+	// installerEnv=1 marks a setup the install scripts started.
+	installerEnv = "BL_INSTALLER"
 	// The installers describe what they already did, for the setup screens.
 	installerShellEnv  = "BL_INSTALLER_SHELL"
 	installerReloadEnv = "BL_INSTALLER_RELOAD"
@@ -90,7 +92,9 @@ Events, properties and opt-outs: ` + core.UsageDisclosureURL + `
 Setup only adds what is missing, and it is safe to run again after
 installing another agent. MCP server entries you configured yourself are left
 unchanged; the hosted blaxel server added by earlier versions is switched to
-bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
+bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.
+bl uninstall removes what setup added; CLI upgrades and the install scripts
+then leave the skills and MCP servers out until you run bl setup again.`,
 		Example: `  # See what setup found, then press Enter to install
   bl setup
 
@@ -351,7 +355,33 @@ func skillsAgentIDs() []string {
 
 // setupOffers reports whether setup offers the skills and the MCP servers.
 func setupOffers(options setupOptions) (skills, mcp bool) {
-	return !options.skipSkills && !envDisabled(options.env, agentsetup.SkillsInstallEnv), !options.skipMCP && !envDisabled(options.env, mcpInstallEnv)
+	heldSkills, heldMCP := uninstallHeldBack(options)
+	return !options.skipSkills && !envDisabled(options.env, agentsetup.SkillsInstallEnv) && !heldSkills,
+		!options.skipMCP && !envDisabled(options.env, mcpInstallEnv) && !heldMCP
+}
+
+// uninstallHeldBack reports what an install script leaves out because an
+// earlier bl uninstall removed it; only a setup you run adds it back.
+func uninstallHeldBack(options setupOptions) (skills, mcp bool) {
+	if options.env(installerEnv) != "1" {
+		return false, false
+	}
+	skills = !options.skipSkills && !envDisabled(options.env, agentsetup.SkillsInstallEnv) && agentsetup.SkillsAutoUpdateOffByUninstall(options.home)
+	mcp = !options.skipMCP && !envDisabled(options.env, mcpInstallEnv) && agentsetup.MCPAutoUpdateOff(options.home)
+	return skills, mcp
+}
+
+// uninstallHeldBackLabel names what uninstallHeldBack holds back, or "".
+func uninstallHeldBackLabel(options setupOptions) string {
+	switch skills, mcp := uninstallHeldBack(options); {
+	case skills && mcp:
+		return "skills and MCP servers"
+	case skills:
+		return "skills"
+	case mcp:
+		return "MCP servers"
+	}
+	return ""
 }
 
 // setupItems is the plan the user sees. Everything new is selected, and what
@@ -373,7 +403,11 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 			capabilities = "skills · MCP"
 		}
 		if status.complete(offerSkills, offerMCP) {
-			agentItems = append(agentItems, &ui.Item{ID: "agent:" + agent.ID, Label: agent.Name, Done: "set up · " + capabilities})
+			done := "set up · " + capabilities
+			if !status.skills && len(status.has) == 0 && uninstallHeldBackLabel(options) != "" {
+				done = "removed by bl uninstall"
+			}
+			agentItems = append(agentItems, &ui.Item{ID: "agent:" + agent.ID, Label: agent.Name, Done: done})
 			for _, name := range status.has {
 				present[name]++
 			}
@@ -547,6 +581,18 @@ func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
 	if err != nil {
 		return err
 	}
+	// Choosing the MCP servers or the skills turns their automatic updates
+	// back on, after bl uninstall turned them off.
+	if chosen["mcp"] || chosen["docs"] {
+		if err := agentsetup.SetMCPAutoUpdate(options.home, true); err != nil {
+			_, _ = fmt.Fprintf(options.out, "  Could not turn automatic MCP updates back on: %v\n", err)
+		}
+	}
+	if chosen["skills"] {
+		if err := agentsetup.ResumeSkillsAutoUpdate(ctx, options.home); err != nil {
+			_, _ = fmt.Fprintf(options.out, "  Could not turn automatic skills updates back on: %v\n", err)
+		}
+	}
 	if summary.Problems > 0 {
 		return setupProblems(summary.Problems)
 	}
@@ -689,6 +735,9 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		status := plan.status[agent.ID]
 		_, ran := results["mcp:"+agent.ID]
 		if offerSkills, offerMCP := setupOffers(options); !ran && status.complete(offerSkills, offerMCP) {
+			if !status.skills && len(status.has) == 0 {
+				continue // nothing offered, and nothing there
+			}
 			parts = append(parts, "already set up")
 			if !status.noSkills {
 				parts = append(parts, "skills")
@@ -725,6 +774,11 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: setupError(skillsFailed), Failed: true})
 	case len(agents) == 0 && chosen["skills"]:
 		summary.Lines = append(summary.Lines, ui.Line{Label: "Agent skills", Detail: "~/.agents/skills"})
+	}
+	agentLines := len(summary.Lines)
+	held := uninstallHeldBackLabel(options)
+	if held != "" {
+		summary.Lines = append(summary.Lines, ui.Line{Label: "Not added", Detail: held + " stay removed after bl uninstall"})
 	}
 	if len(outcome.preserved) > 0 {
 		detail := "links and contents unchanged"
@@ -783,8 +837,14 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 		summary.Next = append(summary.Next, [2]string{"bl login", "log in to Blaxel"})
 	}
 	// The agents sign in through bl mcp with the bl login: no sign-in each.
-	if len(summary.Lines) > 0 && len(agents) > 0 {
+	if agentLines > 0 && len(agents) > 0 {
 		summary.Next = append(summary.Next, [2]string{"Restart your agents", `and ask: "Create a Blaxel sandbox"`})
+	}
+	if agentLines > 0 && len(agents) > 0 || chosen["skills"] {
+		summary.Next = append(summary.Next, [2]string{"bl uninstall", "undo this setup"})
+	}
+	if held != "" {
+		summary.Next = append(summary.Next, [2]string{"bl setup", "add the " + held + " back"})
 	}
 	if summary.Problems > 0 {
 		summary.Next = append(summary.Next, [2]string{"bl setup", "try again"})
@@ -852,6 +912,10 @@ func runSetupRefresh(ctx context.Context, options setupOptions) {
 	skills, mcp := automaticSetupOffers(options.env)
 	if state, err := agentsetup.ReadSkillsUpdateState(options.home); err != nil || agentsetup.SkillsUpdateDisabled(state, options.env) != "" {
 		skills = false
+	}
+	// After bl uninstall, only bl setup adds the MCP servers back.
+	if agentsetup.MCPAutoUpdateOff(options.home) {
+		mcp = false
 	}
 	skills = skills && !options.skipSkills
 	mcp = mcp && !options.skipMCP
