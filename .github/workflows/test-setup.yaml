@@ -96,7 +96,7 @@ jobs:
           done
           if grep -qs '"blaxel' "$home/.cursor/mcp.json" "$home/.claude.json"; then echo "uninstall left a Blaxel MCP server"; exit 1; fi
           if grep -qs 'mcp_servers.blaxel' "$home/.codex/config.toml"; then echo "uninstall left the Codex MCP server"; exit 1; fi
-          grep -q '"autoupdate": false' "$home/.blaxel/skills/state.json"
+          grep -q '"uninstalled": true' "$home/.blaxel/skills/state.json"
           grep -q '"autoupdate": false' "$home/.blaxel/mcp/state.json"
           grep -q 'Nothing to remove' <<<"$(bl uninstall --yes)"
           # The refresh bl upgrade and the installers run leaves the skills
@@ -109,7 +109,7 @@ jobs:
           grep -q '"blaxel"' "$home/.cursor/mcp.json"
           test -f "$home/.agents/skills/blaxel-cli/SKILL.md"
           if [ -e "$home/.blaxel/mcp/state.json" ]; then echo "bl setup left MCP updates off"; exit 1; fi
-          if grep -q '"autoupdate": false' "$home/.blaxel/skills/state.json"; then echo "bl setup left skills updates off"; exit 1; fi
+          if grep -q '"uninstalled": true' "$home/.blaxel/skills/state.json"; then echo "bl setup left the skills marked uninstalled"; exit 1; fi
 
       - name: Agent installer hand-off (macOS, Linux)
         if: runner.os != 'Windows'
@@ -162,7 +162,7 @@ jobs:
             $path = Join-Path $root $check[0]
             if ((Test-Path $path) -and (Select-String -Quiet -Path $path -Pattern $check[1])) { throw "bl uninstall left a Blaxel MCP server in $($check[0])" }
           }
-          if (-not (Select-String -Quiet -Path (Join-Path $root ".blaxel\skills\state.json") -Pattern '"autoupdate": false')) { throw "automatic skills updates are still on" }
+          if (-not (Select-String -Quiet -Path (Join-Path $root ".blaxel\skills\state.json") -Pattern '"uninstalled": true')) { throw "bl uninstall did not mark the skills uninstalled" }
           if (-not (Select-String -Quiet -Path (Join-Path $root ".blaxel\mcp\state.json") -Pattern '"autoupdate": false')) { throw "automatic MCP updates are still on" }
           $out = & "$env:RUNNER_TEMP\bl.exe" uninstall --yes
           if (-not ($out -match 'Nothing to remove')) { throw "a second bl uninstall found something to remove" }
@@ -183,7 +183,7 @@ jobs:
           if (-not (Select-String -Quiet -Path $cursor -Pattern '"blaxel"')) { throw "bl setup did not add the MCP servers back" }
           if (-not (Test-Path (Join-Path $root ".agents\skills\blaxel-cli\SKILL.md"))) { throw "bl setup did not add the skills back" }
           if (Test-Path (Join-Path $root ".blaxel\mcp\state.json")) { throw "bl setup left MCP updates off" }
-          if (Select-String -Quiet -Path (Join-Path $root ".blaxel\skills\state.json") -Pattern '"autoupdate": false') { throw "bl setup left skills updates off" }
+          if (Select-String -Quiet -Path (Join-Path $root ".blaxel\skills\state.json") -Pattern '"uninstalled": true') { throw "bl setup left the skills marked uninstalled" }
 
           # Regression: a later namespaced SDK skill plus a flat duplicate
           # must be repaired without Developer Mode or symlink privileges.
