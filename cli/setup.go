@@ -551,6 +551,9 @@ func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
 		Tasks:    func(chosen map[string]bool) []ui.Task { return setupTasks(options, plan, chosen, outcome) },
 	}
 	var chosen map[string]bool
+	// Set when the skills or the MCP servers were chosen and went in without
+	// a failure: only then does setup lift what bl uninstall held back.
+	var skillsAdded, mcpAdded bool
 	setup.Summary = func(results map[string]ui.Result) ui.Summary {
 		chosen = map[string]bool{}
 		for _, item := range setup.Items {
@@ -564,12 +567,20 @@ func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
 			ids = append(ids, id)
 		}
 		slices.Sort(ids)
+		failed := func(id string) bool {
+			err := results[id].Err
+			return err != nil && !errors.Is(err, ui.ErrSkipped)
+		}
 		for _, id := range ids {
-			if err := results[id].Err; err != nil && !errors.Is(err, ui.ErrSkipped) {
-				taskErr = err
+			if failed(id) {
+				taskErr = results[id].Err
 				break
 			}
 		}
+		skillsAdded = chosen["skills"] && !failed("skills")
+		mcpAdded = (chosen["mcp"] || chosen["docs"]) && !slices.ContainsFunc(ids, func(id string) bool {
+			return strings.HasPrefix(id, "mcp:") && failed(id)
+		})
 		return setupSummary(options, plan, chosen, results, outcome)
 	}
 	summary, err := setup.Run(ctx, ui.Options{Out: options.out, Interactive: options.interactive && !options.yes, Yes: options.interactive && options.yes})
@@ -581,14 +592,14 @@ func runSetup(ctx context.Context, options setupOptions) (setupErr error) {
 	if err != nil {
 		return err
 	}
-	// Choosing the MCP servers or the skills turns their automatic updates
-	// back on, after bl uninstall turned them off.
-	if chosen["mcp"] || chosen["docs"] {
+	// Adding the MCP servers or the skills turns their automatic updates back
+	// on, after bl uninstall turned them off. A failed install keeps them off.
+	if mcpAdded {
 		if err := agentsetup.SetMCPAutoUpdate(options.home, true); err != nil {
 			_, _ = fmt.Fprintf(options.out, "  Could not turn automatic MCP updates back on: %v\n", err)
 		}
 	}
-	if chosen["skills"] {
+	if skillsAdded {
 		if err := agentsetup.ResumeSkillsAutoUpdate(ctx, options.home); err != nil {
 			_, _ = fmt.Fprintf(options.out, "  Could not turn automatic skills updates back on: %v\n", err)
 		}

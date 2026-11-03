@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -194,6 +195,17 @@ func TestUninstallKeepsSkillsAndMCPOffUntilSetup(t *testing.T) {
 	require.NoError(t, runSetup(context.Background(), skipped))
 	assert.True(t, agentsetup.MCPAutoUpdateOff(home))
 	assert.True(t, agentsetup.SkillsAutoUpdateOffByUninstall(home))
+
+	// A setup whose skills install fails keeps the skills off; the MCP
+	// servers that went in come back on.
+	failing := testSetupOptions(t, home, map[string]string{}, &setupRecorder{})
+	failing.installSkills = func(context.Context, []agentsetup.SkillsAgent) (agentsetup.SkillsInstallResult, error) {
+		return agentsetup.SkillsInstallResult{}, errors.New("archive unavailable")
+	}
+	require.Error(t, runSetup(context.Background(), failing))
+	assert.True(t, agentsetup.SkillsAutoUpdateOffByUninstall(home), "a failed skills install keeps them off")
+	assert.False(t, agentsetup.MCPAutoUpdateOff(home))
+	require.NoError(t, agentsetup.SetMCPAutoUpdate(home, false))
 
 	// bl setup adds them back and turns their automatic updates on.
 	recorder = &setupRecorder{}
