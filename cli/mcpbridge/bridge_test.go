@@ -183,11 +183,66 @@ func TestBridgeStandsInBeforeLogin(t *testing.T) {
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_sandboxes"}}`)
 	initialize := answerFor(t, answers, 1)["result"].(map[string]any)
 	assert.Equal(t, "2025-03-26", initialize["protocolVersion"])
-	assert.Contains(t, initialize["instructions"], mcpLoginInstructions)
-	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
+	assert.Contains(t, initialize["instructions"], mcpLoginSteps)
+	assert.Equal(t, map[string]any{"tools": map[string]any{"listChanged": true}}, initialize["capabilities"])
+	list := answerFor(t, answers, 2)
+	assert.Equal(t, []string{mcpLoginTool}, toolNames(list), "the only tool before login says how to log in")
+	login := list["result"].(map[string]any)["tools"].([]any)[0].(map[string]any)
+	assert.Contains(t, login["description"], "bl login")
 	text, isError := toolText(t, answerFor(t, answers, 3))
 	assert.True(t, isError)
 	assert.Contains(t, text, mcpLoginInstructions)
+
+	answers = runBridge(t, loggedOutBridge(), `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"login","arguments":{}}}`)
+	text, isError = toolText(t, answerFor(t, answers, 4))
+	assert.True(t, isError, "still logged out")
+	assert.Contains(t, text, mcpLoginSteps)
+}
+
+func toolNames(answer map[string]any) []string {
+	names := []string{}
+	for _, tool := range answer["result"].(map[string]any)["tools"].([]any) {
+		names = append(names, tool.(map[string]any)["name"].(string))
+	}
+	return names
+}
+
+// After a logged-out tool list, the first request with a login announces the
+// real tools; a call of the login tool is answered by the bridge.
+func TestBridgeAnnouncesToolsOnceLoggedIn(t *testing.T) {
+	var forwarded []string
+	var mu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var m rpcEnvelope
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		mu.Lock()
+		forwarded = append(forwarded, m.Method)
+		mu.Unlock()
+		jsonResult(w, m.ID, `{"tools":[{"name":"list_sandboxes","inputSchema":{"type":"object"}}]}`)
+	}))
+	defer server.Close()
+	var config blaxel.Config
+	a := testBridgeAuth(server.Client().Transport)
+	a.client, a.baseURL, a.pinnedEnv = server.Client(), server.URL+"/v0", "prod"
+	a.loadConfig = func() (blaxel.Config, error) { return config, nil }
+	b := newMCPBridge(a)
+	b.client = server.Client()
+
+	answers := runBridge(t, b, initializeMessage, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
+	assert.Equal(t, []string{mcpLoginTool}, toolNames(answerFor(t, answers, 2)))
+
+	config = blaxel.Config{Workspaces: []blaxel.WorkspaceConfig{mainWorkspace(blaxel.Credentials{APIKey: "key"})}}
+	answers = runBridge(t, b, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"login","arguments":{}}}`)
+	require.Len(t, answers, 2)
+	assert.Equal(t, "notifications/tools/list_changed", answers[0]["method"])
+	text, isError := toolText(t, answerFor(t, answers, 3))
+	assert.False(t, isError)
+	assert.Contains(t, text, "Logged in to Blaxel (workspace main)")
+	assert.Empty(t, forwarded, "the login tool is not sent to the hosted server")
+
+	answers = runBridge(t, b, `{"jsonrpc":"2.0","id":4,"method":"tools/list"}`)
+	require.Len(t, answers, 1, "the change is announced once")
+	assert.Equal(t, []string{"list_sandboxes"}, toolNames(answerFor(t, answers, 4)))
 }
 
 func TestBridgeAnswersInitializeFirstAndCancels(t *testing.T) {
@@ -403,7 +458,7 @@ func TestMCPCommandWritesOnlyJSONRPC(t *testing.T) {
 	require.NoError(t, cmd.Run(), stderr.String())
 	answers := decodeLines(t, stdout.String())
 	require.Len(t, answers, 2)
-	assert.Empty(t, answerFor(t, answers, 2)["result"].(map[string]any)["tools"])
+	assert.Equal(t, []string{mcpLoginTool}, toolNames(answerFor(t, answers, 2)))
 	assert.NoDirExists(t, filepath.Join(home, ".blaxel"), "bl mcp writes no configuration")
 }
 
