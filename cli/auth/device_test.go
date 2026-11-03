@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -265,7 +264,6 @@ func TestLoginWithoutTerminalChoosesTheWorkspace(t *testing.T) {
 }
 
 func TestDeviceLoginMessages(t *testing.T) {
-	waiting := regexp.MustCompile(`(?m)^ℹ Waiting up to \d+ seconds for you to confirm the login in your browser\.\.\.$`)
 	for _, tc := range []struct {
 		name                string
 		interactive, opened bool
@@ -289,7 +287,111 @@ func TestDeviceLoginMessages(t *testing.T) {
 			out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "", tc.interactive) })
 			require.NoError(t, err)
 			assert.True(t, strings.HasPrefix(out, tc.want), "output starts with %q, got %q", tc.want, out)
-			assert.Equal(t, !tc.interactive, waiting.MatchString(out), "only without a terminal does it say how long it waits")
+			assert.NotContains(t, out, "Waiting up to", "a confirmed login does not say it waits")
 		})
 	}
+}
+
+// pendingLoginServer answers a device login whose token request stays pending
+// until confirmed is set, for an account with the workspace "solo".
+func pendingLoginServer(t *testing.T, confirmed *bool) (devices, tokens *int) {
+	t.Helper()
+	devices, tokens = new(int), new(int)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login/device", func(w http.ResponseWriter, _ *http.Request) {
+		*devices++
+		_, _ = fmt.Fprintf(w, `{"device_code":"device-%d","verification_uri_complete":%q,"expires_in":600}`, *devices, deviceLoginURL)
+	})
+	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		*tokens++
+		var request DeviceLoginFinalizeRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		assert.Equal(t, "device-1", request.DeviceCode, "the resumed login polls the first device code")
+		if !*confirmed {
+			pendingError(w)
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"access","refresh_token":"refresh","expires_in":3600}`))
+	})
+	mux.HandleFunc("/workspaces", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"name":"solo"}]`))
+	})
+	mux.HandleFunc("/workspaces/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"name":"solo","id":"id-solo"}`))
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		mux.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+	baseURL, interval, attempts, open, noColor := blaxel.GetBaseURL(), devicePollInterval, deviceResumeAttempts, openBrowser, color.NoColor
+	t.Cleanup(func() {
+		blaxel.SetBaseURL(baseURL)
+		devicePollInterval, deviceResumeAttempts, openBrowser, color.NoColor = interval, attempts, open, noColor
+	})
+	t.Setenv("BL_API_URL", server.URL)
+	blaxel.ApplyEnvironmentOverrides()
+	devicePollInterval, deviceResumeAttempts = time.Millisecond, 3
+	openBrowser = func(string) error { return errors.New("no browser") }
+	color.NoColor = true
+	return devices, tokens
+}
+
+func TestLoginWithoutTerminalHandsOffAndResumes(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	confirmed := false
+	devices, tokens := pendingLoginServer(t, &confirmed)
+
+	var err error
+	out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.ErrorIs(t, err, ErrLoginPending, "an unconfirmed login returns at once")
+	assert.True(t, strings.HasPrefix(out, "ℹ Visit this URL to finish logging in:\n"+deviceLoginURL+"\n"), "the URL comes first, got %q", out)
+	assert.Contains(t, out, "run bl login again to finish")
+	assert.Equal(t, 1, *tokens, "it checks once and does not wait")
+	assertNoDeviceLoginSaved(t)
+
+	out = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.ErrorIs(t, err, ErrLoginPending, "still unconfirmed")
+	assert.Equal(t, 1, *devices, "the second run resumes the same login")
+	assert.Equal(t, 4, *tokens, "a resumed login checks for deviceResumeAttempts intervals")
+	assert.Contains(t, out, "Not confirmed yet. Visit this URL to finish logging in:\n"+deviceLoginURL+"\n")
+
+	confirmed = true
+	out = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.NoError(t, err)
+	assert.Equal(t, 1, *devices)
+	assert.Contains(t, out, "Successfully logged in to workspace solo")
+	credentials, err := blaxel.LoadCredentials("solo")
+	require.NoError(t, err)
+	assert.Equal(t, "access", credentials.AccessToken)
+	_, ok := loadPendingLogin(time.Now())
+	assert.False(t, ok, "a finished login is no longer pending")
+}
+
+func TestLoginWithoutTerminalResumesTheNamedWorkspace(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	confirmed := false
+	pendingLoginServer(t, &confirmed)
+	var err error
+	out := captureStdout(t, func() { err = loginWithDevice(context.Background(), "solo", false) })
+	require.ErrorIs(t, err, ErrLoginPending)
+	assert.Contains(t, out, "run bl login solo again to finish")
+
+	confirmed = true
+	_ = captureStdout(t, func() { err = loginWithDevice(context.Background(), "", false) })
+	require.NoError(t, err)
+	current, err := blaxel.CurrentContext()
+	require.NoError(t, err)
+	assert.Equal(t, "solo", current.Workspace)
+}
+
+func TestExpiredPendingLoginStartsOver(t *testing.T) {
+	useCurrentWorkspace(t, "")
+	require.NoError(t, savePendingLogin(pendingLogin{DeviceCode: "old", URL: "https://old", Expires: time.Now().Add(-time.Second)}))
+	_, ok := loadPendingLogin(time.Now())
+	assert.False(t, ok)
+	path, err := pendingLoginPath()
+	require.NoError(t, err)
+	_, err = os.Stat(path)
+	assert.ErrorIs(t, err, os.ErrNotExist, "an expired pending login is removed")
 }

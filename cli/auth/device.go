@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -59,13 +60,26 @@ type AuthErrorResponse struct {
 var (
 	devicePollInterval = 3 * time.Second
 	devicePollAttempts = 61
+	// Without a terminal, bl login does not wait: an agent's shell often shows
+	// output only once the command ends, so the URL would arrive after the wait.
+	// It checks once, keeps the login pending, and the next bl login resumes it,
+	// checking for up to deviceResumeAttempts intervals.
+	deviceResumeAttempts = 10
+	// pendingLoginLifetime is how long a pending login is kept when the server
+	// does not say when its code expires.
+	pendingLoginLifetime = 10 * time.Minute
 	// deviceRequestTimeout bounds the request that starts a login.
 	deviceRequestTimeout = 30 * time.Second
 )
 
 // LoginDevice logs in with the browser for bl login, and exits on failure.
 func LoginDevice(workspace string) {
-	if err := LoginWithDevice(workspace); err != nil {
+	err := LoginWithDevice(workspace)
+	if errors.Is(err, ErrLoginPending) {
+		// The URL and the step to resume are printed; it is not logged in yet.
+		core.Exit(1)
+	}
+	if err != nil {
 		core.PrintError("Login", err)
 		core.ExitWithError(err)
 	}
@@ -74,40 +88,31 @@ func LoginDevice(workspace string) {
 // LoginWithDevice logs in with the browser and saves the credentials. With an
 // empty workspace, the user picks one of their workspaces after signing in.
 // Without a terminal (such as a coding agent running bl login) nothing is
-// asked: the workspace is chosen for them and the login URL is printed on its
-// own line. Failures are returned, so callers such as bl setup can carry on.
+// asked and nothing waits: the login URL is printed on its own line, the login
+// is kept pending and ErrLoginPending returned, and the next bl login finishes
+// it once confirmed, choosing the workspace for the user. Failures are
+// returned, so callers such as bl setup can carry on.
 func LoginWithDevice(workspace string) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	core.TrackCLILogin("started", nil)
 	err := loginWithDevice(ctx, workspace, core.IsTerminalInteractive())
-	core.TrackCLILoginResult(ctx, err)
+	// A pending login is neither a success nor a failure yet: the bl login
+	// that resumes it records how it ends.
+	if !errors.Is(err, ErrLoginPending) {
+		core.TrackCLILoginResult(ctx, err)
+	}
 	return err
 }
 
 func loginWithDevice(ctx context.Context, workspace string, interactive bool) error {
-	deviceLogin, opened, err := StartDeviceLogin(ctx)
-	if err != nil {
-		return err
+	var creds blaxel.Credentials
+	var err error
+	if interactive {
+		creds, err = waitForBrowserLogin(ctx)
+	} else {
+		creds, workspace, err = handOffBrowserLogin(ctx, workspace)
 	}
-	switch {
-	case !interactive:
-		if opened {
-			core.PrintInfo("Opened the login page in your browser. If it did not open, visit this URL:")
-		} else {
-			core.PrintInfo("Visit this URL to finish logging in:")
-		}
-		core.Print(deviceLogin.VerificationURIComplete)
-		core.PrintInfo(fmt.Sprintf("Waiting up to %s for you to confirm the login in your browser...", describeWait(devicePollInterval*time.Duration(devicePollAttempts))))
-	case opened:
-		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLogin.VerificationURIComplete))
-		core.PrintInfo("Waiting for you to confirm the login in your browser...")
-	default:
-		core.PrintInfo(fmt.Sprintf("Please visit the following URL to finish logging in: %s", deviceLogin.VerificationURIComplete))
-		core.PrintInfo("Waiting for you to confirm the login in your browser...")
-	}
-
-	creds, err := WaitForDeviceLogin(ctx, deviceLogin.DeviceCode)
 	if err != nil {
 		return err
 	}
@@ -128,6 +133,96 @@ func loginWithDevice(ctx context.Context, workspace string, interactive bool) er
 	}
 	core.PrintSuccess(fmt.Sprintf("Successfully logged in to workspace %s", workspace))
 	return nil
+}
+
+// waitForBrowserLogin opens the login page and waits in the terminal until the
+// user confirms it.
+func waitForBrowserLogin(ctx context.Context) (blaxel.Credentials, error) {
+	deviceLogin, opened, err := StartDeviceLogin(ctx)
+	if err != nil {
+		return blaxel.Credentials{}, err
+	}
+	if opened {
+		core.PrintInfo(fmt.Sprintf("Opened URL in browser. If it's not working, please open it manually: %s", deviceLogin.VerificationURIComplete))
+	} else {
+		core.PrintInfo(fmt.Sprintf("Please visit the following URL to finish logging in: %s", deviceLogin.VerificationURIComplete))
+	}
+	core.PrintInfo("Waiting for you to confirm the login in your browser...")
+	return WaitForDeviceLogin(ctx, deviceLogin.DeviceCode)
+}
+
+// handOffBrowserLogin is the browser login without a terminal, such as a
+// coding agent running bl login. It prints the login URL and returns
+// ErrLoginPending at once instead of waiting, so the agent can show the URL;
+// the next bl login resumes the pending login and finishes it once the user
+// has confirmed. It returns the workspace the pending login was started for
+// when workspace is empty.
+func handOffBrowserLogin(ctx context.Context, workspace string) (blaxel.Credentials, string, error) {
+	tokenURL := blaxel.BuildOAuthTokenURL()
+	if pending, ok := loadPendingLogin(time.Now()); ok {
+		if workspace == "" {
+			workspace = pending.Workspace
+		}
+		core.PrintInfo("Checking the login started by the previous bl login...")
+		token, err := pollDeviceToken(ctx, tokenURL, pending.DeviceCode, 0, 1)
+		if errors.Is(err, errDeviceLoginTimeout) && deviceResumeAttempts > 1 {
+			core.PrintInfo(fmt.Sprintf("Waiting up to %s for you to confirm the login in your browser...", describeWait(devicePollInterval*time.Duration(deviceResumeAttempts-1))))
+			token, err = pollDeviceToken(ctx, tokenURL, pending.DeviceCode, devicePollInterval, deviceResumeAttempts-1)
+		}
+		switch {
+		case err == nil:
+			clearPendingLogin()
+			return deviceCredentials(token, pending.DeviceCode), workspace, nil
+		case errors.Is(err, errDeviceLoginTimeout):
+			core.PrintInfo("Not confirmed yet. Visit this URL to finish logging in:")
+			core.Print(pending.URL)
+			printResumeStep(workspace, pending.Expires)
+			return blaxel.Credentials{}, workspace, ErrLoginPending
+		case ctx.Err() != nil:
+			return blaxel.Credentials{}, workspace, err
+		}
+		clearPendingLogin()
+		core.PrintInfo(fmt.Sprintf("The previous login link can no longer be used (%v). Starting a new login.", err))
+	}
+
+	deviceLogin, opened, err := StartDeviceLogin(ctx)
+	if err != nil {
+		return blaxel.Credentials{}, workspace, err
+	}
+	lifetime := pendingLoginLifetime
+	if deviceLogin.ExpiresIn > 0 {
+		lifetime = time.Duration(deviceLogin.ExpiresIn) * time.Second
+	}
+	pending := pendingLogin{DeviceCode: deviceLogin.DeviceCode, URL: deviceLogin.VerificationURIComplete, Workspace: workspace, Expires: time.Now().Add(lifetime)}
+	if opened {
+		core.PrintInfo("Opened the login page in your browser. If it did not open, visit this URL:")
+	} else {
+		core.PrintInfo("Visit this URL to finish logging in:")
+	}
+	core.Print(deviceLogin.VerificationURIComplete)
+	if err := savePendingLogin(pending); err != nil {
+		return blaxel.Credentials{}, workspace, fmt.Errorf("failed to keep the pending login: %w", err)
+	}
+	token, err := pollDeviceToken(ctx, tokenURL, deviceLogin.DeviceCode, devicePollInterval, 1)
+	switch {
+	case err == nil:
+		clearPendingLogin()
+		return deviceCredentials(token, deviceLogin.DeviceCode), workspace, nil
+	case errors.Is(err, errDeviceLoginTimeout):
+		printResumeStep(workspace, pending.Expires)
+		return blaxel.Credentials{}, workspace, ErrLoginPending
+	}
+	clearPendingLogin()
+	return blaxel.Credentials{}, workspace, err
+}
+
+// printResumeStep says how to finish a pending login.
+func printResumeStep(workspace string, expires time.Time) {
+	command := "bl login"
+	if workspace != "" {
+		command += " " + workspace
+	}
+	core.PrintInfo(fmt.Sprintf("Login pending. After you confirm it in the browser, run %s again to finish. The link expires in %s.", command, describeWait(time.Until(expires))))
 }
 
 // describeWait says how long a wait is in whole minutes, or seconds when short.
@@ -155,12 +250,17 @@ func WaitForDeviceLogin(ctx context.Context, deviceCode string) (blaxel.Credenti
 	if err != nil {
 		return blaxel.Credentials{}, err
 	}
+	clearPendingLogin()
+	return deviceCredentials(token, deviceCode), nil
+}
+
+func deviceCredentials(token DeviceLoginFinalizeResponse, deviceCode string) blaxel.Credentials {
 	return blaxel.Credentials{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    token.ExpiresIn,
 		DeviceCode:   deviceCode,
-	}, nil
+	}
 }
 
 // LoginWorkspaces lists the workspaces the new login can use.
@@ -280,11 +380,12 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 		}
 		return finalizeResponse, nil
 	}
-	return DeviceLoginFinalizeResponse{}, core.MarkExpectedError(
-		fmt.Errorf("timed out waiting for confirmation in the browser"),
-		core.CLIErrorOperational,
-	)
+	return DeviceLoginFinalizeResponse{}, core.MarkExpectedError(errDeviceLoginTimeout, core.CLIErrorOperational)
 }
+
+// errDeviceLoginTimeout means the user had not confirmed the login when
+// pollDeviceToken stopped checking.
+var errDeviceLoginTimeout = errors.New("timed out waiting for confirmation in the browser")
 
 // currentWorkspaceIndex is where the workspace in use (context.workspace in
 // the config) sits in names, or -1 when the new login cannot use it.
