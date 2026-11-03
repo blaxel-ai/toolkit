@@ -241,6 +241,22 @@ func TestWhoamiAPIKeyOfServiceAccount(t *testing.T) {
 	assert.NotContains(t, out, "bl_service_key")
 }
 
+func TestWhoamiAPIKeyWithoutWorkspace(t *testing.T) {
+	whoamiFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/profile" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	t.Setenv("BL_API_KEY", "bl_service_key")
+
+	report, _, out := runWhoamiJSON(t, "")
+	assert.Equal(t, true, report["logged_in"])
+	assert.Equal(t, false, report["verified"])
+	assert.Equal(t, "bl whoami -w WORKSPACE", report["next_step"])
+	assert.NotContains(t, out, "bl_service_key")
+}
+
 func TestWhoamiClientCredentialsFromEnvironment(t *testing.T) {
 	whoamiFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

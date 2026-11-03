@@ -216,7 +216,14 @@ func verifyWhoami(ctx context.Context, client *blaxel.Client, report *whoamiRepo
 	}
 	// An API key that belongs to a service account cannot read a profile.
 	// If it can read the workspace, the key is valid and is a service account's.
-	if report.AuthMethod == whoamiAPIKey && report.Workspace != "" && whoamiRejected(err) {
+	if report.AuthMethod == whoamiAPIKey && whoamiRejected(err) {
+		// Without a workspace there is nothing to check a service account's
+		// key against, so the refusal does not prove the key is invalid.
+		if report.Workspace == "" {
+			report.Error = "the API key cannot read a user profile and no workspace is selected, so it could not be checked as a service account's key"
+			report.NextStep = "bl whoami -w WORKSPACE"
+			return
+		}
 		if _, wsErr := client.Workspaces.Get(ctx, report.Workspace, blaxel.WorkspaceGetParams{}, option.WithMaxRetries(1)); wsErr == nil {
 			report.Verified = true
 			report.AccountType = whoamiServiceAccount
