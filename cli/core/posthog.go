@@ -15,12 +15,11 @@ import (
 // PostHog API key injected at build time via ldflags
 var PosthogAPIKey = ""
 
-// PostHog API endpoint
-var PosthogHost = "https://us.i.posthog.com"
+var PosthogHost = "https://events.blaxel.ai"
 
 // posthogFlushBudget caps how long telemetry may delay process exit.
 //
-// A successful capture against us.i.posthog.com takes ~250-350ms end to end
+// A successful capture through events.blaxel.ai takes ~250-350ms end to end
 // (DNS + TLS handshake + POST), so a one second budget comfortably covers the
 // happy path. It matters because a version is only marked as reported after a
 // successful delivery: when the endpoint is unreachable, every subsequent

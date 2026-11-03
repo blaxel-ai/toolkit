@@ -80,7 +80,7 @@ func TestFlushPosthogStaysWithinLatencyBudgetWhenEndpointHangs(t *testing.T) {
 // permanently unreachable endpoint makes every single command pay the flush
 // budget. Keep that budget small enough to stay imperceptible.
 func TestPosthogFlushBudgetIsImperceptible(t *testing.T) {
-	// Measured round-trip to https://us.i.posthog.com/capture/ is ~250-350ms
+	// Measured round-trip to https://events.blaxel.ai/capture/ is ~250-350ms
 	// including DNS and the TLS handshake. Anything at or under a second keeps
 	// a stalled send from registering as a hang while leaving ample headroom.
 	assert.LessOrEqual(t, posthogFlushBudget, time.Second)
