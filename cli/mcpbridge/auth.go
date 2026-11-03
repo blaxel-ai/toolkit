@@ -16,6 +16,7 @@ import (
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"gopkg.in/yaml.v3"
 )
 
@@ -147,6 +148,7 @@ func (a *bridgeAuth) resolve(ctx context.Context) (mcpCredentials, error) {
 	// BL_API_URL are deliberately not credential-destination selectors.
 	if a.workspace == "" {
 		a.workspace = workspace
+		core.SetSentryWorkspace(workspace)
 	}
 	if !c.IsValid() {
 		return mcpCredentials{}, errNotLoggedIn

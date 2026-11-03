@@ -331,3 +331,18 @@ func TestRecoverWithSentrySanitizesEventAndPreservesPanic(t *testing.T) {
 	assert.NotContains(t, string(serialized), "secret-123")
 	assert.NotContains(t, string(serialized), "private resource")
 }
+
+func TestSentryUserFollowsBlaxelTomlWorkspace(t *testing.T) {
+	originalConfig, originalWorkspace := config, workspace
+	t.Cleanup(func() { config, workspace = originalConfig, originalWorkspace; SetSentryWorkspace("") })
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "blaxel.toml"), []byte("workspace = \"toml-workspace\"\n"), 0o600))
+	t.Chdir(dir)
+
+	workspace = "flag-workspace"
+	SetSentryWorkspace(workspace)
+	ReadConfigToml("", true)
+
+	name, _ := sentryWorkspace.Load().(string)
+	assert.Equal(t, "toml-workspace", name)
+}

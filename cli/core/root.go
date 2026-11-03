@@ -287,12 +287,13 @@ var rootCmd = &cobra.Command{
 			_ = os.Setenv("BL_WORKSPACE", workspace)
 		}
 		blaxel.InitializeEnvironment(workspace)
-		SetSentryWorkspace(workspace)
 
 		// Skip config reading for deploy and push commands as they handle their own config logic
 		if cmd.Name() != "deploy" && cmd.Name() != "push" {
 			readConfigToml("", true)
 		}
+		// After blaxel.toml, which can name the workspace.
+		SetSentryWorkspace(workspace)
 
 		// Check if workspace is required but not available
 		// Commands that don't require a workspace
@@ -497,12 +498,15 @@ func setEnvFiles(files []string) {
 
 func ReadConfigToml(folder string, setDefaultType bool) {
 	readConfigToml(folder, setDefaultType)
+	SetSentryWorkspace(workspace)
 }
 
 // ReadConfigTomlFile is ReadConfigToml for a config file other than blaxel.toml.
 // It also returns the parse error, which ReadConfigToml leaves as a warning.
 func ReadConfigTomlFile(folder, file string, setDefaultType bool) error {
-	return readConfigTomlFile(folder, file, setDefaultType)
+	err := readConfigTomlFile(folder, file, setDefaultType)
+	SetSentryWorkspace(workspace)
+	return err
 }
 
 func GetConfig() Config {
