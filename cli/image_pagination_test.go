@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -105,6 +106,54 @@ func TestImagePaginationInvalidCursorResponses(t *testing.T) {
 			require.LessOrEqual(t, calls, 2)
 		})
 	}
+}
+
+// TestImageListUnauthorizedIsExpected is the CLI-3M regression guard. When the
+// control plane rejects `bl get image(s)` with a 401/403 (expired or invalid
+// credentials), the listing path must surface an error that classifyCLIError
+// treats as an expected authentication failure, so it is NOT reported to Sentry
+// as an unexpected CLI defect. The original issue (`error listing images: GET
+// ".../v0/images": 401 Unauthorized`) predates the error-classification layer
+// and came from an old release that string-wrapped the SDK error; the current
+// path returns the SDK *blaxel.Error unchanged, which carries the HTTP status.
+func TestImageListUnauthorizedIsExpected(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			client := imageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "/images", r.URL.Path)
+				w.WriteHeader(status)
+				_, _ = fmt.Fprintf(w, `{"code":%d,"error":%q}`, status, http.StatusText(status))
+			})
+			_, err := collectImagePages(context.Background(), client, "images", imageQuery(imageListOptions{limit: 1}), false)
+			require.Error(t, err)
+
+			var apiErr *blaxel.Error
+			require.ErrorAs(t, err, &apiErr)
+			require.Equal(t, status, apiErr.StatusCode)
+			require.True(t, core.IsExpectedCLIError(err),
+				"a %d while listing images is a credential/auth problem, not a CLI defect, and must not be Sentry-reported", status)
+		})
+	}
+}
+
+// TestImageListFlattenedErrorWouldBeReported locks in the fix above: the
+// historical CLI-3M shape flattened the SDK error into a plain string
+// (fmt.Errorf("error listing images: %v", err) -> *errors.errorString), which
+// discards the typed *blaxel.Error cause so the 401 can no longer be recognized
+// and falls through to the internal/reported bucket. If the listing path ever
+// reintroduces that flattening, this guard fails.
+func TestImageListFlattenedErrorWouldBeReported(t *testing.T) {
+	client := imageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, `{"code":401,"error":"Unauthorized"}`)
+	})
+	_, err := collectImagePages(context.Background(), client, "images", imageQuery(imageListOptions{limit: 1}), false)
+	require.Error(t, err)
+	require.True(t, core.IsExpectedCLIError(err))
+
+	flattened := errors.New("error listing images: " + err.Error())
+	require.False(t, core.IsExpectedCLIError(flattened),
+		"flattening the SDK error into a string drops the *blaxel.Error type and reintroduces CLI-3M noise")
 }
 
 func TestImageLatestCommand(t *testing.T) {
