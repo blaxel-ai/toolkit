@@ -218,7 +218,13 @@ func requestDeviceLogin(ctx context.Context, url string) (DeviceLoginResponse, e
 
 	var deviceLoginResponse DeviceLoginResponse
 	if err := json.Unmarshal(body, &deviceLoginResponse); err != nil {
-		return DeviceLoginResponse{}, fmt.Errorf("error unmarshalling response: %w", err)
+		// An unparseable body means the auth endpoint (or an intercepting proxy
+		// or gateway) returned something other than JSON. That is an operational
+		// or environmental failure, not a CLI defect.
+		return DeviceLoginResponse{}, core.MarkExpectedError(
+			fmt.Errorf("error unmarshalling response: %w", err),
+			core.CLIErrorOperational,
+		)
 	}
 	if deviceLoginResponse.DeviceCode == "" || deviceLoginResponse.VerificationURIComplete == "" {
 		return DeviceLoginResponse{}, core.MarkExpectedError(
@@ -276,7 +282,13 @@ func pollDeviceToken(ctx context.Context, url, deviceCode string, interval time.
 		}
 		var finalizeResponse DeviceLoginFinalizeResponse
 		if err := json.Unmarshal(body, &finalizeResponse); err != nil {
-			return DeviceLoginFinalizeResponse{}, fmt.Errorf("error unmarshalling response: %w", err)
+			// A 200 with an unparseable body is an unexpected answer from the
+			// auth endpoint (or an intercepting proxy or gateway), not a CLI
+			// defect.
+			return DeviceLoginFinalizeResponse{}, core.MarkExpectedError(
+				fmt.Errorf("error unmarshalling response: %w", err),
+				core.CLIErrorOperational,
+			)
 		}
 		return finalizeResponse, nil
 	}
