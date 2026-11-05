@@ -289,7 +289,7 @@ func (t Template) Clone(opts TemplateOptions) error {
 		return err
 	}
 	if !isCommandAvailable("git") {
-		return fmt.Errorf("git is not available on your system. Please install git and try again")
+		return toolingError("git is not available on your system. Please install git and try again")
 	}
 	// We clone in a tmp dir, cause the template can contain variables and they will be evaluated
 	cloneDirCmd := templateCloneCommand(t.URL, opts.Directory)
