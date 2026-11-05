@@ -1,11 +1,17 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
+	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -227,6 +233,61 @@ func TestBatchEmptyTasks(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, parsed.Tasks, 0)
+}
+
+func TestClassifyRunRequestErrorMarksTransportFailuresExpected(t *testing.T) {
+	// A failed read of the run response body or SSE stream can only be an
+	// environment/server condition (connection reset, short read, oversized
+	// stream line, token-refresh failure) and must not be reported as an
+	// unexpected CLI defect.
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{"unexpected eof", io.ErrUnexpectedEOF},
+		{"scanner token too long", bufio.ErrTooLong},
+		{"wrapped stream read", fmt.Errorf("error reading stream: %w", io.ErrUnexpectedEOF)},
+		{"wrapped body read", fmt.Errorf("error reading response: %w", io.ErrUnexpectedEOF)},
+		{"wrapped request", fmt.Errorf("error making request: %w", errors.New("oauth2: cannot fetch token"))},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			classified := classifyRunRequestError(tc.err)
+			require.True(t, core.IsExpectedCLIError(classified))
+			// The user-facing message is preserved; only the Sentry
+			// classification changes.
+			require.Equal(t, tc.err.Error(), classified.Error())
+		})
+	}
+}
+
+func TestClassifyRunRequestErrorNilIsNotReported(t *testing.T) {
+	require.Nil(t, classifyRunRequestError(nil))
+	require.False(t, core.IsExpectedCLIError(classifyRunRequestError(nil)))
+}
+
+func TestClassifyRunRequestErrorPreservesTypedClassification(t *testing.T) {
+	// An HTTP error carried through %w is already expected and must be returned
+	// unchanged so its more specific status category is not downgraded.
+	apiErr := &blaxel.Error{StatusCode: 401}
+	wrapped := fmt.Errorf("error making request: %w", apiErr)
+
+	classified := classifyRunRequestError(wrapped)
+
+	require.True(t, core.IsExpectedCLIError(classified))
+	require.Equal(t, wrapped, classified)
+	var gotAPIErr *blaxel.Error
+	require.True(t, errors.As(classified, &gotAPIErr))
+	require.Equal(t, 401, gotAPIErr.StatusCode)
+}
+
+func TestRunRequestTransportErrorUnclassifiedIsReported(t *testing.T) {
+	// Guard: without classifyRunRequestError the raw transport failures remain
+	// reportable, so the classification above is load-bearing.
+	require.False(t, core.IsExpectedCLIError(io.ErrUnexpectedEOF))
+	require.False(t, core.IsExpectedCLIError(bufio.ErrTooLong))
+	require.False(t, core.IsExpectedCLIError(fmt.Errorf("error reading stream: %w", io.ErrUnexpectedEOF)))
+	require.False(t, core.IsExpectedCLIError(fmt.Errorf("error reading response: %w", io.ErrUnexpectedEOF)))
 }
 
 func TestBatchTaskWithMultipleFields(t *testing.T) {
