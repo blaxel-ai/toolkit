@@ -178,7 +178,8 @@ the blfs filesystem. It can be used as a recovery tool when mounts are lost.`,
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				core.PrintError("Drive mount", fmt.Errorf("failed to read response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to read response: %w", err))
+				core.PrintError("Drive mount", err)
 				core.ExitWithError(err)
 			}
 
@@ -188,7 +189,8 @@ the blfs filesystem. It can be used as a recovery tool when mounts are lost.`,
 
 			var mountResp driveMountResponse
 			if err := json.Unmarshal(respBody, &mountResp); err != nil {
-				core.PrintError("Drive mount", fmt.Errorf("failed to parse response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to parse response: %w", err))
+				core.PrintError("Drive mount", err)
 				core.ExitWithError(err)
 			}
 
@@ -246,7 +248,8 @@ func DriveUnmountCmd() *cobra.Command {
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				core.PrintError("Drive unmount", fmt.Errorf("failed to read response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to read response: %w", err))
+				core.PrintError("Drive unmount", err)
 				core.ExitWithError(err)
 			}
 
@@ -256,7 +259,8 @@ func DriveUnmountCmd() *cobra.Command {
 
 			var unmountResp driveUnmountResponse
 			if err := json.Unmarshal(respBody, &unmountResp); err != nil {
-				core.PrintError("Drive unmount", fmt.Errorf("failed to parse response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to parse response: %w", err))
+				core.PrintError("Drive unmount", err)
 				core.ExitWithError(err)
 			}
 
@@ -304,7 +308,8 @@ func DriveMountsCmd() *cobra.Command {
 
 			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				core.PrintError("Drive mounts", fmt.Errorf("failed to read response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to read response: %w", err))
+				core.PrintError("Drive mounts", err)
 				core.ExitWithError(err)
 			}
 
@@ -314,7 +319,8 @@ func DriveMountsCmd() *cobra.Command {
 
 			var listResp driveListResponse
 			if err := json.Unmarshal(respBody, &listResp); err != nil {
-				core.PrintError("Drive mounts", fmt.Errorf("failed to parse response: %w", err))
+				err = classifyDriveResponseError(fmt.Errorf("failed to parse response: %w", err))
+				core.PrintError("Drive mounts", err)
 				core.ExitWithError(err)
 			}
 
@@ -600,6 +606,20 @@ func sandboxRequest(ctx context.Context, method, sandboxURL, path, token string,
 	}
 
 	return resp, nil
+}
+
+// classifyDriveResponseError marks a sandbox drive response read or parse
+// failure as an expected operational error. A response body that cannot be read
+// (the sandbox connection reset mid-stream) or cannot be parsed (the sandbox or
+// an intervening gateway returned a truncated or non-JSON body) is an
+// environmental condition, not a CLI defect, so it must not be reported as an
+// internal crash. An already-classified cause (for example a network error)
+// keeps its own, more specific category.
+func classifyDriveResponseError(err error) error {
+	if err == nil || core.IsExpectedCLIError(err) {
+		return err
+	}
+	return core.MarkExpectedError(err, core.CLIErrorOperational)
 }
 
 // handleSandboxAPIError extracts an error message from a sandbox API response and exits.
