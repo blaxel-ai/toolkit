@@ -981,8 +981,8 @@ func extractErrorMessage(err error) string {
 	if isBlaxelError(err, &apiErr) {
 		// Try to parse the raw JSON response to get the error message
 		rawJSON := apiErr.RawJSON()
-		if strings.TrimSpace(rawJSON) == "" && apiErr.StatusCode == http.StatusForbidden {
-			return fmt.Sprintf("%s (HTTP 403, empty body): blocked before the API (edge rate limit or firewall), not a quota", strings.TrimSpace(err.Error()))
+		if apiErr.StatusCode == http.StatusForbidden && !isJSONObject(rawJSON) {
+			return edgeBlockedMessage(apiErr)
 		}
 		// Gateway errors use the envelope {"error": {"code", "message", ...}},
 		// which the SDK already unpacks.
@@ -1005,6 +1005,9 @@ func extractErrorMessage(err error) string {
 				}
 				// Fall back to "error" field (used by older APIs)
 				if parsed.Error != "" {
+					if code == "" && core.IsQuotaExceeded(apiErr.StatusCode, []byte(rawJSON)) {
+						return fmt.Sprintf("%s (HTTP %d): %s", parsed.Error, apiErr.StatusCode, quotaHint(apiErr.StatusCode))
+					}
 					return withErrorCode(parsed.Error, apiErr, code)
 				}
 			}
@@ -1024,11 +1027,39 @@ func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
 	out := fmt.Sprintf("%s (HTTP %d %s)", msg, apiErr.StatusCode, code)
 	switch code {
 	case core.QuotaExceededCode:
-		out += ": not retryable: delete unused sandboxes or volumes, or raise the quota: https://docs.blaxel.ai/Security/Quotas"
-	case "WORKSPACE_RATE_LIMIT_EXCEEDED":
+		out += ": " + quotaHint(apiErr.StatusCode)
+	case "WORKSPACE_RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED":
 		out += ": " + retryHint(apiErr.Response)
 	}
 	return out
+}
+
+// quotaHint says a quota error is not retryable. A 400 is one ephemeral volume
+// over the per-volume maximum; a 429 is a workspace or account quota (sandboxes,
+// CPU, memory, volumes, image storage).
+func quotaHint(status int) string {
+	if status == http.StatusBadRequest {
+		return "not retryable as is: request a smaller volume or raise the quota: https://docs.blaxel.ai/Security/Quotas"
+	}
+	return "not retryable until usage drops or the quota is raised: https://docs.blaxel.ai/Security/Quotas"
+}
+
+func isJSONObject(raw string) bool {
+	var obj map[string]json.RawMessage
+	return json.Unmarshal([]byte(raw), &obj) == nil
+}
+
+// edgeBlockedMessage describes a 403 without a JSON error body. The API answers
+// its own 403s with a JSON code, so this one likely came from an edge rate limit
+// or firewall rule; which rule is not confirmed. The body (possibly an HTML
+// page) is left out.
+func edgeBlockedMessage(apiErr *blaxel.Error) string {
+	prefix := "HTTP 403"
+	if apiErr.Request != nil && apiErr.Request.URL != nil {
+		prefix = fmt.Sprintf("%s %q: HTTP 403", apiErr.Request.Method, apiErr.Request.URL.String())
+	}
+	return prefix + " without a JSON error body: likely an edge rate limit or firewall block in front of the API." +
+		" Blaxel quota and permission errors carry a JSON error code"
 }
 
 // retryHint uses the Retry-After header when the server sends one.
