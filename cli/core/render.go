@@ -16,7 +16,7 @@ import (
 )
 
 // getImageColumnWidth calculates the optimal width for the image column based on terminal size
-func getImageColumnWidth() int {
+func getImageColumnWidth(extraUsed int) int {
 	// Get terminal width
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -27,7 +27,7 @@ func getImageColumnWidth() int {
 	// Calculate space used by other columns (with some padding for separators and margins)
 	// WORKSPACE: ~15, NAME: ~20, CREATED_AT: 10, STATUS: ~10
 	// Plus separators and padding: ~20 (more conservative)
-	usedSpace := 15 + 20 + 10 + 10 + 20 // ~75 chars for other columns (removed UPDATED_AT: 10)
+	usedSpace := 15 + 20 + 10 + 10 + 20 + extraUsed // ~75 chars for other columns (removed UPDATED_AT: 10)
 
 	// Calculate available space for image column
 	availableSpace := width - usedSpace
@@ -232,15 +232,48 @@ func printTable(resource Resource, slices []interface{}) {
 	header := buildTableHeader(resource)
 	t.AppendHeader(header)
 
-	// Calculate dynamic image width once for all rows
-	imageWidth := getImageColumnWidth()
+	// Creator columns hold "<subType>:<sub>" ids; resolve them all with one
+	// lookup before rendering instead of one request per row.
+	creatorColumns := []int{}
+	for i, field := range resource.Fields {
+		if field.Special == "creator" {
+			creatorColumns = append(creatorColumns, i)
+		}
+	}
 
-	// Add rows to the table
+	// Calculate dynamic image width once for all rows
+	extraUsed := 0
+	if len(creatorColumns) > 0 {
+		extraUsed = 30 // an email address
+	}
+	imageWidth := getImageColumnWidth(extraUsed)
+
+	rows := []table.Row{}
 	for _, item := range slices {
 		if itemMap, ok := item.(map[string]interface{}); ok {
-			row := buildTableRow(resource, itemMap, imageWidth)
-			t.AppendRow(row)
+			rows = append(rows, buildTableRow(resource, itemMap, imageWidth))
 		}
+	}
+
+	if len(creatorColumns) > 0 {
+		ids := []string{}
+		for _, row := range rows {
+			for _, col := range creatorColumns {
+				ids = append(ids, row[col].(string))
+			}
+		}
+		creators := resolveCreators(ids)
+		for _, row := range rows {
+			for _, col := range creatorColumns {
+				if name, ok := creators[row[col].(string)]; ok {
+					row[col] = name
+				}
+			}
+		}
+	}
+
+	for _, row := range rows {
+		t.AppendRow(row)
 	}
 	// Render the table - this automatically sizes columns based on content
 	t.Render()
