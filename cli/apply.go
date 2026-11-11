@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -967,7 +968,9 @@ func isBlaxelError(err error, apiErr **blaxel.Error) bool {
 // extractErrorMessage extracts a user-friendly error message from an error.
 // If the error is a blaxel API error, it parses the JSON response to get the
 // human-readable message. It checks for both "message" and "error" fields since
-// different API endpoints use different field names.
+// different API endpoints use different field names. When the body carries a
+// string error code, it appends the HTTP status, the code and one next step, so
+// a quota error does not read like a rate limit.
 // Otherwise, it returns the error's string representation.
 func extractErrorMessage(err error) string {
 	if err == nil {
@@ -978,6 +981,14 @@ func extractErrorMessage(err error) string {
 	if isBlaxelError(err, &apiErr) {
 		// Try to parse the raw JSON response to get the error message
 		rawJSON := apiErr.RawJSON()
+		if strings.TrimSpace(rawJSON) == "" && apiErr.StatusCode == http.StatusForbidden {
+			return fmt.Sprintf("%s (HTTP 403, empty body): blocked before the API (edge rate limit or firewall), not a quota", strings.TrimSpace(err.Error()))
+		}
+		// Gateway errors use the envelope {"error": {"code", "message", ...}},
+		// which the SDK already unpacks.
+		if apiErr.IsGatewayError() && apiErr.Message != "" {
+			return withErrorCode(apiErr.Message, apiErr, apiErr.ErrorCode)
+		}
 		if rawJSON != "" {
 			// Use a flexible struct that handles both "message" and "error" fields,
 			// as well as string or numeric "code" values
@@ -987,13 +998,14 @@ func extractErrorMessage(err error) string {
 				Code    interface{} `json:"code"`
 			}
 			if jsonErr := json.Unmarshal([]byte(rawJSON), &parsed); jsonErr == nil {
+				code := core.APIErrorCode([]byte(rawJSON))
 				// Prefer "message" field (used by sandbox and other newer APIs)
 				if parsed.Message != "" {
-					return parsed.Message
+					return withErrorCode(parsed.Message, apiErr, code)
 				}
 				// Fall back to "error" field (used by older APIs)
 				if parsed.Error != "" {
-					return parsed.Error
+					return withErrorCode(parsed.Error, apiErr, code)
 				}
 			}
 		}
@@ -1001,4 +1013,33 @@ func extractErrorMessage(err error) string {
 
 	// Fall back to the error string
 	return err.Error()
+}
+
+// withErrorCode appends "(HTTP <status> <code>)" and the next step for codes
+// that need one. Without a string code the message is returned unchanged.
+func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
+	if code == "" {
+		return msg
+	}
+	out := fmt.Sprintf("%s (HTTP %d %s)", msg, apiErr.StatusCode, code)
+	switch code {
+	case core.QuotaExceededCode:
+		out += ": not retryable: delete unused sandboxes or volumes, or raise the quota: https://docs.blaxel.ai/Security/Quotas"
+	case "WORKSPACE_RATE_LIMIT_EXCEEDED":
+		out += ": " + retryHint(apiErr.Response)
+	}
+	return out
+}
+
+// retryHint uses the Retry-After header when the server sends one.
+func retryHint(res *http.Response) string {
+	if res != nil {
+		if after := strings.TrimSpace(res.Header.Get("Retry-After")); after != "" {
+			if secs, err := strconv.Atoi(after); err == nil && secs >= 0 {
+				return fmt.Sprintf("retry in %ds", secs)
+			}
+			return "retry after " + after
+		}
+	}
+	return "retry in a few seconds"
 }
