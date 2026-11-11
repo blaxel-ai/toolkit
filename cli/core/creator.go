@@ -3,7 +3,10 @@ package core
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
+
+	blaxel "github.com/blaxel-ai/sdk-go"
 )
 
 // Resources record their creator in metadata.createdBy as "<subType>:<sub>",
@@ -13,6 +16,48 @@ import (
 // request per command is enough; JSON and YAML output keep the raw id.
 
 const creatorLookupTimeout = 10 * time.Second
+
+// The member and service account lists are read once per client and
+// workspace, so `bl get sandboxes --watch` does not repeat them (or wait out a
+// failing lookup) on every refresh. A failed lookup is kept as an empty list:
+// the column then shows raw ids for the rest of the command.
+var creatorCache struct {
+	sync.Mutex
+	client    *blaxel.Client
+	workspace string
+	users     map[string]string
+	accounts  map[string]string
+}
+
+func cachedCreatorNames(ctx context.Context, wantUsers, wantAccounts bool) (users, accounts map[string]string) {
+	creatorCache.Lock()
+	defer creatorCache.Unlock()
+	if creatorCache.client != GetClient() || creatorCache.workspace != GetWorkspace() {
+		creatorCache.client, creatorCache.workspace = GetClient(), GetWorkspace()
+		creatorCache.users, creatorCache.accounts = nil, nil
+	}
+	if wantUsers && creatorCache.users == nil {
+		creatorCache.users = map[string]string{}
+		if list, err := fetchWorkspaceUsers(ctx); err == nil {
+			for _, u := range list {
+				if name := userDisplayName(u); name != "" {
+					creatorCache.users[u.Sub] = name
+				}
+			}
+		}
+	}
+	if wantAccounts && creatorCache.accounts == nil {
+		creatorCache.accounts = map[string]string{}
+		if list, err := fetchWorkspaceServiceAccounts(ctx); err == nil {
+			for _, sa := range list {
+				if sa.Name != "" {
+					creatorCache.accounts[sa.ClientID] = sa.Name
+				}
+			}
+		}
+	}
+	return creatorCache.users, creatorCache.accounts
+}
 
 type workspaceUser struct {
 	Sub        string `json:"sub"`
@@ -58,8 +103,9 @@ func splitCreator(createdBy string) (subType, sub string) {
 // resolveCreators maps each createdBy value to a readable name: the user's
 // email, or the service account's name. It makes at most one users request
 // and, only when a service account created something, one service accounts
-// request (admin-only, so a viewer falls back to the raw id). Any value that
-// cannot be resolved maps to itself.
+// request (admin-only, so a viewer falls back to the raw id), and reuses both
+// for later calls with the same client. Any value that cannot be resolved maps
+// to itself.
 func resolveCreators(createdBy []string) map[string]string {
 	resolved := make(map[string]string, len(createdBy))
 	var hasUser, hasServiceAccount bool
@@ -81,26 +127,7 @@ func resolveCreators(createdBy []string) map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), creatorLookupTimeout)
 	defer cancel()
 
-	users := map[string]string{}
-	if hasUser {
-		if list, err := fetchWorkspaceUsers(ctx); err == nil {
-			for _, u := range list {
-				if name := userDisplayName(u); name != "" {
-					users[u.Sub] = name
-				}
-			}
-		}
-	}
-	accounts := map[string]string{}
-	if hasServiceAccount {
-		if list, err := fetchWorkspaceServiceAccounts(ctx); err == nil {
-			for _, sa := range list {
-				if sa.Name != "" {
-					accounts[sa.ClientID] = sa.Name
-				}
-			}
-		}
-	}
+	users, accounts := cachedCreatorNames(ctx, hasUser, hasServiceAccount)
 
 	for value := range resolved {
 		kind, sub := splitCreator(value)

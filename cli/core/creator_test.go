@@ -127,3 +127,16 @@ func TestSandboxTableShowsCreatorEmail(t *testing.T) {
 	assert.Contains(t, jsonOut, "user:u-1")
 	assert.EqualValues(t, 1, *users, "no lookup for -o json")
 }
+
+// A watch refresh renders the table again; the member lists are read once.
+func TestResolveCreatorsReadsListsOncePerClient(t *testing.T) {
+	users, serviceAccounts := creatorServer(t, http.StatusForbidden)
+
+	for i := 0; i < 3; i++ {
+		got := resolveCreators([]string{"user:u-1", "service_account:sa-1"})
+		assert.Equal(t, "ada@example.com", got["user:u-1"])
+		assert.Equal(t, "service_account:sa-1", got["service_account:sa-1"])
+	}
+	assert.Equal(t, int32(1), atomic.LoadInt32(users))
+	assert.Equal(t, int32(1), atomic.LoadInt32(serviceAccounts))
+}
