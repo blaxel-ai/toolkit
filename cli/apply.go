@@ -1059,6 +1059,7 @@ func edgeBlockedMessage(apiErr *blaxel.Error) string {
 		prefix = fmt.Sprintf("%s %q: HTTP 403", apiErr.Request.Method, apiErr.Request.URL.String())
 	}
 	return prefix + " without a JSON error body: likely an edge rate limit or firewall block in front of the API." +
+		" If you send many requests, slow down and retry after about 60 s." +
 		" Blaxel quota and permission errors carry a JSON error code"
 }
 

@@ -101,6 +101,7 @@ func TestSandboxCreateForbiddenWithoutJSON(t *testing.T) {
 			msg := extractErrorMessage(err)
 			assert.Contains(t, msg, `POST "http://`)
 			assert.Contains(t, msg, "HTTP 403 without a JSON error body: likely an edge rate limit or firewall block in front of the API.")
+			assert.Contains(t, msg, "slow down and retry after about 60 s.")
 			assert.NotContains(t, msg, "<HTML>")
 		})
 	}
