@@ -509,38 +509,13 @@ func DriveDeleteCmd() *cobra.Command {
 	}
 }
 
-// resolveSandbox retrieves the sandbox URL and auth token for the given sandbox name.
+// resolveSandbox retrieves the sandbox URL and auth token for the given sandbox
+// name, in the selected workspace (-w, BL_WORKSPACE, or the current context),
+// with the stored login, else BL_API_KEY or BL_CLIENT_CREDENTIALS.
 func resolveSandbox(ctx context.Context, sandboxName string) (sandboxURL, token string) {
-	currentContext, _ := blaxel.CurrentContext()
-	workspace := currentContext.Workspace
-	if workspace == "" {
-		err := core.MarkExpectedError(
-			fmt.Errorf("no workspace found in current context. Please run 'bl login' first"),
-			core.CLIErrorAuthentication,
-		)
-		core.PrintError("Drive", err)
-		core.ExitWithError(err)
-	}
-
-	credentials, _ := blaxel.LoadCredentials(workspace)
-	if !credentials.IsValid() {
-		err := core.MarkExpectedError(
-			fmt.Errorf("no valid credentials found. Please run 'bl login' first"),
-			core.CLIErrorAuthentication,
-		)
-		core.PrintError("Drive", err)
-		core.ExitWithError(err)
-	}
-
-	token = credentials.AccessToken
-	if token == "" {
-		token = credentials.APIKey
-	}
-	if token == "" {
-		err := core.MarkExpectedError(
-			fmt.Errorf("no access token or Blaxel API key found. Please run 'bl login' first"),
-			core.CLIErrorAuthentication,
-		)
+	workspace, token, err := sandboxAuthentication(ctx)
+	if err != nil {
+		err = core.MarkExpectedError(err, core.CLIErrorAuthentication)
 		core.PrintError("Drive", err)
 		core.ExitWithError(err)
 	}

@@ -66,7 +66,7 @@ Examples:
 				core.ExitWithError(err)
 			}
 
-			workspace, token, err := sandboxTerminalAuthentication(ctx)
+			workspace, token, err := sandboxAuthentication(ctx)
 			if err != nil {
 				err = core.MarkExpectedError(err, core.CLIErrorAuthentication)
 				core.PrintError("Connect", err)
@@ -140,23 +140,52 @@ Examples:
 	return cmd
 }
 
-var loadTerminalCredentials = blaxel.LoadCredentials
+var loadStoredCredentials = blaxel.LoadCredentials
 
-func sandboxTerminalAuthentication(ctx context.Context) (string, string, error) {
+// workspaceCredentials is the stored login for the workspace or, like the API
+// client behind bl get and bl apply, BL_API_KEY or BL_CLIENT_CREDENTIALS when
+// the workspace has none.
+func workspaceCredentials(workspace string) (blaxel.Credentials, error) {
+	credentials, err := loadStoredCredentials(workspace)
+	if err != nil {
+		return blaxel.Credentials{}, err
+	}
+	if !credentials.IsValid() {
+		credentials = environmentCredentials(os.Getenv)
+	}
+	return credentials, nil
+}
+
+// sandboxAuthentication is the selected workspace (-w, BL_WORKSPACE, or the
+// current context) and a bearer token for its sandboxes, for bl connect and
+// bl drive.
+func sandboxAuthentication(ctx context.Context) (string, string, error) {
 	workspace := core.GetWorkspace()
 	if workspace == "" {
 		return "", "", fmt.Errorf("no workspace selected. Please run 'bl login' first")
 	}
-	credentials, err := loadTerminalCredentials(workspace)
+	credentials, err := workspaceCredentials(workspace)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to load credentials for workspace %q: %w", workspace, err)
 	}
 	if !credentials.IsValid() {
-		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s'", workspace)
+		return "", "", fmt.Errorf("no valid credentials found. Please run 'bl login %s', or set BL_API_KEY", workspace)
 	}
 	token, err := tokenForCredentials(ctx, workspace, credentials)
 	if err != nil {
 		return "", "", err
 	}
 	return workspace, token, nil
+}
+
+// environmentCredentials are the credentials set in BL_API_KEY, else
+// BL_CLIENT_CREDENTIALS, or none.
+func environmentCredentials(getenv func(string) string) blaxel.Credentials {
+	if key := strings.TrimSpace(getenv("BL_API_KEY")); key != "" {
+		return blaxel.Credentials{APIKey: key}
+	}
+	if clientCredentials := strings.TrimSpace(getenv("BL_CLIENT_CREDENTIALS")); clientCredentials != "" {
+		return blaxel.Credentials{ClientCredentials: clientCredentials}
+	}
+	return blaxel.Credentials{}
 }
