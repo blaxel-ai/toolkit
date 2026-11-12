@@ -295,7 +295,10 @@ func (s *Setup) runPlain(ctx context.Context, out io.Writer, in *bufio.Reader) S
 		case eventFinish:
 			results[e.id] = e.result
 			marker, detail := glyph.ok, e.result.Detail
-			if e.result.Err != nil {
+			switch {
+			case errors.Is(e.result.Err, ErrSkipped):
+				marker, detail = glyph.pending, e.result.Err.Error()
+			case e.result.Err != nil:
 				marker, detail = glyph.fail, e.result.Err.Error()
 			}
 			_, _ = fmt.Fprintln(out, plainLine(st, marker, e.result.Label, detail))

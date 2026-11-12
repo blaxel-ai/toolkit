@@ -27,6 +27,9 @@ const (
 	loginInstallEnv = "BL_INSTALL_LOGIN"
 	// trackingInstallEnv=false disables usage capture and setup's tracking choice.
 	trackingInstallEnv = "BL_INSTALL_TRACKING"
+	// installerEnv=1 is set by the installers, which start the login
+	// themselves without a terminal.
+	installerEnv = "BL_INSTALLER"
 	// The installers describe what they already did, for the setup screens.
 	installerShellEnv  = "BL_INSTALLER_SHELL"
 	installerReloadEnv = "BL_INSTALLER_RELOAD"
@@ -78,9 +81,12 @@ that login through bl mcp, so they need no sign-in of their own.
 
 In a terminal, setup shows everything it found, selected, and installs it
 when you press Enter; --yes installs it without showing the plan. Without a
-terminal, setup installs the same defaults and skips the browser login, so
-run bl login afterwards. The usage and error reports toggle controls the saved
-tracking preference. New setup plans keep reports selected by default; an
+terminal, such as a coding agent running it, setup installs the same defaults
+and does not wait for the browser: it prints the login URL, keeps the login
+pending and exits, and bl login finishes it once you confirm it in the
+browser. Without a terminal, setup starts no login in CI or when BL_API_KEY
+or BL_CLIENT_CREDENTIALS is set. The usage and error reports toggle controls
+the saved tracking preference. New setup plans keep reports selected by default; an
 existing saved choice is retained. Anonymous usage capture is disabled in CI,
 by any nonempty DO_NOT_TRACK, or by BL_INSTALL_TRACKING=false. Error reports
 keep the SDK's existing DO_NOT_TRACK semantics.
@@ -137,6 +143,9 @@ bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.`,
 			options.subtitle = setupSubtitle()
 			options.installSkills = agentsetup.InstallSkillsFor
 			options.login = setupDeviceLogin
+			if !options.interactive {
+				options.login = setupHandOffLogin
+			}
 			options.loginState = setupLoginState
 			options.trackingConfigured = blaxel.IsTrackingConfigured
 			options.trackingEnabled = blaxel.IsTrackingEnabled
@@ -226,6 +235,34 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 	if err != nil {
 		return "", err
 	}
+	return saveSetupLogin(ctx, c, workspace, creds, true)
+}
+
+// setupHandOffLogin is the login without a terminal, such as a coding agent
+// running the installer: its shell often shows output only once setup ends,
+// so setup prints the login URL and leaves the login pending for bl login to
+// finish instead of waiting for the browser. A login an earlier run left
+// pending is checked once and finished when the user has confirmed it.
+func setupHandOffLogin(ctx context.Context, c *ui.Control, workspace string) (string, error) {
+	c.Progress("starting the browser login")
+	creds, workspace, err := auth.HandOffLogin(ctx, workspace, c.Note)
+	if errors.Is(err, auth.ErrLoginPending) {
+		command := "bl login"
+		if workspace != "" {
+			command += " " + workspace
+		}
+		return "", loginPending{command: command}
+	}
+	if err != nil {
+		return "", err
+	}
+	return saveSetupLogin(ctx, c, workspace, creds, false)
+}
+
+// saveSetupLogin saves a confirmed login. Without a workspace, it waits for
+// the account to have one, then asks which one in a terminal, or picks one
+// without.
+func saveSetupLogin(ctx context.Context, c *ui.Control, workspace string, creds blaxel.Credentials, interactive bool) (string, error) {
 	if workspace == "" {
 		c.Progress("checking your workspaces")
 		names, err := auth.WaitForLoginWorkspaces(ctx, creds, func(note string) {
@@ -236,12 +273,16 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 			return "", err
 		}
 		workspace = names[0]
-		if len(names) > 1 {
+		if len(names) > 1 && interactive {
 			index, err := c.Choose("Choose a workspace", names)
 			if err != nil {
 				return "", err
 			}
 			workspace = names[index]
+		} else if len(names) > 1 {
+			var why string
+			workspace, why = auth.WorkspaceWithoutAsking(names)
+			c.Note(fmt.Sprintf("Using workspace %s (%s). To use another one, run bl login <workspace>.", workspace, why))
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -249,6 +290,22 @@ func setupDeviceLogin(ctx context.Context, c *ui.Control, workspace string) (str
 	}
 	c.Progress("saving your login")
 	return workspace, auth.SaveDeviceLogin(workspace, creds)
+}
+
+// loginPending is the result of a login left for bl login to finish once the
+// user confirms it in the browser. The URL is shown and nothing failed, so it
+// counts as a skipped step.
+type loginPending struct{ command string }
+
+func (p loginPending) Error() string { return "pending · finish with " + p.command }
+
+func (loginPending) Is(target error) bool { return target == ui.ErrSkipped }
+
+// handOffOffered reports whether setup without a terminal starts the browser
+// login: not in CI, not when the environment holds credentials, and not under
+// the installer, which runs bl login itself after setup.
+func handOffOffered(env func(string) string) bool {
+	return !agentsetup.CIEnvironment(env) && env("BL_API_KEY") == "" && env("BL_CLIENT_CREDENTIALS") == "" && env(installerEnv) != "1"
 }
 
 func envDisabled(env func(string) string, key string) bool {
@@ -459,7 +516,7 @@ func setupItems(options setupOptions, plan setupPlan) []*ui.Item {
 	switch {
 	case plan.loggedIn != "":
 		items = append(items, &ui.Item{ID: "account", Group: "This machine", Label: "Logged in", Done: plan.loggedIn})
-	case options.interactive && !options.skipLogin && !envDisabled(options.env, loginInstallEnv):
+	case !options.skipLogin && !envDisabled(options.env, loginInstallEnv) && (options.interactive || handOffOffered(options.env)):
 		items = append(items, &ui.Item{ID: "login", Group: "This machine", Label: "Log in", Detail: "opens your browser", On: true})
 	}
 	explicit := strings.EqualFold(strings.TrimSpace(options.env(trackingInstallEnv)), "true")
@@ -663,7 +720,10 @@ func setupTasks(options setupOptions, plan setupPlan, chosen map[string]bool, ou
 			core.TrackCLILogin("started", nil)
 			workspace, err := options.login(ctx, c, options.workspace)
 			// Esc skips this task by cancelling its context; quitting setup does too.
-			core.TrackCLILoginResult(ctx, err)
+			// A pending login has not ended: the bl login that finishes it records it.
+			if !errors.As(err, new(loginPending)) {
+				core.TrackCLILoginResult(ctx, err)
+			}
 			if err != nil {
 				return "", err
 			}
@@ -779,7 +839,11 @@ func setupSummary(options setupOptions, plan setupPlan, chosen map[string]bool, 
 	if reload := strings.TrimSpace(options.env(installerReloadEnv)); reload != "" {
 		summary.Next = append(summary.Next, [2]string{reload, "use bl in this terminal"})
 	}
-	if loggedIn == "" && !options.skipLogin && !envDisabled(options.env, loginInstallEnv) {
+	var pending loginPending
+	switch {
+	case errors.As(results["login"].Err, &pending):
+		summary.Next = append(summary.Next, [2]string{pending.command, "finish logging in after you confirm it in the browser"})
+	case loggedIn == "" && !options.skipLogin && !envDisabled(options.env, loginInstallEnv):
 		summary.Next = append(summary.Next, [2]string{"bl login", "log in to Blaxel"})
 	}
 	// The agents sign in through bl mcp with the bl login: no sign-in each.
