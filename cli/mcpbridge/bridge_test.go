@@ -19,6 +19,7 @@ import (
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,7 @@ func testBridge(t *testing.T, handler http.Handler) *mcpBridge {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 	b := newMCPBridge(bridgeTestAuth(t, server, blaxel.Credentials{APIKey: "token-1"}))
-	b.version, b.userAgent, b.client = "9.9.9", "blaxel-cli/test (bl mcp)", server.Client()
+	b.version, b.client = "9.9.9", server.Client()
 	return b
 }
 
@@ -147,9 +148,48 @@ func TestBridgeRelaysJSONAndSignsRequestsIn(t *testing.T) {
 	assert.Equal(t, "Bearer token-1", list.Get("Authorization"))
 	assert.Equal(t, "main", list.Get("X-Blaxel-Workspace"))
 	assert.Equal(t, "2025-03-26", list.Get("MCP-Protocol-Version"))
-	assert.Equal(t, "blaxel-cli/test (bl mcp)", list.Get("User-Agent"))
+	assert.Equal(t, core.UserAgent(), list.Get("User-Agent"))
 	assert.Contains(t, list.Get("Accept"), "text/event-stream")
 	assert.Empty(t, headers["initialize"].Get("MCP-Protocol-Version"))
+}
+
+// bl mcp sends the User-Agent of the CLI's other API requests, so the control
+// plane counts its calls as the CLI's, with the coding agent that runs it
+// unless the user opted out. TestUserAgent in core checks it against the
+// control plane's patterns with a release version.
+func TestBridgeSendsTheCLIUserAgent(t *testing.T) {
+	for _, optOut := range []bool{false, true} {
+		t.Run(fmt.Sprintf("DO_NOT_TRACK %v", optOut), func(t *testing.T) {
+			for _, key := range []string{"DO_NOT_TRACK", "BL_INSTALL_TRACKING", "BL_SKIP_TELEMETRY"} {
+				t.Setenv(key, "")
+			}
+			t.Setenv("CLAUDECODE", "1")
+			if optOut {
+				t.Setenv("DO_NOT_TRACK", "1")
+			}
+			var userAgents []string
+			var mu sync.Mutex
+			b := testBridge(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var m rpcEnvelope
+				_ = json.NewDecoder(r.Body).Decode(&m)
+				mu.Lock()
+				userAgents = append(userAgents, r.Header.Get("User-Agent"))
+				mu.Unlock()
+				jsonResult(w, m.ID, `{"tools":[]}`)
+			}))
+			runBridge(t, b, initializeMessage, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
+			require.Len(t, userAgents, 2)
+			for _, userAgent := range userAgents {
+				assert.Equal(t, core.UserAgent(), userAgent)
+				assert.Regexp(t, `^blaxel/cli/golang/\S* \([a-z0-9]+/[a-z0-9]+\) blaxel/[a-z0-9]+( agent/claude-code)?$`, userAgent)
+				if optOut {
+					assert.NotContains(t, userAgent, "agent/")
+				} else {
+					assert.True(t, strings.HasSuffix(userAgent, " agent/claude-code"), userAgent)
+				}
+			}
+		})
+	}
 }
 
 func TestBridgeRelaysServerSentEvents(t *testing.T) {

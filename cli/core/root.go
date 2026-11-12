@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	goruntime "runtime"
 	"slices"
 	"strings"
 	"time"
@@ -293,6 +292,8 @@ var rootCmd = &cobra.Command{
 		if cmd.Name() != "deploy" && cmd.Name() != "push" {
 			readConfigToml("", true)
 		}
+		// After blaxel.toml, which can name the workspace.
+		SetSentryWorkspace(workspace)
 
 		// Check if workspace is required but not available
 		// Commands that don't require a workspace
@@ -342,24 +343,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		// Get OS/arch and commit info for User-Agent
-		osArch := goruntime.GOOS + "/" + goruntime.GOARCH
-		commitHash := "unknown"
-
-		// Check if commit was injected at build time via ldflags
-		if commit != "" {
-			if len(commit) > 7 {
-				commitHash = commit[:7]
-			} else {
-				commitHash = commit
-			}
-		}
-
-		userAgent := fmt.Sprintf("blaxel/cli/golang/%s (%s) blaxel/%s", version, osArch, commitHash)
-
 		// Build client options
 		opts := []option.RequestOption{
-			option.WithHeader("User-Agent", userAgent),
+			option.WithHeader("User-Agent", cliUserAgent(version, commit, os.Getenv)),
 		}
 
 		if workspace != "" {
@@ -512,12 +498,15 @@ func setEnvFiles(files []string) {
 
 func ReadConfigToml(folder string, setDefaultType bool) {
 	readConfigToml(folder, setDefaultType)
+	SetSentryWorkspace(workspace)
 }
 
 // ReadConfigTomlFile is ReadConfigToml for a config file other than blaxel.toml.
 // It also returns the parse error, which ReadConfigToml leaves as a warning.
 func ReadConfigTomlFile(folder, file string, setDefaultType bool) error {
-	return readConfigTomlFile(folder, file, setDefaultType)
+	err := readConfigTomlFile(folder, file, setDefaultType)
+	SetSentryWorkspace(workspace)
+	return err
 }
 
 func GetConfig() Config {

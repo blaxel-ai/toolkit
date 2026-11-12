@@ -57,7 +57,7 @@ func newMCPBridge(a mcpAuthenticator) *mcpBridge {
 		auth:      a,
 		client:    newMCPHTTPClient(),
 		version:   core.GetVersion(),
-		userAgent: "blaxel-cli/" + core.GetVersion() + " (bl mcp)",
+		userAgent: core.UserAgent(),
 	}
 }
 
