@@ -40,6 +40,7 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl share](bl_share.md)	 - Share a resource with another workspace
 * [bl skills](bl_skills.md)	 - Manage Blaxel skills for coding agents
 * [bl token](bl_token.md)	 - Retrieve authentication token for a workspace
+* [bl uninstall](bl_uninstall.md)	 - Remove the skills and MCP servers bl setup added to coding agents
 * [bl unshare](bl_unshare.md)	 - Unshare a resource from another workspace
 * [bl upgrade](bl_upgrade.md)	 - Upgrade the Blaxel CLI to the latest version
 * [bl version](bl_version.md)	 - Print the version number

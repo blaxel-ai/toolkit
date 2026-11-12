@@ -36,7 +36,7 @@ func TestSkillsInstallDisabled(t *testing.T) {
 }
 
 func TestSkillsUpdateWorkerSkipsOnlyTheResolvedCommand(t *testing.T) {
-	for _, args := range [][]string{{"mcp"}, {"-w", "main", "skills", "status"}, {"setup", "--yes"}, {"upgrade"}, {"docs"}, {"__complete", "get", ""}} {
+	for _, args := range [][]string{{"mcp"}, {"-w", "main", "skills", "status"}, {"setup", "--yes"}, {"upgrade"}, {"uninstall", "--yes"}, {"docs"}, {"__complete", "get", ""}} {
 		assert.True(t, skillsUpdateWorkerSkipped(args), args)
 	}
 	for _, args := range [][]string{{"get", "skills"}, {"-w", "mcp", "get", "agents"}, {"new", "mcp"}, {"--workspace", "upgrade", "deploy"}} {

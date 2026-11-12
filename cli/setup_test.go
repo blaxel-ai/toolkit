@@ -358,6 +358,7 @@ func TestSetupPlanAndSummary(t *testing.T) {
 		"Blaxel is ready",
 		// bl mcp signs the agents in with the bl login.
 		`Restart your agents  and ask: "Create a Blaxel sandbox"`,
+		"bl uninstall         undo this setup",
 	} {
 		assert.Contains(t, text, expected)
 	}
@@ -493,7 +494,7 @@ func TestRunSetupSwitchesHostedServersToBlMCP(t *testing.T) {
 	assert.NotContains(t, cursor, "api.blaxel.ai")
 	assert.Less(t, strings.Index(cursor, `"other"`), strings.Index(cursor, `"blaxel"`), "the servers keep their order")
 	codex := readTestFile(t, filepath.Join(home, ".codex", "config.toml"))
-	assert.Contains(t, codex, "[mcp_servers.blaxel]\ncommand = \"/opt/blaxel/bin/bl\"\nargs = [\"mcp\"]\n")
+	assert.Contains(t, codex, "[mcp_servers.blaxel] # Added by bl setup. Remove with: bl uninstall\ncommand = \"/opt/blaxel/bin/bl\"\nargs = [\"mcp\"]\n")
 	assert.Contains(t, codex, "[mcp_servers.blaxel-docs]\nurl = \"https://docs.blaxel.ai/mcp\"\n")
 	assert.Contains(t, readTestFile(t, filepath.Join(home, ".gemini", "settings.json")), "Bearer mine")
 	assert.Contains(t, recorder.text(t), "Cursor         Blaxel MCP · docs MCP")

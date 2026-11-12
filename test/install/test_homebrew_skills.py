@@ -359,7 +359,7 @@ def fake_tests(root, binary, server):
         assert "login" not in result.stderr and "error reports" not in result.stderr
     install.assert_installs(2)
     assert (install.home / ".cursor/mcp.json").is_file()
-    assert {entry.name for entry in (install.home / ".blaxel").iterdir()} <= {"skills"}, "only update bookkeeping, no authentication or tracking settings"
+    assert {entry.name for entry in (install.home / ".blaxel").iterdir()} <= {"skills", "mcp"}, "only update bookkeeping, no authentication or tracking settings"
     print("PASS installer hook refreshes every invocation with one line and no authentication", flush=True)
 
     for name, skipped, enabled in (

@@ -27,18 +27,21 @@ func refreshHomebrewSetup() {
 // completion, which must never wait for a download, for bl upgrade, and for
 // bl skills, which installs skills only and leaves the MCP refresh pending;
 // only recording the keg for bl setup, which sets up both itself; otherwise
-// the refresh. The command is resolved as cobra will, so a flag
-// value or argument such as `bl get mcp` does not count.
+// the refresh. bl uninstall never refreshes what it is about to remove. The
+// command is resolved as cobra will, so a flag value or argument such as
+// `bl get mcp` does not count.
 func homebrewRefreshFor(args []string, refresh func()) func() {
 	if core.IsShellCompletionRequest(args) {
 		return nil
 	}
-	if !slices.ContainsFunc(args, func(arg string) bool { return arg == "mcp" || arg == "skills" || arg == "setup" || arg == "upgrade" }) {
+	if !slices.ContainsFunc(args, func(arg string) bool {
+		return arg == "mcp" || arg == "skills" || arg == "setup" || arg == "upgrade" || arg == "uninstall"
+	}) {
 		return refresh
 	}
-	command := core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade")
+	command := core.ResolveStartupCommand(args, "mcp", "skills", "setup", "upgrade", "uninstall")
 	switch {
-	case isMCPBridgeArgs([]string{command}) || command == "upgrade" || command == "skills":
+	case isMCPBridgeArgs([]string{command}) || command == "upgrade" || command == "skills" || command == "uninstall":
 		return nil
 	case command == "setup":
 		return func() {}

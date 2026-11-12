@@ -35,6 +35,8 @@ Setup only adds what is missing, and it is safe to run again after
 installing another agent. MCP server entries you configured yourself are left
 unchanged; the hosted blaxel server added by earlier versions is switched to
 bl mcp. A blaxel server that the Blaxel plugin provides is left to the plugin.
+bl uninstall removes what setup added; CLI upgrades and the install scripts
+then leave the skills and MCP servers out until you run bl setup again.
 
 ```
 bl setup [flags]

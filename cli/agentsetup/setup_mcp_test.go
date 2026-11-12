@@ -229,7 +229,7 @@ func TestAppendCodexMCPServer(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, changed)
 	content := readTestFile(t, file)
-	assert.Equal(t, original+"\n\n[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\n", content)
+	assert.Equal(t, original+"\n\n[mcp_servers.blaxel] # Added by bl setup. Remove with: bl uninstall\nurl = \"https://api.blaxel.ai/v0/mcp\"\n", content)
 
 	var config struct {
 		MCPServers map[string]struct {
@@ -268,7 +268,7 @@ func TestAppendCodexMCPServerCreatesConfig(t *testing.T) {
 	changed, err := appendCodexMCPServer(file, testDocsServer)
 	require.NoError(t, err)
 	assert.True(t, changed)
-	assert.Equal(t, "[mcp_servers.blaxel-docs]\nurl = \"https://docs.blaxel.ai/mcp\"\n", readTestFile(t, file))
+	assert.Equal(t, "[mcp_servers.blaxel-docs] # Added by bl setup. Remove with: bl uninstall\nurl = \"https://docs.blaxel.ai/mcp\"\n", readTestFile(t, file))
 }
 
 func TestAppendCodexMCPServerRefusesConfigsItCannotExtend(t *testing.T) {
@@ -443,7 +443,7 @@ func TestReplaceCodexMCPServerKeepsTheRestOfTheFile(t *testing.T) {
 	original := "model = \"gpt-5\"\n\n[mcp_servers.blaxel]\nurl = \"https://api.blaxel.ai/v0/mcp\"\n\n[mcp_servers.blaxel-docs] # docs\nurl = \"https://docs.blaxel.ai/mcp\"\n"
 	writeTestFile(t, file, original)
 	require.NoError(t, replaceCodexMCPServer(file, ResourceMCPServer(`C:\Program Files\bl.exe`)))
-	assert.Equal(t, "model = \"gpt-5\"\n\n[mcp_servers.blaxel]\ncommand = \"C:\\\\Program Files\\\\bl.exe\"\nargs = [\"mcp\"]\n\n[mcp_servers.blaxel-docs] # docs\nurl = \"https://docs.blaxel.ai/mcp\"\n",
+	assert.Equal(t, "model = \"gpt-5\"\n\n[mcp_servers.blaxel] # Added by bl setup. Remove with: bl uninstall\ncommand = \"C:\\\\Program Files\\\\bl.exe\"\nargs = [\"mcp\"]\n\n[mcp_servers.blaxel-docs] # docs\nurl = \"https://docs.blaxel.ai/mcp\"\n",
 		readTestFile(t, file))
 	var config struct {
 		MCPServers map[string]struct {
@@ -461,7 +461,7 @@ func TestReplaceCodexMCPServerKeepsTheRestOfTheFile(t *testing.T) {
 	// The last table of a file, quoted.
 	writeTestFile(t, file, "[mcp_servers.\"blaxel\"]\nurl = \"https://api.blaxel.ai/v0/mcp\"")
 	require.NoError(t, replaceCodexMCPServer(file, testResourceServer))
-	assert.Equal(t, "[mcp_servers.blaxel]\ncommand = \"/opt/blaxel/bin/bl\"\nargs = [\"mcp\"]\n", readTestFile(t, file))
+	assert.Equal(t, "[mcp_servers.blaxel] # Added by bl setup. Remove with: bl uninstall\ncommand = \"/opt/blaxel/bin/bl\"\nargs = [\"mcp\"]\n", readTestFile(t, file))
 }
 
 func TestMCPAgentResultText(t *testing.T) {

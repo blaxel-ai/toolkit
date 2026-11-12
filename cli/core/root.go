@@ -676,8 +676,8 @@ func isTrackingPromptCommandExempt(args []string) bool {
 		return false
 	}
 	// bl setup asks about error reports itself; bl mcp has no terminal;
-	// automatic upgrade refresh never asks.
-	command := ResolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade")
+	// automatic upgrade refresh and bl uninstall never ask.
+	command := ResolveStartupCommand(args[1:], "completion", "__complete", "__completeNoDesc", "version", "setup", "mcp", "upgrade", "uninstall")
 	return command != "" && command != "bl"
 }
 
