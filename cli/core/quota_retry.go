@@ -87,6 +87,11 @@ const buildBacklogText = "builds are waiting"
 // BuildQueueFullCode names the build-backlog 429 on newer control planes.
 const BuildQueueFullCode = "BUILD_QUEUE_FULL"
 
+// AuthenticationUnavailableCode is the 503 the API answers when it cannot check
+// credentials for a moment (a throttled backend). It is retryable, with
+// Retry-After; it is not a credential or permission error.
+const AuthenticationUnavailableCode = "AUTHENTICATION_UNAVAILABLE"
+
 type legacyErrorBody struct {
 	Code      interface{} `json:"code"`
 	Error     interface{} `json:"error"`

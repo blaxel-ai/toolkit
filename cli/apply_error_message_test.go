@@ -102,7 +102,7 @@ func TestSandboxCreateForbiddenWithoutJSON(t *testing.T) {
 			msg := extractErrorMessage(err)
 			assert.Contains(t, msg, `POST "http://`)
 			assert.Contains(t, msg, "HTTP 403 without a JSON error body: not a quota. The request was blocked or throttled before the API could answer it"+
-				" (an auth check that failed while the backend was throttled, or an edge rate limit or firewall block).")
+				", for example by an edge rate limit or firewall block.")
 			assert.Contains(t, msg, "Slow down and retry after about 60 s.")
 			assert.NotContains(t, msg, "<HTML>")
 		})
@@ -218,4 +218,35 @@ func TestServerRetrySignalWinsOverThePlanQuotasLink(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, int32(2), calls)
 	assert.Equal(t, "over quota, see https://app.blaxel.ai/account/plan-quotas?id=acc", extractErrorMessage(err))
+}
+
+// A 503 AUTHENTICATION_UNAVAILABLE (credentials could not be checked on a
+// throttled backend) is retried with the server's Retry-After and its message
+// says it is not a credential or permission error.
+func TestAuthenticationUnavailableIsRetriedAndNotCalledACredentialError(t *testing.T) {
+	err, calls := createSandboxAgainst(t, 1, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After-Ms", "1")
+		w.Header().Set("Retry-After", "7")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"code":"AUTHENTICATION_UNAVAILABLE","message":"Unable to verify credentials, please retry","retryable":true}`))
+	})
+	require.Error(t, err)
+	assert.Equal(t, int32(2), calls, "AUTHENTICATION_UNAVAILABLE stays retryable")
+	msg := extractErrorMessage(err)
+	assert.Equal(t, "Unable to verify credentials, please retry (HTTP 503 AUTHENTICATION_UNAVAILABLE): the API could not check credentials"+
+		" for a moment; not a credential or permission error: retry in 7s", msg)
+	assert.NotContains(t, msg, "bl login")
+}
+
+func TestAuthenticationUnavailableServerSaysNoRetry(t *testing.T) {
+	err, calls := createSandboxAgainst(t, 2, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("x-should-retry", "false")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"code":"AUTHENTICATION_UNAVAILABLE","message":"Unable to verify credentials"}`))
+	})
+	require.Error(t, err)
+	assert.Equal(t, int32(1), calls)
+	assert.Contains(t, extractErrorMessage(err), "not a credential or permission error: the server says not to retry")
 }
