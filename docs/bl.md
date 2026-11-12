@@ -14,6 +14,7 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
       --skip-version-warning   Skip version warning
   -u, --utc                    Enable UTC timezone
   -v, --verbose                Enable verbose output
+      --version                Print the version (bl -v does the same)
   -w, --workspace string       Specify the workspace name
 ```
 
@@ -43,5 +44,6 @@ Blaxel CLI - manage and deploy AI agents, sandboxes, and resources
 * [bl unshare](bl_unshare.md)	 - Unshare a resource from another workspace
 * [bl upgrade](bl_upgrade.md)	 - Upgrade the Blaxel CLI to the latest version
 * [bl version](bl_version.md)	 - Print the version number
+* [bl whoami](bl_whoami.md)	 - Show which account and workspace the CLI is logged in as
 * [bl workspaces](bl_workspaces.md)	 - List workspaces or switch the current workspace
 
