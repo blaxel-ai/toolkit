@@ -130,6 +130,7 @@ var resources = []*Resource{
 			{Key: "REGION", Value: "spec.region"},
 			{Key: "STATUS", Value: "status"},
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+			{Key: "CREATED_BY", Value: "metadata.createdBy", Special: "creator"},
 		},
 	},
 	{
@@ -179,6 +180,7 @@ var resources = []*Resource{
 			{Key: "REGION", Value: "spec.region"},
 			{Key: "STATUS", Value: "status"},
 			{Key: "CREATED_AT", Value: "createdAt", Special: "date"},
+			{Key: "CREATED_BY", Value: "metadata.createdBy", Special: "creator"},
 		},
 	},
 	{
