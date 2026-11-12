@@ -76,28 +76,64 @@ func APIErrorCode(body []byte) string {
 
 // plansQuotaPage is linked by every control-plane quota error that still uses
 // the generic {"error": "<message>", "code": 429} body (image storage on
-// builds and deploys, job and volume quotas). Rate limits on that body never
-// link it.
+// builds and deploys, job and volume quotas). The build-backlog refusal links
+// it too, but clears once builds finish.
 const plansQuotaPage = "/account/plan-quotas"
 
-// IsQuotaExceeded reports whether an error response is a quota error, which no
-// retry fixes until usage drops or the quota is raised: a QUOTA_EXCEEDED code,
-// or an older generic 429 body whose message links the plan quotas page.
-func IsQuotaExceeded(status int, body []byte) bool {
-	if APIErrorCode(body) == QuotaExceededCode {
-		return true
-	}
+// buildBacklogText marks the build-backlog 429 from control planes that send
+// it without a code ("Too many image builds are waiting ...").
+const buildBacklogText = "builds are waiting"
+
+// BuildQueueFullCode names the build-backlog 429 on newer control planes.
+const BuildQueueFullCode = "BUILD_QUEUE_FULL"
+
+type legacyErrorBody struct {
+	Code      interface{} `json:"code"`
+	Error     interface{} `json:"error"`
+	Retryable *bool       `json:"retryable"`
+}
+
+// IsBuildBacklog reports whether a 429 is the account's build queue being
+// full: BUILD_QUEUE_FULL, or an older numeric-code body that says builds are
+// waiting. It clears once builds finish, so it is retryable.
+func IsBuildBacklog(status int, body []byte) bool {
 	if status != http.StatusTooManyRequests {
 		return false
 	}
-	var parsed struct {
-		Code  interface{} `json:"code"`
-		Error interface{} `json:"error"`
+	if code := APIErrorCode(body); code != "" {
+		return code == BuildQueueFullCode
 	}
+	var parsed legacyErrorBody
 	if json.Unmarshal(body, &parsed) != nil {
 		return false
 	}
 	code, _ := parsed.Code.(float64)
 	msg, _ := parsed.Error.(string)
-	return code == http.StatusTooManyRequests && strings.Contains(msg, plansQuotaPage)
+	return code == http.StatusTooManyRequests && strings.Contains(msg, buildBacklogText)
+}
+
+// IsQuotaExceeded reports whether an error response is a quota error, which no
+// retry fixes until usage drops or the quota is raised. The server's signal
+// wins: a body "retryable" flag, then a string code (QUOTA_EXCEEDED or not).
+// Only an older numeric-code 429 body with neither falls back to its text: a
+// message that links the plan quotas page is a quota, unless it says builds
+// are waiting. Callers that see an x-should-retry header use that instead.
+func IsQuotaExceeded(status int, body []byte) bool {
+	if code := APIErrorCode(body); code != "" {
+		return code == QuotaExceededCode
+	}
+	if status != http.StatusTooManyRequests {
+		return false
+	}
+	var parsed legacyErrorBody
+	if json.Unmarshal(body, &parsed) != nil {
+		return false
+	}
+	if parsed.Retryable != nil {
+		return !*parsed.Retryable
+	}
+	code, _ := parsed.Code.(float64)
+	msg, _ := parsed.Error.(string)
+	return code == http.StatusTooManyRequests && strings.Contains(msg, plansQuotaPage) &&
+		!strings.Contains(msg, buildBacklogText)
 }

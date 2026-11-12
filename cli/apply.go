@@ -1005,7 +1005,10 @@ func extractErrorMessage(err error) string {
 				}
 				// Fall back to "error" field (used by older APIs)
 				if parsed.Error != "" {
-					if code == "" && core.IsQuotaExceeded(apiErr.StatusCode, []byte(rawJSON)) {
+					if code == "" && core.IsBuildBacklog(apiErr.StatusCode, []byte(rawJSON)) {
+						return fmt.Sprintf("%s (HTTP %d): %s", parsed.Error, apiErr.StatusCode, backlogHint(apiErr.Response))
+					}
+					if code == "" && !serverSaysRetry(apiErr.Response) && core.IsQuotaExceeded(apiErr.StatusCode, []byte(rawJSON)) {
 						return fmt.Sprintf("%s (HTTP %d): %s", parsed.Error, apiErr.StatusCode, quotaHint(apiErr.StatusCode))
 					}
 					return withErrorCode(parsed.Error, apiErr, code)
@@ -1030,18 +1033,32 @@ func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
 		out += ": " + quotaHint(apiErr.StatusCode)
 	case "WORKSPACE_RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED":
 		out += ": " + retryHint(apiErr.Response)
+	case core.BuildQueueFullCode:
+		out += ": " + backlogHint(apiErr.Response)
 	}
 	return out
 }
 
 // quotaHint says a quota error is not retryable. A 400 is one ephemeral volume
-// over the per-volume maximum; a 429 is a workspace or account quota (sandboxes,
-// CPU, memory, volumes, image storage).
+// over the per-volume maximum on sandbox create or fork. A 429 is an account
+// quota (sandboxes, CPU, memory, volumes, image storage, every other resource),
+// or that same per-volume maximum on PUT /sandboxes/{name} and jobs.
 func quotaHint(status int) string {
 	if status == http.StatusBadRequest {
 		return "not retryable as is: request a smaller volume or raise the quota: https://docs.blaxel.ai/Security/Quotas"
 	}
-	return "not retryable until usage drops or the quota is raised: https://docs.blaxel.ai/Security/Quotas"
+	return "not retryable until usage drops, the request asks for less (such as a smaller volume), or the quota is raised: https://docs.blaxel.ai/Security/Quotas"
+}
+
+// serverSaysRetry reports an explicit x-should-retry: true, which wins over
+// reading the body.
+func serverSaysRetry(res *http.Response) bool {
+	return res != nil && strings.EqualFold(strings.TrimSpace(res.Header.Get("x-should-retry")), "true")
+}
+
+// backlogHint is for a full build queue: it clears once builds finish.
+func backlogHint(res *http.Response) string {
+	return "the account's build queue is full: " + retryHint(res) + ", once some builds finish"
 }
 
 func isJSONObject(raw string) bool {
@@ -1049,18 +1066,19 @@ func isJSONObject(raw string) bool {
 	return json.Unmarshal([]byte(raw), &obj) == nil
 }
 
-// edgeBlockedMessage describes a 403 without a JSON error body. The API answers
-// its own 403s with a JSON code, so this one likely came from an edge rate limit
-// or firewall rule; which rule is not confirmed. The body (possibly an HTML
-// page) is left out.
+// edgeBlockedMessage describes a 403 without a JSON error body. It is not a
+// quota: the request was blocked or throttled before the API could answer it,
+// by an auth check that failed while the backend was throttled (empty body) or
+// an edge rate limit or firewall block (text or HTML page). The body is left
+// out.
 func edgeBlockedMessage(apiErr *blaxel.Error) string {
 	prefix := "HTTP 403"
 	if apiErr.Request != nil && apiErr.Request.URL != nil {
 		prefix = fmt.Sprintf("%s %q: HTTP 403", apiErr.Request.Method, apiErr.Request.URL.String())
 	}
-	return prefix + " without a JSON error body: likely an edge rate limit or firewall block in front of the API." +
-		" If you send many requests, slow down and retry after about 60 s." +
-		" Blaxel quota and permission errors carry a JSON error code"
+	return prefix + " without a JSON error body: not a quota. The request was blocked or throttled before the API could answer it" +
+		" (an auth check that failed while the backend was throttled, or an edge rate limit or firewall block)." +
+		" Slow down and retry after about 60 s. Blaxel quota and permission errors carry a JSON error code"
 }
 
 // retryHint uses the Retry-After header when the server sends one.
