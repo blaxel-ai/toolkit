@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -982,6 +984,9 @@ func extractErrorMessage(err error) string {
 		// Try to parse the raw JSON response to get the error message
 		rawJSON := apiErr.RawJSON()
 		if apiErr.StatusCode == http.StatusForbidden && !isJSONObject(rawJSON) {
+			if isEdgeBlockPage(responseText(apiErr)) {
+				return withErrorCode("Request blocked", apiErr, requestBlockedCode)
+			}
 			return edgeBlockedMessage(apiErr)
 		}
 		// Gateway errors use the envelope {"error": {"code", "message", ...}},
@@ -1045,11 +1050,45 @@ func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
 	case requestBlockedCode:
 		out += ": " + requestBlockedHint(apiErr)
 	default:
-		if action := strings.TrimSpace(apiErr.Action); action != "" {
-			out += ": " + action
+		if next := nextStep(apiErr.Action, apiErr.DocsURL); next != "" {
+			out += ": " + next
 		}
 	}
 	return out
+}
+
+// nextStep is the API's next step for a code the CLI has no hint of its own
+// for: its action, then its docs link.
+func nextStep(action, docsURL string) string {
+	action = strings.TrimSpace(action)
+	docsURL = strings.TrimSpace(docsURL)
+	if docsURL == "" || strings.Contains(action, docsURL) {
+		return action
+	}
+	if action == "" {
+		return docsURL
+	}
+	return strings.TrimRight(action, ".") + ": " + docsURL
+}
+
+// responseText is a body the SDK could not read as JSON, which it keeps on the
+// response; the body is put back for any later reader.
+func responseText(apiErr *blaxel.Error) string {
+	if apiErr.Response == nil || apiErr.Response.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(apiErr.Response.Body)
+	apiErr.Response.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// isEdgeBlockPage reports the edge firewall's text or HTML "Request blocked."
+// page, which it sends until it answers with a REQUEST_BLOCKED JSON body.
+func isEdgeBlockPage(body string) bool {
+	return strings.Contains(strings.ToLower(body), "request blocked")
 }
 
 // requestBlockedCode is the 403 the edge firewall answers before the API reads
