@@ -586,6 +586,11 @@ func watchBuildLogsNonInteractive(resourceType, name, tag string, noTTY bool, bu
 
 	timeout := time.After(buildTimeout)
 
+	// What the build says of itself while it is not over (queued, waiting
+	// for capacity, started), printed when it changes, so a build that
+	// waits does not look like one that was lost.
+	lastProgress := ""
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -604,6 +609,10 @@ func watchBuildLogsNonInteractive(resourceType, name, tag string, noTTY bool, bu
 			if err != nil {
 				// Image not found yet, continue waiting
 				continue
+			}
+			if status == "" && message != "" && message != lastProgress {
+				lastProgress = message
+				fmt.Println(message)
 			}
 			if status == "succeeded" {
 				logWatcher.Stop()
@@ -635,7 +644,9 @@ type imageAPIResponse struct {
 
 // getImageBuildStatus checks the build status by querying the image API.
 // Returns "succeeded" if the image is built, "failed" if the build failed,
-// or empty string if the build is still in progress, plus a safe failure message.
+// or empty string if the build is still in progress, plus a safe failure
+// message, or, in progress, what the build says of itself (queued, waiting,
+// started) when it says anything.
 func getImageBuildStatus(resourceType, name string) (string, string, error) {
 	ctx := context.Background()
 	client := core.GetClient()
@@ -659,7 +670,9 @@ func getImageBuildStatus(resourceType, name string) (string, string, error) {
 	case "FAILED":
 		return "failed", latestFailureMessage(result.Metadata.Events, "ai.blaxel.controlplane.buildimage."), nil
 	default:
-		return "", "", nil // Still building (UPLOADING, BUILDING, or no status)
+		// Still building (UPLOADING, BUILDING, or no status)
+		progress, _ := deploy.BuildProgress(result.Metadata.Events)
+		return "", progress, nil
 	}
 }
 
