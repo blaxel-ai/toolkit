@@ -49,26 +49,33 @@ func NoRetryOnQuotaExceeded(req *http.Request, next option.MiddlewareNext) (*htt
 	return res, err
 }
 
-// APIErrorCode returns the string error code of an API error body. It reads
-// both the flat shape {"code": "..."} and the gateway envelope
-// {"error": {"code": "..."}}. It returns "" when there is no string code.
+// APIErrorCode returns the string error code of an API error body. The
+// registered "error_code" wins: generic /v0 bodies keep the HTTP status in
+// "code" ({"error": "...", "code": 429, "error_code": "QUOTA_EXCEEDED"}) and
+// /v1 bodies put it in "details". It then reads a string "code" from the flat
+// shape {"code": "..."} and the gateway envelope {"error": {"code": "..."}}.
+// It returns "" when there is no string code.
 func APIErrorCode(body []byte) string {
+	type codes struct {
+		ErrorCode any `json:"error_code"`
+		Code      any `json:"code"`
+	}
 	var parsed struct {
-		Code  interface{}     `json:"code"`
-		Error json.RawMessage `json:"error"`
+		ErrorCode any             `json:"error_code"`
+		Code      any             `json:"code"`
+		Error     json.RawMessage `json:"error"`
+		Details   json.RawMessage `json:"details"`
 	}
 	if json.Unmarshal(body, &parsed) != nil {
 		return ""
 	}
-	if code, ok := parsed.Code.(string); ok && code != "" {
-		return code
-	}
-	var inner struct {
-		Code interface{} `json:"code"`
-	}
-	if len(parsed.Error) > 0 && json.Unmarshal(parsed.Error, &inner) == nil {
-		if code, ok := inner.Code.(string); ok {
-			return code
+	// Either may be a string or absent: a failed parse leaves its codes empty.
+	var nested, details codes
+	_ = json.Unmarshal(parsed.Error, &nested)
+	_ = json.Unmarshal(parsed.Details, &details)
+	for _, code := range []any{parsed.ErrorCode, nested.ErrorCode, details.ErrorCode, parsed.Code, nested.Code} {
+		if s, ok := code.(string); ok && s != "" {
+			return s
 		}
 	}
 	return ""

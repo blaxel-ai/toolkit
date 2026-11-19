@@ -987,7 +987,11 @@ func extractErrorMessage(err error) string {
 		// Gateway errors use the envelope {"error": {"code", "message", ...}},
 		// which the SDK already unpacks.
 		if apiErr.IsGatewayError() && apiErr.Message != "" {
-			return withErrorCode(apiErr.Message, apiErr, apiErr.ErrorCode)
+			code := core.APIErrorCode([]byte(rawJSON))
+			if code == "" {
+				code = apiErr.ErrorCode
+			}
+			return withErrorCode(apiErr.Message, apiErr, code)
 		}
 		if rawJSON != "" {
 			// Use a flexible struct that handles both "message" and "error" fields,
@@ -1021,8 +1025,9 @@ func extractErrorMessage(err error) string {
 	return err.Error()
 }
 
-// withErrorCode appends "(HTTP <status> <code>)" and the next step for codes
-// that need one. Without a string code the message is returned unchanged.
+// withErrorCode appends "(HTTP <status> <code>)" and the next step: the CLI's
+// own for codes that need one, else the action the API sends, if any. Without
+// a string code the message is returned unchanged.
 func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
 	if code == "" {
 		return msg
@@ -1037,8 +1042,28 @@ func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
 		out += ": " + backlogHint(apiErr.Response)
 	case core.AuthenticationUnavailableCode:
 		out += ": " + authUnavailableHint(apiErr.Response)
+	case requestBlockedCode:
+		out += ": " + requestBlockedHint(apiErr)
+	default:
+		if action := strings.TrimSpace(apiErr.Action); action != "" {
+			out += ": " + action
+		}
 	}
 	return out
+}
+
+// requestBlockedCode is the 403 the edge firewall answers before the API reads
+// the request. It is not a quota and the API key was never checked.
+const requestBlockedCode = "REQUEST_BLOCKED"
+
+// requestBlockedHint says where a REQUEST_BLOCKED came from and what to do,
+// using the action the edge sends when there is one.
+func requestBlockedHint(apiErr *blaxel.Error) string {
+	action := strings.TrimSpace(apiErr.Action)
+	if action == "" {
+		action = "send a User-Agent header and slow down; do not rotate the API key, it was never checked"
+	}
+	return "blocked at the edge before the API read the request; not a quota and not an API key problem: " + action
 }
 
 // authUnavailableHint is for a 503 AUTHENTICATION_UNAVAILABLE: the API could
