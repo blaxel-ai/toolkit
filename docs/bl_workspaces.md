@@ -22,7 +22,10 @@ The current workspace (marked with *) determines where commands operate.
 All commands like 'bl deploy', 'bl get', 'bl run' use the current workspace
 unless you override with the --workspace flag.
 
-To switch workspaces, provide the workspace name as an argument.
+To switch workspaces, provide the workspace name as an argument. It must be
+a workspace you are logged in to (run 'bl login' to add one), or one that
+BL_API_KEY / BL_CLIENT_CREDENTIALS can access; an unknown name is rejected
+and the current workspace stays as it was.
 To list all authenticated workspaces, run without arguments.
 
 ```
