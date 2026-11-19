@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
@@ -967,7 +970,9 @@ func isBlaxelError(err error, apiErr **blaxel.Error) bool {
 // extractErrorMessage extracts a user-friendly error message from an error.
 // If the error is a blaxel API error, it parses the JSON response to get the
 // human-readable message. It checks for both "message" and "error" fields since
-// different API endpoints use different field names.
+// different API endpoints use different field names. When the body carries a
+// string error code, it appends the HTTP status, the code and one next step, so
+// a quota error does not read like a rate limit.
 // Otherwise, it returns the error's string representation.
 func extractErrorMessage(err error) string {
 	if err == nil {
@@ -978,6 +983,21 @@ func extractErrorMessage(err error) string {
 	if isBlaxelError(err, &apiErr) {
 		// Try to parse the raw JSON response to get the error message
 		rawJSON := apiErr.RawJSON()
+		if apiErr.StatusCode == http.StatusForbidden && !isJSONObject(rawJSON) {
+			if isEdgeBlockPage(responseText(apiErr)) {
+				return withErrorCode("Request blocked", apiErr, requestBlockedCode)
+			}
+			return edgeBlockedMessage(apiErr)
+		}
+		// Gateway errors use the envelope {"error": {"code", "message", ...}},
+		// which the SDK already unpacks.
+		if apiErr.IsGatewayError() && apiErr.Message != "" {
+			code := core.APIErrorCode([]byte(rawJSON))
+			if code == "" {
+				code = apiErr.ErrorCode
+			}
+			return withErrorCode(apiErr.Message, apiErr, code)
+		}
 		if rawJSON != "" {
 			// Use a flexible struct that handles both "message" and "error" fields,
 			// as well as string or numeric "code" values
@@ -987,13 +1007,20 @@ func extractErrorMessage(err error) string {
 				Code    interface{} `json:"code"`
 			}
 			if jsonErr := json.Unmarshal([]byte(rawJSON), &parsed); jsonErr == nil {
+				code := core.APIErrorCode([]byte(rawJSON))
 				// Prefer "message" field (used by sandbox and other newer APIs)
 				if parsed.Message != "" {
-					return parsed.Message
+					return withErrorCode(parsed.Message, apiErr, code)
 				}
 				// Fall back to "error" field (used by older APIs)
 				if parsed.Error != "" {
-					return parsed.Error
+					if code == "" && core.IsBuildBacklog(apiErr.StatusCode, []byte(rawJSON)) {
+						return fmt.Sprintf("%s (HTTP %d): %s", parsed.Error, apiErr.StatusCode, backlogHint(apiErr.Response))
+					}
+					if code == "" && !serverSaysRetry(apiErr.Response) && core.IsQuotaExceeded(apiErr.StatusCode, []byte(rawJSON)) {
+						return fmt.Sprintf("%s (HTTP %d): %s", parsed.Error, apiErr.StatusCode, quotaHint(apiErr.StatusCode))
+					}
+					return withErrorCode(parsed.Error, apiErr, code)
 				}
 			}
 		}
@@ -1001,4 +1028,145 @@ func extractErrorMessage(err error) string {
 
 	// Fall back to the error string
 	return err.Error()
+}
+
+// withErrorCode appends "(HTTP <status> <code>)" and the next step: the CLI's
+// own for codes that need one, else the action the API sends, if any. Without
+// a string code the message is returned unchanged.
+func withErrorCode(msg string, apiErr *blaxel.Error, code string) string {
+	if code == "" {
+		return msg
+	}
+	out := fmt.Sprintf("%s (HTTP %d %s)", msg, apiErr.StatusCode, code)
+	switch code {
+	case core.QuotaExceededCode:
+		out += ": " + quotaHint(apiErr.StatusCode)
+	case "WORKSPACE_RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED":
+		out += ": " + retryHint(apiErr.Response)
+	case core.BuildQueueFullCode:
+		out += ": " + backlogHint(apiErr.Response)
+	case core.AuthenticationUnavailableCode:
+		out += ": " + authUnavailableHint(apiErr.Response)
+	case requestBlockedCode:
+		out += ": " + requestBlockedHint(apiErr)
+	default:
+		if next := nextStep(apiErr.Action, apiErr.DocsURL); next != "" {
+			out += ": " + next
+		}
+	}
+	return out
+}
+
+// nextStep is the API's next step for a code the CLI has no hint of its own
+// for: its action, then its docs link.
+func nextStep(action, docsURL string) string {
+	action = strings.TrimSpace(action)
+	docsURL = strings.TrimSpace(docsURL)
+	if docsURL == "" || strings.Contains(action, docsURL) {
+		return action
+	}
+	if action == "" {
+		return docsURL
+	}
+	return strings.TrimRight(action, ".") + ": " + docsURL
+}
+
+// responseText is a body the SDK could not read as JSON, which it keeps on the
+// response; the body is put back for any later reader.
+func responseText(apiErr *blaxel.Error) string {
+	if apiErr.Response == nil || apiErr.Response.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(apiErr.Response.Body)
+	apiErr.Response.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// isEdgeBlockPage reports the edge firewall's text or HTML "Request blocked."
+// page, which it sends until it answers with a REQUEST_BLOCKED JSON body.
+func isEdgeBlockPage(body string) bool {
+	return strings.Contains(strings.ToLower(body), "request blocked")
+}
+
+// requestBlockedCode is the 403 the edge firewall answers before the API reads
+// the request. It is not a quota and the API key was never checked.
+const requestBlockedCode = "REQUEST_BLOCKED"
+
+// requestBlockedHint says where a REQUEST_BLOCKED came from and what to do,
+// using the action the edge sends when there is one.
+func requestBlockedHint(apiErr *blaxel.Error) string {
+	action := strings.TrimSpace(apiErr.Action)
+	if action == "" {
+		action = "send a User-Agent header and slow down; do not rotate the API key, it was never checked"
+	}
+	return "blocked at the edge before the API read the request; not a quota and not an API key problem: " + action
+}
+
+// authUnavailableHint is for a 503 AUTHENTICATION_UNAVAILABLE: the API could
+// not check credentials for a moment. It is not a credential or permission
+// error, so it does not send the user to bl login. The server's x-should-retry
+// and Retry-After win.
+func authUnavailableHint(res *http.Response) string {
+	hint := "the API could not check credentials for a moment; not a credential or permission error: "
+	if res != nil && strings.EqualFold(strings.TrimSpace(res.Header.Get("x-should-retry")), "false") {
+		return hint + "the server says not to retry"
+	}
+	return hint + retryHint(res)
+}
+
+// quotaHint says a quota error is not retryable. A 400 is one ephemeral volume
+// over the per-volume maximum on sandbox create or fork. A 429 is an account
+// quota (sandboxes, CPU, memory, volumes, image storage, every other resource),
+// or that same per-volume maximum on PUT /sandboxes/{name} and jobs.
+func quotaHint(status int) string {
+	if status == http.StatusBadRequest {
+		return "not retryable as is: request a smaller volume or raise the quota: https://docs.blaxel.ai/Security/Quotas"
+	}
+	return "not retryable until usage drops, the request asks for less (such as a smaller volume), or the quota is raised: https://docs.blaxel.ai/Security/Quotas"
+}
+
+// serverSaysRetry reports an explicit x-should-retry: true, which wins over
+// reading the body.
+func serverSaysRetry(res *http.Response) bool {
+	return res != nil && strings.EqualFold(strings.TrimSpace(res.Header.Get("x-should-retry")), "true")
+}
+
+// backlogHint is for a full build queue: it clears once builds finish.
+func backlogHint(res *http.Response) string {
+	return "the account's build queue is full: " + retryHint(res) + ", once some builds finish"
+}
+
+func isJSONObject(raw string) bool {
+	var obj map[string]json.RawMessage
+	return json.Unmarshal([]byte(raw), &obj) == nil
+}
+
+// edgeBlockedMessage describes a 403 without a JSON error body. It is not a
+// quota: the request was blocked or throttled before the API could answer it,
+// for example by an edge rate limit or firewall block (empty, text or HTML
+// body). The body is left out.
+func edgeBlockedMessage(apiErr *blaxel.Error) string {
+	prefix := "HTTP 403"
+	if apiErr.Request != nil && apiErr.Request.URL != nil {
+		prefix = fmt.Sprintf("%s %q: HTTP 403", apiErr.Request.Method, apiErr.Request.URL.String())
+	}
+	return prefix + " without a JSON error body: not a quota. The request was blocked or throttled before the API could answer it" +
+		", for example by an edge rate limit or firewall block." +
+		" Slow down and retry after about 60 s. Blaxel quota and permission errors carry a JSON error code"
+}
+
+// retryHint uses the Retry-After header when the server sends one.
+func retryHint(res *http.Response) string {
+	if res != nil {
+		if after := strings.TrimSpace(res.Header.Get("Retry-After")); after != "" {
+			if secs, err := strconv.Atoi(after); err == nil && secs >= 0 {
+				return fmt.Sprintf("retry in %ds", secs)
+			}
+			return "retry after " + after
+		}
+	}
+	return "retry in a few seconds"
 }

@@ -360,6 +360,7 @@ var rootCmd = &cobra.Command{
 		// Build client options
 		opts := []option.RequestOption{
 			option.WithHeader("User-Agent", userAgent),
+			option.WithMiddleware(NoRetryOnQuotaExceeded),
 		}
 
 		if workspace != "" {
