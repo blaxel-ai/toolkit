@@ -2731,9 +2731,15 @@ func (d *Deployment) Upload(url string) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Check the response status
+	// Check the response status. A non-200 response from object storage
+	// (expired presigned URL, signature or metadata mismatch, backend outage)
+	// is an operational condition of the upload target, not a CLI defect, so
+	// it must not be reported as an unexpected internal failure.
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("upload failed with status: %s", resp.Status)
+		return core.MarkExpectedError(
+			fmt.Errorf("upload failed with status: %s", resp.Status),
+			core.CLIErrorOperational,
+		)
 	}
 
 	return nil
