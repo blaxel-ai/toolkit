@@ -315,6 +315,52 @@ func TestListExecWithNilResource(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not supported")
 	assert.Nil(t, result)
+	// A resource without a List operation is a user addressing something that
+	// cannot be listed directly, not a CLI defect: it must stay classified as
+	// an expected error so it is never reported to Sentry.
+	assert.True(t, core.IsExpectedCLIError(err))
+}
+
+// Nested resources such as Preview/PreviewToken have no standalone get, list,
+// or delete operation: addressing them directly (e.g. `bl get preview <name>`)
+// is a user mistake, not a CLI implementation defect. These paths must stay
+// classified as expected validation errors so they are never reported to
+// Sentry as unexpected internal failures.
+//
+// Regression guard for ENG-4048 / Sentry CLI-3S: CLIs older than v0.1.107
+// raised the raw error here, and the pre-fix ExitWithError captured it as an
+// unsanitized "internal" event (surfacing the full
+// "Resource Preview:<name> ... 'bl get preview <name>' is not supported
+// directly" string). Dropping the MarkExpectedError wrapping on any of these
+// paths would silently bring that noise back, and the message-only checks above
+// would not catch it.
+func TestNestedPreviewResourceErrorsStayExpected(t *testing.T) {
+	newPreview := func() *core.Resource {
+		return &core.Resource{
+			Kind:     "Preview",
+			Plural:   "previews",
+			Singular: "preview",
+		}
+	}
+
+	t.Run("get/list", func(t *testing.T) {
+		result, err := ListExec(newPreview())
+		require.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "is not supported directly")
+		assert.Contains(t, err.Error(), "Use 'bl get sandbox <sandbox-name> previews' instead.")
+		assert.True(t, core.IsExpectedCLIError(err),
+			"nested-resource list error must stay classified as expected so it is not reported to Sentry")
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		err := DeleteFn(newPreview(), "pos-oneinfin-example")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "is not supported directly")
+		assert.Contains(t, err.Error(), "Use 'bl delete sandbox <sandbox-name> preview <preview-name>' instead.")
+		assert.True(t, core.IsExpectedCLIError(err),
+			"nested-resource delete error must stay classified as expected so it is not reported to Sentry")
+	})
 }
 
 func TestSetBodyFieldsFromJSON(t *testing.T) {
