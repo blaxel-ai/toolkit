@@ -295,7 +295,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 						core.CLIErrorOperational,
 					)
 				} else {
-					err = fmt.Errorf("error making request: %w", err)
+					err = classifyRunRequestError(fmt.Errorf("error making request: %w", err))
 				}
 				core.PrintError("Run", err)
 				core.ExitWithError(err)
@@ -338,8 +338,10 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 							fmt.Errorf("request timed out after %ds", timeout),
 							core.CLIErrorOperational,
 						)
+					} else {
+						err = classifyRunRequestError(fmt.Errorf("error reading stream: %w", err))
 					}
-					core.PrintError("Run", fmt.Errorf("error reading stream: %w", err))
+					core.PrintError("Run", err)
 					core.ExitWithError(err)
 				}
 				// Final newline for non-raw modes
@@ -361,7 +363,7 @@ This is useful for testing specific endpoints or non-standard API calls.`,
 				// Non-streaming: read full body
 				body, err := io.ReadAll(res.Body)
 				if err != nil {
-					err = fmt.Errorf("error reading response: %w", err)
+					err = classifyRunRequestError(fmt.Errorf("error reading response: %w", err))
 					core.PrintError("Run", err)
 					core.ExitWithError(err)
 				}
@@ -467,6 +469,20 @@ func validateInlineRunDataJSON(data, resourceType, path string) error {
 		)
 	}
 	return nil
+}
+
+// classifyRunRequestError marks an otherwise-unclassified failure from the run
+// endpoint as operational. A transport reset, short read, oversized stream line,
+// or token-refresh failure while contacting a workload is an environment or
+// server condition rather than a CLI defect, so it must not be reported as an
+// unexpected failure. Errors that already carry a classification (HTTP
+// *blaxel.Error, net.Error, context cancellation) are returned unchanged so
+// their more specific category is preserved.
+func classifyRunRequestError(err error) error {
+	if err == nil || core.IsExpectedCLIError(err) {
+		return err
+	}
+	return core.MarkExpectedError(err, core.CLIErrorOperational)
 }
 
 // runRequest executes a request to a blaxel resource using the SDK client
