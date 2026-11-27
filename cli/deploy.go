@@ -1558,6 +1558,38 @@ func (d *Deployment) printFailureDiagnostics() bool {
 	return printed
 }
 
+// applyResultFailureError builds the error returned when the backend reports a
+// resource as failed in its apply response. A server-side apply failure (bad
+// manifest, quota, permission, backend outage) is an operational outcome, not a
+// defect in the CLI, so it is classified as expected to keep it out of crash
+// reporting. The user-facing message and exit code are unchanged.
+func applyResultFailureError(kind, name, errorMsg string) error {
+	if errorMsg == "" {
+		errorMsg = "apply operation failed"
+	}
+	return core.MarkExpectedError(
+		fmt.Errorf("failed to apply %s/%s: %s", kind, name, errorMsg),
+		core.CLIErrorOperational,
+	)
+}
+
+// interactiveResourceFailureError builds the error returned by ApplyInteractive
+// when a resource finishes in a failed state. Same rationale as
+// applyResultFailureError: a failed deployment is an operational outcome, not a
+// CLI defect, so it is classified as expected.
+func interactiveResourceFailureError(kind, name string, cause error) error {
+	if cause == nil {
+		return core.MarkExpectedError(
+			fmt.Errorf("deployment failed for %s/%s without error detail", kind, name),
+			core.CLIErrorOperational,
+		)
+	}
+	return core.MarkExpectedError(
+		fmt.Errorf("deployment failed for %s/%s: %w", kind, name, cause),
+		core.CLIErrorOperational,
+	)
+}
+
 func (d *Deployment) Apply() error {
 	outputFmt := core.GetOutputFormat()
 	isStructured := outputFmt == "json" || outputFmt == "yaml"
@@ -1580,11 +1612,7 @@ func (d *Deployment) Apply() error {
 	// Check if any resources failed to apply
 	for _, result := range applyResults {
 		if result.Result.Status == "failed" {
-			errorMsg := result.Result.ErrorMsg
-			if errorMsg == "" {
-				errorMsg = "apply operation failed"
-			}
-			return fmt.Errorf("failed to apply %s/%s: %s", result.Kind, result.Name, errorMsg)
+			return applyResultFailureError(result.Kind, result.Name, result.Result.ErrorMsg)
 		}
 	}
 
@@ -1736,10 +1764,7 @@ func (d *Deployment) ApplyInteractive() error {
 	// Check if any resources failed
 	for _, r := range resources {
 		if r.Status == deploy.StatusFailed {
-			if r.Error == nil {
-				return fmt.Errorf("deployment failed for %s/%s without error detail", r.Kind, r.Name)
-			}
-			return fmt.Errorf("deployment failed for %s/%s: %w", r.Kind, r.Name, r.Error)
+			return interactiveResourceFailureError(r.Kind, r.Name, r.Error)
 		}
 	}
 
