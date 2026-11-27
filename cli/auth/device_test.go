@@ -15,6 +15,7 @@ import (
 	"time"
 
 	blaxel "github.com/blaxel-ai/sdk-go"
+	"github.com/blaxel-ai/toolkit/cli/core"
 	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,6 +94,44 @@ func TestRequestDeviceLogin(t *testing.T) {
 
 	_, err = requestDeviceLogin(context.Background(), server.URL+"/broken")
 	assert.ErrorContains(t, err, "status 503", "an unusable answer stops the login instead of polling for nothing")
+}
+
+// A non-JSON body from the auth endpoint (an intercepting proxy, a gateway
+// error page, a captive portal, or an outage) is an operational failure of the
+// login's environment, not a CLI implementation defect, so it must be
+// classified as expected and never reported as an unexpected CLI failure.
+func TestRequestDeviceLoginParseFailureIsExpected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("<html>gateway error</html>"))
+	}))
+	defer server.Close()
+	_, err := requestDeviceLogin(context.Background(), server.URL+"/login/device")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unmarshalling")
+	assert.True(t, core.IsExpectedCLIError(err),
+		"a device-login response the CLI cannot parse is operational, not a reported CLI defect")
+}
+
+func TestPollDeviceTokenParseFailureIsExpected(t *testing.T) {
+	server, _ := deviceTokenServer(t, func(w http.ResponseWriter) { _, _ = w.Write([]byte("not json")) })
+	_, err := pollDeviceToken(context.Background(), server.URL, "device-code", time.Millisecond, 4)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unmarshalling")
+	assert.True(t, core.IsExpectedCLIError(err),
+		"a token response the CLI cannot parse is operational, not a reported CLI defect")
+}
+
+// Guard: the classification above is load-bearing. A raw JSON parse error,
+// even wrapped with %w, is classified internal and WOULD be reported; only the
+// MarkExpectedError wrap in the device flow makes it expected.
+func TestDeviceLoginParseErrorIsReportedWithoutClassification(t *testing.T) {
+	var response DeviceLoginResponse
+	raw := json.Unmarshal([]byte("not json"), &response)
+	require.Error(t, raw)
+	assert.False(t, core.IsExpectedCLIError(raw),
+		"an unclassified JSON parse error must remain reportable")
+	assert.False(t, core.IsExpectedCLIError(fmt.Errorf("error unmarshalling response: %w", raw)),
+		"wrapping alone, without MarkExpectedError, must not make a parse error expected")
 }
 
 func TestRequestDeviceLoginStopsWhenCancelled(t *testing.T) {
