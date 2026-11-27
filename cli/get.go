@@ -370,6 +370,7 @@ Output formats:
 			}
 			resp, err := client.Sandboxes.GetHub(context.Background())
 			if err != nil {
+				err = classifyGetResponseError(err)
 				core.PrintError("Sandbox Hub", err)
 				core.ExitWithError(err)
 			}
@@ -483,6 +484,7 @@ Output formats:
 			var resp []mcpHubDefinition
 			err := client.Get(context.Background(), "mcp/hub", nil, &resp)
 			if err != nil {
+				err = classifyGetResponseError(err)
 				core.PrintError("MCP Hub", err)
 				core.ExitWithError(err)
 			}
@@ -531,6 +533,22 @@ func printMCPHubTable(definitions []mcpHubDefinition) {
 		tw.AppendRow(table.Row{name, d.Integration, desc})
 	}
 	fmt.Println(tw.Render())
+}
+
+// classifyGetResponseError marks an otherwise-unclassified Blaxel API
+// transport or response-body failure as an expected operational error so it is
+// not reported as a CLI defect. Every SDK read funnels through the shared
+// request executor, which returns a bare error (no HTTP status, no net.Error)
+// when a 2xx response body cannot be read (connection reset mid-stream) or
+// parsed (the gateway/proxy returned a truncated or non-JSON body). Those are
+// backend/transport conditions, not bugs in the CLI. Errors that already carry
+// a specific classification — an HTTP status from *blaxel.Error, a network
+// error, or a context cancellation — keep their category unchanged.
+func classifyGetResponseError(err error) error {
+	if err == nil || core.IsExpectedCLIError(err) {
+		return err
+	}
+	return core.MarkExpectedError(err, core.CLIErrorOperational)
 }
 
 func GetFn(resource *core.Resource, name string) {
@@ -585,6 +603,7 @@ func GetFn(resource *core.Resource, name string) {
 	}
 
 	if err, ok := results[1].Interface().(error); ok && err != nil {
+		err = classifyGetResponseError(err)
 		fmt.Printf("%s%v\n", formattedError, err)
 		core.ExitWithError(err)
 	}
